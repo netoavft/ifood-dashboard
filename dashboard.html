@@ -627,7 +627,7 @@ function computeMetrics() {
   const ressarcimentoCancelamento = somaConciliacaoRaw('RESSARCIMENTO_CANCELAMENTO');
   // O card "Total de descontos" tambem soma o ressarcimento (exibicao apenas — nao afeta
   // custoIfood/liquido, que ja contabilizam o ressarcimento separadamente).
-  const totalDescontosComRessarcimento = totalDescontos + ressarcimentoCancelamento;
+  const totalDescontosComRessarcimento = totalDescontos - ressarcimentoCancelamento;
 
   // Custo iFood = soma de tudo que sai do bruto pra chegar no liquido.
   const custoIfood = totalTaxasComissoes + freteSobDemanda + totalMkt;
@@ -712,7 +712,7 @@ function cardsSaidas(m) {
     <div class="card neg"><div class="card-lbl">Frete sob demanda</div><div class="card-val">R$ ${fmt(m.freteSobDemanda)}</div><div class="card-pct">${pct(m.freteSobDemandaPct)}%</div></div>
   </div>
   <div class="equation-row">
-    <div class="eq-symbol">+</div>
+    <div class="eq-symbol">-</div>
     <div class="card pos"><div class="card-lbl">Ressarcimento por cancelamentos</div><div class="card-val">R$ ${fmt(m.ressarcimentoCancelamento)}</div><div class="card-pct">${pct(m.ressarcimentoCancelamentoPct)}%</div></div>
     <div class="eq-symbol">=</div>
     <div class="card highlight"><div class="card-lbl">Total de descontos</div><div class="card-val">R$ ${fmt(m.totalDescontosComRessarcimento)}</div><div class="card-pct">${pct(m.totalDescontosComRessarcimentoPct)}%</div></div>
