@@ -717,26 +717,22 @@ function cardsSaidas(m) {
     <div class="card highlight"><div class="card-lbl">Total de descontos</div><div class="card-val">R$ ${fmt(m.totalDescontosComRessarcimento)}</div><div class="card-pct">${pct(m.totalDescontosComRessarcimentoPct)}%</div></div>
   </div>
   <div class="section-label">Composicao de MKT</div>
-  <div class="cards">
+  <div class="equation-row">
     <div class="card neg"><div class="card-lbl">Promo da loja</div><div class="card-val">R$ ${fmt(m.promoLoja)}</div><div class="card-pct">${pct(m.promoLojaPct)}%</div></div>
+    <div class="eq-symbol">+</div>
     <div class="card neg"><div class="card-lbl">Anuncios</div><div class="card-val">R$ ${fmt(m.anuncios)}</div><div class="card-pct">${pct(m.anunciosPct)}%</div></div>
+    <div class="eq-symbol">=</div>
     <div class="card highlight"><div class="card-lbl">Total Investido em MKT</div><div class="card-val">R$ ${fmt(m.totalMkt)}</div><div class="card-pct">${pct(m.totalMktPct)}%</div></div>
+    <div class="card neutral"><div class="card-lbl">Custo mkt por pedido</div><div class="card-val">R$ ${fmt(m.custoMktPorPedido)}</div></div>
   </div>
-  <div style="display:flex; justify-content:center; margin-bottom:8px;">
-    <div class="card neutral" style="max-width:220px; width:100%;"><div class="card-lbl">Custo mkt por pedido</div><div class="card-val">R$ ${fmt(m.custoMktPorPedido)}</div></div>
+  <div class="section-label" style="color:#58a6ff; border-top:none; padding-top:0; margin-top:0;">Divisao Investimentos</div>
+  <div class="cards">
+    <div class="card neg"><div class="card-lbl">Loja</div><div class="card-val">R$ ${fmt(m.investLoja)}</div><div class="card-pct" style="color:#ff6b6b;">${pct(m.investLojaPct)}% do mkt total</div></div>
+    <div class="card pos"><div class="card-lbl">iFood</div><div class="card-val">R$ ${fmt(m.investPlataforma)}</div><div class="card-pct" style="color:#3fb950;">${pct(m.investPlataformaPct)}% do mkt total</div></div>
   </div>
   <div class="cards">
     <div class="card pos highlight"><div class="card-lbl">Liquido (inclui recebido direto)</div><div class="card-val">R$ ${fmt(m.liquido)}</div><div class="card-pct">${pct(m.liquidoPct)}%</div></div>
     <div class="card neg highlight"><div class="card-lbl">Custo iFood</div><div class="card-val">R$ ${fmt(m.custoIfood)}</div><div class="card-pct">${pct(m.custoIfoodPct)}%</div></div>
-  </div>`;
-}
-
-function cardsMkt(m) {
-  return `<div class="section-label">Composicao de Promos</div>
-  <div class="cards">
-    <div class="card highlight"><div class="card-lbl">Total investido em mkt</div><div class="card-val">R$ ${fmt(m.totalMktGeral)}</div><div class="card-pct">${pct(m.totalMktGeralPct)}%</div></div>
-    <div class="card neg"><div class="card-lbl">Investimento da loja</div><div class="card-val">R$ ${fmt(m.investLoja)}</div><div class="card-pct">${pct(m.investLojaPct)}% do mkt total</div></div>
-    <div class="card pos"><div class="card-lbl">Investimento da plataforma (iFood + Rede)</div><div class="card-val">R$ ${fmt(m.investPlataforma)}</div><div class="card-pct">${pct(m.investPlataformaPct)}% do mkt total</div></div>
   </div>`;
 }
 
@@ -774,7 +770,6 @@ function renderAll() {
   let html = cardsInfo(m);
   html += cardsEntradas(m);
   html += cardsSaidas(m);
-  html += cardsMkt(m);
   html += cardsCancel(m);
   document.getElementById('view-content').innerHTML = html;
   renderEvolucao();
