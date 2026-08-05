@@ -38,7 +38,7 @@
   details.filtro-dropdown { margin-bottom:0; max-width:220px; padding:6px 10px; }
   details.filtro-dropdown .loja-options { min-width:200px; }
 
-  .topnav { display:flex; flex-wrap:wrap; justify-content:center; gap:8px; margin-bottom:24px; border-bottom:1px solid #262c36; padding-bottom:18px; }
+  .topnav { display:flex; flex-wrap:wrap; justify-content:center; gap:8px; margin-bottom:20px; }
   .navbtn {
     background:#161b22; border:1px solid #30363d; color:#c9d1d9; font-size:12.5px; font-weight:bold;
     padding:9px 16px; border-radius:20px; cursor:pointer; transition: all .15s ease;
@@ -139,7 +139,7 @@
 
     <div class="topnav" id="topnav"></div>
 
-    <div style="display:flex; justify-content:center; margin-bottom:20px;">
+    <div style="display:flex; justify-content:center; margin-bottom:20px; border-bottom:1px solid #262c36; padding-bottom:20px;">
       <details class="lojadrop" style="margin-bottom:0;">
         <summary id="lojaSummary">Marcas (loja): todas</summary>
         <div class="loja-options" id="lojaOptions"></div>
@@ -729,8 +729,7 @@ function cardsMkt(m) {
 }
 
 function cardsInfo(m) {
-  return `<div class="section-label">Informativos</div>
-  <div class="cards">
+  return `<div class="cards">
     <div class="card neutral"><div class="card-lbl">Total de pedidos</div><div class="card-val">${m.totalPedidos}</div></div>
     <div class="card neutral"><div class="card-lbl">Ticket medio</div><div class="card-val">R$ ${fmt(m.ticketMedio)}</div></div>
   </div>`;
@@ -760,10 +759,10 @@ function cardsCancel(m) {
 
 function renderAll() {
   const m = computeMetrics();
-  let html = cardsEntradas(m);
+  let html = cardsInfo(m);
+  html += cardsEntradas(m);
   html += cardsSaidas(m);
   html += cardsMkt(m);
-  html += cardsInfo(m);
   html += cardsCancel(m);
   document.getElementById('view-content').innerHTML = html;
   renderEvolucao();
