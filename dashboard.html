@@ -46,7 +46,7 @@
   .navbtn:hover { border-color:#f5a623; color:#f5a623; }
   .navbtn.active { background:#f5a623; color:#0d1117; border-color:#f5a623; }
 
-  .section-label { color:#f5a623; font-size:13px; font-weight:bold; margin:22px 0 12px 0; text-align:center; text-transform:uppercase; letter-spacing:1.2px; }
+  .section-label { color:#f5a623; font-size:13px; font-weight:bold; margin-top:24px; margin-bottom:12px; padding-top:20px; border-top:1px solid #262c36; text-align:center; text-transform:uppercase; letter-spacing:1.2px; }
   .caption-label { color:#9aa4af; font-size:11px; margin:14px 0 12px 0; }
 
   .cards { display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:14px; margin-bottom:8px; }
@@ -691,7 +691,7 @@ function cardsEntradas(m) {
     <div class="eq-symbol">=</div>
     <div class="card pos highlight"><div class="card-lbl">Faturamento Bruto</div><div class="card-val">R$ ${fmt(m.bruto)}</div></div>
   </div>
-  <div class="section-label" style="color:#58a6ff;">Divisao Recebimentos</div>
+  <div class="section-label" style="color:#58a6ff; border-top:none; padding-top:0; margin-top:0;">Divisao Recebimentos</div>
   <div class="cards">
     <div class="card blue"><div class="card-lbl">Online</div><div class="card-val">R$ ${fmt(m.vendasOnline)}</div><div class="card-pct">${pct(m.vendasOnlinePct)}%</div></div>
     <div class="card blue"><div class="card-lbl">Offline</div><div class="card-val">R$ ${fmt(m.vendasCartao)}</div><div class="card-pct">${pct(m.vendasCartaoPct)}%</div></div>
@@ -708,10 +708,9 @@ function cardsSaidas(m) {
     <div class="card neg"><div class="card-lbl">Mensalidade</div><div class="card-val">R$ ${fmt(m.mensalidade)}</div><div class="card-pct">${pct(m.mensalidadePct)}%</div></div>
     <div class="eq-symbol">+</div>
     <div class="card neg"><div class="card-lbl">Outros ajustes</div><div class="card-val">R$ ${fmt(m.outrosAjustes)}</div><div class="card-pct">${pct(m.outrosAjustesPct)}%</div></div>
-    <div class="eq-symbol">+</div>
-    <div class="card neg"><div class="card-lbl">Frete sob demanda</div><div class="card-val">R$ ${fmt(m.freteSobDemanda)}</div><div class="card-pct">${pct(m.freteSobDemandaPct)}%</div></div>
   </div>
   <div class="equation-row">
+    <div class="card neg"><div class="card-lbl">Frete sob demanda</div><div class="card-val">R$ ${fmt(m.freteSobDemanda)}</div><div class="card-pct">${pct(m.freteSobDemandaPct)}%</div></div>
     <div class="eq-symbol">-</div>
     <div class="card pos"><div class="card-lbl">Ressarcimento por cancelamentos</div><div class="card-val">R$ ${fmt(m.ressarcimentoCancelamento)}</div><div class="card-pct">${pct(m.ressarcimentoCancelamentoPct)}%</div></div>
     <div class="eq-symbol">=</div>
