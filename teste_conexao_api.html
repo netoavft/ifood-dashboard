@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Teste de conexão — API Supabase</title>
+<style>
+  body { font-family: Arial, sans-serif; background: #0d1117; color: #e6e6e6; padding: 30px; }
+  h1 { color: #f5a623; }
+  .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px 20px; margin-bottom: 12px; }
+  .lbl { color: #9aa4af; font-size: 12px; text-transform: uppercase; }
+  .val { font-size: 22px; font-weight: bold; color: #fff; }
+  .erro { color: #ff6b6b; }
+  table { border-collapse: collapse; margin-top: 10px; width: 100%; }
+  th, td { border: 1px solid #30363d; padding: 6px 10px; text-align: left; font-size: 13px; }
+  th { background: #21262d; }
+</style>
+</head>
+<body>
+
+<h1>Teste de conexão — Supabase</h1>
+<div id="status">Consultando...</div>
+<div id="resultado"></div>
+
+<script>
+  // Estas duas informações são públicas por design (chave "anon" com RLS
+  // limitando a somente-leitura) — podem ficar visíveis no HTML.
+  const SUPABASE_URL = "https://rtmgzsikwglsvpopbfbw.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ0bWd6c2lrd2dsc3Zwb3BiZmJ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU4NDgwMjcsImV4cCI6MjEwMTQyNDAyN30.-vwbQkcuAbbonmBVCeUWXjTg54uB5MNN94QmMlBxTA4";
+
+  async function consultarSupabase(caminho) {
+    const resp = await fetch(`${SUPABASE_URL}/rest/v1/${caminho}`, {
+      headers: {
+        "apikey": SUPABASE_ANON_KEY,
+        "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+      },
+    });
+    if (!resp.ok) throw new Error(`Erro ${resp.status}: ${await resp.text()}`);
+    return resp.json();
+  }
+
+  async function main() {
+    const statusEl = document.getElementById("status");
+    const resultadoEl = document.getElementById("resultado");
+    try {
+      const lojas = await consultarSupabase("dim_lojas?select=nome_loja,unidade&order=nome_loja");
+
+      // Resumo financeiro: já vem somado do banco (view vw_resumo_geral), sem limite de linhas.
+      const [resumo] = await consultarSupabase("vw_resumo_geral?select=*");
+      const totalPedidos = resumo.total_pedidos;
+      const bruto = Number(resumo.bruto || 0);
+      const liquido = Number(resumo.liquido || 0);
+      const fmt = (v) => v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+      statusEl.innerHTML = "✅ Conectado ao Supabase com sucesso.";
+
+      resultadoEl.innerHTML = `
+        <div class="card"><div class="lbl">Pedidos (excl. cancelados)</div><div class="val">${totalPedidos}</div></div>
+        <div class="card"><div class="lbl">Bruto</div><div class="val">R$ ${fmt(bruto)}</div></div>
+        <div class="card"><div class="lbl">Líquido</div><div class="val">R$ ${fmt(liquido)}</div></div>
+        <div class="card">
+          <div class="lbl">Lojas cadastradas (${lojas.length})</div>
+          <table>
+            <tr><th>Loja</th><th>Unidade</th></tr>
+            ${lojas.map(l => `<tr><td>${l.nome_loja}</td><td>${l.unidade}</td></tr>`).join("")}
+          </table>
+        </div>
+      `;
+    } catch (err) {
+      statusEl.innerHTML = `<span class="erro">❌ Erro ao conectar: ${err.message}</span>`;
+    }
+  }
+
+  main();
+</script>
+</body>
+</html>

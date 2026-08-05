@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cidadao do Mundo - Faturamento e Liquido</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 0;
+    background: #0d1117; color: #e6e6e6;
+    font-family: 'Helvetica Neue', Arial, sans-serif;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 28px 32px 60px; }
+  .header-row { display:flex; align-items:center; justify-content:center; gap:14px; margin:0 0 6px 0; }
+  .header-logo { height:48px; width:48px; border-radius:50%; object-fit:cover; flex-shrink:0; }
+  h1 { color:#ffffff; font-size:28px; margin:0; }
+  .subtitle { color:#9aa4af; font-size:13px; margin-bottom:22px; }
+
+  .filters { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-bottom:12px; }
+  .filters label { font-size:12px; color:#9aa4af; display:flex; gap:6px; align-items:center; }
+  .filters input[type=date], .filters select {
+    background:#161b22; border:1px solid #30363d; color:#e6e6e6; border-radius:6px; padding:6px 8px; font-size:12.5px;
+  }
+  .filters button {
+    background:#161b22; border:1px solid #30363d; color:#c9d1d9; font-size:12px; font-weight:bold;
+    padding:7px 14px; border-radius:16px; cursor:pointer;
+  }
+  .filters button:hover { border-color:#f5a623; color:#f5a623; }
+
+  details.lojadrop { margin-bottom:20px; border:1px solid #30363d; border-radius:8px; padding:8px 12px; max-width:360px; background:#161b22; }
+  details.lojadrop summary { cursor:pointer; font-size:12.5px; color:#c9d1d9; }
+  .loja-options { margin-top:10px; display:flex; flex-direction:column; gap:6px; max-height:200px; overflow-y:auto; }
+  .loja-options label { font-size:12.5px; color:#c9d1d9; display:flex; align-items:center; gap:6px; cursor:pointer; }
+
+  details.filtro-dropdown { margin-bottom:0; max-width:220px; padding:6px 10px; }
+  details.filtro-dropdown .loja-options { min-width:200px; }
+
+  .topnav { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:24px; border-bottom:1px solid #262c36; padding-bottom:18px; }
+  .navbtn {
+    background:#161b22; border:1px solid #30363d; color:#c9d1d9; font-size:12.5px; font-weight:bold;
+    padding:9px 16px; border-radius:20px; cursor:pointer; transition: all .15s ease;
+  }
+  .navbtn:hover { border-color:#f5a623; color:#f5a623; }
+  .navbtn.active { background:#f5a623; color:#0d1117; border-color:#f5a623; }
+
+  .section-label { color:#f5a623; font-size:13px; font-weight:bold; margin:22px 0 12px 0; text-align:center; text-transform:uppercase; letter-spacing:1.2px; }
+  .caption-label { color:#9aa4af; font-size:11px; margin:14px 0 12px 0; }
+
+  .cards { display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:14px; margin-bottom:8px; }
+  .card { background:#161b22; border:1px solid #262c36; border-radius:10px; padding:16px 18px; text-align:center; }
+  .card-lbl { color:#7d8590; font-size:10.5px; text-transform:uppercase; letter-spacing:.5px; margin-bottom:8px; }
+  .card-val { color:#ffffff; font-size:21px; font-weight:bold; }
+  .card-pct { color:#9aa4af; font-size:15px; font-weight:600; margin-top:2px; }
+  .card.neutral { border-left:3px solid #30363d; }
+  .card.neg { border-left:3px solid #ff6b6b; }
+  .card.pos { border-left:3px solid #3fb950; }
+  .card.blue { border-left:3px solid #58a6ff; }
+  .card.highlight { border-left:3px solid #f5a623; background:#1c1508; }
+
+  .equation-row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:14px; }
+  .equation-row .card { flex:1 1 180px; margin-bottom:0; }
+  .eq-symbol { flex:0 0 auto; font-size:22px; font-weight:bold; color:#7d8590; padding-top:14px; }
+
+  .footer { margin-top:30px; color:#565f6b; font-size:9.5px; line-height:1.6; border-top:1px solid #1a1f27; padding-top:16px; }
+
+  #loadingMsg { color:#9aa4af; font-size:13px; padding:20px 0; }
+  #erroMsg { color:#ff6b6b; font-size:13px; padding:20px 0; }
+
+  .chart-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(420px, 1fr)); gap:16px; margin-bottom:8px; }
+  .chart-box { position:relative; background:#161b22; border:1px solid #262c36; border-radius:10px; padding:14px 16px; height:280px; display:flex; flex-direction:column; }
+  .chart-title { color:#9aa4af; font-size:11px; text-transform:uppercase; letter-spacing:.5px; margin-bottom:8px; }
+  .chart-box .chart-canvas-wrap { position:relative; flex:1; }
+
+  #tabelaEvolucao { overflow-x:auto; }
+  #tabelaEvolucao table { border-collapse:collapse; width:100%; font-size:12.5px; }
+  #tabelaEvolucao th, #tabelaEvolucao td { border:1px solid #30363d; padding:6px 10px; text-align:right; white-space:nowrap; }
+  #tabelaEvolucao th:first-child, #tabelaEvolucao td:first-child { text-align:left; }
+  #tabelaEvolucao th { background:#21262d; color:#9aa4af; font-weight:bold; font-size:11px; text-transform:uppercase; }
+  #tabelaEvolucao tr:nth-child(even) { background:#12161c; }
+
+  #tabelaMotivos { overflow-x:auto; max-width:500px; }
+  #tabelaMotivos table { border-collapse:collapse; width:100%; font-size:12.5px; }
+  #tabelaMotivos th, #tabelaMotivos td { border:1px solid #30363d; padding:6px 10px; text-align:right; white-space:nowrap; }
+  #tabelaMotivos th:first-child, #tabelaMotivos td:first-child { text-align:left; }
+  #tabelaMotivos th { background:#21262d; color:#9aa4af; font-weight:bold; font-size:11px; text-transform:uppercase; }
+  #tabelaMotivos tr:nth-child(even) { background:#12161c; }
+
+  @media (max-width: 640px) {
+    .wrap { padding: 20px 16px 40px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="header-row">
+    <h1>PAINEL IFOOD</h1>
+    <img src="logo.png" alt="Cidadao do Mundo" class="header-logo">
+  </div>
+  <div class="subtitle" id="subtitleEl">Fonte: Relatorio de Pedidos, Portal do Parceiro iFood &middot; carregando dados do Supabase...</div>
+
+  <div id="loadingMsg">Carregando dados do banco...</div>
+  <div id="erroMsg" style="display:none;"></div>
+
+  <div id="painel" style="display:none;">
+    <div class="filters">
+      <label>De <input type="date" id="fDataIni"></label>
+      <label>Ate <input type="date" id="fDataFim"></label>
+
+      <details class="lojadrop filtro-dropdown">
+        <summary id="fDiaSummary">Dia da semana: todos</summary>
+        <div class="loja-options" id="fDiaOptions"></div>
+      </details>
+
+      <details class="lojadrop filtro-dropdown">
+        <summary id="fSemanaSummary">Semana: todas</summary>
+        <div class="loja-options" id="fSemanaOptions"></div>
+      </details>
+
+      <details class="lojadrop filtro-dropdown">
+        <summary id="fMesSummary">Mes: todos</summary>
+        <div class="loja-options" id="fMesOptions"></div>
+      </details>
+
+      <details class="lojadrop filtro-dropdown">
+        <summary id="fAnoSummary">Ano: todos</summary>
+        <div class="loja-options" id="fAnoOptions"></div>
+      </details>
+
+      <details class="lojadrop filtro-dropdown">
+        <summary id="fTurnoSummary">Turno: todos</summary>
+        <div class="loja-options" id="fTurnoOptions"></div>
+      </details>
+
+      <button onclick="resetFiltros()">Limpar filtros</button>
+    </div>
+
+    <details class="lojadrop">
+      <summary id="lojaSummary">Marcas (loja): todas</summary>
+      <div class="loja-options" id="lojaOptions"></div>
+    </details>
+
+    <div class="topnav" id="topnav"></div>
+
+    <div id="view-content"></div>
+
+    <div class="section-label">Evolucao</div>
+    <div class="filters" style="margin-bottom:16px;">
+      <label>Agrupar por
+        <select id="fGranularidade">
+          <option value="dia">Dia</option>
+          <option value="diaSemana">Dia da semana</option>
+          <option value="semana" selected>Semana</option>
+          <option value="mes">Mes</option>
+          <option value="ano">Ano</option>
+        </select>
+      </label>
+    </div>
+    <div class="chart-grid">
+      <div class="chart-box">
+        <div class="chart-title">Faturamento bruto x liquido</div>
+        <div class="chart-canvas-wrap"><canvas id="chartBrutoLiquido"></canvas></div>
+      </div>
+      <div class="chart-box">
+        <div class="chart-title">Margem final (liquido / bruto)</div>
+        <div class="chart-canvas-wrap"><canvas id="chartMargem"></canvas></div>
+      </div>
+      <div class="chart-box">
+        <div class="chart-title">Ticket medio</div>
+        <div class="chart-canvas-wrap"><canvas id="chartTicket"></canvas></div>
+      </div>
+      <div class="chart-box">
+        <div class="chart-title">Numero de pedidos</div>
+        <div class="chart-canvas-wrap"><canvas id="chartPedidos"></canvas></div>
+      </div>
+      <div class="chart-box">
+        <div class="chart-title">Custo de marketing por pedido (promo loja / pedidos)</div>
+        <div class="chart-canvas-wrap"><canvas id="chartMkt"></canvas></div>
+      </div>
+    </div>
+
+    <div class="section-label">Tabela resumo por periodo</div>
+    <div id="tabelaEvolucao"></div>
+
+    <div class="footer">
+      Liquido usa o valor calculado pelo iFood (coluna Valor Liquido do relatorio). "Recebido direto" estima o valor que nao passa pelo repasse do iFood
+      (pagamento na entrega e vale-refeicao, liquidados direto pela operadora de cartao/beneficio). Cancelamentos totais sao excluidos do Bruto e do Liquido;
+      cancelamentos parciais entram pelo valor efetivamente realizado. Dados ao vivo, direto do banco Supabase.
+    </div>
+  </div>
+</div>
+
+<script>
+// ------------------------------------------------------------------
+// Conexao com o Supabase (chave publica, somente leitura por RLS)
+// ------------------------------------------------------------------
+const SUPABASE_URL = "https://rtmgzsikwglsvpopbfbw.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ0bWd6c2lrd2dsc3Zwb3BiZmJ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU4NDgwMjcsImV4cCI6MjEwMTQyNDAyN30.-vwbQkcuAbbonmBVCeUWXjTg54uB5MNN94QmMlBxTA4";
+
+// Tema escuro para os graficos, combinando com o resto do dashboard.
+if (window.Chart) {
+  Chart.defaults.color = '#9aa4af';
+  Chart.defaults.borderColor = '#262c36';
+  Chart.defaults.font.family = "'Helvetica Neue', Arial, sans-serif";
+}
+
+// Fecha qualquer dropdown de filtro (details.lojadrop) aberto quando o clique for fora dele —
+// alem de fechar clicando na seta, como ja funcionava.
+document.addEventListener('click', (e) => {
+  document.querySelectorAll('details.lojadrop[open]').forEach(det => {
+    if (!det.contains(e.target)) det.removeAttribute('open');
+  });
+});
+
+// Busca TODAS as linhas de uma tabela/view, paginando (o Supabase limita
+// a 1000 linhas por consulta), para funcionar mesmo quando o volume de
+// pedidos crescer (junho, julho, ...).
+async function consultarTudo(caminho) {
+  const PAGE = 1000;
+  let offset = 0;
+  let tudo = [];
+  while (true) {
+    const sep = caminho.includes('?') ? '&' : '?';
+    const url = `${SUPABASE_URL}/rest/v1/${caminho}${sep}limit=${PAGE}&offset=${offset}`;
+    const resp = await fetch(url, {
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+      },
+    });
+    if (!resp.ok) throw new Error(`Erro ${resp.status} ao consultar ${caminho}: ${await resp.text()}`);
+    const pagina = await resp.json();
+    tudo = tudo.concat(pagina);
+    if (pagina.length < PAGE) break;
+    offset += PAGE;
+  }
+  return tudo;
+}
+
+// ------------------------------------------------------------------
+// Dominios fixos do negocio (ordem logica, nao alfabetica)
+// ------------------------------------------------------------------
+const TURNOS = ["MADRUGADA", "ALMOÇO", "CAFÉ DA TARDE", "JANTAR"];
+const DIAS = ["SEGUNDA", "TERÇA", "QUARTA", "QUINTA", "SEXTA", "SÁBADO", "DOMINGO"];
+const STATUS = ["CONCLUIDO", "CANCELADO", "CANCELAMENTO PARCIAL"];
+const MESES_ABREV = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+
+// Remove os rotulos "(inicial)"/"(final)" do texto da semana, mantendo so as datas.
+function formatarSemana(s) {
+  return s.replace(' (inicial)', '').replace(' (final)', '');
+}
+
+// Preenchidos dinamicamente a partir dos dados reais (crescem a cada mes importado)
+let LOJAS = [];
+let UNIDADES = [];
+let SEMANAS = [];
+let MESES = [];
+let ANOS = [];
+let DATAS = [];
+let TIPOS_PAGAMENTO = [];
+// ROWS cols: loja,unidade,turno,semana,dia,data,status,n,valor_itens,itens_cancelados,frete_cliente,incentivo_ifood,incentivo_rede,promo_loja,taxa_servico,taxas_comissoes,frete_sob_demanda,valor_liquido,tipo_pagamento
+let ROWS = [];
+// CONCILIACAO cols: loja, data (string 'YYYY-MM-DD'), grupo, valor — lancamentos novos da conciliacao financeira
+let CONCILIACAO = [];
+// MOTIVOS cols: loja, turno, semana, dia, data, responsavel (string), n, valor — cancelamentos por motivo
+let MOTIVOS = [];
+
+let activeUnidades = new Set();
+
+// ------------------------------------------------------------------
+// Carregamento inicial
+// ------------------------------------------------------------------
+async function carregar() {
+  const agregado = await consultarTudo(
+    "vw_resumo_agregado?select=nome_loja,unidade,turno,semana,dia_semana,data,status,n,valor_itens,valor_itens_cancelados,taxa_entrega,incentivo_ifood,incentivo_rede,incentivo_loja,taxa_servico,taxas_comissoes,frete_sob_demanda,valor_liquido,tipo_pagamento" +
+    "&order=nome_loja,turno,data,status,tipo_pagamento"
+  );
+
+  LOJAS = [...new Set(agregado.map(r => r.nome_loja))].sort();
+  UNIDADES = [...new Set(agregado.map(r => r.unidade))].sort();
+  // Ordena pelo numero da semana (o texto comeca com "18 27/04 ..."), nao alfabeticamente.
+  SEMANAS = [...new Set(agregado.map(r => r.semana))].sort((a,b) => parseInt(a,10) - parseInt(b,10));
+  DATAS = [...new Set(agregado.map(r => r.data))].sort();
+  MESES = [...new Set(agregado.map(r => r.data.slice(0,7)))].sort();
+  ANOS = [...new Set(agregado.map(r => r.data.slice(0,4)))].sort();
+  // Forma de pagamento pode vir em branco (forma nova, ainda nao mapeada no import) — nunca inventamos, so agrupamos a parte.
+  TIPOS_PAGAMENTO = [...new Set(agregado.map(r => r.tipo_pagamento || 'NAO_MAPEADO'))].sort();
+
+  ROWS = agregado.map(r => [
+    LOJAS.indexOf(r.nome_loja),
+    UNIDADES.indexOf(r.unidade),
+    TURNOS.indexOf(r.turno),
+    SEMANAS.indexOf(r.semana),
+    DIAS.indexOf(r.dia_semana),
+    DATAS.indexOf(r.data),
+    STATUS.indexOf(r.status),
+    r.n,
+    Number(r.valor_itens),
+    Number(r.valor_itens_cancelados),
+    Number(r.taxa_entrega),
+    Number(r.incentivo_ifood),
+    Number(r.incentivo_rede),
+    Number(r.incentivo_loja),
+    Number(r.taxa_servico),
+    Number(r.taxas_comissoes),
+    Number(r.frete_sob_demanda),
+    Number(r.valor_liquido),
+    TIPOS_PAGAMENTO.indexOf(r.tipo_pagamento || 'NAO_MAPEADO'),
+  ]);
+
+  ROWS.forEach(r => { lojaToUnidade[r[0]] = r[1]; });
+
+  // Lancamentos da conciliacao financeira usados no Bloco 2 (taxa de cartao, comissao sobre
+  // vendas, mensalidade, anuncios, outros ajustes). So tem loja + data (nao tem turno/semana/dia
+  // calculados aqui), entao esse valor respeita os filtros de loja/unidade e periodo, mas nao
+  // Semana/Dia da semana/Turno.
+  const conciliacao = await consultarTudo("vw_conciliacao_agregado?select=nome_loja,data,grupo,valor&order=nome_loja,data,grupo");
+  CONCILIACAO = conciliacao.map(r => [LOJAS.indexOf(r.nome_loja), r.data, r.grupo, Number(r.valor)]);
+
+  // Cancelamentos (totais e parciais) classificados por categoria de motivo. Tem as mesmas
+  // dimensoes de ROWS, entao respeita todos os filtros normalmente.
+  const motivos = await consultarTudo(
+    "vw_cancelamentos_motivo?select=nome_loja,turno,semana,dia_semana,data,status,responsavel,n,valor&order=nome_loja,data"
+  );
+  MOTIVOS = motivos.map(r => [
+    LOJAS.indexOf(r.nome_loja),
+    TURNOS.indexOf(r.turno),
+    SEMANAS.indexOf(r.semana),
+    DIAS.indexOf(r.dia_semana),
+    DATAS.indexOf(r.data),
+    r.responsavel,
+    r.n,
+    Number(r.valor),
+  ]);
+
+  activeUnidades = new Set(UNIDADES);
+}
+
+// ------------------------------------------------------------------
+// Filtros de topo (data, semana, dia, turno)
+// ------------------------------------------------------------------
+const fDataIni = document.getElementById('fDataIni');
+const fDataFim = document.getElementById('fDataFim');
+
+// Cada filtro de multipla escolha guarda um Set com os INDICES selecionados do seu dominio.
+// Tudo selecionado (o padrao) equivale a "sem filtro" (igual ao "Todos" de antes).
+const selecionados = {};
+
+const FILTRO_DEFS = {
+  fDia: { dominio: () => DIAS, label: (v)=>v, nome: 'Dia da semana' },
+  fSemana: { dominio: () => SEMANAS, label: formatarSemana, nome: 'Semana' },
+  fMes: { dominio: () => MESES, label: (v)=>{ const [yyyy,mm]=v.split('-'); return `${MESES_ABREV[Number(mm)-1]}/${yyyy}`; }, nome: 'Mes' },
+  fAno: { dominio: () => ANOS, label: (v)=>v, nome: 'Ano' },
+  fTurno: { dominio: () => TURNOS, label: (v)=>v, nome: 'Turno' },
+};
+
+function montarDropdownMultiplo(id) {
+  const dominio = FILTRO_DEFS[id].dominio();
+  selecionados[id] = new Set(dominio.map((_,i)=>i));
+  renderizarDropdownMultiplo(id);
+}
+
+function renderizarDropdownMultiplo(id) {
+  const def = FILTRO_DEFS[id];
+  const dominio = def.dominio();
+  const set = selecionados[id];
+  const todasMarcadas = set.size === dominio.length;
+  let html = `<label><input type="checkbox" ${todasMarcadas?'checked':''} onchange="toggleTodosFiltro('${id}', this.checked)"><b>Todos</b></label>`;
+  html += dominio.map((v,i) =>
+    `<label><input type="checkbox" ${set.has(i)?'checked':''} onchange="toggleItemFiltro('${id}', ${i}, this.checked)">${def.label(v,i)}</label>`
+  ).join('');
+  document.getElementById(id + 'Options').innerHTML = html;
+  document.getElementById(id + 'Summary').textContent =
+    todasMarcadas ? `${def.nome}: todos` : `${def.nome}: ${set.size} de ${dominio.length}`;
+}
+
+function toggleTodosFiltro(id, marcado) {
+  const dominio = FILTRO_DEFS[id].dominio();
+  selecionados[id] = marcado ? new Set(dominio.map((_,i)=>i)) : new Set();
+  renderizarDropdownMultiplo(id);
+  sincronizarPeriodoComFiltros();
+  renderAll();
+}
+
+function toggleItemFiltro(id, idx, marcado) {
+  if (marcado) selecionados[id].add(idx); else selecionados[id].delete(idx);
+  renderizarDropdownMultiplo(id);
+  sincronizarPeriodoComFiltros();
+  renderAll();
+}
+
+function montarFiltrosBase() {
+  fDataIni.min = DATAS[0]; fDataIni.max = DATAS[DATAS.length-1]; fDataIni.value = DATAS[0];
+  fDataFim.min = DATAS[0]; fDataFim.max = DATAS[DATAS.length-1]; fDataFim.value = DATAS[DATAS.length-1];
+  fDataIni.addEventListener('change', renderAll);
+  fDataFim.addEventListener('change', renderAll);
+
+  Object.keys(FILTRO_DEFS).forEach(montarDropdownMultiplo);
+
+  selGranularidade.addEventListener('change', renderEvolucao);
+}
+
+// ------------------------------------------------------------------
+// Filtro de lojas (checkboxes, dependente das unidades ativas)
+// ------------------------------------------------------------------
+const lojaToUnidade = {};
+const lojaOptCont = document.getElementById('lojaOptions');
+const lojaSummary = document.getElementById('lojaSummary');
+
+function rebuildLojaOptions() {
+  const visibleLojas = LOJAS.map((_,i)=>i).filter(i => activeUnidades.has(UNIDADES[lojaToUnidade[i]]));
+  const html = `<label><input type="checkbox" id="lojaTodosChk" checked onchange="toggleTodasLojas(this.checked)"><b>Todos</b></label>` +
+    visibleLojas.map(i =>
+      `<label><input type="checkbox" data-l="${i}" checked onchange="updateLojaSummary(); sincronizarPeriodoComFiltros(); renderAll();">${LOJAS[i]}</label>`
+    ).join('');
+  lojaOptCont.innerHTML = html;
+  updateLojaSummary();
+}
+
+// "Todos" respeita a lista de lojas visiveis no momento — se uma unidade estiver filtrada,
+// marca/desmarca so as lojas dessa unidade, nao todas as lojas do sistema.
+function toggleTodasLojas(marcado) {
+  Array.from(lojaOptCont.querySelectorAll('input[data-l]')).forEach(c => { c.checked = marcado; });
+  updateLojaSummary();
+  sincronizarPeriodoComFiltros();
+  renderAll();
+}
+
+function updateLojaSummary() {
+  const checks = Array.from(lojaOptCont.querySelectorAll('input[data-l]'));
+  const total = checks.length;
+  const checked = checks.filter(c=>c.checked).length;
+  const todosChk = document.getElementById('lojaTodosChk');
+  if (todosChk) {
+    todosChk.checked = checked === total;
+    todosChk.indeterminate = checked > 0 && checked < total;
+  }
+  lojaSummary.textContent = checked===total ? 'Marcas (loja): todas' : `Marcas (loja): ${checked} de ${total}`;
+}
+
+function activeLojas() {
+  return new Set(Array.from(lojaOptCont.querySelectorAll('input[data-l]')).filter(c=>c.checked).map(c=>Number(c.dataset.l)));
+}
+
+function resetFiltros() {
+  fDataIni.value = DATAS[0];
+  fDataFim.value = DATAS[DATAS.length-1];
+  Object.keys(FILTRO_DEFS).forEach(montarDropdownMultiplo);
+  activeUnidades = new Set(UNIDADES);
+  renderTopNav();
+  rebuildLojaOptions();
+  renderAll();
+}
+
+// ------------------------------------------------------------------
+// Filtro de unidades — MULTIPLA ESCOLHA (clique liga/desliga cada uma)
+// ------------------------------------------------------------------
+function renderTopNav() {
+  const el = document.getElementById('topnav');
+  const todasAtivas = activeUnidades.size === UNIDADES.length;
+  let html = `<button class="navbtn ${todasAtivas?'active':''}" onclick="selecionarTodasUnidades()">Todas</button>`;
+  UNIDADES.forEach(u => {
+    const active = activeUnidades.has(u) ? 'active' : '';
+    html += `<button class="navbtn ${active}" onclick="toggleUnidade('${u}')">${u}</button>`;
+  });
+  el.innerHTML = html;
+}
+
+function toggleUnidade(u) {
+  if (activeUnidades.has(u)) {
+    if (activeUnidades.size === 1) return; // mantem ao menos uma unidade selecionada
+    activeUnidades.delete(u);
+  } else {
+    activeUnidades.add(u);
+  }
+  renderTopNav();
+  rebuildLojaOptions();
+  sincronizarPeriodoComFiltros();
+  renderAll();
+}
+
+function selecionarTodasUnidades() {
+  activeUnidades = new Set(UNIDADES);
+  renderTopNav();
+  rebuildLojaOptions();
+  sincronizarPeriodoComFiltros();
+  renderAll();
+}
+
+// ------------------------------------------------------------------
+// Calculo das metricas (identico a logica ja validada)
+// ------------------------------------------------------------------
+function fmt(v) { return (Math.abs(v) < 0.005 ? 0 : v).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2}); }
+function pct(v) { return v.toLocaleString('pt-BR', {minimumFractionDigits:1, maximumFractionDigits:1}); }
+
+// respeitarPeriodo=false ignora os campos De/Ate — usado pra descobrir qual seria o periodo
+// "natural" dos outros filtros, antes de aplicar o recorte de data em cima.
+function linhasFiltradas(respeitarPeriodo = true) {
+  const dIni = fDataIni.value, dFim = fDataFim.value;
+  const activeL = activeLojas();
+
+  return ROWS.filter(r => {
+    if (!activeL.has(r[0])) return false;
+    if (!selecionados.fSemana.has(r[3])) return false;
+    if (!selecionados.fDia.has(r[4])) return false;
+    if (!selecionados.fTurno.has(r[2])) return false;
+    const dataStr = DATAS[r[5]];
+    if (!selecionados.fMes.has(MESES.indexOf(dataStr.slice(0,7)))) return false;
+    if (!selecionados.fAno.has(ANOS.indexOf(dataStr.slice(0,4)))) return false;
+    if (respeitarPeriodo) {
+      if (dIni && dataStr < dIni) return false;
+      if (dFim && dataStr > dFim) return false;
+    }
+    return true;
+  });
+}
+
+// Regra pedida pelo usuario: quando qualquer filtro (loja, unidade, semana, dia da semana,
+// mes, ano, turno) muda, os campos De/Ate se ajustam pra refletir o periodo real dos dados
+// que passaram nesses filtros — assim eles nunca ficam "presos" num periodo antigo que nao
+// bate com o que os outros filtros estao mostrando.
+function sincronizarPeriodoComFiltros() {
+  const linhas = linhasFiltradas(false);
+  if (!linhas.length) return;
+  let minD = DATAS[linhas[0][5]], maxD = minD;
+  linhas.forEach(r => {
+    const d = DATAS[r[5]];
+    if (d < minD) minD = d;
+    if (d > maxD) maxD = d;
+  });
+  fDataIni.value = minD;
+  fDataFim.value = maxD;
+}
+
+// Cancelamentos por motivo respeitam os mesmos filtros de ROWS (loja/unidade, semana, dia da
+// semana, turno, mes, ano, periodo).
+function linhasCancelamentoFiltradas() {
+  const dIni = fDataIni.value, dFim = fDataFim.value;
+  const activeL = activeLojas();
+  return MOTIVOS.filter(r => {
+    if (!activeL.has(r[0])) return false;
+    if (!selecionados.fTurno.has(r[1])) return false;
+    if (!selecionados.fSemana.has(r[2])) return false;
+    if (!selecionados.fDia.has(r[3])) return false;
+    const dataStr = DATAS[r[4]];
+    if (!selecionados.fMes.has(MESES.indexOf(dataStr.slice(0,7)))) return false;
+    if (!selecionados.fAno.has(ANOS.indexOf(dataStr.slice(0,4)))) return false;
+    if (dIni && dataStr < dIni) return false;
+    if (dFim && dataStr > dFim) return false;
+    return true;
+  });
+}
+
+function resumoMotivosCancelamento() {
+  const linhas = linhasCancelamentoFiltradas();
+  const total = linhas.reduce((s,r)=>s+r[6],0) || 1;
+  const porResp = new Map();
+  linhas.forEach(r => {
+    const resp = r[5];
+    if (!porResp.has(resp)) porResp.set(resp, { n: 0, valor: 0 });
+    const o = porResp.get(resp);
+    o.n += r[6];
+    o.valor += r[7];
+  });
+  return Array.from(porResp.entries())
+    .map(([responsavel, o]) => ({ responsavel, n: o.n, valor: o.valor, pct: o.n/total*100 }))
+    .sort((a,b) => b.n - a.n);
+}
+
+// Soma os ajustes novos da conciliacao (Pacote de anuncios, Mensalidade, etc.) respeitando
+// loja/unidade e o periodo (De/Ate). Nao respeita Semana/Dia da semana/Turno porque a
+// conciliacao nao tem essas dimensoes calculadas.
+// Soma um grupo da conciliacao (TAXA_CARTAO, COMISSAO_VENDAS, MENSALIDADE, ANUNCIOS,
+// OUTROS_AJUSTES, RESSARCIMENTO_CANCELAMENTO) respeitando loja/unidade e o periodo (De/Ate).
+// Nao respeita Semana/Dia da semana/Turno porque a conciliacao nao tem essas dimensoes
+// calculadas. Devolve o valor cru (sinal original do banco: negativo = custo, positivo = credito).
+function somaConciliacaoRaw(grupo) {
+  const dIni = fDataIni.value, dFim = fDataFim.value;
+  const activeL = activeLojas();
+  return CONCILIACAO
+    .filter(c => c[2]===grupo && activeL.has(c[0]) && (!dIni || c[1] >= dIni) && (!dFim || c[1] <= dFim))
+    .reduce((s,c)=>s+c[3], 0);
+}
+
+function computeMetrics() {
+  const rows = linhasFiltradas();
+  const fin = rows.filter(r => r[6] !== 1);
+
+  const totalPedidosFin = fin.reduce((s,r)=>s+r[7],0);
+  const itens = fin.reduce((s,r)=>s+(r[8]-r[9]),0);
+  const frete = fin.reduce((s,r)=>s+r[10],0);
+  const bruto = itens + frete;
+
+  const idxOnline = TIPOS_PAGAMENTO.indexOf('ONLINE');
+  const idxCartao = TIPOS_PAGAMENTO.indexOf('CARTAO');
+  const vendasOnline = fin.filter(r=>r[18]===idxOnline).reduce((s,r)=>s+(r[8]-r[9])+r[10],0);
+  const vendasCartao = fin.filter(r=>r[18]===idxCartao).reduce((s,r)=>s+(r[8]-r[9])+r[10],0);
+
+  const promoIfoodRede = fin.reduce((s,r)=>s+r[11]+r[12],0);
+  const promoLoja = fin.reduce((s,r)=>s+r[13],0);
+  const freteSobDemanda = fin.reduce((s,r)=>s+r[16],0);
+  const ticketMedio = totalPedidosFin ? bruto/totalPedidosFin : 0;
+
+  // Grupo 1: taxas e comissoes (tudo positivo = custo). Vem da conciliacao, ja separado por
+  // categoria (fato_pedidos so tinha um valor combinado de taxas_comissoes). OUTROS_AJUSTES
+  // aqui e so o lado de debito (taxa de parcelamento, retencao VR/VA, correcoes) — os
+  // ressarcimentos de cancelamento viraram uma entrada, contabilizados abaixo.
+  const taxaOnline = -somaConciliacaoRaw('TAXA_CARTAO');
+  const comissaoVendas = -somaConciliacaoRaw('COMISSAO_VENDAS');
+  const mensalidade = -somaConciliacaoRaw('MENSALIDADE');
+  const outrosAjustes = -somaConciliacaoRaw('OUTROS_AJUSTES');
+  const totalTaxasComissoes = taxaOnline + comissaoVendas + mensalidade + outrosAjustes;
+  // Total de descontos exibido no card soma tambem o frete sob demanda.
+  const totalDescontos = totalTaxasComissoes + freteSobDemanda;
+
+  // Grupo 2: marketing pago pela loja (promo + anuncios).
+  const anuncios = -somaConciliacaoRaw('ANUNCIOS');
+  const totalMkt = promoLoja + anuncios;
+  const custoMktPorPedido = totalPedidosFin ? totalMkt/totalPedidosFin : 0;
+
+  // Ressarcimento de pedidos/itens cancelados: dinheiro que volta pra loja — entra no
+  // Bloco 1 (entradas), nao no Bloco 2. Ja vem positivo do banco (credito), sem inverter sinal.
+  const ressarcimentoCancelamento = somaConciliacaoRaw('RESSARCIMENTO_CANCELAMENTO');
+
+  // Custo iFood = soma de tudo que sai do bruto pra chegar no liquido.
+  const custoIfood = totalTaxasComissoes + freteSobDemanda + totalMkt;
+  const liquido = bruto - custoIfood + ressarcimentoCancelamento;
+
+  // Bloco 3 (Composicao de Promos) usa outra base de mkt: quem pagou (loja x plataforma).
+  const totalMktGeral = promoIfoodRede + promoLoja;
+
+  const cancelFull = rows.filter(r=>r[6]===1);
+  const cancelParcial = rows.filter(r=>r[6]===2);
+  const nFull = cancelFull.reduce((s,r)=>s+r[7],0);
+  const nParcial = cancelParcial.reduce((s,r)=>s+r[7],0);
+  const vFull = cancelFull.reduce((s,r)=>s+r[8],0);
+  const vParcial = cancelParcial.reduce((s,r)=>s+r[9],0);
+  const valorCancelado = vFull + vParcial;
+  const totalCancelados = nFull + nParcial;
+  const totalPedidosGeral = rows.reduce((s,r)=>s+r[7],0);
+
+  const safeBruto = bruto || 1;
+  const safeTotal = totalPedidosGeral || 1;
+  const safeMktGeral = totalMktGeral || 1;
+
+  return {
+    itens, itensPct: itens/safeBruto*100,
+    frete, fretePct: frete/safeBruto*100,
+    bruto,
+    vendasOnline, vendasOnlinePct: vendasOnline/safeBruto*100,
+    vendasCartao, vendasCartaoPct: vendasCartao/safeBruto*100,
+    ressarcimentoCancelamento, ressarcimentoCancelamentoPct: ressarcimentoCancelamento/safeBruto*100,
+    taxaOnline, taxaOnlinePct: taxaOnline/safeBruto*100,
+    comissaoVendas, comissaoVendasPct: comissaoVendas/safeBruto*100,
+    mensalidade, mensalidadePct: mensalidade/safeBruto*100,
+    outrosAjustes, outrosAjustesPct: outrosAjustes/safeBruto*100,
+    totalTaxasComissoes, totalTaxasComissoesPct: totalTaxasComissoes/safeBruto*100,
+    totalDescontos, totalDescontosPct: totalDescontos/safeBruto*100,
+    freteSobDemanda, freteSobDemandaPct: freteSobDemanda/safeBruto*100,
+    promoLoja, promoLojaPct: promoLoja/safeBruto*100,
+    anuncios, anunciosPct: anuncios/safeBruto*100,
+    totalMkt, totalMktPct: totalMkt/safeBruto*100,
+    custoMktPorPedido,
+    liquido, liquidoPct: liquido/safeBruto*100,
+    custoIfood, custoIfoodPct: custoIfood/safeBruto*100,
+    totalPedidos: totalPedidosFin, ticketMedio,
+    totalMktGeral, totalMktGeralPct: totalMktGeral/safeBruto*100,
+    investLoja: promoLoja, investLojaPct: promoLoja/safeMktGeral*100,
+    investPlataforma: promoIfoodRede, investPlataformaPct: promoIfoodRede/safeMktGeral*100,
+    valorCancelado, valorCanceladoPct: valorCancelado/safeBruto*100,
+    totalCancelados, totalCanceladosPct: totalCancelados/safeTotal*100,
+    nFull, nFullPct: nFull/safeTotal*100, vFull,
+    nParcial, nParcialPct: nParcial/safeTotal*100, vParcial,
+  };
+}
+
+function cardsEntradas(m) {
+  return `<div class="section-label">Faturamento Bruto</div>
+  <div class="equation-row">
+    <div class="card pos"><div class="card-lbl">Valor das Vendas</div><div class="card-val">R$ ${fmt(m.itens)}</div><div class="card-pct">${pct(m.itensPct)}%</div></div>
+    <div class="eq-symbol">+</div>
+    <div class="card pos"><div class="card-lbl">Valor de Frete</div><div class="card-val">R$ ${fmt(m.frete)}</div><div class="card-pct">${pct(m.fretePct)}%</div></div>
+    <div class="eq-symbol">=</div>
+    <div class="card pos highlight"><div class="card-lbl">Faturamento Bruto</div><div class="card-val">R$ ${fmt(m.bruto)}</div></div>
+  </div>
+  <div class="section-label" style="color:#58a6ff;">Divisao Recebimentos</div>
+  <div class="cards">
+    <div class="card blue"><div class="card-lbl">Online</div><div class="card-val">R$ ${fmt(m.vendasOnline)}</div><div class="card-pct">${pct(m.vendasOnlinePct)}%</div></div>
+    <div class="card blue"><div class="card-lbl">Offline</div><div class="card-val">R$ ${fmt(m.vendasCartao)}</div><div class="card-pct">${pct(m.vendasCartaoPct)}%</div></div>
+  </div>`;
+}
+
+function cardsSaidas(m) {
+  return `<div class="section-label">Composicao de Descontos</div>
+  <div class="cards">
+    <div class="card neg"><div class="card-lbl">Taxa pagamento online</div><div class="card-val">R$ ${fmt(m.taxaOnline)}</div><div class="card-pct">${pct(m.taxaOnlinePct)}%</div></div>
+    <div class="card neg"><div class="card-lbl">Comissao sobre vendas</div><div class="card-val">R$ ${fmt(m.comissaoVendas)}</div><div class="card-pct">${pct(m.comissaoVendasPct)}%</div></div>
+    <div class="card neg"><div class="card-lbl">Mensalidade</div><div class="card-val">R$ ${fmt(m.mensalidade)}</div><div class="card-pct">${pct(m.mensalidadePct)}%</div></div>
+    <div class="card neg"><div class="card-lbl">Outros ajustes</div><div class="card-val">R$ ${fmt(m.outrosAjustes)}</div><div class="card-pct">${pct(m.outrosAjustesPct)}%</div></div>
+    <div class="card neg"><div class="card-lbl">Frete sob demanda</div><div class="card-val">R$ ${fmt(m.freteSobDemanda)}</div><div class="card-pct">${pct(m.freteSobDemandaPct)}%</div></div>
+    <div class="card highlight"><div class="card-lbl">Total de descontos</div><div class="card-val">R$ ${fmt(m.totalDescontos)}</div><div class="card-pct">${pct(m.totalDescontosPct)}%</div></div>
+  </div>
+  <div class="section-label">Composicao de MKT</div>
+  <div class="cards">
+    <div class="card neg"><div class="card-lbl">Promo da loja</div><div class="card-val">R$ ${fmt(m.promoLoja)}</div><div class="card-pct">${pct(m.promoLojaPct)}%</div></div>
+    <div class="card neg"><div class="card-lbl">Anuncios</div><div class="card-val">R$ ${fmt(m.anuncios)}</div><div class="card-pct">${pct(m.anunciosPct)}%</div></div>
+    <div class="card highlight"><div class="card-lbl">Total Investido em MKT</div><div class="card-val">R$ ${fmt(m.totalMkt)}</div><div class="card-pct">${pct(m.totalMktPct)}%</div></div>
+  </div>
+  <div style="display:flex; justify-content:center; margin-bottom:8px;">
+    <div class="card neutral" style="max-width:220px; width:100%;"><div class="card-lbl">Custo mkt por pedido</div><div class="card-val">R$ ${fmt(m.custoMktPorPedido)}</div></div>
+  </div>
+  <div class="cards">
+    <div class="card pos highlight"><div class="card-lbl">Liquido (inclui recebido direto)</div><div class="card-val">R$ ${fmt(m.liquido)}</div><div class="card-pct">${pct(m.liquidoPct)}%</div></div>
+    <div class="card neg highlight"><div class="card-lbl">Custo iFood</div><div class="card-val">R$ ${fmt(m.custoIfood)}</div><div class="card-pct">${pct(m.custoIfoodPct)}%</div></div>
+  </div>`;
+}
+
+function cardsMkt(m) {
+  return `<div class="section-label">Composicao de Promos</div>
+  <div class="cards">
+    <div class="card highlight"><div class="card-lbl">Total investido em mkt</div><div class="card-val">R$ ${fmt(m.totalMktGeral)}</div><div class="card-pct">${pct(m.totalMktGeralPct)}%</div></div>
+    <div class="card neg"><div class="card-lbl">Investimento da loja</div><div class="card-val">R$ ${fmt(m.investLoja)}</div><div class="card-pct">${pct(m.investLojaPct)}% do mkt total</div></div>
+    <div class="card pos"><div class="card-lbl">Investimento da plataforma (iFood + Rede)</div><div class="card-val">R$ ${fmt(m.investPlataforma)}</div><div class="card-pct">${pct(m.investPlataformaPct)}% do mkt total</div></div>
+  </div>`;
+}
+
+function cardsInfo(m) {
+  return `<div class="section-label">Informativos</div>
+  <div class="cards">
+    <div class="card neutral"><div class="card-lbl">Total de pedidos</div><div class="card-val">${m.totalPedidos}</div></div>
+    <div class="card neutral"><div class="card-lbl">Ticket medio</div><div class="card-val">R$ ${fmt(m.ticketMedio)}</div></div>
+  </div>`;
+}
+
+function cardsCancel(m) {
+  const motivos = resumoMotivosCancelamento();
+  const tabelaMotivos = motivos.length ? `
+    <div id="tabelaMotivos">
+      <table>
+        <tr><th>Categoria do motivo</th><th>Pedidos</th><th>% do total</th><th>Valor</th></tr>
+        ${motivos.map(x => `<tr><td>${x.responsavel}</td><td>${x.n}</td><td>${pct(x.pct)}%</td><td>R$ ${fmt(x.valor)}</td></tr>`).join('')}
+      </table>
+    </div>` : '';
+
+  return `<div class="section-label">Cancelamentos</div>
+  <div class="cards">
+    <div class="card neg"><div class="card-lbl">Valor cancelado</div><div class="card-val">R$ ${fmt(m.valorCancelado)}</div><div class="card-pct">${pct(m.valorCanceladoPct)}%</div></div>
+    <div class="card neg"><div class="card-lbl">Pedidos cancelados</div><div class="card-val">${m.totalCancelados}</div><div class="card-pct">${pct(m.totalCanceladosPct)}% do total</div></div>
+    <div class="card neutral"><div class="card-lbl">Cancelamentos parciais</div><div class="card-val">${m.nParcial} (${pct(m.nParcialPct)}%)</div><div class="card-pct">R$ ${fmt(m.vParcial)} perdidos</div></div>
+    <div class="card neutral"><div class="card-lbl">Cancelamentos totais</div><div class="card-val">${m.nFull} (${pct(m.nFullPct)}%)</div><div class="card-pct">R$ ${fmt(m.vFull)} perdidos</div></div>
+    <div class="card pos"><div class="card-lbl">Ressarcimento por cancelamentos</div><div class="card-val">R$ ${fmt(m.ressarcimentoCancelamento)}</div><div class="card-pct">${pct(m.ressarcimentoCancelamentoPct)}%</div></div>
+  </div>
+  <div class="caption-label">Motivo do cancelamento por categoria (fonte: motivos.xlsx — categoria "NAO_MAPEADO" ainda nao foi classificada)</div>
+  ${tabelaMotivos}`;
+}
+
+function renderAll() {
+  const m = computeMetrics();
+  const titulo = activeUnidades.size === UNIDADES.length
+    ? 'Todas as unidades'
+    : Array.from(activeUnidades).join(', ');
+  let html = `<div class="caption-label">Exibindo: <b style="color:#fff;">${titulo}</b> &middot; ${fDataIni.value} a ${fDataFim.value}</div>`;
+  html += cardsEntradas(m);
+  html += cardsSaidas(m);
+  html += cardsMkt(m);
+  html += cardsInfo(m);
+  html += cardsCancel(m);
+  document.getElementById('view-content').innerHTML = html;
+  renderEvolucao();
+}
+
+// ------------------------------------------------------------------
+// Graficos de evolucao (mesma logica financeira, agrupada no tempo)
+// ------------------------------------------------------------------
+const selGranularidade = document.getElementById('fGranularidade');
+let chartInstances = {};
+
+function grupoInfo(r, gran) {
+  const dataStr = DATAS[r[5]]; // 'YYYY-MM-DD'
+  const [yyyy, mm, dd] = dataStr.split('-');
+  if (gran === 'dia') return { key: dataStr, label: `${dd}/${mm}/${yyyy}`, sort: dataStr };
+  if (gran === 'diaSemana') {
+    const idx = r[4];
+    return { key: String(idx), label: DIAS[idx], sort: String(idx).padStart(2,'0') };
+  }
+  if (gran === 'mes') {
+    const key = `${yyyy}-${mm}`;
+    return { key, label: `${MESES_ABREV[Number(mm)-1]}/${yyyy}`, sort: key };
+  }
+  if (gran === 'ano') return { key: yyyy, label: yyyy, sort: yyyy };
+  // semana (padrao) — o texto da semana nao tem ano, entao usamos a data real pra ordenar
+  const semanaStr = SEMANAS[r[3]];
+  return { key: semanaStr, label: formatarSemana(semanaStr), sort: dataStr };
+}
+
+function computeEvolucao(rows, gran) {
+  const grupos = new Map();
+  rows.forEach(r => {
+    const info = grupoInfo(r, gran);
+    if (!grupos.has(info.key)) {
+      grupos.set(info.key, {
+        label: info.label, sort: info.sort,
+        totalPedidos: 0, itens: 0, frete: 0, promoLoja: 0, taxasComissoes: 0, freteSobDemanda: 0, nFull: 0,
+      });
+    }
+    const g = grupos.get(info.key);
+    if (gran !== 'diaSemana' && info.sort < g.sort) g.sort = info.sort;
+    if (r[6] !== 1) {
+      g.totalPedidos += r[7];
+      g.itens += (r[8] - r[9]);
+      g.frete += r[10];
+      g.promoLoja += r[13];
+      g.taxasComissoes += r[15];
+      g.freteSobDemanda += r[16];
+    } else {
+      g.nFull += r[7];
+    }
+  });
+
+  const lista = Array.from(grupos.values());
+  lista.sort((a,b) => a.sort < b.sort ? -1 : a.sort > b.sort ? 1 : 0);
+
+  return lista.map(g => {
+    const bruto = g.itens + g.frete;
+    // Liquido consolidado (liquido iFood + recebido direto) — mesma logica dos cards do topo.
+    const liquido = bruto + g.taxasComissoes - g.promoLoja - g.freteSobDemanda;
+    return {
+      label: g.label,
+      totalPedidos: g.totalPedidos,
+      bruto,
+      liquido,
+      margem: bruto ? (liquido/bruto*100) : 0,
+      ticketMedio: g.totalPedidos ? (bruto/g.totalPedidos) : 0,
+      custoMkt: g.totalPedidos ? (g.promoLoja/g.totalPedidos) : 0,
+      cancelados: g.nFull,
+    };
+  });
+}
+
+function destroyChart(id) {
+  if (chartInstances[id]) { chartInstances[id].destroy(); delete chartInstances[id]; }
+}
+
+function renderLineChart(id, labels, datasets, yLabel) {
+  destroyChart(id);
+  const ctx = document.getElementById(id).getContext('2d');
+  chartInstances[id] = new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets: datasets.map(d => ({ tension: .25, pointRadius: 2, ...d })) },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      scales: {
+        x: { ticks: { maxRotation: 60, autoSkip: true } },
+        y: { title: { display: !!yLabel, text: yLabel }, beginAtZero: true },
+      },
+      plugins: { legend: { display: datasets.length > 1 } },
+    },
+  });
+}
+
+function renderChartPedidos(labels, dados) {
+  destroyChart('chartPedidos');
+  const ctx = document.getElementById('chartPedidos').getContext('2d');
+  chartInstances['chartPedidos'] = new Chart(ctx, {
+    data: {
+      labels,
+      datasets: [
+        { type: 'bar', label: 'Pedidos (concluidos/parciais)', data: dados.map(d=>d.totalPedidos), backgroundColor: '#58a6ff' },
+        { type: 'line', label: 'Cancelados (totais)', data: dados.map(d=>d.cancelados), borderColor: '#ff6b6b', backgroundColor: '#ff6b6b', tension: .25, pointRadius: 2 },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      scales: { x: { ticks: { maxRotation: 60, autoSkip: true } }, y: { beginAtZero: true } },
+    },
+  });
+}
+
+function renderTabelaEvolucao(dados) {
+  let html = `<table>
+    <tr><th>Periodo</th><th>Pedidos</th><th>Bruto</th><th>Liquido</th><th>Margem</th><th>Ticket medio</th><th>Custo mkt/pedido</th></tr>`;
+  dados.forEach(d => {
+    html += `<tr>
+      <td>${d.label}</td>
+      <td>${d.totalPedidos}</td>
+      <td>R$ ${fmt(d.bruto)}</td>
+      <td>R$ ${fmt(d.liquido)}</td>
+      <td>${pct(d.margem)}%</td>
+      <td>R$ ${fmt(d.ticketMedio)}</td>
+      <td>R$ ${fmt(d.custoMkt)}</td>
+    </tr>`;
+  });
+  html += `</table>`;
+  document.getElementById('tabelaEvolucao').innerHTML = html;
+}
+
+function renderEvolucao() {
+  const rows = linhasFiltradas();
+  const gran = selGranularidade.value;
+  const dados = computeEvolucao(rows, gran);
+  const labels = dados.map(d => d.label);
+
+  renderLineChart('chartBrutoLiquido', labels, [
+    { label: 'Bruto', data: dados.map(d=>d.bruto), borderColor: '#58a6ff', backgroundColor: '#58a6ff' },
+    { label: 'Liquido', data: dados.map(d=>d.liquido), borderColor: '#3fb950', backgroundColor: '#3fb950' },
+  ], 'R$');
+
+  renderLineChart('chartMargem', labels, [
+    { label: 'Margem final (%)', data: dados.map(d=>d.margem), borderColor: '#f5a623', backgroundColor: '#f5a623' },
+  ], '%');
+
+  renderLineChart('chartTicket', labels, [
+    { label: 'Ticket medio', data: dados.map(d=>d.ticketMedio), borderColor: '#a371f7', backgroundColor: '#a371f7' },
+  ], 'R$');
+
+  renderChartPedidos(labels, dados);
+
+  renderLineChart('chartMkt', labels, [
+    { label: 'Custo de marketing por pedido', data: dados.map(d=>d.custoMkt), borderColor: '#e3b341', backgroundColor: '#e3b341' },
+  ], 'R$');
+
+  renderTabelaEvolucao(dados);
+}
+
+// ------------------------------------------------------------------
+// Boot
+// ------------------------------------------------------------------
+async function iniciar() {
+  try {
+    await carregar();
+    document.getElementById('subtitleEl').textContent =
+      `${DATAS[0]} a ${DATAS[DATAS.length-1]} · Fonte: Relatorio de Pedidos, Portal do Parceiro iFood · ${LOJAS.length} lojas em ${UNIDADES.length} unidades`;
+    montarFiltrosBase();
+    renderTopNav();
+    rebuildLojaOptions();
+    renderAll();
+    document.getElementById('loadingMsg').style.display = 'none';
+    document.getElementById('painel').style.display = 'block';
+  } catch (err) {
+    document.getElementById('loadingMsg').style.display = 'none';
+    const erroEl = document.getElementById('erroMsg');
+    erroEl.style.display = 'block';
+    erroEl.textContent = `Erro ao carregar dados do Supabase: ${err.message}`;
+  }
+}
+
+iniciar();
+</script>
+</body>
+</html>
