@@ -625,13 +625,13 @@ function computeMetrics() {
   // Ressarcimento de pedidos/itens cancelados: dinheiro que volta pra loja — entra no
   // Bloco 1 (entradas), nao no Bloco 2. Ja vem positivo do banco (credito), sem inverter sinal.
   const ressarcimentoCancelamento = somaConciliacaoRaw('RESSARCIMENTO_CANCELAMENTO');
-  // O card "Total de descontos" tambem soma o ressarcimento (exibicao apenas — nao afeta
-  // custoIfood/liquido, que ja contabilizam o ressarcimento separadamente).
+  // O card "Total de descontos" tambem soma o ressarcimento.
   const totalDescontosComRessarcimento = totalDescontos - ressarcimentoCancelamento;
 
-  // Custo iFood = soma de tudo que sai do bruto pra chegar no liquido.
-  const custoIfood = totalTaxasComissoes + freteSobDemanda + totalMkt;
-  const liquido = bruto - custoIfood + ressarcimentoCancelamento;
+  // Custo iFood = Total de descontos (ja com ressarcimento) + Total investido em mkt —
+  // exatamente os dois totais mostrados nos blocos acima.
+  const custoIfood = totalDescontosComRessarcimento + totalMkt;
+  const liquido = bruto - custoIfood;
 
   // Bloco 3 (Composicao de Promos) usa outra base de mkt: quem pagou (loja x plataforma).
   const totalMktGeral = promoIfoodRede + promoLoja;
@@ -710,6 +710,7 @@ function cardsSaidas(m) {
     <div class="card neg"><div class="card-lbl">Outros ajustes</div><div class="card-val">R$ ${fmt(m.outrosAjustes)}</div><div class="card-pct">${pct(m.outrosAjustesPct)}%</div></div>
   </div>
   <div class="equation-row">
+    <div class="eq-symbol">+</div>
     <div class="card neg"><div class="card-lbl">Frete sob demanda</div><div class="card-val">R$ ${fmt(m.freteSobDemanda)}</div><div class="card-pct">${pct(m.freteSobDemandaPct)}%</div></div>
     <div class="eq-symbol">-</div>
     <div class="card pos"><div class="card-lbl">Ressarcimento por cancelamentos</div><div class="card-val">R$ ${fmt(m.ressarcimentoCancelamento)}</div><div class="card-pct">${pct(m.ressarcimentoCancelamentoPct)}%</div></div>
@@ -730,6 +731,7 @@ function cardsSaidas(m) {
     <div class="card neg"><div class="card-lbl">Loja</div><div class="card-val">R$ ${fmt(m.investLoja)}</div><div class="card-pct" style="color:#ff6b6b;">${pct(m.investLojaPct)}% do mkt total</div></div>
     <div class="card pos"><div class="card-lbl">iFood</div><div class="card-val">R$ ${fmt(m.investPlataforma)}</div><div class="card-pct" style="color:#3fb950;">${pct(m.investPlataformaPct)}% do mkt total</div></div>
   </div>
+  <div class="section-label">Resultado</div>
   <div class="cards">
     <div class="card pos highlight"><div class="card-lbl">Liquido (inclui recebido direto)</div><div class="card-val">R$ ${fmt(m.liquido)}</div><div class="card-pct">${pct(m.liquidoPct)}%</div></div>
     <div class="card neg highlight"><div class="card-lbl">Custo iFood</div><div class="card-val">R$ ${fmt(m.custoIfood)}</div><div class="card-pct">${pct(m.custoIfoodPct)}%</div></div>
