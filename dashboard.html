@@ -102,6 +102,16 @@
   #tabelaMotivos th { background:#21262d; color:#9aa4af; font-weight:bold; font-size:11px; text-transform:uppercase; }
   #tabelaMotivos tr:nth-child(even) { background:#12161c; }
 
+  .login-gate { position:fixed; inset:0; background:#0d1117; display:flex; align-items:center; justify-content:center; z-index:1000; padding:20px; }
+  .login-box { background:#161b22; border:1px solid #262c36; border-radius:12px; padding:36px 40px; text-align:center; max-width:320px; width:100%; }
+  .login-box img { height:56px; width:56px; border-radius:50%; object-fit:cover; margin-bottom:12px; }
+  .login-box h2 { color:#ffffff; font-size:20px; margin:0 0 6px 0; }
+  .login-box p { color:#9aa4af; font-size:12.5px; margin:0 0 18px 0; }
+  .login-box input { width:100%; background:#0d1117; border:1px solid #30363d; color:#e6e6e6; border-radius:6px; padding:10px 12px; font-size:13px; margin-bottom:12px; }
+  .login-box button { width:100%; background:#f5a623; border:none; color:#0d1117; font-size:13px; font-weight:bold; padding:10px 12px; border-radius:6px; cursor:pointer; }
+  .login-box button:hover { background:#e3b341; }
+  .login-erro { color:#ff6b6b; font-size:12px; margin-top:10px; }
+
   @media (max-width: 640px) {
     .wrap { padding: 20px 16px 40px; }
     .app-layout { flex-direction: column; }
@@ -112,6 +122,18 @@
 </style>
 </head>
 <body>
+
+<div id="loginGate" class="login-gate">
+  <div class="login-box">
+    <img src="logo.png" alt="Cidadao do Mundo">
+    <h2>PAINEL IFOOD</h2>
+    <p>Acesso restrito. Digite a senha para continuar.</p>
+    <input type="password" id="loginSenha" placeholder="Senha" autocomplete="off">
+    <button onclick="verificarSenha()">Entrar</button>
+    <div id="loginErro" class="login-erro" style="display:none;">Senha incorreta.</div>
+  </div>
+</div>
+
 <div class="app-layout">
   <nav class="sidebar">
     <button class="sidebar-btn active" id="navBtnResumo" onclick="mostrarModulo('resumo')">Resumo Operacional</button>
@@ -1247,7 +1269,42 @@ async function iniciar() {
   }
 }
 
-iniciar();
+// ------------------------------------------------------------------
+// Trava de acesso (senha) — protecao simples do lado do cliente, so pra
+// evitar que alguem tropece no link sem querer. Nao e seguranca de
+// verdade: o codigo-fonte e' publico e os dados continuam acessiveis
+// direto pela API do Supabase com a chave anonima usada acima.
+// ------------------------------------------------------------------
+const SENHA_HASH = 'f7c9576a28fe80a9ce207e4c98fd812d9d1069739001a79b0743f183f1bc514d';
+const CHAVE_ACESSO = 'painelIfoodAcessoOk';
+
+async function sha256Hex(texto) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(texto));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function verificarSenha() {
+  const input = document.getElementById('loginSenha');
+  const hash = await sha256Hex(input.value);
+  if (hash === SENHA_HASH) {
+    localStorage.setItem(CHAVE_ACESSO, '1');
+    document.getElementById('loginGate').style.display = 'none';
+    iniciar();
+  } else {
+    document.getElementById('loginErro').style.display = 'block';
+    input.value = '';
+    input.focus();
+  }
+}
+
+document.getElementById('loginSenha').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') verificarSenha();
+});
+
+if (localStorage.getItem(CHAVE_ACESSO) === '1') {
+  document.getElementById('loginGate').style.display = 'none';
+  iniciar();
+}
 </script>
 </body>
 </html>
