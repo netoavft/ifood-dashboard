@@ -13,6 +13,20 @@
     font-family: 'Helvetica Neue', Arial, sans-serif;
     min-height: 100vh;
   }
+  .app-layout { display:flex; min-height:100vh; align-items:stretch; }
+  .sidebar {
+    width:200px; flex:0 0 200px; background:#11151c; border-right:1px solid #262c36;
+    padding:24px 0; display:flex; flex-direction:column; gap:4px;
+  }
+  .sidebar-btn {
+    background:none; border:none; color:#9aa4af; font-size:13px; font-weight:bold;
+    text-align:left; padding:12px 24px; cursor:pointer; border-left:3px solid transparent;
+    font-family:inherit;
+  }
+  .sidebar-btn:hover { color:#f5a623; }
+  .sidebar-btn.active { color:#f5a623; background:#1c1508; border-left-color:#f5a623; }
+  .main-content { flex:1; min-width:0; }
+
   .wrap { max-width: 1100px; margin: 0 auto; padding: 28px 32px 60px; }
   .header-row { display:flex; align-items:center; justify-content:center; gap:14px; margin:0 0 6px 0; }
   .header-logo { height:64px; width:64px; border-radius:50%; object-fit:cover; flex-shrink:0; }
@@ -90,11 +104,21 @@
 
   @media (max-width: 640px) {
     .wrap { padding: 20px 16px 40px; }
+    .app-layout { flex-direction: column; }
+    .sidebar { width:100%; flex:0 0 auto; flex-direction:row; overflow-x:auto; border-right:none; border-bottom:1px solid #262c36; padding:8px; }
+    .sidebar-btn { border-left:none; border-bottom:3px solid transparent; padding:10px 16px; white-space:nowrap; }
+    .sidebar-btn.active { border-left-color:transparent; border-bottom-color:#f5a623; }
   }
 </style>
 </head>
 <body>
-<div class="wrap">
+<div class="app-layout">
+  <nav class="sidebar">
+    <button class="sidebar-btn active" id="navBtnResumo" onclick="mostrarModulo('resumo')">Resumo Operacional</button>
+    <button class="sidebar-btn" id="navBtnEvolucao" onclick="mostrarModulo('evolucao')">Evolucao</button>
+  </nav>
+  <div class="main-content">
+  <div class="wrap">
 
   <div class="header-row">
     <h1>PAINEL IFOOD</h1>
@@ -147,9 +171,30 @@
       <button onclick="resetFiltros()">Limpar filtros</button>
     </div>
 
-    <div id="view-content"></div>
+    <div id="modulo-resumo" class="modulo">
+      <div id="view-content"></div>
+    </div>
 
-    <div class="section-label">Evolucao</div>
+    <div id="modulo-evolucao" class="modulo" style="display:none;">
+
+    <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Analise executiva</div>
+    <div class="caption-label" style="text-align:center;">Cruzando volume, preco e investimento em marketing com o resultado final (liquido)</div>
+    <div class="chart-grid">
+      <div class="chart-box" style="height:340px;">
+        <div class="chart-title">Ponte do liquido: periodo anterior -&gt; periodo atual</div>
+        <div class="chart-canvas-wrap"><canvas id="chartWaterfall"></canvas></div>
+      </div>
+      <div class="chart-box" style="height:340px;">
+        <div class="chart-title">Investimento em mkt por pedido x liquido por pedido</div>
+        <div class="chart-canvas-wrap"><canvas id="chartMktLiquido"></canvas></div>
+      </div>
+      <div class="chart-box" style="height:340px;">
+        <div class="chart-title">Ticket medio x numero de pedidos (bolha = liquido do periodo)</div>
+        <div class="chart-canvas-wrap"><canvas id="chartTicketVolumeLiquido"></canvas></div>
+      </div>
+    </div>
+
+    <div class="section-label">Evolucao detalhada</div>
     <div class="filters" style="margin-bottom:16px;">
       <label>Agrupar por
         <select id="fGranularidade">
@@ -187,11 +232,15 @@
     <div class="section-label">Tabela resumo por periodo</div>
     <div id="tabelaEvolucao"></div>
 
+    </div>
+
     <div class="footer">
       Liquido usa o valor calculado pelo iFood (coluna Valor Liquido do relatorio). "Recebido direto" estima o valor que nao passa pelo repasse do iFood
       (pagamento na entrega e vale-refeicao, liquidados direto pela operadora de cartao/beneficio). Cancelamentos totais sao excluidos do Bruto e do Liquido;
       cancelamentos parciais entram pelo valor efetivamente realizado. Dados ao vivo, direto do banco Supabase.
     </div>
+  </div>
+  </div>
   </div>
 </div>
 
@@ -455,6 +504,23 @@ function resetFiltros() {
   renderTopNav();
   rebuildLojaOptions();
   renderAll();
+}
+
+// ------------------------------------------------------------------
+// Navegacao entre modulos (menu lateral) — troca qual bloco aparece,
+// sem recarregar a pagina nem mudar a URL. Os filtros continuam
+// compartilhados entre todos os modulos.
+// ------------------------------------------------------------------
+function mostrarModulo(nome) {
+  const modulos = { resumo: 'modulo-resumo', evolucao: 'modulo-evolucao' };
+  Object.entries(modulos).forEach(([chave, id]) => {
+    document.getElementById(id).style.display = (chave === nome) ? 'block' : 'none';
+  });
+  document.getElementById('navBtnResumo').classList.toggle('active', nome === 'resumo');
+  document.getElementById('navBtnEvolucao').classList.toggle('active', nome === 'evolucao');
+  // Os graficos Chart.js do modulo Evolucao ficam com tamanho zerado se forem desenhados
+  // enquanto o container esta com display:none — por isso redesenhamos ao entrar no modulo.
+  if (nome === 'evolucao') renderEvolucao();
 }
 
 // ------------------------------------------------------------------
@@ -855,6 +921,104 @@ function computeEvolucao(rows, gran) {
   });
 }
 
+// Chave de periodo generica, calculada direto a partir de uma data (string 'YYYY-MM-DD'),
+// sem depender dos indices de semana/dia_semana pre-calculados de ROWS. Precisamos disso pra
+// agrupar CONCILIACAO (que so tem loja+data) na mesma "caixinha" de periodo que os pedidos,
+// pros graficos executivos que cruzam as duas fontes.
+function periodoKeyGenerico(dataStr, gran) {
+  const [yyyy, mm] = dataStr.split('-');
+  if (gran === 'dia') return { key: dataStr, label: dataStr.split('-').reverse().join('/'), sort: dataStr };
+  if (gran === 'diaSemana') {
+    const d = new Date(dataStr + 'T00:00:00');
+    const idx = (d.getDay() + 6) % 7; // 0=Segunda ... 6=Domingo, mesma ordem de DIAS
+    return { key: String(idx), label: DIAS[idx], sort: String(idx).padStart(2,'0') };
+  }
+  if (gran === 'mes') {
+    const key = `${yyyy}-${mm}`;
+    return { key, label: `${MESES_ABREV[Number(mm)-1]}/${yyyy}`, sort: key };
+  }
+  if (gran === 'ano') return { key: yyyy, label: yyyy, sort: yyyy };
+  // semana: chave = segunda-feira (seg-dom) da semana que contem essa data. E' um identificador
+  // estavel calculado independente do texto de "semana" que vem do banco.
+  const d = new Date(dataStr + 'T00:00:00');
+  const idxSemana = (d.getDay() + 6) % 7;
+  d.setDate(d.getDate() - idxSemana);
+  const seg = d.toISOString().slice(0,10);
+  const dom = new Date(d); dom.setDate(dom.getDate() + 6);
+  const domStr = dom.toISOString().slice(0,10);
+  const fmtDDMM = (s) => s.split('-').slice(1).reverse().join('/');
+  return { key: seg, label: `${fmtDDMM(seg)} - ${fmtDDMM(domStr)}`, sort: seg };
+}
+
+// Agregacao completa por periodo (mesma formula validada de computeMetrics: bruto, descontos
+// com conciliacao, investimento em mkt, custo iFood e liquido) — usada pelos graficos
+// executivos do modulo Evolucao (ponte do liquido e as duas dispersoes).
+function computeEvolucaoCompleta(gran) {
+  const rows = linhasFiltradas();
+  const activeL = activeLojas();
+  const dIni = fDataIni.value, dFim = fDataFim.value;
+
+  const grupos = new Map();
+  function getGrupo(info) {
+    if (!grupos.has(info.key)) {
+      grupos.set(info.key, {
+        label: info.label, sort: info.sort,
+        totalPedidos: 0, itens: 0, frete: 0, promoLoja: 0, freteSobDemanda: 0,
+        taxaCartao: 0, comissao: 0, mensalidade: 0, outrosAj: 0, anuncios: 0, ressarcimento: 0,
+      });
+    }
+    return grupos.get(info.key);
+  }
+
+  rows.forEach(r => {
+    if (r[6] === 1) return; // ignora cancelamento total (mesma regra do bruto/liquido)
+    const dataStr = DATAS[r[5]];
+    const g = getGrupo(periodoKeyGenerico(dataStr, gran));
+    g.totalPedidos += r[7];
+    g.itens += (r[8] - r[9]);
+    g.frete += r[10];
+    g.promoLoja += r[13];
+    g.freteSobDemanda += r[16];
+  });
+
+  CONCILIACAO.forEach(c => {
+    const [lojaIdx, dataStr, grupoNome, valor] = c;
+    if (!activeL.has(lojaIdx)) return;
+    if (dIni && dataStr < dIni) return;
+    if (dFim && dataStr > dFim) return;
+    const g = getGrupo(periodoKeyGenerico(dataStr, gran));
+    if (grupoNome === 'TAXA_CARTAO') g.taxaCartao += -valor;
+    else if (grupoNome === 'COMISSAO_VENDAS') g.comissao += -valor;
+    else if (grupoNome === 'MENSALIDADE') g.mensalidade += -valor;
+    else if (grupoNome === 'OUTROS_AJUSTES') g.outrosAj += -valor;
+    else if (grupoNome === 'ANUNCIOS') g.anuncios += -valor;
+    else if (grupoNome === 'RESSARCIMENTO_CANCELAMENTO') g.ressarcimento += valor;
+  });
+
+  const lista = Array.from(grupos.values()).sort((a,b) => a.sort < b.sort ? -1 : a.sort > b.sort ? 1 : 0);
+
+  return lista.map(g => {
+    const bruto = g.itens + g.frete;
+    const totalTaxasComissoes = g.taxaCartao + g.comissao + g.mensalidade + g.outrosAj;
+    const totalDescontos = totalTaxasComissoes + g.freteSobDemanda;
+    const totalDescontosComRessarcimento = totalDescontos - g.ressarcimento;
+    const totalMkt = g.promoLoja + g.anuncios;
+    const custoIfood = totalDescontosComRessarcimento + totalMkt;
+    const liquido = bruto - custoIfood;
+    return {
+      label: g.label,
+      totalPedidos: g.totalPedidos,
+      bruto, liquido,
+      ticketMedio: g.totalPedidos ? bruto/g.totalPedidos : 0,
+      totalMkt,
+      mktPorPedido: g.totalPedidos ? totalMkt/g.totalPedidos : 0,
+      liquidoPorPedido: g.totalPedidos ? liquido/g.totalPedidos : 0,
+      totalDescontosComRessarcimento,
+      custoIfood,
+    };
+  });
+}
+
 function destroyChart(id) {
   if (chartInstances[id]) { chartInstances[id].destroy(); delete chartInstances[id]; }
 }
@@ -916,6 +1080,120 @@ function renderTabelaEvolucao(dados) {
   document.getElementById('tabelaEvolucao').innerHTML = html;
 }
 
+// ------------------------------------------------------------------
+// Graficos executivos (Analise executiva): cruzam volume, preco e
+// investimento em marketing com o resultado final (liquido).
+// ------------------------------------------------------------------
+
+// "Ponte" do liquido entre o penultimo e o ultimo periodo da lista (respeitando a
+// granularidade escolhida): decompoe a variacao do liquido em efeito volume (mudanca no
+// numero de pedidos, ao ticket medio antigo), efeito ticket medio/preco (mudanca no ticket
+// medio, ao volume novo), efeito descontos/taxas e efeito investimento em mkt.
+function renderChartWaterfall(dados) {
+  destroyChart('chartWaterfall');
+  const ctx = document.getElementById('chartWaterfall').getContext('2d');
+  if (dados.length < 2) {
+    chartInstances['chartWaterfall'] = new Chart(ctx, { type: 'bar', data: { labels: ['Selecione um periodo com pelo menos 2 pontos'], datasets: [{ data: [0], backgroundColor: '#30363d' }] }, options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}} } });
+    return;
+  }
+  const atual = dados[dados.length - 1];
+  const anterior = dados[dados.length - 2];
+
+  const deltaPedidos = atual.totalPedidos - anterior.totalPedidos;
+  const efeitoVolume = deltaPedidos * anterior.ticketMedio;
+  const efeitoTicket = atual.totalPedidos * (atual.ticketMedio - anterior.ticketMedio);
+  const efeitoDescontos = -(atual.totalDescontosComRessarcimento - anterior.totalDescontosComRessarcimento);
+  const efeitoMkt = -(atual.totalMkt - anterior.totalMkt);
+
+  let acumulado = anterior.liquido;
+  const barras = [{ label: ['Liquido', anterior.label], from: 0, to: anterior.liquido, tipo: 'total' }];
+  [['Efeito volume', efeitoVolume], ['Efeito ticket medio', efeitoTicket], ['Descontos/taxas', efeitoDescontos], ['Invest. em MKT', efeitoMkt]]
+    .forEach(([nome, valor]) => {
+      const de = acumulado;
+      acumulado += valor;
+      barras.push({ label: nome, from: Math.min(de, acumulado), to: Math.max(de, acumulado), tipo: valor >= 0 ? 'pos' : 'neg', delta: valor });
+    });
+  barras.push({ label: ['Liquido', atual.label], from: 0, to: acumulado, tipo: 'total' });
+
+  const cores = { total: '#58a6ff', pos: '#3fb950', neg: '#ff6b6b' };
+
+  chartInstances['chartWaterfall'] = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: barras.map(b => b.label),
+      datasets: [{ data: barras.map(b => [b.from, b.to]), backgroundColor: barras.map(b => cores[b.tipo]), borderRadius: 4 }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: (c) => {
+          const b = barras[c.dataIndex];
+          return b.tipo === 'total' ? `R$ ${fmt(b.to)}` : `${b.delta >= 0 ? '+' : ''}R$ ${fmt(b.delta)}`;
+        } } },
+      },
+      scales: {
+        x: { ticks: { maxRotation: 0, autoSkip: false, font: { size: 10 } } },
+        y: { beginAtZero: true, title: { display: true, text: 'R$' } },
+      },
+    },
+  });
+}
+
+// Dispersao: cada ponto e' um periodo. Responde "quando o investimento em mkt por pedido
+// cai/sobe, o liquido por pedido acompanha, ou fica igual/melhora?"
+function renderChartMktLiquido(dados) {
+  destroyChart('chartMktLiquido');
+  const ctx = document.getElementById('chartMktLiquido').getContext('2d');
+  chartInstances['chartMktLiquido'] = new Chart(ctx, {
+    type: 'scatter',
+    data: { datasets: [{
+      label: 'Periodos',
+      data: dados.map(d => ({ x: d.mktPorPedido, y: d.liquidoPorPedido, label: d.label })),
+      backgroundColor: '#f5a623', pointRadius: 5, pointHoverRadius: 7,
+    }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: (c) => `${c.raw.label}: MKT R$ ${fmt(c.raw.x)}/pedido | Liquido R$ ${fmt(c.raw.y)}/pedido` } },
+      },
+      scales: {
+        x: { title: { display: true, text: 'Investimento MKT por pedido (R$)' } },
+        y: { title: { display: true, text: 'Liquido por pedido (R$)' } },
+      },
+    },
+  });
+}
+
+// Bolha: X = ticket medio, Y = numero de pedidos, tamanho da bolha = liquido total do
+// periodo. Responde "quando o ticket medio sobe e o volume cai, o liquido total melhora,
+// piora ou fica igual?" numa imagem so.
+function renderChartTicketVolumeLiquido(dados) {
+  destroyChart('chartTicketVolumeLiquido');
+  const ctx = document.getElementById('chartTicketVolumeLiquido').getContext('2d');
+  const maxLiquido = Math.max(1, ...dados.map(d => Math.abs(d.liquido)));
+  chartInstances['chartTicketVolumeLiquido'] = new Chart(ctx, {
+    type: 'bubble',
+    data: { datasets: [{
+      label: 'Periodos',
+      data: dados.map(d => ({ x: d.ticketMedio, y: d.totalPedidos, r: 5 + (Math.abs(d.liquido)/maxLiquido)*20, label: d.label, liquido: d.liquido })),
+      backgroundColor: 'rgba(88,166,255,0.5)', borderColor: '#58a6ff',
+    }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: (c) => `${c.raw.label}: Ticket R$ ${fmt(c.raw.x)} | ${c.raw.y} pedidos | Liquido R$ ${fmt(c.raw.liquido)}` } },
+      },
+      scales: {
+        x: { title: { display: true, text: 'Ticket medio (R$)' } },
+        y: { title: { display: true, text: 'Numero de pedidos' }, beginAtZero: true },
+      },
+    },
+  });
+}
+
 function renderEvolucao() {
   const rows = linhasFiltradas();
   const gran = selGranularidade.value;
@@ -942,6 +1220,11 @@ function renderEvolucao() {
   ], 'R$');
 
   renderTabelaEvolucao(dados);
+
+  const dadosCompletos = computeEvolucaoCompleta(gran);
+  renderChartWaterfall(dadosCompletos);
+  renderChartMktLiquido(dadosCompletos);
+  renderChartTicketVolumeLiquido(dadosCompletos);
 }
 
 // ------------------------------------------------------------------
