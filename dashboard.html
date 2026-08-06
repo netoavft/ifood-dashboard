@@ -19,7 +19,7 @@
   h1 { color:#ffffff; font-size:36px; margin:0; }
   .subtitle { color:#9aa4af; font-size:13px; margin-bottom:22px; }
 
-  .filters { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-bottom:12px; }
+  .filters { display:flex; gap:12px; flex-wrap:wrap; justify-content:center; align-items:center; margin-bottom:12px; }
   .filters label { font-size:12px; color:#9aa4af; display:flex; gap:6px; align-items:center; }
   .filters input[type=date], .filters select {
     background:#161b22; border:1px solid #30363d; color:#e6e6e6; border-radius:6px; padding:6px 8px; font-size:12.5px;
@@ -133,17 +133,18 @@
         <summary id="fTurnoSummary">Turno: todos</summary>
         <div class="loja-options" id="fTurnoOptions"></div>
       </details>
-
-      <button onclick="resetFiltros()">Limpar filtros</button>
     </div>
 
-    <div class="topnav" id="topnav"></div>
-
-    <div style="display:flex; justify-content:center; margin-bottom:20px; border-bottom:1px solid #262c36; padding-bottom:20px;">
+    <div style="display:flex; flex-wrap:wrap; justify-content:center; align-items:flex-start; gap:8px;">
+      <div class="topnav" id="topnav" style="margin-bottom:0;"></div>
       <details class="lojadrop" style="margin-bottom:0;">
         <summary id="lojaSummary">Marcas (loja): todas</summary>
         <div class="loja-options" id="lojaOptions"></div>
       </details>
+    </div>
+
+    <div style="display:flex; justify-content:center; margin-bottom:20px; border-bottom:1px solid #262c36; padding-bottom:20px;">
+      <button onclick="resetFiltros()">Limpar filtros</button>
     </div>
 
     <div id="view-content"></div>
