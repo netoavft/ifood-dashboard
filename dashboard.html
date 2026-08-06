@@ -738,8 +738,9 @@ function cardsSaidas(m) {
     <div class="eq-symbol">-</div>
     <div style="flex:2 1 380px; display:flex; align-items:center; gap:10px; border:1px solid #f5a623; border-radius:10px; padding:10px;">
       <div class="card neg" style="background:transparent;"><div class="card-lbl">Total de descontos</div><div class="card-val">R$ ${fmt(m.totalDescontosComRessarcimento)}</div><div class="card-pct">${pct(m.totalDescontosComRessarcimentoPct)}%</div></div>
-      <div class="eq-symbol">-</div>
+      <div class="eq-symbol">+</div>
       <div class="card neg" style="background:transparent;"><div class="card-lbl">Total Investido em Marketing</div><div class="card-val">R$ ${fmt(m.totalMkt)}</div><div class="card-pct">${pct(m.totalMktPct)}%</div></div>
+      <div class="eq-symbol">=</div>
       <div class="card neg highlight"><div class="card-lbl">Custo iFood</div><div class="card-val">R$ ${fmt(m.custoIfood)}</div><div class="card-pct">${pct(m.custoIfoodPct)}%</div></div>
     </div>
     <div class="eq-symbol">=</div>
