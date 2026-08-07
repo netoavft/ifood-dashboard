@@ -15,8 +15,9 @@
   }
   .app-layout { display:flex; min-height:100vh; align-items:stretch; }
   .sidebar {
-    width:200px; flex:0 0 200px; background:#11151c; border-right:1px solid #262c36;
-    padding:24px 0; display:flex; flex-direction:column; gap:4px;
+    width:210px; flex:0 0 210px; background:#11151c; border-right:1px solid #262c36;
+    padding:24px 0; display:flex; flex-direction:column; gap:2px;
+    position:sticky; top:0; align-self:flex-start; max-height:100vh; overflow-y:auto;
   }
   .sidebar-btn {
     background:none; border:none; color:#9aa4af; font-size:13px; font-weight:bold;
@@ -27,6 +28,12 @@
                    border-bottom:1px solid #262c36; }
   .sidebar-logo { height:38px; width:38px; border-radius:50%; object-fit:cover; flex-shrink:0; }
   .sidebar-marca-nome { color:#ffffff; font-size:14px; font-weight:bold; letter-spacing:.3px; }
+
+  .sidebar-secao { color:#6e7681; font-size:9.5px; font-weight:bold; text-transform:uppercase;
+                   letter-spacing:1px; padding:16px 24px 6px; }
+  .sidebar-btn.breve { color:#4d5560; cursor:default; font-weight:normal; }
+  .sidebar-btn.breve:hover { color:#4d5560; }
+  .sidebar-btn.breve::after { content:' · em breve'; font-size:9px; color:#3d444d; }
 
   .sidebar-btn:hover { color:#f5a623; }
   .sidebar-btn.active { color:#f5a623; background:#1c1508; border-left-color:#f5a623; }
@@ -163,11 +170,40 @@
   <nav class="sidebar">
     <div class="sidebar-marca">
       <img src="logo.png" alt="Cidadão do Mundo" class="sidebar-logo">
-      <span class="sidebar-marca-nome">Painel iFood</span>
+      <span class="sidebar-marca-nome">Cidadão do Mundo</span>
     </div>
+
+    <div class="sidebar-secao">Resultado</div>
     <button class="sidebar-btn active" id="navBtnResumo" onclick="mostrarModulo('resumo')">Visão Geral</button>
-    <button class="sidebar-btn" id="navBtnCancelamentos" onclick="mostrarModulo('cancelamentos')">Cancelamentos</button>
     <button class="sidebar-btn" id="navBtnEvolucao" onclick="mostrarModulo('evolucao')">Tendências</button>
+    <span class="sidebar-btn breve">DRE</span>
+    <span class="sidebar-btn breve">Fluxo de caixa</span>
+    <span class="sidebar-btn breve">Margem por item</span>
+
+    <div class="sidebar-secao">Vendas</div>
+    <span class="sidebar-btn breve">Por período</span>
+    <span class="sidebar-btn breve">Por item</span>
+    <span class="sidebar-btn breve">Por canal</span>
+
+    <div class="sidebar-secao">Canal · iFood</div>
+    <button class="sidebar-btn" id="navBtnCancelamentos" onclick="mostrarModulo('cancelamentos')">Cancelamentos</button>
+    <span class="sidebar-btn breve">Promoções</span>
+    <span class="sidebar-btn breve">Negociações</span>
+    <span class="sidebar-btn breve">Avaliações</span>
+
+    <div class="sidebar-secao">Logística</div>
+    <span class="sidebar-btn breve">Tempo de entrega</span>
+    <span class="sidebar-btn breve">Por entregador</span>
+
+    <div class="sidebar-secao">Pessoas</div>
+    <span class="sidebar-btn breve">A definir (Flash)</span>
+
+    <div class="sidebar-secao">Planejamento</div>
+    <span class="sidebar-btn breve">Formação de preço</span>
+
+    <div class="sidebar-secao">Cadastros</div>
+    <span class="sidebar-btn breve">Ficha técnica</span>
+    <span class="sidebar-btn breve">Despesas e rateio</span>
   </nav>
   <div class="main-content">
   <div class="wrap">
@@ -1046,8 +1082,15 @@ function linhaContexto(ant) {
     ? `Comparado com os ${ant.dias} dias anteriores: ${formatarDataCurta(ant.ini)} a ${formatarDataCurta(ant.fim)}.`
     : `Sem período anterior de mesmo tamanho para comparar.`;
 
+  // Enquanto so o iFood estiver na base, "consolidado" e "iFood" sao a mesma coisa. Deixar isso
+  // escrito evita que alguem leia a Visao Geral como se ja incluisse salao, site e atacado.
+  const canais = `<div style="margin-top:6px; color:#7d8590; font-size:11.5px;">
+    Base atual: <b>somente o canal iFood</b>. Site próprio, salão e atacado ainda não foram integrados.
+  </div>`;
+
   return `<div class="contexto">
     Mostrando ${partes.join(' &middot; ')}.<br>${comparacao}
+    ${canais}
     <div style="margin-top:8px; padding-top:8px; border-top:1px solid #262c36; font-size:11.5px; color:#7d8590;">
       Nas comparações, a palavra diz o que aconteceu (<b>subiu</b> / <b>caiu</b>) e a cor diz se é bom ou ruim:
       <span style="color:#3fb950; font-weight:bold;">verde</span> melhora o resultado,
