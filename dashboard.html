@@ -750,11 +750,17 @@ function computeMetrics() {
   const totalCancelados = nFull + nParcial;
   const totalPedidosGeral = rows.reduce((s,r)=>s+r[7],0);
 
+  // O que a operacao realmente perdeu com cancelamentos: o valor cancelado menos o que o
+  // iFood devolveu (ressarcimento). E o numero que importa pro resultado, nao o valor bruto
+  // cancelado — parte dele volta.
+  const valorPerdidoReal = valorCancelado - ressarcimentoCancelamento;
+
   const safeBruto = bruto || 1;
   const safeTotal = totalPedidosGeral || 1;
   const safeMktGeral = totalMktGeral || 1;
 
   return {
+    valorPerdidoReal, valorPerdidoRealPct: valorPerdidoReal/safeBruto*100,
     itens, itensPct: itens/safeBruto*100,
     frete, fretePct: frete/safeBruto*100,
     bruto,
@@ -870,14 +876,73 @@ function cardsCancel(m) {
 
   return `<div class="section-label">Cancelamentos</div>
   <div class="cards">
-    <div class="card neg"><div class="card-lbl">Valor cancelado</div><div class="card-val">R$ ${fmt(m.valorCancelado)}</div><div class="card-pct">${pct(m.valorCanceladoPct)}%</div></div>
-    <div class="card neg"><div class="card-lbl">Pedidos cancelados</div><div class="card-val">${m.totalCancelados}</div><div class="card-pct">${pct(m.totalCanceladosPct)}% do total</div></div>
-    <div class="card neutral"><div class="card-lbl">Cancelamentos parciais</div><div class="card-val">${m.nParcial} (${pct(m.nParcialPct)}%)</div><div class="card-pct">R$ ${fmt(m.vParcial)} perdidos</div></div>
-    <div class="card neutral"><div class="card-lbl">Cancelamentos totais</div><div class="card-val">${m.nFull} (${pct(m.nFullPct)}%)</div><div class="card-pct">R$ ${fmt(m.vFull)} perdidos</div></div>
-    <div class="card pos"><div class="card-lbl">Ressarcimento por cancelamentos</div><div class="card-val">R$ ${fmt(m.ressarcimentoCancelamento)}</div><div class="card-pct">${pct(m.ressarcimentoCancelamentoPct)}%</div></div>
+    <div class="card neg"><div class="card-lbl">Total cancelados</div><div class="card-val">R$ ${fmt(m.valorCancelado)}</div><div class="card-pct">${pct(m.valorCanceladoPct)}% do bruto</div></div>
+    <div class="card neutral"><div class="card-lbl">Cancelamentos parciais</div><div class="card-val">R$ ${fmt(m.vParcial)}</div><div class="card-pct">${m.nParcial} pedidos (${pct(m.nParcialPct)}%)</div></div>
+    <div class="card neutral"><div class="card-lbl">Cancelamentos totais</div><div class="card-val">R$ ${fmt(m.vFull)}</div><div class="card-pct">${m.nFull} pedidos (${pct(m.nFullPct)}%)</div></div>
+    <div class="card pos"><div class="card-lbl">Total ressarcimentos</div><div class="card-val">R$ ${fmt(m.ressarcimentoCancelamento)}</div><div class="card-pct">${pct(m.ressarcimentoCancelamentoPct)}% do bruto</div></div>
   </div>
-  <div class="caption-label">Motivo do cancelamento por categoria (fonte: motivos.xlsx — categoria "NAO_MAPEADO" ainda nao foi classificada)</div>
+  <div class="caption-label" style="text-align:center;">
+    "Total cancelados" e a soma dos outros dois: <b>parciais</b> (o cliente cancelou parte do pedido — so o item cancelado entra) +
+    <b>totais</b> (o pedido inteiro foi cancelado).
+  </div>
+
+  <div style="display:flex; flex-wrap:wrap; gap:14px; align-items:stretch; margin-top:8px;">
+    <div class="chart-box" style="flex:2 1 420px; height:300px;">
+      <div class="chart-title">Motivo do cancelamento por categoria (valor perdido)</div>
+      <div class="chart-canvas-wrap"><canvas id="chartMotivos"></canvas></div>
+    </div>
+    <div class="card neg highlight" style="flex:1 1 240px; display:flex; flex-direction:column; justify-content:center;">
+      <div class="card-lbl">Valor perdido real</div>
+      <div class="card-val" style="font-size:26px;">R$ ${fmt(m.valorPerdidoReal)}</div>
+      <div class="card-pct">${pct(m.valorPerdidoRealPct)}% do bruto</div>
+      <div style="color:#7d8590; font-size:11px; line-height:1.5; margin-top:12px; border-top:1px solid #262c36; padding-top:10px;">
+        Total cancelado <b>menos</b> o que o iFood devolveu em ressarcimentos.<br>
+        E o que de fato saiu do bolso da operacao.
+      </div>
+    </div>
+  </div>
+
+  <div class="caption-label">Fonte da classificacao: motivos.xlsx — categoria "NAO_MAPEADO" ainda nao foi classificada</div>
   ${tabelaMotivos}`;
+}
+
+// Barras horizontais ordenadas: a tarefa aqui e comparar magnitude entre categorias, e barra
+// mede isso com precisao (pizza/rosca so funciona bem pra "parte do todo" com valores bem
+// distintos — varias categorias aqui tem valores proximos e ficariam ambiguas em fatias).
+// Uma cor so (mesma medida em todas as barras); o comprimento ja carrega a informacao.
+function renderChartMotivos() {
+  const el = document.getElementById('chartMotivos');
+  if (!el) return;
+  destroyChart('chartMotivos');
+  const dados = resumoMotivosCancelamento().slice().sort((a,b) => b.valor - a.valor);
+  chartInstances['chartMotivos'] = new Chart(el.getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: dados.map(d => d.responsavel),
+      datasets: [{
+        data: dados.map(d => d.valor),
+        backgroundColor: '#ff6b6b',
+        borderRadius: 4,
+        borderSkipped: false,
+      }],
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: (c) => {
+          const d = dados[c.dataIndex];
+          return `R$ ${fmt(d.valor)} — ${d.n} pedidos (${pct(d.pct)}% dos cancelamentos)`;
+        } } },
+      },
+      scales: {
+        x: { beginAtZero: true, title: { display: true, text: 'R$ perdidos' }, grid: { color: '#1a1f27' } },
+        y: { grid: { display: false } },
+      },
+    },
+  });
 }
 
 function renderAll() {
@@ -887,6 +952,7 @@ function renderAll() {
   html += cardsSaidas(m);
   html += cardsCancel(m);
   document.getElementById('view-content').innerHTML = html;
+  renderChartMotivos();
   renderEvolucao();
 }
 
