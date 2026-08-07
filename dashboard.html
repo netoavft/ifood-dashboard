@@ -465,9 +465,20 @@ function toggleItemFiltro(id, idx, marcado) {
   renderAll();
 }
 
+// Periodo padrao ao abrir o painel: os ultimos 7 dias com dado no banco (nao os 7 dias
+// de calendario, que poderiam cair num intervalo sem nenhum pedido importado ainda).
+function periodoPadrao() {
+  const ultima = DATAS[DATAS.length-1];
+  const d = new Date(ultima + 'T00:00:00');
+  d.setDate(d.getDate() - 6);
+  const inicioDesejado = d.toISOString().slice(0,10);
+  return { ini: inicioDesejado < DATAS[0] ? DATAS[0] : inicioDesejado, fim: ultima };
+}
+
 function montarFiltrosBase() {
-  fDataIni.min = DATAS[0]; fDataIni.max = DATAS[DATAS.length-1]; fDataIni.value = DATAS[0];
-  fDataFim.min = DATAS[0]; fDataFim.max = DATAS[DATAS.length-1]; fDataFim.value = DATAS[DATAS.length-1];
+  const padrao = periodoPadrao();
+  fDataIni.min = DATAS[0]; fDataIni.max = DATAS[DATAS.length-1]; fDataIni.value = padrao.ini;
+  fDataFim.min = DATAS[0]; fDataFim.max = DATAS[DATAS.length-1]; fDataFim.value = padrao.fim;
   fDataIni.addEventListener('change', renderAll);
   fDataFim.addEventListener('change', renderAll);
 
@@ -519,8 +530,9 @@ function activeLojas() {
 }
 
 function resetFiltros() {
-  fDataIni.value = DATAS[0];
-  fDataFim.value = DATAS[DATAS.length-1];
+  const padrao = periodoPadrao();
+  fDataIni.value = padrao.ini;
+  fDataFim.value = padrao.fim;
   Object.keys(FILTRO_DEFS).forEach(montarDropdownMultiplo);
   activeUnidades = new Set(UNIDADES);
   renderTopNav();
