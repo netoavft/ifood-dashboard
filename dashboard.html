@@ -68,6 +68,16 @@
   .card-lbl { color:#7d8590; font-size:10.5px; text-transform:uppercase; letter-spacing:.5px; margin-bottom:8px; }
   .card-val { color:#ffffff; font-size:21px; font-weight:bold; }
   .card-pct { color:#9aa4af; font-size:15px; font-weight:600; margin-top:2px; }
+  .card-delta { font-size:10.5px; font-weight:600; margin-top:6px; letter-spacing:.2px; }
+
+  .hero { background:#161b22; border:1px solid #262c36; border-left:4px solid #3fb950; border-radius:12px;
+          padding:22px 26px; margin-bottom:16px; }
+  .hero-lbl { color:#7d8590; font-size:11px; text-transform:uppercase; letter-spacing:.6px; }
+  .hero-val { color:#ffffff; font-size:46px; font-weight:bold; line-height:1.1; margin:6px 0 4px; }
+  .hero-delta { font-size:14px; font-weight:bold; }
+  .hero-frase { color:#9aa4af; font-size:13px; line-height:1.6; margin-top:12px;
+                border-top:1px solid #262c36; padding-top:12px; }
+  @media (max-width: 640px) { .hero-val { font-size:34px; } }
   .card.neutral { border-left:3px solid #30363d; }
   .card.neg { border-left:3px solid #ff6b6b; }
   .card.pos { border-left:3px solid #3fb950; }
@@ -95,7 +105,7 @@
   #tabelaEvolucao th { background:#21262d; color:#9aa4af; font-weight:bold; font-size:11px; text-transform:uppercase; }
   #tabelaEvolucao tr:nth-child(even) { background:#12161c; }
 
-  #tabelaMotivos { overflow-x:auto; max-width:500px; }
+  #tabelaMotivos { overflow-x:auto; max-width:100%; }
   #tabelaMotivos table { border-collapse:collapse; width:100%; font-size:12.5px; }
   #tabelaMotivos th, #tabelaMotivos td { border:1px solid #30363d; padding:6px 10px; text-align:right; white-space:nowrap; }
   #tabelaMotivos th:first-child, #tabelaMotivos td:first-child { text-align:left; }
@@ -136,8 +146,9 @@
 
 <div class="app-layout">
   <nav class="sidebar">
-    <button class="sidebar-btn active" id="navBtnResumo" onclick="mostrarModulo('resumo')">Resumo Operacional</button>
-    <button class="sidebar-btn" id="navBtnEvolucao" onclick="mostrarModulo('evolucao')">Evolucao</button>
+    <button class="sidebar-btn active" id="navBtnResumo" onclick="mostrarModulo('resumo')">Visão Geral</button>
+    <button class="sidebar-btn" id="navBtnCancelamentos" onclick="mostrarModulo('cancelamentos')">Cancelamentos</button>
+    <button class="sidebar-btn" id="navBtnEvolucao" onclick="mostrarModulo('evolucao')">Tendências</button>
   </nav>
   <div class="main-content">
   <div class="wrap">
@@ -153,7 +164,7 @@
   <div id="painel" style="display:none;">
     <div class="filters">
       <label>De <input type="date" id="fDataIni"></label>
-      <label>Ate <input type="date" id="fDataFim"></label>
+      <label>Até <input type="date" id="fDataFim"></label>
 
       <details class="lojadrop filtro-dropdown">
         <summary id="fDiaSummary">Dia da semana: todos</summary>
@@ -166,7 +177,7 @@
       </details>
 
       <details class="lojadrop filtro-dropdown">
-        <summary id="fMesSummary">Mes: todos</summary>
+        <summary id="fMesSummary">Mês: todos</summary>
         <div class="loja-options" id="fMesOptions"></div>
       </details>
 
@@ -197,67 +208,70 @@
       <div id="view-content"></div>
     </div>
 
+    <div id="modulo-cancelamentos" class="modulo" style="display:none;">
+      <div id="view-cancelamentos"></div>
+    </div>
+
     <div id="modulo-evolucao" class="modulo" style="display:none;">
 
-    <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Analise executiva</div>
-    <div class="caption-label" style="text-align:center;">Cruzando volume, preco e investimento em marketing com o resultado final (liquido)</div>
+    <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">As perguntas que importam</div>
+    <div class="caption-label" style="text-align:center;">
+      Cada ponto é um período (conforme o agrupamento escolhido abaixo). São gráficos de exploração:
+      servem para procurar padrão entre preço, volume, marketing e lucro — não para leitura rápida.
+    </div>
     <div class="chart-grid">
       <div class="chart-box" style="height:340px;">
-        <div class="chart-title">Ponte do liquido: periodo anterior -&gt; periodo atual</div>
-        <div class="chart-canvas-wrap"><canvas id="chartWaterfall"></canvas></div>
-      </div>
-      <div class="chart-box" style="height:340px;">
-        <div class="chart-title">Investimento em mkt por pedido x liquido por pedido</div>
+        <div class="chart-title">Investir mais em marketing dá mais lucro?</div>
         <div class="chart-canvas-wrap"><canvas id="chartMktLiquido"></canvas></div>
       </div>
       <div class="chart-box" style="height:340px;">
-        <div class="chart-title">Ticket medio x numero de pedidos (bolha = liquido do periodo)</div>
+        <div class="chart-title">Vale mais vender caro ou vender muito?</div>
         <div class="chart-canvas-wrap"><canvas id="chartTicketVolumeLiquido"></canvas></div>
       </div>
     </div>
 
-    <div class="section-label">Evolucao detalhada</div>
+    <div class="section-label">Evolução no tempo</div>
     <div class="filters" style="margin-bottom:16px;">
       <label>Agrupar por
         <select id="fGranularidade">
           <option value="dia">Dia</option>
           <option value="diaSemana">Dia da semana</option>
           <option value="semana" selected>Semana</option>
-          <option value="mes">Mes</option>
+          <option value="mes">Mês</option>
           <option value="ano">Ano</option>
         </select>
       </label>
     </div>
     <div class="chart-grid">
       <div class="chart-box">
-        <div class="chart-title">Faturamento bruto x liquido</div>
+        <div class="chart-title">Faturamento bruto x líquido</div>
         <div class="chart-canvas-wrap"><canvas id="chartBrutoLiquido"></canvas></div>
       </div>
       <div class="chart-box">
-        <div class="chart-title">Margem final (liquido / bruto)</div>
+        <div class="chart-title">Quanto sobra de cada R$ 100 vendidos</div>
         <div class="chart-canvas-wrap"><canvas id="chartMargem"></canvas></div>
       </div>
       <div class="chart-box">
-        <div class="chart-title">Ticket medio</div>
+        <div class="chart-title">Ticket médio</div>
         <div class="chart-canvas-wrap"><canvas id="chartTicket"></canvas></div>
       </div>
       <div class="chart-box">
-        <div class="chart-title">Numero de pedidos</div>
+        <div class="chart-title">Número de pedidos</div>
         <div class="chart-canvas-wrap"><canvas id="chartPedidos"></canvas></div>
       </div>
       <div class="chart-box">
-        <div class="chart-title">Custo de marketing por pedido (promo loja / pedidos)</div>
+        <div class="chart-title">Quanto gastamos de marketing por pedido</div>
         <div class="chart-canvas-wrap"><canvas id="chartMkt"></canvas></div>
       </div>
     </div>
 
-    <div class="section-label">Tabela resumo por periodo</div>
+    <div class="section-label">Números período a período</div>
     <div id="tabelaEvolucao"></div>
 
     </div>
 
     <div class="footer">
-      Liquido usa o valor calculado pelo iFood (coluna Valor Liquido do relatorio). "Recebido direto" estima o valor que nao passa pelo repasse do iFood
+      Líquido usa o valor calculado pelo iFood (coluna Valor Liquido do relatorio). "Recebido direto" estima o valor que nao passa pelo repasse do iFood
       (pagamento na entrega e vale-refeicao, liquidados direto pela operadora de cartao/beneficio). Cancelamentos totais sao excluidos do Bruto e do Liquido;
       cancelamentos parciais entram pelo valor efetivamente realizado. Dados ao vivo, direto do banco Supabase.
     </div>
@@ -278,6 +292,30 @@ if (window.Chart) {
   Chart.defaults.color = '#9aa4af';
   Chart.defaults.borderColor = '#262c36';
   Chart.defaults.font.family = "'Helvetica Neue', Arial, sans-serif";
+
+}
+
+// Escreve o valor na ponta de cada barra horizontal, pra nao depender do mouse pra ler o
+// numero. Feito na mao (em vez de usar outra biblioteca externa) pra nao criar mais uma
+// dependencia de CDN — se ela sair do ar, o painel inteiro para.
+// Entregue como plugin *local* do grafico (array `plugins` da config): o Chart.js trata
+// funcao dentro de options.plugins como "opcao scriptable" e quebra ao tentar resolve-la.
+function pluginRotulosBarra(formatar) {
+  return {
+    id: 'rotulosBarra',
+    afterDatasetsDraw(chart) {
+      const ctx = chart.ctx;
+      ctx.save();
+      ctx.font = 'bold 11px ' + Chart.defaults.font.family;
+      ctx.fillStyle = '#c9d1d9';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      chart.getDatasetMeta(0).data.forEach((barra, i) => {
+        ctx.fillText(formatar(i), barra.x + 6, barra.y);
+      });
+      ctx.restore();
+    },
+  };
 }
 
 // Fecha qualquer dropdown de filtro (details.lojadrop) aberto quando o clique for fora dele —
@@ -428,7 +466,7 @@ const selecionados = {};
 const FILTRO_DEFS = {
   fDia: { dominio: () => DIAS, label: (v)=>v, nome: 'Dia da semana' },
   fSemana: { dominio: () => SEMANAS, label: formatarSemana, nome: 'Semana' },
-  fMes: { dominio: () => MESES, label: (v)=>{ const [yyyy,mm]=v.split('-'); return `${MESES_ABREV[Number(mm)-1]}/${yyyy}`; }, nome: 'Mes' },
+  fMes: { dominio: () => MESES, label: (v)=>{ const [yyyy,mm]=v.split('-'); return `${MESES_ABREV[Number(mm)-1]}/${yyyy}`; }, nome: 'Mês' },
   fAno: { dominio: () => ANOS, label: (v)=>v, nome: 'Ano' },
   fTurno: { dominio: () => TURNOS, label: (v)=>v, nome: 'Turno' },
 };
@@ -449,8 +487,10 @@ function renderizarDropdownMultiplo(id) {
     `<label><input type="checkbox" ${set.has(i)?'checked':''} onchange="toggleItemFiltro('${id}', ${i}, this.checked)">${def.label(v,i)}</label>`
   ).join('');
   document.getElementById(id + 'Options').innerHTML = html;
+  // "Semana" e feminino: "todas"; os demais, "todos".
+  const tudo = def.nome === 'Semana' ? 'todas' : 'todos';
   document.getElementById(id + 'Summary').textContent =
-    todasMarcadas ? `${def.nome}: todos` : `${def.nome}: ${set.size} de ${dominio.length}`;
+    todasMarcadas ? `${def.nome}: ${tudo}` : `${def.nome}: ${set.size} de ${dominio.length}`;
 }
 
 function toggleTodosFiltro(id, marcado) {
@@ -549,15 +589,30 @@ function resetFiltros() {
 // compartilhados entre todos os modulos.
 // ------------------------------------------------------------------
 function mostrarModulo(nome) {
-  const modulos = { resumo: 'modulo-resumo', evolucao: 'modulo-evolucao' };
-  Object.entries(modulos).forEach(([chave, id]) => {
-    document.getElementById(id).style.display = (chave === nome) ? 'block' : 'none';
+  const modulos = {
+    resumo: ['modulo-resumo', 'navBtnResumo'],
+    cancelamentos: ['modulo-cancelamentos', 'navBtnCancelamentos'],
+    evolucao: ['modulo-evolucao', 'navBtnEvolucao'],
+  };
+  Object.entries(modulos).forEach(([chave, [idDiv, idBtn]]) => {
+    document.getElementById(idDiv).style.display = (chave === nome) ? 'block' : 'none';
+    document.getElementById(idBtn).classList.toggle('active', chave === nome);
   });
-  document.getElementById('navBtnResumo').classList.toggle('active', nome === 'resumo');
-  document.getElementById('navBtnEvolucao').classList.toggle('active', nome === 'evolucao');
-  // Os graficos Chart.js do modulo Evolucao ficam com tamanho zerado se forem desenhados
-  // enquanto o container esta com display:none — por isso redesenhamos ao entrar no modulo.
+  // Os graficos Chart.js ficam com tamanho zerado se forem desenhados enquanto o container
+  // esta com display:none — por isso redesenhamos ao entrar no modulo.
+  if (nome === 'resumo') {
+    const ant = periodoAnterior();
+    if (ant) renderChartWaterfall(computeMetrics(), computeMetrics(ant.ini, ant.fim), ant);
+  }
   if (nome === 'evolucao') renderEvolucao();
+  if (nome === 'cancelamentos') renderChartMotivos();
+}
+
+// Qual modulo esta aberto agora — usado pra so redesenhar os graficos do modulo visivel.
+function moduloAtivo() {
+  if (document.getElementById('modulo-cancelamentos').style.display !== 'none') return 'cancelamentos';
+  if (document.getElementById('modulo-evolucao').style.display !== 'none') return 'evolucao';
+  return 'resumo';
 }
 
 // ------------------------------------------------------------------
@@ -603,8 +658,8 @@ function pct(v) { return v.toLocaleString('pt-BR', {minimumFractionDigits:1, max
 
 // respeitarPeriodo=false ignora os campos De/Ate — usado pra descobrir qual seria o periodo
 // "natural" dos outros filtros, antes de aplicar o recorte de data em cima.
-function linhasFiltradas(respeitarPeriodo = true) {
-  const dIni = fDataIni.value, dFim = fDataFim.value;
+function linhasFiltradas(respeitarPeriodo = true, iniAlt = null, fimAlt = null) {
+  const dIni = iniAlt || fDataIni.value, dFim = fimAlt || fDataFim.value;
   const activeL = activeLojas();
 
   return ROWS.filter(r => {
@@ -682,16 +737,56 @@ function resumoMotivosCancelamento() {
 // OUTROS_AJUSTES, RESSARCIMENTO_CANCELAMENTO) respeitando loja/unidade e o periodo (De/Ate).
 // Nao respeita Semana/Dia da semana/Turno porque a conciliacao nao tem essas dimensoes
 // calculadas. Devolve o valor cru (sinal original do banco: negativo = custo, positivo = credito).
-function somaConciliacaoRaw(grupo) {
-  const dIni = fDataIni.value, dFim = fDataFim.value;
+function somaConciliacaoRaw(grupo, iniAlt = null, fimAlt = null) {
+  const dIni = iniAlt || fDataIni.value, dFim = fimAlt || fDataFim.value;
   const activeL = activeLojas();
   return CONCILIACAO
     .filter(c => c[2]===grupo && activeL.has(c[0]) && (!dIni || c[1] >= dIni) && (!dFim || c[1] <= dFim))
     .reduce((s,c)=>s+c[3], 0);
 }
 
-function computeMetrics() {
-  const rows = linhasFiltradas();
+// ------------------------------------------------------------------
+// Comparacao com o periodo anterior
+// ------------------------------------------------------------------
+// Devolve a janela imediatamente anterior, do MESMO tamanho da que esta filtrada.
+// Ex.: filtro de 01/07 a 31/07 (31 dias) -> anterior = 31/05 a 30/06.
+// Devolve null quando nao ha dados suficientes antes (nao inventamos base de comparacao).
+function periodoAnterior() {
+  const ini = fDataIni.value, fim = fDataFim.value;
+  if (!ini || !fim) return null;
+  const d1 = new Date(ini + 'T00:00:00'), d2 = new Date(fim + 'T00:00:00');
+  const dias = Math.round((d2 - d1) / 86400000) + 1;
+  if (dias < 1) return null;
+  const fimAnt = new Date(d1); fimAnt.setDate(fimAnt.getDate() - 1);
+  const iniAnt = new Date(fimAnt); iniAnt.setDate(iniAnt.getDate() - (dias - 1));
+  const iso = (d) => d.toISOString().slice(0, 10);
+  // Se a janela anterior for inteiramente antes do primeiro dado que temos, nao ha o que comparar.
+  if (iso(fimAnt) < DATAS[0]) return null;
+  return { ini: iso(iniAnt), fim: iso(fimAnt), dias };
+}
+
+function formatarDataCurta(iso) {
+  const [a, m, d] = iso.split('-');
+  return `${d}/${m}/${a}`;
+}
+
+// Selo de variacao mostrado dentro do card. maiorEhMelhor=false inverte as cores (custo que
+// sobe e ruim). Sem base de comparacao valida, nao mostra nada — melhor vazio do que enganoso.
+function selo(atual, anterior, maiorEhMelhor = true) {
+  if (anterior === null || anterior === undefined || !isFinite(anterior) || Math.abs(anterior) < 0.005) return '';
+  const variacao = (atual - anterior) / Math.abs(anterior) * 100;
+  if (!isFinite(variacao)) return '';
+  const subiu = variacao >= 0;
+  const bom = maiorEhMelhor ? subiu : !subiu;
+  const cor = Math.abs(variacao) < 0.05 ? '#7d8590' : (bom ? '#3fb950' : '#ff6b6b');
+  const seta = Math.abs(variacao) < 0.05 ? '' : (subiu ? '▲' : '▼');
+  return `<div class="card-delta" style="color:${cor};">${seta} ${pct(Math.abs(variacao))}% vs período anterior</div>`;
+}
+
+// iniAlt/fimAlt permitem calcular as mesmas metricas para outro periodo (o anterior), sem
+// mexer nos filtros da tela — e assim mostrar a variacao em cada card.
+function computeMetrics(iniAlt = null, fimAlt = null) {
+  const rows = linhasFiltradas(true, iniAlt, fimAlt);
   const fin = rows.filter(r => r[6] !== 1);
 
   const totalPedidosFin = fin.reduce((s,r)=>s+r[7],0);
@@ -713,22 +808,22 @@ function computeMetrics() {
   // categoria (fato_pedidos so tinha um valor combinado de taxas_comissoes). OUTROS_AJUSTES
   // aqui e so o lado de debito (taxa de parcelamento, retencao VR/VA, correcoes) — os
   // ressarcimentos de cancelamento viraram uma entrada, contabilizados abaixo.
-  const taxaOnline = -somaConciliacaoRaw('TAXA_CARTAO');
-  const comissaoVendas = -somaConciliacaoRaw('COMISSAO_VENDAS');
-  const mensalidade = -somaConciliacaoRaw('MENSALIDADE');
-  const outrosAjustes = -somaConciliacaoRaw('OUTROS_AJUSTES');
+  const taxaOnline = -somaConciliacaoRaw('TAXA_CARTAO', iniAlt, fimAlt);
+  const comissaoVendas = -somaConciliacaoRaw('COMISSAO_VENDAS', iniAlt, fimAlt);
+  const mensalidade = -somaConciliacaoRaw('MENSALIDADE', iniAlt, fimAlt);
+  const outrosAjustes = -somaConciliacaoRaw('OUTROS_AJUSTES', iniAlt, fimAlt);
   const totalTaxasComissoes = taxaOnline + comissaoVendas + mensalidade + outrosAjustes;
   // Total de descontos exibido no card soma tambem o frete sob demanda.
   const totalDescontos = totalTaxasComissoes + freteSobDemanda;
 
   // Grupo 2: marketing pago pela loja (promo + anuncios).
-  const anuncios = -somaConciliacaoRaw('ANUNCIOS');
+  const anuncios = -somaConciliacaoRaw('ANUNCIOS', iniAlt, fimAlt);
   const totalMkt = promoLoja + anuncios;
   const custoMktPorPedido = totalPedidosFin ? totalMkt/totalPedidosFin : 0;
 
   // Ressarcimento de pedidos/itens cancelados: dinheiro que volta pra loja — entra no
   // Bloco 1 (entradas), nao no Bloco 2. Ja vem positivo do banco (credito), sem inverter sinal.
-  const ressarcimentoCancelamento = somaConciliacaoRaw('RESSARCIMENTO_CANCELAMENTO');
+  const ressarcimentoCancelamento = somaConciliacaoRaw('RESSARCIMENTO_CANCELAMENTO', iniAlt, fimAlt);
   // O card "Total de descontos" tambem soma o ressarcimento.
   const totalDescontosComRessarcimento = totalDescontos - ressarcimentoCancelamento;
 
@@ -792,168 +887,341 @@ function computeMetrics() {
   };
 }
 
-function cardsEntradas(m) {
-  return `<div class="section-label">Faturamento</div>
+function cardsEntradas(m, a) {
+  return `<div class="section-label">Quanto entrou</div>
   <div class="equation-row">
-    <div class="card pos"><div class="card-lbl">Valor das Vendas</div><div class="card-val">R$ ${fmt(m.itens)}</div><div class="card-pct">${pct(m.itensPct)}%</div></div>
+    <div class="card pos"><div class="card-lbl">Venda dos produtos</div><div class="card-val">R$ ${fmt(m.itens)}</div><div class="card-pct">${pct(m.itensPct)}%</div>${selo(m.itens, a && a.itens)}</div>
     <div class="eq-symbol">+</div>
-    <div class="card pos"><div class="card-lbl">Valor de Frete</div><div class="card-val">R$ ${fmt(m.frete)}</div><div class="card-pct">${pct(m.fretePct)}%</div></div>
+    <div class="card pos"><div class="card-lbl">Taxa de entrega paga pelo cliente</div><div class="card-val">R$ ${fmt(m.frete)}</div><div class="card-pct">${pct(m.fretePct)}%</div>${selo(m.frete, a && a.frete)}</div>
     <div class="eq-symbol">=</div>
-    <div class="card pos highlight"><div class="card-lbl">Faturamento Bruto</div><div class="card-val">R$ ${fmt(m.bruto)}</div></div>
+    <div class="card pos highlight"><div class="card-lbl">Faturamento bruto</div><div class="card-val">R$ ${fmt(m.bruto)}</div>${selo(m.bruto, a && a.bruto)}</div>
   </div>
-  <div class="section-label" style="color:#58a6ff; border-top:none; padding-top:0; margin-top:0;">Divisao Recebimentos</div>
+  <div class="section-label" style="color:#58a6ff; border-top:none; padding-top:0; margin-top:0;">Como o cliente pagou</div>
   <div class="cards">
-    <div class="card blue"><div class="card-lbl">Online</div><div class="card-val">R$ ${fmt(m.vendasOnline)}</div><div class="card-pct">${pct(m.vendasOnlinePct)}%</div></div>
-    <div class="card blue"><div class="card-lbl">Offline</div><div class="card-val">R$ ${fmt(m.vendasCartao)}</div><div class="card-pct">${pct(m.vendasCartaoPct)}%</div></div>
+    <div class="card blue"><div class="card-lbl">Pelo app do iFood</div><div class="card-val">R$ ${fmt(m.vendasOnline)}</div><div class="card-pct">${pct(m.vendasOnlinePct)}%</div>${selo(m.vendasOnline, a && a.vendasOnline)}</div>
+    <div class="card blue"><div class="card-lbl">Na entrega (cartão/vale)</div><div class="card-val">R$ ${fmt(m.vendasCartao)}</div><div class="card-pct">${pct(m.vendasCartaoPct)}%</div>${selo(m.vendasCartao, a && a.vendasCartao)}</div>
   </div>`;
 }
 
-function cardsSaidas(m) {
-  return `<div class="section-label">Descontos</div>
+function cardsSaidas(m, a) {
+  return `<div class="section-label">O que o iFood cobrou</div>
   <div class="equation-row">
-    <div class="card neg"><div class="card-lbl">Taxa pagamento online</div><div class="card-val">R$ ${fmt(m.taxaOnline)}</div><div class="card-pct">${pct(m.taxaOnlinePct)}%</div></div>
+    <div class="card neg"><div class="card-lbl">Taxa de pagamento online</div><div class="card-val">R$ ${fmt(m.taxaOnline)}</div><div class="card-pct">${pct(m.taxaOnlinePct)}%</div>${selo(m.taxaOnline, a && a.taxaOnline, false)}</div>
     <div class="eq-symbol">+</div>
-    <div class="card neg"><div class="card-lbl">Comissao sobre vendas</div><div class="card-val">R$ ${fmt(m.comissaoVendas)}</div><div class="card-pct">${pct(m.comissaoVendasPct)}%</div></div>
+    <div class="card neg"><div class="card-lbl">Comissão sobre vendas</div><div class="card-val">R$ ${fmt(m.comissaoVendas)}</div><div class="card-pct">${pct(m.comissaoVendasPct)}%</div>${selo(m.comissaoVendas, a && a.comissaoVendas, false)}</div>
     <div class="eq-symbol">+</div>
-    <div class="card neg"><div class="card-lbl">Mensalidade</div><div class="card-val">R$ ${fmt(m.mensalidade)}</div><div class="card-pct">${pct(m.mensalidadePct)}%</div></div>
+    <div class="card neg"><div class="card-lbl">Mensalidade</div><div class="card-val">R$ ${fmt(m.mensalidade)}</div><div class="card-pct">${pct(m.mensalidadePct)}%</div>${selo(m.mensalidade, a && a.mensalidade, false)}</div>
     <div class="eq-symbol">+</div>
-    <div class="card neg"><div class="card-lbl">Outros ajustes</div><div class="card-val">R$ ${fmt(m.outrosAjustes)}</div><div class="card-pct">${pct(m.outrosAjustesPct)}%</div></div>
+    <div class="card neg"><div class="card-lbl">Outros ajustes</div><div class="card-val">R$ ${fmt(m.outrosAjustes)}</div><div class="card-pct">${pct(m.outrosAjustesPct)}%</div>${selo(m.outrosAjustes, a && a.outrosAjustes, false)}</div>
   </div>
   <div class="equation-row">
     <div class="eq-symbol">+</div>
-    <div class="card neg"><div class="card-lbl">Frete sob demanda</div><div class="card-val">R$ ${fmt(m.freteSobDemanda)}</div><div class="card-pct">${pct(m.freteSobDemandaPct)}%</div></div>
+    <div class="card neg"><div class="card-lbl">Frete sob demanda</div><div class="card-val">R$ ${fmt(m.freteSobDemanda)}</div><div class="card-pct">${pct(m.freteSobDemandaPct)}%</div>${selo(m.freteSobDemanda, a && a.freteSobDemanda, false)}</div>
     <div class="eq-symbol">-</div>
-    <div class="card pos"><div class="card-lbl">Ressarcimento por cancelamentos</div><div class="card-val">R$ ${fmt(m.ressarcimentoCancelamento)}</div><div class="card-pct">${pct(m.ressarcimentoCancelamentoPct)}%</div></div>
+    <div class="card pos"><div class="card-lbl">Ressarcimento por cancelamentos</div><div class="card-val">R$ ${fmt(m.ressarcimentoCancelamento)}</div><div class="card-pct">${pct(m.ressarcimentoCancelamentoPct)}%</div>${selo(m.ressarcimentoCancelamento, a && a.ressarcimentoCancelamento)}</div>
     <div class="eq-symbol">=</div>
-    <div class="card highlight"><div class="card-lbl">Total de descontos</div><div class="card-val">R$ ${fmt(m.totalDescontosComRessarcimento)}</div><div class="card-pct">${pct(m.totalDescontosComRessarcimentoPct)}%</div></div>
+    <div class="card highlight"><div class="card-lbl">Total cobrado pelo iFood</div><div class="card-val">R$ ${fmt(m.totalDescontosComRessarcimento)}</div><div class="card-pct">${pct(m.totalDescontosComRessarcimentoPct)}%</div>${selo(m.totalDescontosComRessarcimento, a && a.totalDescontosComRessarcimento, false)}</div>
   </div>
-  <div class="section-label">Marketing</div>
+  <div class="caption-label" style="text-align:center;">
+    Taxas e comissões que o iFood desconta do repasse. "Outros ajustes" reune lancamentos pequenos e pontuais
+    (taxa de parcelamento, correções, retenções) que não se encaixam nas categorias acima.
+  </div>
+
+  <div class="section-label">Quanto investimos para vender</div>
   <div class="equation-row">
-    <div class="card neg"><div class="card-lbl">Promo da loja</div><div class="card-val">R$ ${fmt(m.promoLoja)}</div><div class="card-pct">${pct(m.promoLojaPct)}%</div></div>
+    <div class="card neg"><div class="card-lbl">Promoções bancadas pela loja</div><div class="card-val">R$ ${fmt(m.promoLoja)}</div><div class="card-pct">${pct(m.promoLojaPct)}%</div>${selo(m.promoLoja, a && a.promoLoja, false)}</div>
     <div class="eq-symbol">+</div>
-    <div class="card neg"><div class="card-lbl">Anuncios</div><div class="card-val">R$ ${fmt(m.anuncios)}</div><div class="card-pct">${pct(m.anunciosPct)}%</div></div>
+    <div class="card neg"><div class="card-lbl">Anúncios</div><div class="card-val">R$ ${fmt(m.anuncios)}</div><div class="card-pct">${pct(m.anunciosPct)}%</div>${selo(m.anuncios, a && a.anuncios, false)}</div>
     <div class="eq-symbol">=</div>
-    <div class="card highlight"><div class="card-lbl">Total Investido em MKT</div><div class="card-val">R$ ${fmt(m.totalMkt)}</div><div class="card-pct">${pct(m.totalMktPct)}%</div></div>
-    <div class="card neutral"><div class="card-lbl">Custo mkt por pedido</div><div class="card-val">R$ ${fmt(m.custoMktPorPedido)}</div></div>
+    <div class="card highlight"><div class="card-lbl">Total investido em marketing</div><div class="card-val">R$ ${fmt(m.totalMkt)}</div><div class="card-pct">${pct(m.totalMktPct)}%</div>${selo(m.totalMkt, a && a.totalMkt, false)}</div>
+    <div class="card neutral"><div class="card-lbl">Marketing por pedido</div><div class="card-val">R$ ${fmt(m.custoMktPorPedido)}</div>${selo(m.custoMktPorPedido, a && a.custoMktPorPedido, false)}</div>
   </div>
-  <div class="section-label" style="color:#58a6ff; border-top:none; padding-top:0; margin-top:0;">Divisao Investimentos</div>
+  <div class="section-label" style="color:#58a6ff; border-top:none; padding-top:0; margin-top:0;">Quem pagou a promoção</div>
   <div class="cards">
-    <div class="card neg"><div class="card-lbl">Loja</div><div class="card-val">R$ ${fmt(m.investLoja)}</div><div class="card-pct" style="color:#ff6b6b;">${pct(m.investLojaPct)}% do mkt total</div></div>
-    <div class="card pos"><div class="card-lbl">iFood</div><div class="card-val">R$ ${fmt(m.investPlataforma)}</div><div class="card-pct" style="color:#3fb950;">${pct(m.investPlataformaPct)}% do mkt total</div></div>
+    <div class="card neg"><div class="card-lbl">Bancado pela loja</div><div class="card-val">R$ ${fmt(m.investLoja)}</div><div class="card-pct" style="color:#ff6b6b;">${pct(m.investLojaPct)}% do total</div>${selo(m.investLoja, a && a.investLoja, false)}</div>
+    <div class="card pos"><div class="card-lbl">Bancado pelo iFood</div><div class="card-val">R$ ${fmt(m.investPlataforma)}</div><div class="card-pct" style="color:#3fb950;">${pct(m.investPlataformaPct)}% do total</div>${selo(m.investPlataforma, a && a.investPlataforma)}</div>
   </div>
-  <div class="section-label">Resumo Operacional</div>
+  <div class="caption-label" style="text-align:center;">
+    Quanto mais o iFood banca das promoções, menos sai do seu caixa para gerar a mesma venda.
+  </div>
+
+  <div class="section-label">O que sobrou</div>
   <div class="equation-row">
-    <div class="card pos highlight"><div class="card-lbl">Faturamento Bruto</div><div class="card-val">R$ ${fmt(m.bruto)}</div></div>
+    <div class="card pos highlight"><div class="card-lbl">Faturamento bruto</div><div class="card-val">R$ ${fmt(m.bruto)}</div>${selo(m.bruto, a && a.bruto)}</div>
     <div class="eq-symbol">-</div>
     <div style="flex:2 1 380px; display:flex; align-items:center; gap:10px; border:1px solid #f5a623; border-radius:10px; padding:10px;">
-      <div class="card neg" style="background:transparent;"><div class="card-lbl">Total de descontos</div><div class="card-val">R$ ${fmt(m.totalDescontosComRessarcimento)}</div><div class="card-pct">${pct(m.totalDescontosComRessarcimentoPct)}%</div></div>
+      <div class="card neg" style="background:transparent;"><div class="card-lbl">Total cobrado pelo iFood</div><div class="card-val">R$ ${fmt(m.totalDescontosComRessarcimento)}</div><div class="card-pct">${pct(m.totalDescontosComRessarcimentoPct)}%</div></div>
       <div class="eq-symbol">+</div>
-      <div class="card neg" style="background:transparent;"><div class="card-lbl">Total Investido em Marketing</div><div class="card-val">R$ ${fmt(m.totalMkt)}</div><div class="card-pct">${pct(m.totalMktPct)}%</div></div>
+      <div class="card neg" style="background:transparent;"><div class="card-lbl">Total investido em marketing</div><div class="card-val">R$ ${fmt(m.totalMkt)}</div><div class="card-pct">${pct(m.totalMktPct)}%</div></div>
       <div class="eq-symbol">=</div>
-      <div class="card neg highlight"><div class="card-lbl">Custo iFood</div><div class="card-val">R$ ${fmt(m.custoIfood)}</div><div class="card-pct">${pct(m.custoIfoodPct)}%</div></div>
+      <div class="card neg highlight"><div class="card-lbl">Custo total do iFood</div><div class="card-val">R$ ${fmt(m.custoIfood)}</div><div class="card-pct">${pct(m.custoIfoodPct)}%</div>${selo(m.custoIfood, a && a.custoIfood, false)}</div>
     </div>
     <div class="eq-symbol">=</div>
-    <div class="card pos highlight"><div class="card-lbl">Liquido (inclui recebido direto)</div><div class="card-val">R$ ${fmt(m.liquido)}</div><div class="card-pct">${pct(m.liquidoPct)}%</div></div>
+    <div class="card pos highlight"><div class="card-lbl">Líquido — o que sobra para a loja</div><div class="card-val">R$ ${fmt(m.liquido)}</div><div class="card-pct">${pct(m.liquidoPct)}%</div>${selo(m.liquido, a && a.liquido)}</div>
+  </div>
+  <div class="caption-label" style="text-align:center;">
+    De cada R$ 100 vendidos, <b>R$ ${fmt(m.liquidoPct)}</b> ficam com a loja e <b>R$ ${fmt(m.custoIfoodPct)}</b> vão para taxas, comissões e marketing.
+    Valores antes dos custos próprios da operação (insumos, equipe, aluguel).
   </div>`;
 }
 
-function cardsInfo(m) {
+// Bloco de abertura da Visao Geral: o numero que resume tudo (o que sobrou), a variacao, uma
+// frase em portugues explicando o resultado, e o grafico que explica POR QUE mudou.
+function blocoAbertura(m, a, ant) {
+  const variacao = (a && Math.abs(a.liquido) > 0.005) ? (m.liquido - a.liquido) / Math.abs(a.liquido) * 100 : null;
+  const cor = variacao === null ? '#7d8590' : (variacao >= 0 ? '#3fb950' : '#ff6b6b');
+  const seta = variacao === null ? '' : (variacao >= 0 ? '▲' : '▼');
+  const deltaTexto = variacao === null
+    ? 'Sem período anterior para comparar'
+    : `${seta} ${pct(Math.abs(variacao))}% vs os ${ant.dias} dias anteriores (R$ ${fmt(a.liquido)})`;
+
+  const frase = `Neste período a operação vendeu <b>R$ ${fmt(m.bruto)}</b> em
+    <b>${m.totalPedidos.toLocaleString('pt-BR')} pedidos</b>. O iFood ficou com
+    <b>R$ ${fmt(m.custoIfood)}</b> entre taxas, comissões e marketing (${pct(m.custoIfoodPct)}%),
+    sobrando <b>R$ ${fmt(m.liquido)}</b> para a loja — <b>${pct(m.liquidoPct)}%</b> do que foi vendido.
+    Esse valor ainda não desconta os custos próprios (insumos, equipe, aluguel).`;
+
+  return `<div class="hero" style="border-left-color:${cor};">
+    <div class="hero-lbl">O que sobrou para a loja no período</div>
+    <div class="hero-val">R$ ${fmt(m.liquido)}</div>
+    <div class="hero-delta" style="color:${cor};">${deltaTexto}</div>
+    <div class="hero-frase">${frase}</div>
+  </div>
+  ${a ? `<div class="chart-box" style="height:320px; margin-bottom:16px;">
+    <div class="chart-title">Por que o resultado mudou em relação ao período anterior</div>
+    <div class="chart-canvas-wrap"><canvas id="chartWaterfall"></canvas></div>
+  </div>
+  <div class="caption-label" style="text-align:center; margin-top:0;">
+    A barra azul da esquerda é o resultado do período anterior; a da direita, o atual. As barras do meio
+    mostram o quanto cada fator empurrou o resultado para cima (verde) ou para baixo (vermelho).
+  </div>` : ''}`;
+}
+
+function cardsInfo(m, a) {
   return `<div class="cards">
-    <div class="card neutral"><div class="card-lbl">Total de pedidos</div><div class="card-val">${m.totalPedidos}</div></div>
-    <div class="card neutral"><div class="card-lbl">Ticket medio</div><div class="card-val">R$ ${fmt(m.ticketMedio)}</div></div>
+    <div class="card neutral"><div class="card-lbl">Pedidos no período</div><div class="card-val">${m.totalPedidos.toLocaleString('pt-BR')}</div>${selo(m.totalPedidos, a && a.totalPedidos)}</div>
+    <div class="card neutral"><div class="card-lbl">Ticket médio</div><div class="card-val">R$ ${fmt(m.ticketMedio)}</div>${selo(m.ticketMedio, a && a.ticketMedio)}</div>
   </div>`;
 }
 
-function cardsCancel(m) {
+// Os 4 cards de totais — aparecem tanto na Visao Geral (fechando o resumo) quanto no topo do
+// modulo Cancelamentos, pra ele fazer sentido sozinho.
+function cardsCancel(m, a) {
+  return `<div class="section-label">O que perdemos com cancelamentos</div>
+  <div class="cards">
+    <div class="card neg"><div class="card-lbl">Total cancelado</div><div class="card-val">R$ ${fmt(m.valorCancelado)}</div><div class="card-pct">${pct(m.valorCanceladoPct)}% do bruto</div>${selo(m.valorCancelado, a && a.valorCancelado, false)}</div>
+    <div class="card neutral"><div class="card-lbl">Cancelamentos parciais</div><div class="card-val">R$ ${fmt(m.vParcial)}</div><div class="card-pct">${m.nParcial} pedidos (${pct(m.nParcialPct)}%)</div>${selo(m.vParcial, a && a.vParcial, false)}</div>
+    <div class="card neutral"><div class="card-lbl">Cancelamentos totais</div><div class="card-val">R$ ${fmt(m.vFull)}</div><div class="card-pct">${m.nFull} pedidos (${pct(m.nFullPct)}%)</div>${selo(m.vFull, a && a.vFull, false)}</div>
+    <div class="card pos"><div class="card-lbl">Devolvido pelo iFood</div><div class="card-val">R$ ${fmt(m.ressarcimentoCancelamento)}</div><div class="card-pct">${pct(m.ressarcimentoCancelamentoPct)}% do bruto</div>${selo(m.ressarcimentoCancelamento, a && a.ressarcimentoCancelamento)}</div>
+  </div>
+  <div class="caption-label" style="text-align:center;">
+    "Total cancelado" e a soma dos outros dois: <b>parciais</b> (o cliente cancelou parte do pedido — só o item cancelado entra) +
+    <b>totais</b> (o pedido inteiro foi cancelado).
+  </div>
+  <div style="display:flex; justify-content:center; margin-top:6px;">
+    <div class="card neg highlight" style="flex:0 1 420px;">
+      <div class="card-lbl">Valor perdido de verdade</div>
+      <div class="card-val" style="font-size:26px;">R$ ${fmt(m.valorPerdidoReal)}</div>
+      <div class="card-pct">${pct(m.valorPerdidoRealPct)}% do bruto</div>
+      ${selo(m.valorPerdidoReal, a && a.valorPerdidoReal, false)}
+      <div style="color:#7d8590; font-size:11px; line-height:1.5; margin-top:12px; border-top:1px solid #262c36; padding-top:10px;">
+        Total cancelado <b>menos</b> o que o iFood devolveu.<br>
+        É o que de fato saiu do bolso da operação.
+      </div>
+    </div>
+  </div>`;
+}
+
+// Modulo Cancelamentos completo: os cards de totais (+ valor perdido real) e a analise por
+// categoria — dois graficos, cada um ordenado pela sua propria medida, e a tabela com os
+// numeros exatos, incluindo o custo medio por cancelamento.
+function moduloCancelamentos(m, a) {
   const motivos = resumoMotivosCancelamento();
   const tabelaMotivos = motivos.length ? `
     <div id="tabelaMotivos">
       <table>
-        <tr><th>Categoria do motivo</th><th>Pedidos</th><th>% do total</th><th>Valor</th></tr>
-        ${motivos.map(x => `<tr><td>${x.responsavel}</td><td>${x.n}</td><td>${pct(x.pct)}%</td><td>R$ ${fmt(x.valor)}</td></tr>`).join('')}
+        <tr><th>Categoria do motivo</th><th>Pedidos</th><th>% do total</th><th>Valor perdido</th><th>R$ por cancelamento</th></tr>
+        ${motivos.slice().sort((a,b)=>b.valor-a.valor).map(x => `<tr>
+          <td>${x.responsavel}</td><td>${x.n}</td><td>${pct(x.pct)}%</td>
+          <td>R$ ${fmt(x.valor)}</td><td>R$ ${fmt(x.n ? x.valor/x.n : 0)}</td></tr>`).join('')}
       </table>
     </div>` : '';
 
-  return `<div class="section-label">Cancelamentos</div>
-  <div class="cards">
-    <div class="card neg"><div class="card-lbl">Total cancelados</div><div class="card-val">R$ ${fmt(m.valorCancelado)}</div><div class="card-pct">${pct(m.valorCanceladoPct)}% do bruto</div></div>
-    <div class="card neutral"><div class="card-lbl">Cancelamentos parciais</div><div class="card-val">R$ ${fmt(m.vParcial)}</div><div class="card-pct">${m.nParcial} pedidos (${pct(m.nParcialPct)}%)</div></div>
-    <div class="card neutral"><div class="card-lbl">Cancelamentos totais</div><div class="card-val">R$ ${fmt(m.vFull)}</div><div class="card-pct">${m.nFull} pedidos (${pct(m.nFullPct)}%)</div></div>
-    <div class="card pos"><div class="card-lbl">Total ressarcimentos</div><div class="card-val">R$ ${fmt(m.ressarcimentoCancelamento)}</div><div class="card-pct">${pct(m.ressarcimentoCancelamentoPct)}% do bruto</div></div>
+  return cardsCancel(m, a) + `
+  <div style="display:flex; flex-wrap:wrap; gap:14px; align-items:stretch; margin-top:14px;">
+    <div class="chart-box" style="flex:1 1 340px; height:300px;">
+      <div class="chart-title">Onde se perde mais dinheiro (R$)</div>
+      <div class="chart-canvas-wrap"><canvas id="chartMotivosValor"></canvas></div>
+    </div>
+    <div class="chart-box" style="flex:1 1 340px; height:300px;">
+      <div class="chart-title">O que mais acontece (nº de cancelamentos)</div>
+      <div class="chart-canvas-wrap"><canvas id="chartMotivosQtd"></canvas></div>
+    </div>
   </div>
   <div class="caption-label" style="text-align:center;">
-    "Total cancelados" e a soma dos outros dois: <b>parciais</b> (o cliente cancelou parte do pedido — so o item cancelado entra) +
-    <b>totais</b> (o pedido inteiro foi cancelado).
+    Cada gráfico está ordenado do maior para o menor pela sua própria medida — por isso a
+    ordem das categorias muda de um para o outro. Quando uma categoria lidera em quantidade mas
+    não em valor, ela acontece muito e custa pouco por vez (e vice-versa); a coluna
+    <b>R$ por cancelamento</b> da tabela mostra esse custo unitário.
   </div>
 
-  <div style="display:flex; flex-wrap:wrap; gap:14px; align-items:stretch; margin-top:8px;">
-    <div class="chart-box" style="flex:2 1 420px; height:300px;">
-      <div class="chart-title">Motivo do cancelamento por categoria (valor perdido)</div>
-      <div class="chart-canvas-wrap"><canvas id="chartMotivos"></canvas></div>
+  <div class="caption-label">Fonte da classificação: motivos.xlsx — categoria "NAO_MAPEADO" ainda não foi classificada</div>
+  ${tabelaMotivos}
+
+  <div class="section-label">Estamos melhorando ou piorando?</div>
+  <div class="chart-grid">
+    <div class="chart-box">
+      <div class="chart-title">Taxa de cancelamento (% dos pedidos)</div>
+      <div class="chart-canvas-wrap"><canvas id="chartCancelTaxa"></canvas></div>
     </div>
-    <div class="card neg highlight" style="flex:1 1 240px; display:flex; flex-direction:column; justify-content:center;">
-      <div class="card-lbl">Valor perdido real</div>
-      <div class="card-val" style="font-size:26px;">R$ ${fmt(m.valorPerdidoReal)}</div>
-      <div class="card-pct">${pct(m.valorPerdidoRealPct)}% do bruto</div>
-      <div style="color:#7d8590; font-size:11px; line-height:1.5; margin-top:12px; border-top:1px solid #262c36; padding-top:10px;">
-        Total cancelado <b>menos</b> o que o iFood devolveu em ressarcimentos.<br>
-        E o que de fato saiu do bolso da operacao.
-      </div>
+    <div class="chart-box">
+      <div class="chart-title">Valor perdido no período (R$)</div>
+      <div class="chart-canvas-wrap"><canvas id="chartCancelValor"></canvas></div>
     </div>
   </div>
-
-  <div class="caption-label">Fonte da classificacao: motivos.xlsx — categoria "NAO_MAPEADO" ainda nao foi classificada</div>
-  ${tabelaMotivos}`;
+  <div class="caption-label" style="text-align:center;">
+    O agrupamento (dia, semana ou mês) é escolhido automaticamente conforme o tamanho do período filtrado.
+    A taxa é o que mostra se a operação está melhorando: o valor sobe naturalmente quando se vende mais.
+  </div>`;
 }
 
-// Barras horizontais ordenadas: a tarefa aqui e comparar magnitude entre categorias, e barra
-// mede isso com precisao (pizza/rosca so funciona bem pra "parte do todo" com valores bem
-// distintos — varias categorias aqui tem valores proximos e ficariam ambiguas em fatias).
-// Uma cor so (mesma medida em todas as barras); o comprimento ja carrega a informacao.
-function renderChartMotivos() {
-  const el = document.getElementById('chartMotivos');
-  if (!el) return;
-  destroyChart('chartMotivos');
-  const dados = resumoMotivosCancelamento().slice().sort((a,b) => b.valor - a.valor);
-  chartInstances['chartMotivos'] = new Chart(el.getContext('2d'), {
+// Agrupamento automatico pelo tamanho do periodo filtrado — evita colocar mais um controle na
+// tela e evita grafico ilegivel (ex.: 7 meses agrupados por dia).
+function granularidadeAutomatica() {
+  const ini = fDataIni.value, fim = fDataFim.value;
+  if (!ini || !fim) return 'semana';
+  const dias = Math.round((new Date(fim + 'T00:00:00') - new Date(ini + 'T00:00:00')) / 86400000) + 1;
+  if (dias <= 21) return 'dia';
+  if (dias <= 100) return 'semana';
+  return 'mes';
+}
+
+// Cancelamentos agrupados no tempo: taxa (% dos pedidos) e valor perdido.
+function computeEvolucaoCancelamentos(gran) {
+  const rows = linhasFiltradas();
+  const grupos = new Map();
+  rows.forEach(r => {
+    const info = periodoKeyGenerico(DATAS[r[5]], gran);
+    if (!grupos.has(info.key)) grupos.set(info.key, { label: info.label, sort: info.sort, total: 0, cancelados: 0, valor: 0 });
+    const g = grupos.get(info.key);
+    g.total += r[7];
+    if (r[6] === 1) { g.cancelados += r[7]; g.valor += r[8]; }          // cancelamento total
+    else if (r[6] === 2) { g.cancelados += r[7]; g.valor += r[9]; }     // parcial: so o item cancelado
+  });
+  return Array.from(grupos.values())
+    .sort((a,b) => a.sort < b.sort ? -1 : a.sort > b.sort ? 1 : 0)
+    .map(g => ({ label: g.label, taxa: g.total ? g.cancelados/g.total*100 : 0, valor: g.valor, cancelados: g.cancelados, total: g.total }));
+}
+
+function renderChartsCancelEvolucao() {
+  if (!document.getElementById('chartCancelTaxa')) return;
+  const dados = computeEvolucaoCancelamentos(granularidadeAutomatica());
+  const labels = dados.map(d => d.label);
+
+  renderLineChart('chartCancelTaxa', labels, [
+    { label: '% dos pedidos cancelados', data: dados.map(d=>d.taxa), borderColor: '#ff6b6b', backgroundColor: '#ff6b6b' },
+  ], '%');
+
+  destroyChart('chartCancelValor');
+  chartInstances['chartCancelValor'] = new Chart(document.getElementById('chartCancelValor').getContext('2d'), {
     type: 'bar',
-    data: {
-      labels: dados.map(d => d.responsavel),
-      datasets: [{
-        data: dados.map(d => d.valor),
-        backgroundColor: '#ff6b6b',
-        borderRadius: 4,
-        borderSkipped: false,
-      }],
-    },
+    data: { labels, datasets: [{ data: dados.map(d=>d.valor), backgroundColor: '#ff6b6b', borderRadius: 4 }] },
     options: {
-      indexAxis: 'y',
-      responsive: true,
-      maintainAspectRatio: false,
+      responsive: true, maintainAspectRatio: false,
       plugins: {
         legend: { display: false },
-        tooltip: { callbacks: { label: (c) => {
-          const d = dados[c.dataIndex];
-          return `R$ ${fmt(d.valor)} — ${d.n} pedidos (${pct(d.pct)}% dos cancelamentos)`;
-        } } },
+        tooltip: { callbacks: { label: (c) => `R$ ${fmt(dados[c.dataIndex].valor)} — ${dados[c.dataIndex].cancelados} de ${dados[c.dataIndex].total} pedidos` } },
       },
-      scales: {
-        x: { beginAtZero: true, title: { display: true, text: 'R$ perdidos' }, grid: { color: '#1a1f27' } },
-        y: { grid: { display: false } },
-      },
+      scales: { x: { ticks: { maxRotation: 60, autoSkip: true } }, y: { beginAtZero: true, title: { display: true, text: 'R$' } } },
     },
   });
 }
 
+// Dois graficos separados (valor e quantidade) em vez de barras lado a lado num grafico so.
+// Motivo: sao unidades diferentes (R$ x pedidos). Num eixo unico as barras de quantidade
+// sumiriam perto das de valor; com dois eixos, o grafico fica visualmente enganoso (da pra
+// fazer qualquer serie "ganhar" so escolhendo as escalas). Dois graficos com a MESMA ordem de
+// categorias mostram a comparacao com honestidade.
+// Barra (e nao pizza) porque a tarefa e comparar magnitude — varias categorias aqui tem
+// valores proximos e virariam fatias ambiguas.
+function renderChartMotivos() {
+  const base = resumoMotivosCancelamento();
+
+  // Cada grafico e ordenado pela SUA propria medida (maior -> menor), entao cada um responde
+  // sua pergunta de imediato: "onde se perde mais dinheiro" e "o que mais acontece". A ordem
+  // das categorias muda de um grafico pro outro de proposito — e essa mudanca que mostra
+  // quando algo e frequente mas barato. O custo unitario esta na tabela abaixo.
+  function barras(id, chave, cor, tituloEixo, formatarTooltip, formatarRotulo) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    destroyChart(id);
+    const dados = base.slice().sort((a,b) => b[chave] - a[chave]);
+    const valores = dados.map(d => d[chave]);
+    const maxValor = Math.max(0, ...valores);
+    chartInstances[id] = new Chart(el.getContext('2d'), {
+      type: 'bar',
+      data: {
+        labels: dados.map(d => d.responsavel),
+        datasets: [{ data: valores, backgroundColor: cor, borderRadius: 4, borderSkipped: false }],
+      },
+      plugins: [pluginRotulosBarra(i => formatarRotulo(dados[i]))],
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        layout: { padding: { right: 8 } },
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: (c) => formatarTooltip(dados[c.dataIndex]) } },
+        },
+        scales: {
+          // Sobra de 22% no eixo pra caber o numero na ponta da barra sem cortar.
+          x: { beginAtZero: true, max: maxValor * 1.22 || 1, title: { display: true, text: tituloEixo }, grid: { color: '#1a1f27' } },
+          y: { grid: { display: false } },
+        },
+      },
+    });
+  }
+
+  barras('chartMotivosValor', 'valor', '#ff6b6b', 'R$ perdidos',
+    d => `R$ ${fmt(d.valor)} em ${d.n} pedidos (R$ ${fmt(d.n ? d.valor/d.n : 0)} por cancelamento)`,
+    d => 'R$ ' + fmt(d.valor));
+
+  barras('chartMotivosQtd', 'n', '#58a6ff', 'pedidos cancelados',
+    d => `${d.n} pedidos (${pct(d.pct)}% dos cancelamentos) — R$ ${fmt(d.valor)}`,
+    d => `${d.n} (${pct(d.pct)}%)`);
+
+  renderChartsCancelEvolucao();
+}
+
 function renderAll() {
   const m = computeMetrics();
-  let html = cardsInfo(m);
-  html += cardsEntradas(m);
-  html += cardsSaidas(m);
-  html += cardsCancel(m);
+  // Mesmas metricas para a janela anterior de mesmo tamanho — e o que alimenta os selos de
+  // variacao. `a` fica null quando nao ha periodo anterior com dados, e nesse caso os cards
+  // simplesmente nao mostram comparacao.
+  const ant = periodoAnterior();
+  const a = ant ? computeMetrics(ant.ini, ant.fim) : null;
+
+  const aviso = ant
+    ? `<div class="caption-label" style="text-align:center; margin-top:0;">
+         Comparando com o período anterior de mesmo tamanho: <b>${formatarDataCurta(ant.ini)} a ${formatarDataCurta(ant.fim)}</b> (${ant.dias} dias)
+       </div>`
+    : `<div class="caption-label" style="text-align:center; margin-top:0;">Sem período anterior disponível para comparar.</div>`;
+
+  let html = blocoAbertura(m, a, ant);
+  html += aviso;
+  html += cardsInfo(m, a);
+  html += cardsEntradas(m, a);
+  html += cardsSaidas(m, a);
+  html += cardsCancel(m, a);
   document.getElementById('view-content').innerHTML = html;
-  renderChartMotivos();
-  renderEvolucao();
+  document.getElementById('view-cancelamentos').innerHTML = aviso + moduloCancelamentos(m, a);
+  // So desenha os graficos do modulo que esta visivel — Chart.js calcula tamanho zero em
+  // container escondido, e o grafico sairia deformado.
+  const ativo = moduloAtivo();
+  if (ativo === 'resumo') renderChartWaterfall(m, a, ant);
+  if (ativo === 'cancelamentos') renderChartMotivos();
+  if (ativo === 'evolucao') renderEvolucao();
 }
 
 // ------------------------------------------------------------------
@@ -1167,7 +1435,7 @@ function renderChartPedidos(labels, dados) {
 
 function renderTabelaEvolucao(dados) {
   let html = `<table>
-    <tr><th>Periodo</th><th>Pedidos</th><th>Bruto</th><th>Liquido</th><th>Margem</th><th>Ticket medio</th><th>Custo mkt/pedido</th></tr>`;
+    <tr><th>Período</th><th>Pedidos</th><th>Bruto</th><th>Líquido</th><th>Margem</th><th>Ticket médio</th><th>Marketing/pedido</th></tr>`;
   dados.forEach(d => {
     html += `<tr>
       <td>${d.label}</td>
@@ -1192,31 +1460,32 @@ function renderTabelaEvolucao(dados) {
 // granularidade escolhida): decompoe a variacao do liquido em efeito volume (mudanca no
 // numero de pedidos, ao ticket medio antigo), efeito ticket medio/preco (mudanca no ticket
 // medio, ao volume novo), efeito descontos/taxas e efeito investimento em mkt.
-function renderChartWaterfall(dados) {
+// Explica a diferenca de resultado entre o periodo FILTRADO e o periodo anterior de mesmo
+// tamanho — exatamente a mesma comparacao dos selos dos cards, pra nao existir dois numeros
+// diferentes de "variacao" no painel.
+// A decomposicao e exata: volume + ticket reconstroem a variacao do bruto (bruto = pedidos x
+// ticket), e descontos + marketing completam ate o liquido.
+function renderChartWaterfall(m, a, ant) {
+  const el = document.getElementById('chartWaterfall');
+  if (!el || !a) return;
   destroyChart('chartWaterfall');
-  const ctx = document.getElementById('chartWaterfall').getContext('2d');
-  if (dados.length < 2) {
-    chartInstances['chartWaterfall'] = new Chart(ctx, { type: 'bar', data: { labels: ['Selecione um periodo com pelo menos 2 pontos'], datasets: [{ data: [0], backgroundColor: '#30363d' }] }, options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}} } });
-    return;
-  }
-  const atual = dados[dados.length - 1];
-  const anterior = dados[dados.length - 2];
+  const ctx = el.getContext('2d');
 
-  const deltaPedidos = atual.totalPedidos - anterior.totalPedidos;
-  const efeitoVolume = deltaPedidos * anterior.ticketMedio;
-  const efeitoTicket = atual.totalPedidos * (atual.ticketMedio - anterior.ticketMedio);
-  const efeitoDescontos = -(atual.totalDescontosComRessarcimento - anterior.totalDescontosComRessarcimento);
-  const efeitoMkt = -(atual.totalMkt - anterior.totalMkt);
+  const efeitoVolume = (m.totalPedidos - a.totalPedidos) * a.ticketMedio;
+  const efeitoTicket = m.totalPedidos * (m.ticketMedio - a.ticketMedio);
+  const efeitoDescontos = -(m.totalDescontosComRessarcimento - a.totalDescontosComRessarcimento);
+  const efeitoMkt = -(m.totalMkt - a.totalMkt);
 
-  let acumulado = anterior.liquido;
-  const barras = [{ label: ['Liquido', anterior.label], from: 0, to: anterior.liquido, tipo: 'total' }];
-  [['Efeito volume', efeitoVolume], ['Efeito ticket medio', efeitoTicket], ['Descontos/taxas', efeitoDescontos], ['Invest. em MKT', efeitoMkt]]
+  let acumulado = a.liquido;
+  const barras = [{ label: ['Período', 'anterior'], from: 0, to: a.liquido, tipo: 'total' }];
+  [['Mais/menos pedidos', efeitoVolume], ['Ticket médio', efeitoTicket],
+   ['Taxas e comissões', efeitoDescontos], ['Marketing', efeitoMkt]]
     .forEach(([nome, valor]) => {
       const de = acumulado;
       acumulado += valor;
       barras.push({ label: nome, from: Math.min(de, acumulado), to: Math.max(de, acumulado), tipo: valor >= 0 ? 'pos' : 'neg', delta: valor });
     });
-  barras.push({ label: ['Liquido', atual.label], from: 0, to: acumulado, tipo: 'total' });
+  barras.push({ label: ['Período', 'atual'], from: 0, to: acumulado, tipo: 'total' });
 
   const cores = { total: '#58a6ff', pos: '#3fb950', neg: '#ff6b6b' };
 
@@ -1325,7 +1594,6 @@ function renderEvolucao() {
   renderTabelaEvolucao(dados);
 
   const dadosCompletos = computeEvolucaoCompleta(gran);
-  renderChartWaterfall(dadosCompletos);
   renderChartMktLiquido(dadosCompletos);
   renderChartTicketVolumeLiquido(dadosCompletos);
 }
