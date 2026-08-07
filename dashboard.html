@@ -23,6 +23,11 @@
     text-align:left; padding:12px 24px; cursor:pointer; border-left:3px solid transparent;
     font-family:inherit;
   }
+  .sidebar-marca { display:flex; align-items:center; gap:10px; padding:0 20px 20px; margin-bottom:8px;
+                   border-bottom:1px solid #262c36; }
+  .sidebar-logo { height:38px; width:38px; border-radius:50%; object-fit:cover; flex-shrink:0; }
+  .sidebar-marca-nome { color:#ffffff; font-size:14px; font-weight:bold; letter-spacing:.3px; }
+
   .sidebar-btn:hover { color:#f5a623; }
   .sidebar-btn.active { color:#f5a623; background:#1c1508; border-left-color:#f5a623; }
   .main-content { flex:1; min-width:0; }
@@ -69,6 +74,16 @@
   .card-val { color:#ffffff; font-size:21px; font-weight:bold; }
   .card-pct { color:#9aa4af; font-size:15px; font-weight:600; margin-top:2px; }
   .card-delta { font-size:10.5px; font-weight:600; margin-top:6px; letter-spacing:.2px; }
+
+  .periodo-presets { display:flex; flex-wrap:wrap; justify-content:center; gap:6px; margin-bottom:10px; }
+  .preset-btn { background:#161b22; border:1px solid #30363d; color:#c9d1d9; font-size:12px; font-weight:bold;
+                padding:7px 14px; border-radius:16px; cursor:pointer; font-family:inherit; }
+  .preset-btn:hover { border-color:#f5a623; color:#f5a623; }
+  .preset-btn.active { background:#f5a623; color:#0d1117; border-color:#f5a623; }
+
+  .contexto { background:#12161c; border:1px solid #262c36; border-radius:8px; padding:10px 16px;
+              margin:16px 0 4px; text-align:center; color:#9aa4af; font-size:12.5px; line-height:1.7; }
+  .contexto b { color:#e6e6e6; }
 
   .hero { background:#161b22; border:1px solid #262c36; border-left:4px solid #3fb950; border-radius:12px;
           padding:22px 26px; margin-bottom:16px; }
@@ -146,6 +161,10 @@
 
 <div class="app-layout">
   <nav class="sidebar">
+    <div class="sidebar-marca">
+      <img src="logo.png" alt="Cidadão do Mundo" class="sidebar-logo">
+      <span class="sidebar-marca-nome">Painel iFood</span>
+    </div>
     <button class="sidebar-btn active" id="navBtnResumo" onclick="mostrarModulo('resumo')">Visão Geral</button>
     <button class="sidebar-btn" id="navBtnCancelamentos" onclick="mostrarModulo('cancelamentos')">Cancelamentos</button>
     <button class="sidebar-btn" id="navBtnEvolucao" onclick="mostrarModulo('evolucao')">Tendências</button>
@@ -153,43 +172,16 @@
   <div class="main-content">
   <div class="wrap">
 
-  <div class="header-row">
-    <h1>PAINEL IFOOD</h1>
-    <img src="logo.png" alt="Cidadao do Mundo" class="header-logo">
-  </div>
-
   <div id="loadingMsg">Carregando dados do banco...</div>
   <div id="erroMsg" style="display:none;"></div>
 
   <div id="painel" style="display:none;">
-    <div class="filters">
+
+    <div class="periodo-presets" id="periodoPresets"></div>
+
+    <div class="filters" style="margin-bottom:10px;">
       <label>De <input type="date" id="fDataIni"></label>
       <label>Até <input type="date" id="fDataFim"></label>
-
-      <details class="lojadrop filtro-dropdown">
-        <summary id="fDiaSummary">Dia da semana: todos</summary>
-        <div class="loja-options" id="fDiaOptions"></div>
-      </details>
-
-      <details class="lojadrop filtro-dropdown">
-        <summary id="fSemanaSummary">Semana: todas</summary>
-        <div class="loja-options" id="fSemanaOptions"></div>
-      </details>
-
-      <details class="lojadrop filtro-dropdown">
-        <summary id="fMesSummary">Mês: todos</summary>
-        <div class="loja-options" id="fMesOptions"></div>
-      </details>
-
-      <details class="lojadrop filtro-dropdown">
-        <summary id="fAnoSummary">Ano: todos</summary>
-        <div class="loja-options" id="fAnoOptions"></div>
-      </details>
-
-      <details class="lojadrop filtro-dropdown">
-        <summary id="fTurnoSummary">Turno: todos</summary>
-        <div class="loja-options" id="fTurnoOptions"></div>
-      </details>
     </div>
 
     <div style="display:flex; flex-wrap:wrap; justify-content:center; align-items:flex-start; gap:8px;">
@@ -197,6 +189,17 @@
       <details class="lojadrop" style="margin-bottom:0;">
         <summary id="lojaSummary">Marcas (loja): todas</summary>
         <div class="loja-options" id="lojaOptions"></div>
+      </details>
+    </div>
+
+    <div style="display:flex; flex-wrap:wrap; justify-content:center; align-items:flex-start; gap:8px; margin-top:10px;">
+      <details class="lojadrop filtro-dropdown">
+        <summary id="fDiaSummary">Dia da semana: todos</summary>
+        <div class="loja-options" id="fDiaOptions"></div>
+      </details>
+      <details class="lojadrop filtro-dropdown">
+        <summary id="fTurnoSummary">Turno: todos</summary>
+        <div class="loja-options" id="fTurnoOptions"></div>
       </details>
     </div>
 
@@ -214,6 +217,8 @@
 
     <div id="modulo-evolucao" class="modulo" style="display:none;">
 
+    <div id="contexto-evolucao"></div>
+
     <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">As perguntas que importam</div>
     <div class="caption-label" style="text-align:center;">
       Cada ponto é um período (conforme o agrupamento escolhido abaixo). São gráficos de exploração:
@@ -229,6 +234,8 @@
         <div class="chart-canvas-wrap"><canvas id="chartTicketVolumeLiquido"></canvas></div>
       </div>
     </div>
+
+    <div id="avisoPoucosPontos"></div>
 
     <div class="section-label">Evolução no tempo</div>
     <div class="filters" style="margin-bottom:16px;">
@@ -464,10 +471,11 @@ const fDataFim = document.getElementById('fDataFim');
 const selecionados = {};
 
 const FILTRO_DEFS = {
+  // Semana / Mes / Ano foram removidos de proposito: diziam a mesma coisa que o periodo
+  // De/Ate e podiam entrar em conflito com ele (era isso que a antiga funcao de
+  // "sincronizar periodo" tentava remendar). O periodo agora tem uma fonte unica de verdade:
+  // as datas De/Ate, com atalhos rapidos. Sobraram aqui so os recortes que NAO sao periodo.
   fDia: { dominio: () => DIAS, label: (v)=>v, nome: 'Dia da semana' },
-  fSemana: { dominio: () => SEMANAS, label: formatarSemana, nome: 'Semana' },
-  fMes: { dominio: () => MESES, label: (v)=>{ const [yyyy,mm]=v.split('-'); return `${MESES_ABREV[Number(mm)-1]}/${yyyy}`; }, nome: 'Mês' },
-  fAno: { dominio: () => ANOS, label: (v)=>v, nome: 'Ano' },
   fTurno: { dominio: () => TURNOS, label: (v)=>v, nome: 'Turno' },
 };
 
@@ -497,14 +505,12 @@ function toggleTodosFiltro(id, marcado) {
   const dominio = FILTRO_DEFS[id].dominio();
   selecionados[id] = marcado ? new Set(dominio.map((_,i)=>i)) : new Set();
   renderizarDropdownMultiplo(id);
-  sincronizarPeriodoComFiltros();
   renderAll();
 }
 
 function toggleItemFiltro(id, idx, marcado) {
   if (marcado) selecionados[id].add(idx); else selecionados[id].delete(idx);
   renderizarDropdownMultiplo(id);
-  sincronizarPeriodoComFiltros();
   renderAll();
 }
 
@@ -516,6 +522,49 @@ function periodoPadrao() {
   d.setDate(d.getDate() - 6);
   const inicioDesejado = d.toISOString().slice(0,10);
   return { ini: inicioDesejado < DATAS[0] ? DATAS[0] : inicioDesejado, fim: ultima };
+}
+
+// ------------------------------------------------------------------
+// Atalhos de periodo — substituem os antigos filtros de Semana/Mes/Ano.
+// Todos escrevem nas MESMAS datas De/Ate, entao existe uma unica fonte de verdade
+// para "qual periodo estou vendo".
+// ------------------------------------------------------------------
+const ULTIMO_DIA = () => DATAS[DATAS.length - 1];
+const iso = (d) => d.toISOString().slice(0, 10);
+const recuar = (dias) => { const d = new Date(ULTIMO_DIA() + 'T00:00:00'); d.setDate(d.getDate() - dias); return iso(d); };
+
+const PRESETS = [
+  { id: '7d',   rotulo: '7 dias',      calc: () => ({ ini: recuar(6),  fim: ULTIMO_DIA() }) },
+  { id: '30d',  rotulo: '30 dias',     calc: () => ({ ini: recuar(29), fim: ULTIMO_DIA() }) },
+  { id: 'mes',  rotulo: 'Este mês',    calc: () => { const u = ULTIMO_DIA(); return { ini: u.slice(0,8) + '01', fim: u }; } },
+  { id: 'mesAnt', rotulo: 'Mês passado', calc: () => {
+      const u = new Date(ULTIMO_DIA() + 'T00:00:00');
+      const primeiroDesteMes = new Date(u.getFullYear(), u.getMonth(), 1);
+      const fimMesAnterior = new Date(primeiroDesteMes); fimMesAnterior.setDate(0);
+      const iniMesAnterior = new Date(fimMesAnterior.getFullYear(), fimMesAnterior.getMonth(), 1);
+      return { ini: iso(iniMesAnterior), fim: iso(fimMesAnterior) };
+    } },
+  { id: '3m',   rotulo: '3 meses',     calc: () => ({ ini: recuar(89), fim: ULTIMO_DIA() }) },
+  { id: 'tudo', rotulo: 'Todo o histórico', calc: () => ({ ini: DATAS[0], fim: ULTIMO_DIA() }) },
+];
+
+function aplicarPreset(id) {
+  const p = PRESETS.find(x => x.id === id);
+  if (!p) return;
+  const { ini, fim } = p.calc();
+  fDataIni.value = ini < DATAS[0] ? DATAS[0] : ini;
+  fDataFim.value = fim > ULTIMO_DIA() ? ULTIMO_DIA() : fim;
+  renderAll();
+}
+
+function renderPresets() {
+  const atualIni = fDataIni.value, atualFim = fDataFim.value;
+  document.getElementById('periodoPresets').innerHTML = PRESETS.map(p => {
+    const { ini, fim } = p.calc();
+    const iniLimitado = ini < DATAS[0] ? DATAS[0] : ini;
+    const ativo = (iniLimitado === atualIni && fim === atualFim) ? 'active' : '';
+    return `<button class="preset-btn ${ativo}" onclick="aplicarPreset('${p.id}')">${p.rotulo}</button>`;
+  }).join('');
 }
 
 function montarFiltrosBase() {
@@ -541,7 +590,7 @@ function rebuildLojaOptions() {
   const visibleLojas = LOJAS.map((_,i)=>i).filter(i => activeUnidades.has(UNIDADES[lojaToUnidade[i]]));
   const html = `<label><input type="checkbox" id="lojaTodosChk" checked onchange="toggleTodasLojas(this.checked)"><b>Todos</b></label>` +
     visibleLojas.map(i =>
-      `<label><input type="checkbox" data-l="${i}" checked onchange="updateLojaSummary(); sincronizarPeriodoComFiltros(); renderAll();">${LOJAS[i]}</label>`
+      `<label><input type="checkbox" data-l="${i}" checked onchange="updateLojaSummary(); renderAll();">${LOJAS[i]}</label>`
     ).join('');
   lojaOptCont.innerHTML = html;
   updateLojaSummary();
@@ -552,7 +601,6 @@ function rebuildLojaOptions() {
 function toggleTodasLojas(marcado) {
   Array.from(lojaOptCont.querySelectorAll('input[data-l]')).forEach(c => { c.checked = marcado; });
   updateLojaSummary();
-  sincronizarPeriodoComFiltros();
   renderAll();
 }
 
@@ -638,7 +686,6 @@ function toggleUnidade(u) {
   }
   renderTopNav();
   rebuildLojaOptions();
-  sincronizarPeriodoComFiltros();
   renderAll();
 }
 
@@ -646,7 +693,6 @@ function selecionarTodasUnidades() {
   activeUnidades = new Set(UNIDADES);
   renderTopNav();
   rebuildLojaOptions();
-  sincronizarPeriodoComFiltros();
   renderAll();
 }
 
@@ -656,21 +702,18 @@ function selecionarTodasUnidades() {
 function fmt(v) { return (Math.abs(v) < 0.005 ? 0 : v).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2}); }
 function pct(v) { return v.toLocaleString('pt-BR', {minimumFractionDigits:1, maximumFractionDigits:1}); }
 
-// respeitarPeriodo=false ignora os campos De/Ate — usado pra descobrir qual seria o periodo
-// "natural" dos outros filtros, antes de aplicar o recorte de data em cima.
+// respeitarPeriodo=false ignora os campos De/Ate (usado pontualmente por calculos que
+// precisam olhar toda a base).
 function linhasFiltradas(respeitarPeriodo = true, iniAlt = null, fimAlt = null) {
   const dIni = iniAlt || fDataIni.value, dFim = fimAlt || fDataFim.value;
   const activeL = activeLojas();
 
   return ROWS.filter(r => {
     if (!activeL.has(r[0])) return false;
-    if (!selecionados.fSemana.has(r[3])) return false;
     if (!selecionados.fDia.has(r[4])) return false;
     if (!selecionados.fTurno.has(r[2])) return false;
-    const dataStr = DATAS[r[5]];
-    if (!selecionados.fMes.has(MESES.indexOf(dataStr.slice(0,7)))) return false;
-    if (!selecionados.fAno.has(ANOS.indexOf(dataStr.slice(0,4)))) return false;
     if (respeitarPeriodo) {
+      const dataStr = DATAS[r[5]];
       if (dIni && dataStr < dIni) return false;
       if (dFim && dataStr > dFim) return false;
     }
@@ -678,36 +721,16 @@ function linhasFiltradas(respeitarPeriodo = true, iniAlt = null, fimAlt = null) 
   });
 }
 
-// Regra pedida pelo usuario: quando qualquer filtro (loja, unidade, semana, dia da semana,
-// mes, ano, turno) muda, os campos De/Ate se ajustam pra refletir o periodo real dos dados
-// que passaram nesses filtros — assim eles nunca ficam "presos" num periodo antigo que nao
-// bate com o que os outros filtros estao mostrando.
-function sincronizarPeriodoComFiltros() {
-  const linhas = linhasFiltradas(false);
-  if (!linhas.length) return;
-  let minD = DATAS[linhas[0][5]], maxD = minD;
-  linhas.forEach(r => {
-    const d = DATAS[r[5]];
-    if (d < minD) minD = d;
-    if (d > maxD) maxD = d;
-  });
-  fDataIni.value = minD;
-  fDataFim.value = maxD;
-}
-
-// Cancelamentos por motivo respeitam os mesmos filtros de ROWS (loja/unidade, semana, dia da
-// semana, turno, mes, ano, periodo).
+// Cancelamentos por motivo respeitam os mesmos filtros de ROWS (loja/unidade, dia da semana,
+// turno, periodo).
 function linhasCancelamentoFiltradas() {
   const dIni = fDataIni.value, dFim = fDataFim.value;
   const activeL = activeLojas();
   return MOTIVOS.filter(r => {
     if (!activeL.has(r[0])) return false;
     if (!selecionados.fTurno.has(r[1])) return false;
-    if (!selecionados.fSemana.has(r[2])) return false;
     if (!selecionados.fDia.has(r[3])) return false;
     const dataStr = DATAS[r[4]];
-    if (!selecionados.fMes.has(MESES.indexOf(dataStr.slice(0,7)))) return false;
-    if (!selecionados.fAno.has(ANOS.indexOf(dataStr.slice(0,4)))) return false;
     if (dIni && dataStr < dIni) return false;
     if (dFim && dataStr > dFim) return false;
     return true;
@@ -965,6 +988,37 @@ function cardsSaidas(m, a) {
   </div>`;
 }
 
+// Frase que declara, sem ambiguidade, exatamente o recorte que esta na tela. Aparece igual em
+// todos os modulos — o periodo e um so, entao a leitura e sempre a mesma independente de onde
+// a pessoa esteja no painel.
+function linhaContexto(ant) {
+  const ini = fDataIni.value, fim = fDataFim.value;
+  const dias = Math.round((new Date(fim + 'T00:00:00') - new Date(ini + 'T00:00:00')) / 86400000) + 1;
+
+  const lojasMarcadas = Array.from(lojaOptCont.querySelectorAll('input[data-l]'));
+  const nLojas = lojasMarcadas.filter(c => c.checked).length;
+  const totalLojas = lojasMarcadas.length;
+  const todasUnid = activeUnidades.size === UNIDADES.length;
+
+  const partes = [];
+  partes.push(`<b>${formatarDataCurta(ini)}</b> a <b>${formatarDataCurta(fim)}</b> (${dias} ${dias === 1 ? 'dia' : 'dias'})`);
+  partes.push(todasUnid ? 'todas as unidades' : `unidades: <b>${Array.from(activeUnidades).join(', ')}</b>`);
+  partes.push(nLojas === totalLojas ? `todas as ${totalLojas} marcas` : `<b>${nLojas}</b> de ${totalLojas} marcas`);
+
+  const dias7 = selecionados.fDia.size === DIAS.length;
+  const turnos4 = selecionados.fTurno.size === TURNOS.length;
+  if (!dias7) partes.push(`apenas <b>${Array.from(selecionados.fDia).map(i => DIAS[i]).join(', ')}</b>`);
+  if (!turnos4) partes.push(`apenas <b>${Array.from(selecionados.fTurno).map(i => TURNOS[i]).join(', ')}</b>`);
+
+  const comparacao = ant
+    ? `Comparado com os ${ant.dias} dias anteriores: ${formatarDataCurta(ant.ini)} a ${formatarDataCurta(ant.fim)}.`
+    : `Sem período anterior de mesmo tamanho para comparar.`;
+
+  return `<div class="contexto">
+    Mostrando ${partes.join(' &middot; ')}.<br>${comparacao}
+  </div>`;
+}
+
 // Bloco de abertura da Visao Geral: o numero que resume tudo (o que sobrou), a variacao, uma
 // frase em portugues explicando o resultado, e o grafico que explica POR QUE mudou.
 function blocoAbertura(m, a, ant) {
@@ -1202,20 +1256,18 @@ function renderAll() {
   const ant = periodoAnterior();
   const a = ant ? computeMetrics(ant.ini, ant.fim) : null;
 
-  const aviso = ant
-    ? `<div class="caption-label" style="text-align:center; margin-top:0;">
-         Comparando com o período anterior de mesmo tamanho: <b>${formatarDataCurta(ant.ini)} a ${formatarDataCurta(ant.fim)}</b> (${ant.dias} dias)
-       </div>`
-    : `<div class="caption-label" style="text-align:center; margin-top:0;">Sem período anterior disponível para comparar.</div>`;
+  renderPresets();
+  const contexto = linhaContexto(ant);
 
-  let html = blocoAbertura(m, a, ant);
-  html += aviso;
+  let html = contexto;
+  html += blocoAbertura(m, a, ant);
   html += cardsInfo(m, a);
   html += cardsEntradas(m, a);
   html += cardsSaidas(m, a);
   html += cardsCancel(m, a);
   document.getElementById('view-content').innerHTML = html;
-  document.getElementById('view-cancelamentos').innerHTML = aviso + moduloCancelamentos(m, a);
+  document.getElementById('view-cancelamentos').innerHTML = contexto + moduloCancelamentos(m, a);
+  document.getElementById('contexto-evolucao').innerHTML = contexto;
   // So desenha os graficos do modulo que esta visivel — Chart.js calcula tamanho zero em
   // container escondido, e o grafico sairia deformado.
   const ativo = moduloAtivo();
@@ -1571,6 +1623,19 @@ function renderEvolucao() {
   const gran = selGranularidade.value;
   const dados = computeEvolucao(rows, gran);
   const labels = dados.map(d => d.label);
+
+  // Tendencia com poucos pontos nao e tendencia. Em vez de mostrar um grafico vazio ou
+  // enganoso, avisa e oferece o atalho pro historico completo.
+  const aviso = document.getElementById('avisoPoucosPontos');
+  if (aviso) {
+    aviso.innerHTML = dados.length < 3
+      ? `<div class="contexto" style="border-color:#f5a623;">
+           O período filtrado gera apenas <b>${dados.length} ${dados.length === 1 ? 'ponto' : 'pontos'}</b> neste agrupamento —
+           pouco para enxergar tendência.
+           <div style="margin-top:10px;"><button class="preset-btn" onclick="aplicarPreset('tudo')">Ver todo o histórico</button></div>
+         </div>`
+      : '';
+  }
 
   renderLineChart('chartBrutoLiquido', labels, [
     { label: 'Bruto', data: dados.map(d=>d.bruto), borderColor: '#58a6ff', backgroundColor: '#58a6ff' },
