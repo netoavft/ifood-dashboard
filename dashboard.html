@@ -390,7 +390,10 @@ async function carregar() {
   // vendas, mensalidade, anuncios, outros ajustes). So tem loja + data (nao tem turno/semana/dia
   // calculados aqui), entao esse valor respeita os filtros de loja/unidade e periodo, mas nao
   // Semana/Dia da semana/Turno.
-  const conciliacao = await consultarTudo("vw_conciliacao_agregado?select=nome_loja,data,grupo,valor&order=nome_loja,data,grupo");
+  // Usa a versao materializada (pre-calculada): a view normal precisava classificar e somar
+  // 400 mil+ lancamentos a cada abertura do painel e passou a estourar o tempo limite do
+  // Supabase. A materializada e' atualizada automaticamente pelo watch_and_import.py.
+  const conciliacao = await consultarTudo("mv_conciliacao_agregado?select=nome_loja,data,grupo,valor&order=nome_loja,data,grupo");
   CONCILIACAO = conciliacao.map(r => [LOJAS.indexOf(r.nome_loja), r.data, r.grupo, Number(r.valor)]);
 
   // Cancelamentos (totais e parciais) classificados por categoria de motivo. Tem as mesmas
