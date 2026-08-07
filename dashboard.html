@@ -700,7 +700,9 @@ function selecionarTodasUnidades() {
 // Calculo das metricas (identico a logica ja validada)
 // ------------------------------------------------------------------
 function fmt(v) { return (Math.abs(v) < 0.005 ? 0 : v).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2}); }
-function pct(v) { return v.toLocaleString('pt-BR', {minimumFractionDigits:1, maximumFractionDigits:1}); }
+// Mesmo arredondamento de fmt(): evita o "-0,0%" que aparecia quando o valor era zero mas o
+// calculo devolvia um negativo microscopico.
+function pct(v) { return (Math.abs(v) < 0.05 ? 0 : v).toLocaleString('pt-BR', {minimumFractionDigits:1, maximumFractionDigits:1}); }
 
 // respeitarPeriodo=false ignora os campos De/Ate (usado pontualmente por calculos que
 // precisam olhar toda a base).
@@ -793,17 +795,47 @@ function formatarDataCurta(iso) {
   return `${d}/${m}/${a}`;
 }
 
-// Selo de variacao mostrado dentro do card. maiorEhMelhor=false inverte as cores (custo que
-// sobe e ruim). Sem base de comparacao valida, nao mostra nada — melhor vazio do que enganoso.
-function selo(atual, anterior, maiorEhMelhor = true) {
-  if (anterior === null || anterior === undefined || !isFinite(anterior) || Math.abs(anterior) < 0.005) return '';
+// Selo de variacao mostrado dentro do card.
+//
+// A leitura usa DOIS canais que nunca se contradizem:
+//   - a PALAVRA ("subiu"/"caiu") diz o que aconteceu com o numero — fato, sem interpretacao;
+//   - a COR diz se isso e bom ou ruim para o resultado — interpretacao.
+// Antes so havia seta + cor, e o leitor tinha que combinar mentalmente os dois (uma seta pra
+// baixo verde confunde, porque seta pra baixo "parece" ruim). Com a palavra explicita, o fato
+// fica claro mesmo que a pessoa ignore a cor.
+//
+// tipo: 'maiorMelhor' (receita, lucro) | 'menorMelhor' (custo) | 'neutro' (investimento —
+// gastar mais nao e bom nem ruim por si so, depende do retorno; nao cabe ao painel julgar).
+function selo(atual, anterior, tipo = 'maiorMelhor') {
+  if (anterior === null || anterior === undefined || !isFinite(anterior)) return '';
+
+  const antesZero = Math.abs(anterior) < 0.005;
+  const agoraZero = Math.abs(atual) < 0.005;
+  if (antesZero && agoraZero) return '';
+
+  const detalhe = `Antes: R$ ${fmt(anterior)} → agora: R$ ${fmt(atual)}`;
+
+  // Saindo do zero nao existe percentual — o certo e dizer que apareceu agora.
+  if (antesZero) {
+    const cor = tipo === 'neutro' ? '#7d8590' : (tipo === 'maiorMelhor' ? '#3fb950' : '#ff6b6b');
+    return `<div class="card-delta" style="color:${cor};" title="${detalhe}">apareceu neste período (antes era zero)</div>`;
+  }
+
   const variacao = (atual - anterior) / Math.abs(anterior) * 100;
   if (!isFinite(variacao)) return '';
-  const subiu = variacao >= 0;
-  const bom = maiorEhMelhor ? subiu : !subiu;
-  const cor = Math.abs(variacao) < 0.05 ? '#7d8590' : (bom ? '#3fb950' : '#ff6b6b');
-  const seta = Math.abs(variacao) < 0.05 ? '' : (subiu ? '▲' : '▼');
-  return `<div class="card-delta" style="color:${cor};">${seta} ${pct(Math.abs(variacao))}% vs período anterior</div>`;
+
+  if (Math.abs(variacao) < 0.05) {
+    return `<div class="card-delta" style="color:#7d8590;" title="${detalhe}">sem mudança vs período anterior</div>`;
+  }
+
+  const subiu = variacao > 0;
+  const palavra = subiu ? 'subiu' : 'caiu';
+  const seta = subiu ? '▲' : '▼';
+  let cor = '#7d8590';
+  if (tipo === 'maiorMelhor') cor = subiu ? '#3fb950' : '#ff6b6b';
+  else if (tipo === 'menorMelhor') cor = subiu ? '#ff6b6b' : '#3fb950';
+
+  return `<div class="card-delta" style="color:${cor};" title="${detalhe}">${seta} ${palavra} ${pct(Math.abs(variacao))}% vs período anterior</div>`;
 }
 
 // iniAlt/fimAlt permitem calcular as mesmas metricas para outro periodo (o anterior), sem
@@ -929,21 +961,21 @@ function cardsEntradas(m, a) {
 function cardsSaidas(m, a) {
   return `<div class="section-label">O que o iFood cobrou</div>
   <div class="equation-row">
-    <div class="card neg"><div class="card-lbl">Taxa de pagamento online</div><div class="card-val">R$ ${fmt(m.taxaOnline)}</div><div class="card-pct">${pct(m.taxaOnlinePct)}%</div>${selo(m.taxaOnline, a && a.taxaOnline, false)}</div>
+    <div class="card neg"><div class="card-lbl">Taxa de pagamento online</div><div class="card-val">R$ ${fmt(m.taxaOnline)}</div><div class="card-pct">${pct(m.taxaOnlinePct)}%</div>${selo(m.taxaOnline, a && a.taxaOnline, 'menorMelhor')}</div>
     <div class="eq-symbol">+</div>
-    <div class="card neg"><div class="card-lbl">Comissão sobre vendas</div><div class="card-val">R$ ${fmt(m.comissaoVendas)}</div><div class="card-pct">${pct(m.comissaoVendasPct)}%</div>${selo(m.comissaoVendas, a && a.comissaoVendas, false)}</div>
+    <div class="card neg"><div class="card-lbl">Comissão sobre vendas</div><div class="card-val">R$ ${fmt(m.comissaoVendas)}</div><div class="card-pct">${pct(m.comissaoVendasPct)}%</div>${selo(m.comissaoVendas, a && a.comissaoVendas, 'menorMelhor')}</div>
     <div class="eq-symbol">+</div>
-    <div class="card neg"><div class="card-lbl">Mensalidade</div><div class="card-val">R$ ${fmt(m.mensalidade)}</div><div class="card-pct">${pct(m.mensalidadePct)}%</div>${selo(m.mensalidade, a && a.mensalidade, false)}</div>
+    <div class="card neg"><div class="card-lbl">Mensalidade</div><div class="card-val">R$ ${fmt(m.mensalidade)}</div><div class="card-pct">${pct(m.mensalidadePct)}%</div>${selo(m.mensalidade, a && a.mensalidade, 'menorMelhor')}</div>
     <div class="eq-symbol">+</div>
-    <div class="card neg"><div class="card-lbl">Outros ajustes</div><div class="card-val">R$ ${fmt(m.outrosAjustes)}</div><div class="card-pct">${pct(m.outrosAjustesPct)}%</div>${selo(m.outrosAjustes, a && a.outrosAjustes, false)}</div>
+    <div class="card neg"><div class="card-lbl">Outros ajustes</div><div class="card-val">R$ ${fmt(m.outrosAjustes)}</div><div class="card-pct">${pct(m.outrosAjustesPct)}%</div>${selo(m.outrosAjustes, a && a.outrosAjustes, 'menorMelhor')}</div>
   </div>
   <div class="equation-row">
     <div class="eq-symbol">+</div>
-    <div class="card neg"><div class="card-lbl">Frete sob demanda</div><div class="card-val">R$ ${fmt(m.freteSobDemanda)}</div><div class="card-pct">${pct(m.freteSobDemandaPct)}%</div>${selo(m.freteSobDemanda, a && a.freteSobDemanda, false)}</div>
+    <div class="card neg"><div class="card-lbl">Frete sob demanda</div><div class="card-val">R$ ${fmt(m.freteSobDemanda)}</div><div class="card-pct">${pct(m.freteSobDemandaPct)}%</div>${selo(m.freteSobDemanda, a && a.freteSobDemanda, 'menorMelhor')}</div>
     <div class="eq-symbol">-</div>
     <div class="card pos"><div class="card-lbl">Ressarcimento por cancelamentos</div><div class="card-val">R$ ${fmt(m.ressarcimentoCancelamento)}</div><div class="card-pct">${pct(m.ressarcimentoCancelamentoPct)}%</div>${selo(m.ressarcimentoCancelamento, a && a.ressarcimentoCancelamento)}</div>
     <div class="eq-symbol">=</div>
-    <div class="card highlight"><div class="card-lbl">Total cobrado pelo iFood</div><div class="card-val">R$ ${fmt(m.totalDescontosComRessarcimento)}</div><div class="card-pct">${pct(m.totalDescontosComRessarcimentoPct)}%</div>${selo(m.totalDescontosComRessarcimento, a && a.totalDescontosComRessarcimento, false)}</div>
+    <div class="card highlight"><div class="card-lbl">Total cobrado pelo iFood</div><div class="card-val">R$ ${fmt(m.totalDescontosComRessarcimento)}</div><div class="card-pct">${pct(m.totalDescontosComRessarcimentoPct)}%</div>${selo(m.totalDescontosComRessarcimento, a && a.totalDescontosComRessarcimento, 'menorMelhor')}</div>
   </div>
   <div class="caption-label" style="text-align:center;">
     Taxas e comissões que o iFood desconta do repasse. "Outros ajustes" reune lancamentos pequenos e pontuais
@@ -952,16 +984,16 @@ function cardsSaidas(m, a) {
 
   <div class="section-label">Quanto investimos para vender</div>
   <div class="equation-row">
-    <div class="card neg"><div class="card-lbl">Promoções bancadas pela loja</div><div class="card-val">R$ ${fmt(m.promoLoja)}</div><div class="card-pct">${pct(m.promoLojaPct)}%</div>${selo(m.promoLoja, a && a.promoLoja, false)}</div>
+    <div class="card neg"><div class="card-lbl">Promoções bancadas pela loja</div><div class="card-val">R$ ${fmt(m.promoLoja)}</div><div class="card-pct">${pct(m.promoLojaPct)}%</div>${selo(m.promoLoja, a && a.promoLoja, 'neutro')}</div>
     <div class="eq-symbol">+</div>
-    <div class="card neg"><div class="card-lbl">Anúncios</div><div class="card-val">R$ ${fmt(m.anuncios)}</div><div class="card-pct">${pct(m.anunciosPct)}%</div>${selo(m.anuncios, a && a.anuncios, false)}</div>
+    <div class="card neg"><div class="card-lbl">Anúncios</div><div class="card-val">R$ ${fmt(m.anuncios)}</div><div class="card-pct">${pct(m.anunciosPct)}%</div>${selo(m.anuncios, a && a.anuncios, 'neutro')}</div>
     <div class="eq-symbol">=</div>
-    <div class="card highlight"><div class="card-lbl">Total investido em marketing</div><div class="card-val">R$ ${fmt(m.totalMkt)}</div><div class="card-pct">${pct(m.totalMktPct)}%</div>${selo(m.totalMkt, a && a.totalMkt, false)}</div>
-    <div class="card neutral"><div class="card-lbl">Marketing por pedido</div><div class="card-val">R$ ${fmt(m.custoMktPorPedido)}</div>${selo(m.custoMktPorPedido, a && a.custoMktPorPedido, false)}</div>
+    <div class="card highlight"><div class="card-lbl">Total investido em marketing</div><div class="card-val">R$ ${fmt(m.totalMkt)}</div><div class="card-pct">${pct(m.totalMktPct)}%</div>${selo(m.totalMkt, a && a.totalMkt, 'neutro')}</div>
+    <div class="card neutral"><div class="card-lbl">Marketing por pedido</div><div class="card-val">R$ ${fmt(m.custoMktPorPedido)}</div>${selo(m.custoMktPorPedido, a && a.custoMktPorPedido, 'menorMelhor')}</div>
   </div>
   <div class="section-label" style="color:#58a6ff; border-top:none; padding-top:0; margin-top:0;">Quem pagou a promoção</div>
   <div class="cards">
-    <div class="card neg"><div class="card-lbl">Bancado pela loja</div><div class="card-val">R$ ${fmt(m.investLoja)}</div><div class="card-pct" style="color:#ff6b6b;">${pct(m.investLojaPct)}% do total</div>${selo(m.investLoja, a && a.investLoja, false)}</div>
+    <div class="card neg"><div class="card-lbl">Bancado pela loja</div><div class="card-val">R$ ${fmt(m.investLoja)}</div><div class="card-pct" style="color:#ff6b6b;">${pct(m.investLojaPct)}% do total</div>${selo(m.investLoja, a && a.investLoja, 'neutro')}</div>
     <div class="card pos"><div class="card-lbl">Bancado pelo iFood</div><div class="card-val">R$ ${fmt(m.investPlataforma)}</div><div class="card-pct" style="color:#3fb950;">${pct(m.investPlataformaPct)}% do total</div>${selo(m.investPlataforma, a && a.investPlataforma)}</div>
   </div>
   <div class="caption-label" style="text-align:center;">
@@ -977,7 +1009,7 @@ function cardsSaidas(m, a) {
       <div class="eq-symbol">+</div>
       <div class="card neg" style="background:transparent;"><div class="card-lbl">Total investido em marketing</div><div class="card-val">R$ ${fmt(m.totalMkt)}</div><div class="card-pct">${pct(m.totalMktPct)}%</div></div>
       <div class="eq-symbol">=</div>
-      <div class="card neg highlight"><div class="card-lbl">Custo total do iFood</div><div class="card-val">R$ ${fmt(m.custoIfood)}</div><div class="card-pct">${pct(m.custoIfoodPct)}%</div>${selo(m.custoIfood, a && a.custoIfood, false)}</div>
+      <div class="card neg highlight"><div class="card-lbl">Custo total do iFood</div><div class="card-val">R$ ${fmt(m.custoIfood)}</div><div class="card-pct">${pct(m.custoIfoodPct)}%</div>${selo(m.custoIfood, a && a.custoIfood, 'menorMelhor')}</div>
     </div>
     <div class="eq-symbol">=</div>
     <div class="card pos highlight"><div class="card-lbl">Líquido — o que sobra para a loja</div><div class="card-val">R$ ${fmt(m.liquido)}</div><div class="card-pct">${pct(m.liquidoPct)}%</div>${selo(m.liquido, a && a.liquido)}</div>
@@ -1016,6 +1048,13 @@ function linhaContexto(ant) {
 
   return `<div class="contexto">
     Mostrando ${partes.join(' &middot; ')}.<br>${comparacao}
+    <div style="margin-top:8px; padding-top:8px; border-top:1px solid #262c36; font-size:11.5px; color:#7d8590;">
+      Nas comparações, a palavra diz o que aconteceu (<b>subiu</b> / <b>caiu</b>) e a cor diz se é bom ou ruim:
+      <span style="color:#3fb950; font-weight:bold;">verde</span> melhora o resultado,
+      <span style="color:#ff6b6b; font-weight:bold;">vermelho</span> piora.
+      Em custos, cair é verde. Investimento em marketing fica em
+      <span style="color:#7d8590; font-weight:bold;">cinza</span> — gastar mais não é bom nem ruim por si só, depende do retorno.
+    </div>
   </div>`;
 }
 
@@ -1063,9 +1102,9 @@ function cardsInfo(m, a) {
 function cardsCancel(m, a) {
   return `<div class="section-label">O que perdemos com cancelamentos</div>
   <div class="cards">
-    <div class="card neg"><div class="card-lbl">Total cancelado</div><div class="card-val">R$ ${fmt(m.valorCancelado)}</div><div class="card-pct">${pct(m.valorCanceladoPct)}% do bruto</div>${selo(m.valorCancelado, a && a.valorCancelado, false)}</div>
-    <div class="card neutral"><div class="card-lbl">Cancelamentos parciais</div><div class="card-val">R$ ${fmt(m.vParcial)}</div><div class="card-pct">${m.nParcial} pedidos (${pct(m.nParcialPct)}%)</div>${selo(m.vParcial, a && a.vParcial, false)}</div>
-    <div class="card neutral"><div class="card-lbl">Cancelamentos totais</div><div class="card-val">R$ ${fmt(m.vFull)}</div><div class="card-pct">${m.nFull} pedidos (${pct(m.nFullPct)}%)</div>${selo(m.vFull, a && a.vFull, false)}</div>
+    <div class="card neg"><div class="card-lbl">Total cancelado</div><div class="card-val">R$ ${fmt(m.valorCancelado)}</div><div class="card-pct">${pct(m.valorCanceladoPct)}% do bruto</div>${selo(m.valorCancelado, a && a.valorCancelado, 'menorMelhor')}</div>
+    <div class="card neutral"><div class="card-lbl">Cancelamentos parciais</div><div class="card-val">R$ ${fmt(m.vParcial)}</div><div class="card-pct">${m.nParcial} pedidos (${pct(m.nParcialPct)}%)</div>${selo(m.vParcial, a && a.vParcial, 'menorMelhor')}</div>
+    <div class="card neutral"><div class="card-lbl">Cancelamentos totais</div><div class="card-val">R$ ${fmt(m.vFull)}</div><div class="card-pct">${m.nFull} pedidos (${pct(m.nFullPct)}%)</div>${selo(m.vFull, a && a.vFull, 'menorMelhor')}</div>
     <div class="card pos"><div class="card-lbl">Devolvido pelo iFood</div><div class="card-val">R$ ${fmt(m.ressarcimentoCancelamento)}</div><div class="card-pct">${pct(m.ressarcimentoCancelamentoPct)}% do bruto</div>${selo(m.ressarcimentoCancelamento, a && a.ressarcimentoCancelamento)}</div>
   </div>
   <div class="caption-label" style="text-align:center;">
@@ -1077,7 +1116,7 @@ function cardsCancel(m, a) {
       <div class="card-lbl">Valor perdido de verdade</div>
       <div class="card-val" style="font-size:26px;">R$ ${fmt(m.valorPerdidoReal)}</div>
       <div class="card-pct">${pct(m.valorPerdidoRealPct)}% do bruto</div>
-      ${selo(m.valorPerdidoReal, a && a.valorPerdidoReal, false)}
+      ${selo(m.valorPerdidoReal, a && a.valorPerdidoReal, 'menorMelhor')}
       <div style="color:#7d8590; font-size:11px; line-height:1.5; margin-top:12px; border-top:1px solid #262c36; padding-top:10px;">
         Total cancelado <b>menos</b> o que o iFood devolveu.<br>
         É o que de fato saiu do bolso da operação.
