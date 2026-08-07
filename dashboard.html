@@ -127,12 +127,16 @@
   #tabelaEvolucao th { background:#21262d; color:#9aa4af; font-weight:bold; font-size:11px; text-transform:uppercase; }
   #tabelaEvolucao tr:nth-child(even) { background:#12161c; }
 
-  #tabelaMotivos { overflow-x:auto; max-width:100%; }
-  #tabelaMotivos table { border-collapse:collapse; width:100%; font-size:12.5px; }
-  #tabelaMotivos th, #tabelaMotivos td { border:1px solid #30363d; padding:6px 10px; text-align:right; white-space:nowrap; }
-  #tabelaMotivos th:first-child, #tabelaMotivos td:first-child { text-align:left; }
-  #tabelaMotivos th { background:#21262d; color:#9aa4af; font-weight:bold; font-size:11px; text-transform:uppercase; }
-  #tabelaMotivos tr:nth-child(even) { background:#12161c; }
+  #tabelaMotivos, #tabelaPromo, #tabelaPromoLojas { overflow-x:auto; max-width:100%; }
+  #tabelaMotivos table, #tabelaPromo table, #tabelaPromoLojas table { border-collapse:collapse; width:100%; font-size:12.5px; }
+  #tabelaMotivos th, #tabelaMotivos td,
+  #tabelaPromo th, #tabelaPromo td,
+  #tabelaPromoLojas th, #tabelaPromoLojas td { border:1px solid #30363d; padding:6px 10px; text-align:right; white-space:nowrap; }
+  #tabelaMotivos th:first-child, #tabelaMotivos td:first-child,
+  #tabelaPromo th:first-child, #tabelaPromo td:first-child,
+  #tabelaPromoLojas th:first-child, #tabelaPromoLojas td:first-child { text-align:left; white-space:normal; }
+  #tabelaMotivos th, #tabelaPromo th, #tabelaPromoLojas th { background:#21262d; color:#9aa4af; font-weight:bold; font-size:11px; text-transform:uppercase; }
+  #tabelaMotivos tr:nth-child(even), #tabelaPromo tr:nth-child(even), #tabelaPromoLojas tr:nth-child(even) { background:#12161c; }
 
   .login-gate { position:fixed; inset:0; background:#0d1117; display:flex; align-items:center; justify-content:center; z-index:1000; padding:20px; }
   .login-box { background:#161b22; border:1px solid #262c36; border-radius:12px; padding:36px 40px; text-align:center; max-width:320px; width:100%; }
@@ -187,7 +191,7 @@
 
     <div class="sidebar-secao">Canal · iFood</div>
     <button class="sidebar-btn" id="navBtnCancelamentos" onclick="mostrarModulo('cancelamentos')">Cancelamentos</button>
-    <span class="sidebar-btn breve">Promoções</span>
+    <button class="sidebar-btn" id="navBtnPromocoes" onclick="mostrarModulo('promocoes')">Promoções</button>
     <span class="sidebar-btn breve">Negociações</span>
     <span class="sidebar-btn breve">Avaliações</span>
 
@@ -249,6 +253,10 @@
 
     <div id="modulo-cancelamentos" class="modulo" style="display:none;">
       <div id="view-cancelamentos"></div>
+    </div>
+
+    <div id="modulo-promocoes" class="modulo" style="display:none;">
+      <div id="view-promocoes"></div>
     </div>
 
     <div id="modulo-evolucao" class="modulo" style="display:none;">
@@ -421,6 +429,8 @@ let ROWS = [];
 let CONCILIACAO = [];
 // MOTIVOS cols: loja, turno, semana, dia, data, responsavel (string), n, valor — cancelamentos por motivo
 let MOTIVOS = [];
+// PROMOCOES cols: loja, competencia ('YYYY-MM'), estrategia, pedidos, vendas, invLoja, invIfood
+let PROMOCOES = [];
 
 let activeUnidades = new Set();
 
@@ -479,6 +489,16 @@ async function carregar() {
 
   // Cancelamentos (totais e parciais) classificados por categoria de motivo. Tem as mesmas
   // dimensoes de ROWS, entao respeita todos os filtros normalmente.
+  // Promocoes: vem por MES (competencia), nao por dia — o relatorio do iFood e mensal.
+  // So existe de junho/2026 em diante, porque o portal so disponibiliza os ultimos 90 dias.
+  const promos = await consultarTudo(
+    "vw_promocoes_agregado?select=nome_loja,competencia,estrategia,pedidos,vendas,investimento_loja,investimento_ifood&order=nome_loja,competencia,estrategia"
+  );
+  PROMOCOES = promos.map(r => [
+    LOJAS.indexOf(r.nome_loja), r.competencia, r.estrategia,
+    r.pedidos, Number(r.vendas), Number(r.investimento_loja), Number(r.investimento_ifood),
+  ]);
+
   const motivos = await consultarTudo(
     "vw_cancelamentos_motivo?select=nome_loja,turno,semana,dia_semana,data,status,responsavel,n,valor&order=nome_loja,data"
   );
@@ -676,6 +696,7 @@ function mostrarModulo(nome) {
   const modulos = {
     resumo: ['modulo-resumo', 'navBtnResumo'],
     cancelamentos: ['modulo-cancelamentos', 'navBtnCancelamentos'],
+    promocoes: ['modulo-promocoes', 'navBtnPromocoes'],
     evolucao: ['modulo-evolucao', 'navBtnEvolucao'],
   };
   Object.entries(modulos).forEach(([chave, [idDiv, idBtn]]) => {
@@ -690,11 +711,13 @@ function mostrarModulo(nome) {
   }
   if (nome === 'evolucao') renderEvolucao();
   if (nome === 'cancelamentos') renderChartMotivos();
+  if (nome === 'promocoes') renderChartsPromocoes();
 }
 
 // Qual modulo esta aberto agora — usado pra so redesenhar os graficos do modulo visivel.
 function moduloAtivo() {
   if (document.getElementById('modulo-cancelamentos').style.display !== 'none') return 'cancelamentos';
+  if (document.getElementById('modulo-promocoes').style.display !== 'none') return 'promocoes';
   if (document.getElementById('modulo-evolucao').style.display !== 'none') return 'evolucao';
   return 'resumo';
 }
@@ -1221,6 +1244,217 @@ function moduloCancelamentos(m, a) {
   </div>`;
 }
 
+// ------------------------------------------------------------------
+// MODULO PROMOCOES
+// ------------------------------------------------------------------
+// O relatorio de promocoes e MENSAL. Entao o filtro de periodo aqui funciona por mes:
+// entram as competencias que tem qualquer sobreposicao com o periodo escolhido.
+function competenciasNoPeriodo() {
+  const ini = (fDataIni.value || '').slice(0, 7);
+  const fim = (fDataFim.value || '').slice(0, 7);
+  return new Set(PROMOCOES.map(p => p[1]).filter(c => c >= ini && c <= fim));
+}
+
+function resumoPromocoes() {
+  const comps = competenciasNoPeriodo();
+  const activeL = activeLojas();
+  const linhas = PROMOCOES.filter(p => activeL.has(p[0]) && comps.has(p[1]));
+
+  const porEstrategia = new Map();
+  linhas.forEach(([, , estrategia, ped, vendas, invL, invI]) => {
+    if (!porEstrategia.has(estrategia)) porEstrategia.set(estrategia, { estrategia, ped: 0, vendas: 0, invL: 0, invI: 0 });
+    const o = porEstrategia.get(estrategia);
+    o.ped += ped; o.vendas += vendas; o.invL += invL; o.invI += invI;
+  });
+
+  const totalInv = linhas.reduce((s, p) => s + p[5], 0);
+  const lista = Array.from(porEstrategia.values()).map(o => ({
+    ...o,
+    pctVerba: totalInv ? o.invL / totalInv * 100 : 0,
+    invPorPedido: o.ped ? o.invL / o.ped : 0,
+    ticket: o.ped ? o.vendas / o.ped : 0,
+    pctIfood: (o.invL + o.invI) ? o.invI / (o.invL + o.invI) * 100 : 0,
+    retornoAtribuido: o.invL ? (o.vendas - o.invL) / o.invL : 0,
+  })).sort((a, b) => b.invL - a.invL);
+
+  return {
+    lista, totalInv,
+    totalInvIfood: linhas.reduce((s, p) => s + p[6], 0),
+    totalPedidos: linhas.reduce((s, p) => s + p[3], 0),
+    totalVendas: linhas.reduce((s, p) => s + p[4], 0),
+    competencias: Array.from(comps).sort(),
+  };
+}
+
+// Mesma estrategia comparada entre lojas: e a comparacao mais confiavel que este dado permite,
+// porque o tipo de promocao e o mesmo dos dois lados — some o vies de "promo barata parece ter
+// retorno alto". Diferenca aqui e diferenca de operacao, nao de metrica.
+function promocoesPorLoja(estrategia) {
+  const comps = competenciasNoPeriodo();
+  const activeL = activeLojas();
+  const porLoja = new Map();
+  PROMOCOES.filter(p => activeL.has(p[0]) && comps.has(p[1]) && p[2] === estrategia)
+    .forEach(([loja, , , ped, vendas, invL]) => {
+      if (!porLoja.has(loja)) porLoja.set(loja, { loja, ped: 0, vendas: 0, invL: 0 });
+      const o = porLoja.get(loja);
+      o.ped += ped; o.vendas += vendas; o.invL += invL;
+    });
+  return Array.from(porLoja.values())
+    .filter(o => o.invL > 0)
+    .map(o => ({
+      nome: LOJAS[o.loja], ped: o.ped, invL: o.invL,
+      invPorPedido: o.ped ? o.invL / o.ped : 0,
+      ticket: o.ped ? o.vendas / o.ped : 0,
+    }))
+    .sort((a, b) => b.invL - a.invL);
+}
+
+function moduloPromocoes() {
+  const r = resumoPromocoes();
+
+  if (!r.lista.length) {
+    return `<div class="contexto" style="border-color:#f5a623;">
+      Não há dados de promoções no período selecionado.<br>
+      O relatório de promoções do iFood é <b>mensal</b> e só está disponível a partir de
+      <b>junho/2026</b> (o portal libera apenas os últimos 90 dias).
+      Use o atalho <b>"Todo o histórico"</b> ou escolha um período dentro dos meses já importados.
+    </div>`;
+  }
+
+  const invPorPedidoGeral = r.totalPedidos ? r.totalInv / r.totalPedidos : 0;
+  const pctIfoodGeral = (r.totalInv + r.totalInvIfood) ? r.totalInvIfood / (r.totalInv + r.totalInvIfood) * 100 : 0;
+  const mesesTexto = r.competencias.map(c => { const [a, m] = c.split('-'); return `${MESES_ABREV[Number(m) - 1]}/${a}`; }).join(', ');
+
+  // A estrategia com maior verba e a que vale comparar entre lojas.
+  const principal = r.lista[0];
+  const porLoja = promocoesPorLoja(principal.estrategia);
+
+  const linhasTabela = r.lista.map(x => `<tr>
+      <td>${x.estrategia}</td>
+      <td>${x.ped.toLocaleString('pt-BR')}</td>
+      <td>R$ ${fmt(x.invL)}</td>
+      <td>${pct(x.pctVerba)}%</td>
+      <td>R$ ${fmt(x.invPorPedido)}</td>
+      <td>R$ ${fmt(x.ticket)}</td>
+      <td>${pct(x.pctIfood)}%</td>
+      <td style="color:#7d8590;">${x.retornoAtribuido.toFixed(1)}x</td>
+    </tr>`).join('');
+
+  const linhasLojas = porLoja.map(x => `<tr>
+      <td>${x.nome}</td>
+      <td>${x.ped.toLocaleString('pt-BR')}</td>
+      <td>R$ ${fmt(x.invL)}</td>
+      <td>R$ ${fmt(x.invPorPedido)}</td>
+      <td>R$ ${fmt(x.ticket)}</td>
+    </tr>`).join('');
+
+  return `
+  <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Quanto e onde investimos em promoção</div>
+  <div class="caption-label" style="text-align:center;">
+    Dados de <b>${mesesTexto}</b>. O relatório de promoções do iFood é mensal — este bloco ignora o recorte por dia,
+    semana ou turno e usa os meses inteiros que caem no período escolhido.
+  </div>
+  <div class="cards">
+    <div class="card neutral"><div class="card-lbl">Investido pela loja</div><div class="card-val">R$ ${fmt(r.totalInv)}</div></div>
+    <div class="card pos"><div class="card-lbl">Bancado pelo iFood</div><div class="card-val">R$ ${fmt(r.totalInvIfood)}</div><div class="card-pct">${pct(pctIfoodGeral)}% do total</div></div>
+    <div class="card neutral"><div class="card-lbl">Pedidos com promoção</div><div class="card-val">${r.totalPedidos.toLocaleString('pt-BR')}</div></div>
+    <div class="card neutral"><div class="card-lbl">Investido por pedido</div><div class="card-val">R$ ${fmt(invPorPedidoGeral)}</div></div>
+  </div>
+
+  <div class="section-label">Para onde vai a verba</div>
+  <div class="chart-grid">
+    <div class="chart-box" style="height:320px;">
+      <div class="chart-title">Investimento da loja por estratégia (R$)</div>
+      <div class="chart-canvas-wrap"><canvas id="chartPromoVerba"></canvas></div>
+    </div>
+    <div class="chart-box" style="height:320px;">
+      <div class="chart-title">Custo por pedido x ticket médio de cada estratégia</div>
+      <div class="chart-canvas-wrap"><canvas id="chartPromoCustoTicket"></canvas></div>
+    </div>
+  </div>
+  <div class="caption-label" style="text-align:center;">
+    No gráfico da direita, cada ponto é uma estratégia: quanto mais <b>à esquerda</b> (custa menos por pedido)
+    e mais <b>para cima</b> (traz pedido maior), melhor. O tamanho da bolha é o quanto da verba vai ali.
+  </div>
+
+  <div class="section-label">Detalhe por estratégia</div>
+  <div id="tabelaPromo">
+    <table>
+      <tr><th>Estratégia (verbas combinadas)</th><th>Pedidos</th><th>Investido</th><th>% da verba</th>
+          <th>R$ por pedido</th><th>Ticket médio</th><th>iFood banca</th><th>Retorno atribuído</th></tr>
+      ${linhasTabela}
+    </table>
+  </div>
+  <div class="contexto" style="border-color:#ff6b6b; margin-top:14px;">
+    <b style="color:#ff6b6b;">Cuidado com a coluna "Retorno atribuído".</b><br>
+    Ela é a conta que o iFood mostra no portal: <i>(venda do pedido − investimento) ÷ investimento</i>.
+    Ela credita <b>a venda inteira</b> à promoção, como se o cliente não fosse comprar sem ela.
+    Por isso <b>quanto menor o desconto, maior o número</b> — uma promoção quase irrelevante aparece com retorno altíssimo.
+    Serve para conferir com o portal, <b>não</b> para decidir onde investir.
+  </div>
+
+  <div class="section-label">Mesma estratégia, lojas diferentes</div>
+  <div class="caption-label" style="text-align:center;">
+    Comparando <b>${principal.estrategia}</b> (a maior verba do período) entre as lojas. Aqui a comparação é confiável:
+    como a estratégia é a mesma dos dois lados, a diferença vem da operação de cada loja, não da métrica.
+  </div>
+  <div id="tabelaPromoLojas">
+    <table>
+      <tr><th>Loja</th><th>Pedidos</th><th>Investido</th><th>R$ por pedido</th><th>Ticket médio</th></tr>
+      ${linhasLojas}
+    </table>
+  </div>`;
+}
+
+function renderChartsPromocoes() {
+  if (!document.getElementById('chartPromoVerba')) return;
+  const r = resumoPromocoes();
+  if (!r.lista.length) return;
+  const dados = r.lista.filter(x => x.invL > 0);
+
+  destroyChart('chartPromoVerba');
+  chartInstances['chartPromoVerba'] = new Chart(document.getElementById('chartPromoVerba').getContext('2d'), {
+    type: 'bar',
+    data: { labels: dados.map(d => d.estrategia), datasets: [{ data: dados.map(d => d.invL), backgroundColor: '#f5a623', borderRadius: 4 }] },
+    plugins: [pluginRotulosBarra(i => 'R$ ' + fmt(dados[i].invL))],
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: (c) => {
+          const d = dados[c.dataIndex];
+          return `R$ ${fmt(d.invL)} (${pct(d.pctVerba)}% da verba) em ${d.ped.toLocaleString('pt-BR')} pedidos`;
+        } } },
+      },
+      scales: {
+        x: { beginAtZero: true, max: Math.max(...dados.map(d => d.invL)) * 1.25, title: { display: true, text: 'R$ investidos pela loja' }, grid: { color: '#1a1f27' } },
+        y: { grid: { display: false }, ticks: { font: { size: 10 } } },
+      },
+    },
+  });
+
+  const maxInv = Math.max(1, ...dados.map(d => d.invL));
+  destroyChart('chartPromoCustoTicket');
+  chartInstances['chartPromoCustoTicket'] = new Chart(document.getElementById('chartPromoCustoTicket').getContext('2d'), {
+    type: 'bubble',
+    data: { datasets: [{
+      data: dados.map(d => ({ x: d.invPorPedido, y: d.ticket, r: 5 + (d.invL / maxInv) * 22, label: d.estrategia, invL: d.invL, ped: d.ped })),
+      backgroundColor: 'rgba(245,166,35,0.45)', borderColor: '#f5a623',
+    }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: (c) => `${c.raw.label}: custa R$ ${fmt(c.raw.x)}/pedido, ticket R$ ${fmt(c.raw.y)} — R$ ${fmt(c.raw.invL)} investidos` } },
+      },
+      scales: {
+        x: { title: { display: true, text: 'Custo da promoção por pedido (R$)' }, beginAtZero: true },
+        y: { title: { display: true, text: 'Ticket médio do pedido (R$)' } },
+      },
+    },
+  });
+}
+
 // Agrupamento automatico pelo tamanho do periodo filtrado — evita colocar mais um controle na
 // tela e evita grafico ilegivel (ex.: 7 meses agrupados por dia).
 function granularidadeAutomatica() {
@@ -1350,11 +1584,13 @@ function renderAll() {
   document.getElementById('view-content').innerHTML = html;
   document.getElementById('view-cancelamentos').innerHTML = contexto + moduloCancelamentos(m, a);
   document.getElementById('contexto-evolucao').innerHTML = contexto;
+  document.getElementById('view-promocoes').innerHTML = contexto + moduloPromocoes();
   // So desenha os graficos do modulo que esta visivel — Chart.js calcula tamanho zero em
   // container escondido, e o grafico sairia deformado.
   const ativo = moduloAtivo();
   if (ativo === 'resumo') renderChartWaterfall(m, a, ant);
   if (ativo === 'cancelamentos') renderChartMotivos();
+  if (ativo === 'promocoes') renderChartsPromocoes();
   if (ativo === 'evolucao') renderEvolucao();
 }
 
