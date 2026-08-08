@@ -127,16 +127,34 @@
   #tabelaEvolucao th { background:#21262d; color:#9aa4af; font-weight:bold; font-size:11px; text-transform:uppercase; }
   #tabelaEvolucao tr:nth-child(even) { background:#12161c; }
 
-  #tabelaMotivos, #tabelaPromo, #tabelaPromoLojas { overflow-x:auto; max-width:100%; }
-  #tabelaMotivos table, #tabelaPromo table, #tabelaPromoLojas table { border-collapse:collapse; width:100%; font-size:12.5px; }
+  #tabelaMotivos, #tabelaPromo, #tabelaPromoLojas, #tabelaNegLojas, #tabelaAvalLojas, #tabelaComentarios { overflow-x:auto; max-width:100%; }
+  #tabelaMotivos table, #tabelaPromo table, #tabelaPromoLojas table,
+  #tabelaNegLojas table, #tabelaAvalLojas table, #tabelaComentarios table { border-collapse:collapse; width:100%; font-size:12.5px; }
   #tabelaMotivos th, #tabelaMotivos td,
   #tabelaPromo th, #tabelaPromo td,
-  #tabelaPromoLojas th, #tabelaPromoLojas td { border:1px solid #30363d; padding:6px 10px; text-align:right; white-space:nowrap; }
+  #tabelaPromoLojas th, #tabelaPromoLojas td,
+  #tabelaNegLojas th, #tabelaNegLojas td,
+  #tabelaAvalLojas th, #tabelaAvalLojas td,
+  #tabelaComentarios th, #tabelaComentarios td { border:1px solid #30363d; padding:6px 10px; text-align:right; white-space:nowrap; }
   #tabelaMotivos th:first-child, #tabelaMotivos td:first-child,
   #tabelaPromo th:first-child, #tabelaPromo td:first-child,
-  #tabelaPromoLojas th:first-child, #tabelaPromoLojas td:first-child { text-align:left; white-space:normal; }
-  #tabelaMotivos th, #tabelaPromo th, #tabelaPromoLojas th { background:#21262d; color:#9aa4af; font-weight:bold; font-size:11px; text-transform:uppercase; }
-  #tabelaMotivos tr:nth-child(even), #tabelaPromo tr:nth-child(even), #tabelaPromoLojas tr:nth-child(even) { background:#12161c; }
+  #tabelaPromoLojas th:first-child, #tabelaPromoLojas td:first-child,
+  #tabelaNegLojas th:first-child, #tabelaNegLojas td:first-child,
+  #tabelaAvalLojas th:first-child, #tabelaAvalLojas td:first-child,
+  #tabelaComentarios th:first-child, #tabelaComentarios td:first-child { text-align:left; white-space:normal; }
+  #tabelaMotivos th, #tabelaPromo th, #tabelaPromoLojas th,
+  #tabelaNegLojas th, #tabelaAvalLojas th, #tabelaComentarios th { background:#21262d; color:#9aa4af; font-weight:bold; font-size:11px; text-transform:uppercase; }
+  #tabelaMotivos tr:nth-child(even), #tabelaPromo tr:nth-child(even), #tabelaPromoLojas tr:nth-child(even),
+  #tabelaNegLojas tr:nth-child(even), #tabelaAvalLojas tr:nth-child(even), #tabelaComentarios tr:nth-child(even) { background:#12161c; }
+
+  .relatorio-corpo { background:#161b22; border:1px solid #262c36; border-radius:10px; padding:24px 28px; line-height:1.7; font-size:13.5px; }
+  .relatorio-corpo h2 { color:#f5a623; font-size:18px; margin:18px 0 10px; }
+  .relatorio-corpo h3 { color:#e6e6e6; font-size:15px; margin:16px 0 8px; }
+  .relatorio-corpo table { border-collapse:collapse; margin:10px 0; font-size:12.5px; }
+  .relatorio-corpo th, .relatorio-corpo td { border:1px solid #30363d; padding:5px 10px; }
+  .relatorio-corpo th { background:#21262d; color:#9aa4af; }
+  .relatorio-corpo ul { padding-left:22px; }
+  .relatorio-corpo b { color:#ffffff; }
 
   .login-gate { position:fixed; inset:0; background:#0d1117; display:flex; align-items:center; justify-content:center; z-index:1000; padding:20px; }
   .login-box { background:#161b22; border:1px solid #262c36; border-radius:12px; padding:36px 40px; text-align:center; max-width:320px; width:100%; }
@@ -184,6 +202,9 @@
     <span class="sidebar-btn breve">Fluxo de caixa</span>
     <span class="sidebar-btn breve">Margem por item</span>
 
+    <div class="sidebar-secao">Relatórios</div>
+    <button class="sidebar-btn" id="navBtnRelatorios" onclick="mostrarModulo('relatorios')">Resumos semanais</button>
+
     <div class="sidebar-secao">Vendas</div>
     <span class="sidebar-btn breve">Por período</span>
     <span class="sidebar-btn breve">Por item</span>
@@ -192,8 +213,8 @@
     <div class="sidebar-secao">Canal · iFood</div>
     <button class="sidebar-btn" id="navBtnCancelamentos" onclick="mostrarModulo('cancelamentos')">Cancelamentos</button>
     <button class="sidebar-btn" id="navBtnPromocoes" onclick="mostrarModulo('promocoes')">Promoções</button>
-    <span class="sidebar-btn breve">Negociações</span>
-    <span class="sidebar-btn breve">Avaliações</span>
+    <button class="sidebar-btn" id="navBtnNegociacoes" onclick="mostrarModulo('negociacoes')">Negociações</button>
+    <button class="sidebar-btn" id="navBtnAvaliacoes" onclick="mostrarModulo('avaliacoes')">Avaliações</button>
 
     <div class="sidebar-secao">Logística</div>
     <span class="sidebar-btn breve">Tempo de entrega</span>
@@ -257,6 +278,18 @@
 
     <div id="modulo-promocoes" class="modulo" style="display:none;">
       <div id="view-promocoes"></div>
+    </div>
+
+    <div id="modulo-negociacoes" class="modulo" style="display:none;">
+      <div id="view-negociacoes"></div>
+    </div>
+
+    <div id="modulo-avaliacoes" class="modulo" style="display:none;">
+      <div id="view-avaliacoes"></div>
+    </div>
+
+    <div id="modulo-relatorios" class="modulo" style="display:none;">
+      <div id="view-relatorios"></div>
     </div>
 
     <div id="modulo-evolucao" class="modulo" style="display:none;">
@@ -697,6 +730,9 @@ function mostrarModulo(nome) {
     resumo: ['modulo-resumo', 'navBtnResumo'],
     cancelamentos: ['modulo-cancelamentos', 'navBtnCancelamentos'],
     promocoes: ['modulo-promocoes', 'navBtnPromocoes'],
+    negociacoes: ['modulo-negociacoes', 'navBtnNegociacoes'],
+    avaliacoes: ['modulo-avaliacoes', 'navBtnAvaliacoes'],
+    relatorios: ['modulo-relatorios', 'navBtnRelatorios'],
     evolucao: ['modulo-evolucao', 'navBtnEvolucao'],
   };
   Object.entries(modulos).forEach(([chave, [idDiv, idBtn]]) => {
@@ -712,12 +748,20 @@ function mostrarModulo(nome) {
   if (nome === 'evolucao') renderEvolucao();
   if (nome === 'cancelamentos') renderChartMotivos();
   if (nome === 'promocoes') renderChartsPromocoes();
+  // Modulos com carga sob demanda: os dados so sao buscados na primeira visita,
+  // pra nao pesar a abertura do painel.
+  if (nome === 'negociacoes') entrarNegociacoes();
+  if (nome === 'avaliacoes') entrarAvaliacoes();
+  if (nome === 'relatorios') entrarRelatorios();
 }
 
 // Qual modulo esta aberto agora — usado pra so redesenhar os graficos do modulo visivel.
 function moduloAtivo() {
   if (document.getElementById('modulo-cancelamentos').style.display !== 'none') return 'cancelamentos';
   if (document.getElementById('modulo-promocoes').style.display !== 'none') return 'promocoes';
+  if (document.getElementById('modulo-negociacoes').style.display !== 'none') return 'negociacoes';
+  if (document.getElementById('modulo-avaliacoes').style.display !== 'none') return 'avaliacoes';
+  if (document.getElementById('modulo-relatorios').style.display !== 'none') return 'relatorios';
   if (document.getElementById('modulo-evolucao').style.display !== 'none') return 'evolucao';
   return 'resumo';
 }
@@ -1455,6 +1499,291 @@ function renderChartsPromocoes() {
   });
 }
 
+// ------------------------------------------------------------------
+// MODULOS NEGOCIACOES, AVALIACOES E RELATORIOS (carga sob demanda)
+// ------------------------------------------------------------------
+// null = ainda nao buscado; array = pronto. Buscados so na primeira visita ao modulo.
+let NEGOCIACOES = null;
+let AVALIACOES = null;
+let RELATORIOS = null;
+
+async function entrarNegociacoes() {
+  const alvo = document.getElementById('view-negociacoes');
+  if (NEGOCIACOES === null) {
+    alvo.innerHTML = '<div class="contexto">Carregando negociações...</div>';
+    const rows = await consultarTudo(
+      "vw_negociacoes?select=nome_loja,data,turno,motivo,momento,quem_respondeu,impactou_super,valor_cancelamento,valor_pedido&order=nome_loja,data"
+    );
+    NEGOCIACOES = rows.map(r => [
+      LOJAS.indexOf(r.nome_loja), r.data, r.turno, r.motivo, r.momento,
+      r.quem_respondeu, r.impactou_super,
+      Number(r.valor_cancelamento || 0), Number(r.valor_pedido || 0),
+    ]);
+  }
+  renderModuloNegociacoes();
+}
+
+function negociacoesFiltradas() {
+  const dIni = fDataIni.value, dFim = fDataFim.value;
+  const activeL = activeLojas();
+  return NEGOCIACOES.filter(r => {
+    if (!activeL.has(r[0])) return false;
+    if (dIni && r[1] < dIni) return false;
+    if (dFim && r[1] > dFim) return false;
+    const ti = TURNOS.indexOf(r[2]);
+    if (ti >= 0 && !selecionados.fTurno.has(ti)) return false; // turno desconhecido nao derruba a linha
+    return true;
+  });
+}
+
+function renderModuloNegociacoes() {
+  const alvo = document.getElementById('view-negociacoes');
+  const linhas = negociacoesFiltradas();
+
+  if (!linhas.length) {
+    alvo.innerHTML = `<div class="contexto" style="border-color:#f5a623;">
+      Não há negociações no período selecionado. A base começa em <b>julho/2026</b>
+      (o relatório de negociações do Portal de Redes é exportado por mês).</div>`;
+    return;
+  }
+
+  const total = linhas.length;
+  const semResposta = linhas.filter(r => !r[5]).length;
+  const porAtraso = linhas.filter(r => (r[3] || '').includes('ATRASO')).length;
+  const valorEnvolvido = linhas.reduce((s, r) => s + r[7], 0);
+  const comSuper = linhas.filter(r => (r[6] || '').toUpperCase() === 'SIM').length;
+
+  // por motivo
+  const porMotivo = new Map();
+  linhas.forEach(r => {
+    const m = r[3] || 'SEM MOTIVO INFORMADO';
+    if (!porMotivo.has(m)) porMotivo.set(m, { n: 0, valor: 0 });
+    porMotivo.get(m).n++; porMotivo.get(m).valor += r[7];
+  });
+  const motivos = [...porMotivo.entries()].map(([m, o]) => ({ m, ...o })).sort((a, b) => b.n - a.n).slice(0, 8);
+
+  // por loja
+  const porLoja = new Map();
+  linhas.forEach(r => {
+    if (!porLoja.has(r[0])) porLoja.set(r[0], { n: 0, sem: 0, valor: 0 });
+    const o = porLoja.get(r[0]);
+    o.n++; if (!r[5]) o.sem++; o.valor += r[7];
+  });
+  const lojas = [...porLoja.entries()].map(([i, o]) => ({ nome: LOJAS[i], ...o, pctSem: o.n ? o.sem / o.n * 100 : 0 }))
+    .sort((a, b) => b.sem - a.sem || b.n - a.n);
+
+  alvo.innerHTML = `
+  <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Negociações pós-entrega</div>
+  <div class="caption-label" style="text-align:center;">
+    Quando o cliente reclama de um pedido já entregue, o iFood abre uma <b>negociação</b>: a loja pode responder
+    (aceitar, recusar ou propor solução) ou deixar passar o prazo. <b>Negociação sem resposta vira cancelamento
+    automático</b> — dinheiro perdido por silêncio. Filtros de período, unidade, marca e turno se aplicam; dia da semana não.
+  </div>
+  <div class="cards">
+    <div class="card neutral"><div class="card-lbl">Negociações</div><div class="card-val">${total.toLocaleString('pt-BR')}</div></div>
+    <div class="card ${semResposta ? 'neg' : 'pos'}"><div class="card-lbl">Sem resposta da loja</div><div class="card-val">${semResposta}</div><div class="card-pct">${pct(semResposta/total*100)}% do total</div></div>
+    <div class="card neutral"><div class="card-lbl">Motivadas por atraso</div><div class="card-val">${pct(porAtraso/total*100)}%</div><div class="card-pct">${porAtraso} casos</div></div>
+    <div class="card neg"><div class="card-lbl">Valor cancelado nas negociações</div><div class="card-val">R$ ${fmt(valorEnvolvido)}</div></div>
+    <div class="card neutral"><div class="card-lbl">Com impacto no Super</div><div class="card-val">${comSuper}</div><div class="card-pct">afetam o selo da loja</div></div>
+  </div>
+
+  <div class="chart-box" style="height:320px; margin-top:14px;">
+    <div class="chart-title">Por que os clientes abrem negociação</div>
+    <div class="chart-canvas-wrap"><canvas id="chartNegMotivos"></canvas></div>
+  </div>
+
+  <div class="section-label">Onde o silêncio custa caro</div>
+  <div class="caption-label" style="text-align:center;">Ordenado por negociações sem resposta — é o número que dá pra zerar só com disciplina de responder.</div>
+  <div id="tabelaNegLojas">
+    <table>
+      <tr><th>Loja</th><th>Negociações</th><th>Sem resposta</th><th>% sem resposta</th><th>Valor cancelado</th></tr>
+      ${lojas.map(x => `<tr><td>${x.nome}</td><td>${x.n}</td>
+        <td${x.sem ? ' style="color:#ff6b6b; font-weight:bold;"' : ''}>${x.sem}</td>
+        <td>${pct(x.pctSem)}%</td><td>R$ ${fmt(x.valor)}</td></tr>`).join('')}
+    </table>
+  </div>`;
+
+  destroyChart('chartNegMotivos');
+  const rotulo = (t) => t.length > 46 ? t.slice(0, 44) + '…' : t;
+  chartInstances['chartNegMotivos'] = new Chart(document.getElementById('chartNegMotivos').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: motivos.map(x => rotulo(x.m)),
+      datasets: [{ data: motivos.map(x => x.n), backgroundColor: '#ff6b6b', borderRadius: 4 }],
+    },
+    plugins: [pluginRotulosBarra(i => `${motivos[i].n} (R$ ${fmt(motivos[i].valor)})`)],
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      layout: { padding: { right: 8 } },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: (c) => `${motivos[c.dataIndex].n} negociações — R$ ${fmt(motivos[c.dataIndex].valor)} cancelados` } },
+      },
+      scales: {
+        x: { beginAtZero: true, max: Math.max(...motivos.map(x => x.n)) * 1.3, title: { display: true, text: 'negociações' }, grid: { color: '#1a1f27' } },
+        y: { grid: { display: false }, ticks: { font: { size: 10 } } },
+      },
+    },
+  });
+}
+
+async function entrarAvaliacoes() {
+  const alvo = document.getElementById('view-avaliacoes');
+  if (AVALIACOES === null) {
+    alvo.innerHTML = '<div class="contexto">Carregando avaliações...</div>';
+    const rows = await consultarTudo(
+      "vw_avaliacoes?select=nome_loja,data,nota,tags,comentario&order=data.desc"
+    );
+    AVALIACOES = rows.map(r => [
+      LOJAS.indexOf(r.nome_loja), r.data, r.nota, r.tags || [], r.comentario,
+    ]);
+  }
+  renderModuloAvaliacoes();
+}
+
+function avaliacoesFiltradas() {
+  const dIni = fDataIni.value, dFim = fDataFim.value;
+  const activeL = activeLojas();
+  return AVALIACOES.filter(r =>
+    activeL.has(r[0]) && (!dIni || r[1] >= dIni) && (!dFim || r[1] <= dFim));
+}
+
+function renderModuloAvaliacoes() {
+  const alvo = document.getElementById('view-avaliacoes');
+  const linhas = avaliacoesFiltradas();
+
+  if (!linhas.length) {
+    alvo.innerHTML = `<div class="contexto" style="border-color:#f5a623;">
+      Não há avaliações no período selecionado. A base começa em <b>24/06/2026</b>.</div>`;
+    return;
+  }
+
+  const total = linhas.length;
+  const media = linhas.reduce((s, r) => s + r[2], 0) / total;
+  const dist = [1, 2, 3, 4, 5].map(n => linhas.filter(r => r[2] === n).length);
+  const pctRuins = (dist[0] + dist[1]) / total * 100;
+  const pctCinco = dist[4] / total * 100;
+
+  const porTag = new Map();
+  linhas.forEach(r => r[3].forEach(t => porTag.set(t, (porTag.get(t) || 0) + 1)));
+  const tags = [...porTag.entries()].map(([t, n]) => ({ t, n })).sort((a, b) => b.n - a.n).slice(0, 8);
+
+  const porLoja = new Map();
+  linhas.forEach(r => {
+    if (!porLoja.has(r[0])) porLoja.set(r[0], { n: 0, soma: 0, ruins: 0 });
+    const o = porLoja.get(r[0]);
+    o.n++; o.soma += r[2]; if (r[2] <= 2) o.ruins++;
+  });
+  const lojas = [...porLoja.entries()]
+    .map(([i, o]) => ({ nome: LOJAS[i], n: o.n, media: o.soma / o.n, pctRuins: o.ruins / o.n * 100 }))
+    .sort((a, b) => a.media - b.media);
+
+  const comentarios = linhas.filter(r => r[2] <= 3 && r[4]).slice(0, 8);
+
+  alvo.innerHTML = `
+  <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">O que os clientes estão dizendo</div>
+  <div class="caption-label" style="text-align:center;">
+    Avaliações deixadas no app após a entrega. Filtros de período, unidade e marca se aplicam; dia da semana e turno não.
+  </div>
+  <div class="cards">
+    <div class="card ${media >= 4.6 ? 'pos' : 'neg'}"><div class="card-lbl">Nota média</div><div class="card-val">${media.toFixed(2).replace('.', ',')} ★</div></div>
+    <div class="card neutral"><div class="card-lbl">Avaliações</div><div class="card-val">${total.toLocaleString('pt-BR')}</div></div>
+    <div class="card pos"><div class="card-lbl">Nota 5</div><div class="card-val">${pct(pctCinco)}%</div></div>
+    <div class="card ${pctRuins > 5 ? 'neg' : 'neutral'}"><div class="card-lbl">Notas 1 e 2</div><div class="card-val">${pct(pctRuins)}%</div><div class="card-pct">${dist[0] + dist[1]} clientes insatisfeitos</div></div>
+  </div>
+
+  <div style="display:flex; flex-wrap:wrap; gap:14px; align-items:stretch; margin-top:14px;">
+    <div class="chart-box" style="flex:1 1 320px; height:280px;">
+      <div class="chart-title">Distribuição das notas</div>
+      <div class="chart-canvas-wrap"><canvas id="chartNotas"></canvas></div>
+    </div>
+    <div class="chart-box" style="flex:1 1 320px; height:280px;">
+      <div class="chart-title">O que mais elogiam (tags marcadas)</div>
+      <div class="chart-canvas-wrap"><canvas id="chartTags"></canvas></div>
+    </div>
+  </div>
+
+  <div class="section-label">Nota por loja — piores primeiro</div>
+  <div id="tabelaAvalLojas">
+    <table>
+      <tr><th>Loja</th><th>Avaliações</th><th>Nota média</th><th>% notas 1-2</th></tr>
+      ${lojas.map(x => `<tr><td>${x.nome}</td><td>${x.n}</td>
+        <td${x.media < 4.5 ? ' style="color:#ff6b6b; font-weight:bold;"' : ''}>${x.media.toFixed(2).replace('.', ',')}</td>
+        <td>${pct(x.pctRuins)}%</td></tr>`).join('')}
+    </table>
+  </div>
+  <div class="caption-label">Lojas com poucas avaliações oscilam muito — dê mais peso às que têm 30 ou mais.</div>
+
+  ${comentarios.length ? `
+  <div class="section-label">Últimas reclamações com comentário (nota ≤ 3)</div>
+  <div id="tabelaComentarios">
+    <table>
+      <tr><th>Data</th><th>Loja</th><th>Nota</th><th>Comentário</th></tr>
+      ${comentarios.map(r => `<tr><td>${formatarDataCurta(r[1])}</td><td>${LOJAS[r[0]]}</td><td>${r[2]} ★</td>
+        <td style="white-space:normal; text-align:left; max-width:420px;">${String(r[4]).slice(0, 180)}</td></tr>`).join('')}
+    </table>
+  </div>` : ''}`;
+
+  destroyChart('chartNotas');
+  chartInstances['chartNotas'] = new Chart(document.getElementById('chartNotas').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: ['1 ★', '2 ★', '3 ★', '4 ★', '5 ★'],
+      datasets: [{ data: dist, backgroundColor: ['#ff6b6b', '#ff6b6b', '#e3b341', '#3fb950', '#3fb950'], borderRadius: 4 }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => `${c.raw} avaliações (${pct(c.raw / total * 100)}%)` } } },
+      scales: { x: { grid: { display: false } }, y: { beginAtZero: true, grid: { color: '#1a1f27' } } },
+    },
+  });
+
+  destroyChart('chartTags');
+  chartInstances['chartTags'] = new Chart(document.getElementById('chartTags').getContext('2d'), {
+    type: 'bar',
+    data: { labels: tags.map(x => x.t), datasets: [{ data: tags.map(x => x.n), backgroundColor: '#3fb950', borderRadius: 4 }] },
+    plugins: [pluginRotulosBarra(i => String(tags[i].n))],
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      layout: { padding: { right: 8 } },
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { beginAtZero: true, max: Math.max(...tags.map(x => x.n)) * 1.2, grid: { color: '#1a1f27' } },
+        y: { grid: { display: false }, ticks: { font: { size: 10 } } },
+      },
+    },
+  });
+}
+
+async function entrarRelatorios() {
+  const alvo = document.getElementById('view-relatorios');
+  if (RELATORIOS === null) {
+    alvo.innerHTML = '<div class="contexto">Carregando relatórios...</div>';
+    RELATORIOS = await consultarTudo(
+      "relatorios_semanais?select=id,semana_ini,semana_fim,titulo,corpo_html,criado_em&order=semana_ini.desc"
+    );
+  }
+  renderModuloRelatorios(RELATORIOS.length ? RELATORIOS[0].id : null);
+}
+
+function renderModuloRelatorios(idSelecionado) {
+  const alvo = document.getElementById('view-relatorios');
+  if (!RELATORIOS.length) {
+    alvo.innerHTML = `<div class="contexto" style="border-color:#f5a623;">
+      Ainda não há relatórios publicados.<br>
+      O primeiro resumo aparece aqui automaticamente depois que a rotina de segunda-feira rodar.</div>`;
+    return;
+  }
+  const sel = RELATORIOS.find(r => r.id === idSelecionado) || RELATORIOS[0];
+  alvo.innerHTML = `
+  <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Resumos semanais</div>
+  <div class="periodo-presets">
+    ${RELATORIOS.map(r => `<button class="preset-btn ${r.id === sel.id ? 'active' : ''}"
+      onclick="renderModuloRelatorios(${r.id})">${formatarDataCurta(r.semana_ini)} – ${formatarDataCurta(r.semana_fim)}</button>`).join('')}
+  </div>
+  <div class="relatorio-corpo">${sel.corpo_html}</div>`;
+}
+
 // Agrupamento automatico pelo tamanho do periodo filtrado — evita colocar mais um controle na
 // tela e evita grafico ilegivel (ex.: 7 meses agrupados por dia).
 function granularidadeAutomatica() {
@@ -1592,6 +1921,9 @@ function renderAll() {
   if (ativo === 'cancelamentos') renderChartMotivos();
   if (ativo === 'promocoes') renderChartsPromocoes();
   if (ativo === 'evolucao') renderEvolucao();
+  // Modulos de carga sob demanda: so re-renderiza se os dados ja foram buscados.
+  if (ativo === 'negociacoes' && NEGOCIACOES !== null) renderModuloNegociacoes();
+  if (ativo === 'avaliacoes' && AVALIACOES !== null) renderModuloAvaliacoes();
 }
 
 // ------------------------------------------------------------------
