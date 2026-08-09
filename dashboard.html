@@ -120,13 +120,6 @@
   .chart-title { color:#9aa4af; font-size:11px; text-transform:uppercase; letter-spacing:.5px; margin-bottom:8px; }
   .chart-box .chart-canvas-wrap { position:relative; flex:1; }
 
-  #tabelaEvolucao { overflow-x:auto; }
-  #tabelaEvolucao table { border-collapse:collapse; width:100%; font-size:12.5px; }
-  #tabelaEvolucao th, #tabelaEvolucao td { border:1px solid #30363d; padding:6px 10px; text-align:right; white-space:nowrap; }
-  #tabelaEvolucao th:first-child, #tabelaEvolucao td:first-child { text-align:left; }
-  #tabelaEvolucao th { background:#21262d; color:#9aa4af; font-weight:bold; font-size:11px; text-transform:uppercase; }
-  #tabelaEvolucao tr:nth-child(even) { background:#12161c; }
-
   #tabelaMotivos, #tabelaPromo, #tabelaPromoLojas, #tabelaNegLojas, #tabelaAvalLojas, #tabelaComentarios { overflow-x:auto; max-width:100%; }
   #tabelaMotivos table, #tabelaPromo table, #tabelaPromoLojas table,
   #tabelaNegLojas table, #tabelaAvalLojas table, #tabelaComentarios table { border-collapse:collapse; width:100%; font-size:12.5px; }
@@ -146,6 +139,19 @@
   #tabelaNegLojas th, #tabelaAvalLojas th, #tabelaComentarios th { background:#21262d; color:#9aa4af; font-weight:bold; font-size:11px; text-transform:uppercase; }
   #tabelaMotivos tr:nth-child(even), #tabelaPromo tr:nth-child(even), #tabelaPromoLojas tr:nth-child(even),
   #tabelaNegLojas tr:nth-child(even), #tabelaAvalLojas tr:nth-child(even), #tabelaComentarios tr:nth-child(even) { background:#12161c; }
+
+  /* tabelas dos modulos Vendas/Cardapio/Clientes (mesmo visual das demais) */
+  #tabelaVendasCanal, #tabelaVendasLojas, #tabelaFunil, #tabelaItens, #tabelaCompl, #tabelaClientesLojas { overflow-x:auto; max-width:100%; }
+  #tabelaVendasCanal table, #tabelaVendasLojas table, #tabelaFunil table, #tabelaItens table, #tabelaCompl table, #tabelaClientesLojas table { border-collapse:collapse; width:100%; font-size:12.5px; }
+  #tabelaVendasCanal th, #tabelaVendasCanal td, #tabelaVendasLojas th, #tabelaVendasLojas td,
+  #tabelaFunil th, #tabelaFunil td, #tabelaItens th, #tabelaItens td,
+  #tabelaCompl th, #tabelaCompl td, #tabelaClientesLojas th, #tabelaClientesLojas td { border:1px solid #30363d; padding:6px 10px; text-align:right; white-space:nowrap; }
+  #tabelaVendasCanal th:first-child, #tabelaVendasCanal td:first-child, #tabelaVendasLojas th:first-child, #tabelaVendasLojas td:first-child,
+  #tabelaFunil th:first-child, #tabelaFunil td:first-child, #tabelaItens th:first-child, #tabelaItens td:first-child,
+  #tabelaCompl th:first-child, #tabelaCompl td:first-child, #tabelaClientesLojas th:first-child, #tabelaClientesLojas td:first-child { text-align:left; white-space:normal; }
+  #tabelaVendasCanal th, #tabelaVendasLojas th, #tabelaFunil th, #tabelaItens th, #tabelaCompl th, #tabelaClientesLojas th { background:#21262d; color:#9aa4af; font-weight:bold; font-size:11px; text-transform:uppercase; }
+  #tabelaVendasCanal tr:nth-child(even), #tabelaVendasLojas tr:nth-child(even), #tabelaFunil tr:nth-child(even),
+  #tabelaItens tr:nth-child(even), #tabelaCompl tr:nth-child(even), #tabelaClientesLojas tr:nth-child(even) { background:#12161c; }
 
   #extratoFin { overflow-x:auto; max-width:100%; }
   #extratoFin table { border-collapse:collapse; width:100%; font-size:13px; }
@@ -231,7 +237,9 @@
 
     <div class="sidebar-secao">Canal · iFood</div>
     <button class="sidebar-btn active" id="navBtnResumo" onclick="mostrarModulo('resumo')">Visão geral</button>
-    <button class="sidebar-btn" id="navBtnEvolucao" onclick="mostrarModulo('evolucao')">Tendências</button>
+    <button class="sidebar-btn" id="navBtnVendas" onclick="mostrarModulo('vendas')">Vendas</button>
+    <button class="sidebar-btn" id="navBtnCardapio" onclick="mostrarModulo('cardapio')">Cardápio</button>
+    <button class="sidebar-btn" id="navBtnClientes" onclick="mostrarModulo('clientes')">Clientes</button>
     <button class="sidebar-btn" id="navBtnCancelamentos" onclick="mostrarModulo('cancelamentos')">Cancelamentos</button>
     <button class="sidebar-btn" id="navBtnPromocoes" onclick="mostrarModulo('promocoes')">Promoções</button>
     <button class="sidebar-btn" id="navBtnNegociacoes" onclick="mostrarModulo('negociacoes')">Negociações</button>
@@ -313,66 +321,16 @@
       <div id="view-relatorios"></div>
     </div>
 
-    <div id="modulo-evolucao" class="modulo" style="display:none;">
-
-    <div id="contexto-evolucao"></div>
-
-    <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">As perguntas que importam</div>
-    <div class="caption-label" style="text-align:center;">
-      Cada ponto é um período (conforme o agrupamento escolhido abaixo). São gráficos de exploração:
-      servem para procurar padrão entre preço, volume, marketing e lucro — não para leitura rápida.
-    </div>
-    <div class="chart-grid">
-      <div class="chart-box" style="height:340px;">
-        <div class="chart-title">Investir mais em marketing dá mais lucro?</div>
-        <div class="chart-canvas-wrap"><canvas id="chartMktLiquido"></canvas></div>
-      </div>
-      <div class="chart-box" style="height:340px;">
-        <div class="chart-title">Vale mais vender caro ou vender muito?</div>
-        <div class="chart-canvas-wrap"><canvas id="chartTicketVolumeLiquido"></canvas></div>
-      </div>
+    <div id="modulo-vendas" class="modulo" style="display:none;">
+      <div id="view-vendas"></div>
     </div>
 
-    <div id="avisoPoucosPontos"></div>
-
-    <div class="section-label">Evolução no tempo</div>
-    <div class="filters" style="margin-bottom:16px;">
-      <label>Agrupar por
-        <select id="fGranularidade">
-          <option value="dia">Dia</option>
-          <option value="diaSemana">Dia da semana</option>
-          <option value="semana" selected>Semana</option>
-          <option value="mes">Mês</option>
-          <option value="ano">Ano</option>
-        </select>
-      </label>
-    </div>
-    <div class="chart-grid">
-      <div class="chart-box">
-        <div class="chart-title">Faturamento bruto x líquido</div>
-        <div class="chart-canvas-wrap"><canvas id="chartBrutoLiquido"></canvas></div>
-      </div>
-      <div class="chart-box">
-        <div class="chart-title">Quanto sobra de cada R$ 100 vendidos</div>
-        <div class="chart-canvas-wrap"><canvas id="chartMargem"></canvas></div>
-      </div>
-      <div class="chart-box">
-        <div class="chart-title">Ticket médio</div>
-        <div class="chart-canvas-wrap"><canvas id="chartTicket"></canvas></div>
-      </div>
-      <div class="chart-box">
-        <div class="chart-title">Número de pedidos</div>
-        <div class="chart-canvas-wrap"><canvas id="chartPedidos"></canvas></div>
-      </div>
-      <div class="chart-box">
-        <div class="chart-title">Quanto gastamos de marketing por pedido</div>
-        <div class="chart-canvas-wrap"><canvas id="chartMkt"></canvas></div>
-      </div>
+    <div id="modulo-cardapio" class="modulo" style="display:none;">
+      <div id="view-cardapio"></div>
     </div>
 
-    <div class="section-label">Números período a período</div>
-    <div id="tabelaEvolucao"></div>
-
+    <div id="modulo-clientes" class="modulo" style="display:none;">
+      <div id="view-clientes"></div>
     </div>
 
     <div class="footer">
@@ -686,7 +644,6 @@ function montarFiltrosBase() {
 
   Object.keys(FILTRO_DEFS).forEach(montarDropdownMultiplo);
 
-  selGranularidade.addEventListener('change', renderEvolucao);
 }
 
 // ------------------------------------------------------------------
@@ -754,7 +711,9 @@ function mostrarModulo(nome) {
     negociacoes: ['modulo-negociacoes', 'navBtnNegociacoes'],
     avaliacoes: ['modulo-avaliacoes', 'navBtnAvaliacoes'],
     relatorios: ['modulo-relatorios', 'navBtnRelatorios'],
-    evolucao: ['modulo-evolucao', 'navBtnEvolucao'],
+    vendas: ['modulo-vendas', 'navBtnVendas'],
+    cardapio: ['modulo-cardapio', 'navBtnCardapio'],
+    clientes: ['modulo-clientes', 'navBtnClientes'],
   };
   Object.entries(modulos).forEach(([chave, [idDiv, idBtn]]) => {
     document.getElementById(idDiv).style.display = (chave === nome) ? 'block' : 'none';
@@ -765,8 +724,11 @@ function mostrarModulo(nome) {
   if (nome === 'resumo') {
     const ant = periodoAnterior();
     if (ant) renderChartWaterfall(computeMetrics(), computeMetrics(ant.ini, ant.fim), ant);
+    renderChartTendencia();
   }
-  if (nome === 'evolucao') renderEvolucao();
+  if (nome === 'vendas') entrarVendas();
+  if (nome === 'cardapio') entrarCardapio();
+  if (nome === 'clientes') entrarClientes();
   if (nome === 'cancelamentos') renderChartMotivos();
   if (nome === 'promocoes') renderChartsPromocoes();
   // Modulos com carga sob demanda: os dados so sao buscados na primeira visita,
@@ -783,7 +745,9 @@ function moduloAtivo() {
   if (document.getElementById('modulo-negociacoes').style.display !== 'none') return 'negociacoes';
   if (document.getElementById('modulo-avaliacoes').style.display !== 'none') return 'avaliacoes';
   if (document.getElementById('modulo-relatorios').style.display !== 'none') return 'relatorios';
-  if (document.getElementById('modulo-evolucao').style.display !== 'none') return 'evolucao';
+  if (document.getElementById('modulo-vendas').style.display !== 'none') return 'vendas';
+  if (document.getElementById('modulo-cardapio').style.display !== 'none') return 'cardapio';
+  if (document.getElementById('modulo-clientes').style.display !== 'none') return 'clientes';
   return 'resumo';
 }
 
@@ -2006,6 +1970,262 @@ async function entrarAvaliacoesSoDados() {
   ]);
 }
 
+// Tendencia bruto x liquido no rodape da Visao geral (formula completa, com conciliacao).
+function renderChartTendencia() {
+  const el = document.getElementById('chartTendencia');
+  if (!el) return;
+  const dados = computeEvolucaoCompleta(granularidadeAutomatica());
+  renderLineChart('chartTendencia', dados.map(d => d.label), [
+    { label: 'Bruto', data: dados.map(d => d.bruto), borderColor: '#58a6ff', backgroundColor: '#58a6ff' },
+    { label: 'Líquido', data: dados.map(d => d.liquido), borderColor: '#3fb950', backgroundColor: '#3fb950' },
+  ], 'R$');
+}
+
+// ------------------------------------------------------------------
+// MODULOS VENDAS, CARDAPIO E CLIENTES (retratos do Portal de Redes)
+// ------------------------------------------------------------------
+// Estes tres modulos usam RETRATOS exportados do Portal de Redes (janelas/meses fixos),
+// entao NAO seguem o filtro de datas global — cada um tem seu seletor de periodo.
+// O recorte de unidades/marcas se aplica normalmente.
+let VENDAS_REDE = null;
+let CARDAPIO = null;
+let CLIENTES_REDE = null;
+
+async function entrarVendas() {
+  const alvo = document.getElementById('view-vendas');
+  if (VENDAS_REDE === null) {
+    alvo.innerHTML = '<div class="contexto">Carregando vendas...</div>';
+    const rows = await consultarTudo(
+      "vw_vendas_rede?select=nome_loja,periodo_ini,periodo_fim,servico,logistica,pedidos,valor_vendas,taxa_entrega,ticket_medio,novos_clientes&order=periodo_ini.desc,nome_loja"
+    );
+    VENDAS_REDE = rows.map(r => [
+      LOJAS.indexOf(r.nome_loja), r.periodo_ini, r.periodo_fim, r.servico, r.logistica,
+      r.pedidos, Number(r.valor_vendas || 0), Number(r.novos_clientes || 0),
+    ]);
+  }
+  renderModuloVendas();
+}
+
+function renderModuloVendas(periodoSel) {
+  const alvo = document.getElementById('view-vendas');
+  const periodos = [...new Map(VENDAS_REDE.map(r => [r[1] + '|' + r[2], [r[1], r[2]]])).values()];
+  if (!periodos.length) {
+    alvo.innerHTML = `<div class="contexto" style="border-color:#f5a623;">Sem dados de vendas da rede ainda.</div>`;
+    return;
+  }
+  const chave = periodoSel || periodos[0][0] + '|' + periodos[0][1];
+  const [pIni, pFim] = chave.split('|');
+  const activeL = activeLojas();
+  const linhas = VENDAS_REDE.filter(r => activeL.has(r[0]) && r[1] === pIni && r[2] === pFim);
+
+  const tot = { ped: 0, vendas: 0, novos: 0 };
+  linhas.forEach(r => { tot.ped += r[5]; tot.vendas += r[6]; tot.novos += r[7]; });
+
+  const porCanal = new Map();
+  linhas.forEach(r => {
+    const k = `${r[3]} · ${r[4]}`;
+    if (!porCanal.has(k)) porCanal.set(k, { ped: 0, vendas: 0, novos: 0 });
+    const o = porCanal.get(k); o.ped += r[5]; o.vendas += r[6]; o.novos += r[7];
+  });
+
+  const porLoja = new Map();
+  linhas.forEach(r => {
+    if (!porLoja.has(r[0])) porLoja.set(r[0], { ped: 0, vendas: 0, novos: 0 });
+    const o = porLoja.get(r[0]); o.ped += r[5]; o.vendas += r[6]; o.novos += r[7];
+  });
+  const lojas = [...porLoja.entries()].map(([i, o]) => ({ nome: LOJAS[i], ...o }))
+    .sort((a, b) => b.vendas - a.vendas);
+
+  alvo.innerHTML = `
+  <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Vendas — canal iFood</div>
+  <div class="caption-label" style="text-align:center;">
+    Retrato do relatório de vendas do Portal de Redes. Este módulo usa o período do retrato
+    (seletor abaixo), não o filtro de datas do topo. O destaque exclusivo daqui: <b>novos clientes por loja</b>.
+  </div>
+  <div class="periodo-presets">
+    ${periodos.map(([i, f]) => `<button class="preset-btn ${i === pIni && f === pFim ? 'active' : ''}"
+      onclick="renderModuloVendas('${i}|${f}')">${formatarDataCurta(i)} – ${formatarDataCurta(f)}</button>`).join('')}
+  </div>
+  <div class="cards">
+    <div class="card neutral"><div class="card-lbl">Pedidos</div><div class="card-val">${tot.ped.toLocaleString('pt-BR')}</div></div>
+    <div class="card neutral"><div class="card-lbl">Vendas</div><div class="card-val">R$ ${fmt(tot.vendas)}</div></div>
+    <div class="card pos"><div class="card-lbl">Novos clientes</div><div class="card-val">${tot.novos.toLocaleString('pt-BR')}</div><div class="card-pct">${pct(tot.ped ? tot.novos / tot.ped * 100 : 0)}% dos pedidos</div></div>
+    <div class="card neutral"><div class="card-lbl">Ticket médio</div><div class="card-val">R$ ${fmt(tot.ped ? tot.vendas / tot.ped : 0)}</div></div>
+  </div>
+
+  <div class="section-label">Por serviço e logística</div>
+  <div id="tabelaVendasCanal">
+    <table>
+      <tr><th>Serviço · Logística</th><th>Pedidos</th><th>Vendas</th><th>Novos clientes</th></tr>
+      ${[...porCanal.entries()].sort((a, b) => b[1].vendas - a[1].vendas).map(([k, o]) =>
+        `<tr><td>${k}</td><td>${o.ped.toLocaleString('pt-BR')}</td><td>R$ ${fmt(o.vendas)}</td><td>${o.novos}</td></tr>`).join('')}
+    </table>
+  </div>
+
+  <div class="section-label">Por loja</div>
+  <div id="tabelaVendasLojas">
+    <table>
+      <tr><th>Loja</th><th>Pedidos</th><th>Vendas</th><th>Novos clientes</th><th>% de novos</th></tr>
+      ${lojas.map(x => `<tr><td>${x.nome}</td><td>${x.ped.toLocaleString('pt-BR')}</td>
+        <td>R$ ${fmt(x.vendas)}</td><td>${x.novos}</td><td>${pct(x.ped ? x.novos / x.ped * 100 : 0)}%</td></tr>`).join('')}
+    </table>
+  </div>
+  <div class="caption-label">% de novos alta pode indicar loja em crescimento — ou loja que não segura os clientes que conquista. Cruze com o módulo Clientes.</div>`;
+}
+
+async function entrarCardapio() {
+  const alvo = document.getElementById('view-cardapio');
+  if (CARDAPIO === null) {
+    alvo.innerHTML = '<div class="contexto">Carregando cardápio...</div>';
+    const [funil, itens, compl] = await Promise.all([
+      consultarTudo("vw_cardapio_funil?select=nome_loja,periodo_ini,periodo_fim,visitas,visualizacoes,sacola,revisao,concluidos,conversao_pct&order=periodo_ini.desc"),
+      consultarTudo("fato_cardapio_itens?select=periodo_ini,periodo_fim,categoria,item,visitas,pedidos,conversao_pct,qtd_vendida,qtd_com_promocao,valor_total&order=valor_total.desc"),
+      consultarTudo("fato_cardapio_complementos?select=periodo_ini,periodo_fim,classificacao,complemento,pedidos,qtd_vendida,valor_total&order=valor_total.desc"),
+    ]);
+    CARDAPIO = { funil, itens, compl };
+  }
+  renderModuloCardapio();
+}
+
+function renderModuloCardapio(periodoSel) {
+  const alvo = document.getElementById('view-cardapio');
+  const periodos = [...new Map(CARDAPIO.funil.map(r => [r.periodo_ini + '|' + r.periodo_fim, [r.periodo_ini, r.periodo_fim]])).values()];
+  if (!periodos.length) {
+    alvo.innerHTML = `<div class="contexto" style="border-color:#f5a623;">Sem dados de cardápio ainda.</div>`;
+    return;
+  }
+  const chave = periodoSel || periodos[0][0] + '|' + periodos[0][1];
+  const [pIni, pFim] = chave.split('|');
+  const activeL = activeLojas();
+
+  const funil = CARDAPIO.funil.filter(r => r.periodo_ini === pIni && r.periodo_fim === pFim && activeL.has(LOJAS.indexOf(r.nome_loja)))
+    .sort((a, b) => Number(b.conversao_pct) - Number(a.conversao_pct));
+  const itens = CARDAPIO.itens.filter(r => r.periodo_ini === pIni && r.periodo_fim === pFim).slice(0, 12);
+  const compl = CARDAPIO.compl.filter(r => r.periodo_ini === pIni && r.periodo_fim === pFim).slice(0, 8);
+
+  const totV = funil.reduce((s, r) => s + (r.visitas || 0), 0);
+  const totC = funil.reduce((s, r) => s + (r.concluidos || 0), 0);
+
+  alvo.innerHTML = `
+  <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Cardápio — conversão e itens</div>
+  <div class="caption-label" style="text-align:center;">
+    Retrato do relatório de cardápio do Portal de Redes (seletor de período abaixo — não segue o filtro de datas do topo).
+  </div>
+  <div class="periodo-presets">
+    ${periodos.map(([i, f]) => `<button class="preset-btn ${i === pIni && f === pFim ? 'active' : ''}"
+      onclick="renderModuloCardapio('${i}|${f}')">${formatarDataCurta(i)} – ${formatarDataCurta(f)}</button>`).join('')}
+  </div>
+  <div class="cards">
+    <div class="card neutral"><div class="card-lbl">Visitas ao cardápio</div><div class="card-val">${totV.toLocaleString('pt-BR')}</div></div>
+    <div class="card neutral"><div class="card-lbl">Pedidos concluídos</div><div class="card-val">${totC.toLocaleString('pt-BR')}</div></div>
+    <div class="card ${totV && totC / totV >= 0.2 ? 'pos' : 'neutral'}"><div class="card-lbl">Conversão</div><div class="card-val">${pct(totV ? totC / totV * 100 : 0)}%</div><div class="card-pct">de quem visita, quantos compram</div></div>
+  </div>
+
+  <div class="section-label">Funil por loja</div>
+  <div class="caption-label" style="text-align:center;">Visita → viu item → colocou na sacola → revisou → concluiu. Conversão baixa com muitas visitas = cardápio que atrai mas não convence (foto, preço, descrição).</div>
+  <div id="tabelaFunil">
+    <table>
+      <tr><th>Loja</th><th>Visitas</th><th>Sacola</th><th>Concluídos</th><th>Conversão</th></tr>
+      ${funil.map(r => `<tr><td>${r.nome_loja}</td><td>${(r.visitas || 0).toLocaleString('pt-BR')}</td>
+        <td>${(r.sacola || 0).toLocaleString('pt-BR')}</td><td>${(r.concluidos || 0).toLocaleString('pt-BR')}</td>
+        <td${Number(r.conversao_pct) < 15 ? ' style="color:#ff6b6b; font-weight:bold;"' : ''}>${pct(Number(r.conversao_pct || 0))}%</td></tr>`).join('')}
+    </table>
+  </div>
+
+  <div class="section-label">Itens mais vendidos</div>
+  <div class="caption-label" style="text-align:center;">⚠️ O relatório soma a rede inteira como uma marca só — os itens abaixo não separam por loja. Para abrir por marca, é preciso exportar o relatório de cardápio uma marca por vez.</div>
+  <div id="tabelaItens">
+    <table>
+      <tr><th>Item</th><th>Categoria</th><th>Pedidos</th><th>Qtd vendida</th><th>% com promoção</th><th>Valor total</th></tr>
+      ${itens.map(r => `<tr><td>${r.item}</td><td>${r.categoria || '—'}</td><td>${(r.pedidos || 0).toLocaleString('pt-BR')}</td>
+        <td>${(r.qtd_vendida || 0).toLocaleString('pt-BR')}</td>
+        <td>${pct(r.qtd_vendida ? (r.qtd_com_promocao || 0) / r.qtd_vendida * 100 : 0)}%</td>
+        <td>R$ ${fmt(Number(r.valor_total || 0))}</td></tr>`).join('')}
+    </table>
+  </div>
+
+  <div class="section-label">Complementos mais vendidos</div>
+  <div id="tabelaCompl">
+    <table>
+      <tr><th>Complemento</th><th>Tipo</th><th>Pedidos</th><th>Qtd</th><th>Valor total</th></tr>
+      ${compl.map(r => `<tr><td>${r.complemento}</td><td>${r.classificacao || '—'}</td><td>${(r.pedidos || 0).toLocaleString('pt-BR')}</td>
+        <td>${(r.qtd_vendida || 0).toLocaleString('pt-BR')}</td><td>R$ ${fmt(Number(r.valor_total || 0))}</td></tr>`).join('')}
+    </table>
+  </div>`;
+}
+
+async function entrarClientes() {
+  const alvo = document.getElementById('view-clientes');
+  if (CLIENTES_REDE === null) {
+    alvo.innerHTML = '<div class="contexto">Carregando clientes...</div>';
+    CLIENTES_REDE = await consultarTudo(
+      "vw_clientes_rede?select=nome_loja,mes,ativo,tipo_cliente,total_pedidos,valor_vendas,ticket_medio,total_clientes&order=mes.desc,nome_loja"
+    );
+  }
+  renderModuloClientes();
+}
+
+function renderModuloClientes(mesSel) {
+  const alvo = document.getElementById('view-clientes');
+  const meses = [...new Set(CLIENTES_REDE.map(r => r.mes))].sort().reverse();
+  if (!meses.length) {
+    alvo.innerHTML = `<div class="contexto" style="border-color:#f5a623;">Sem dados de clientes ainda.</div>`;
+    return;
+  }
+  const mes = mesSel || meses[0];
+  const activeL = activeLojas();
+  const linhas = CLIENTES_REDE.filter(r => r.mes === mes && activeL.has(LOJAS.indexOf(r.nome_loja)));
+
+  const porTipo = new Map();
+  linhas.filter(r => r.ativo).forEach(r => {
+    if (!porTipo.has(r.tipo_cliente)) porTipo.set(r.tipo_cliente, { cli: 0, ped: 0, vendas: 0 });
+    const o = porTipo.get(r.tipo_cliente);
+    o.cli += r.total_clientes || 0; o.ped += r.total_pedidos || 0; o.vendas += Number(r.valor_vendas || 0);
+  });
+  const inativos = linhas.filter(r => !r.ativo).reduce((s, r) => s + (r.total_clientes || 0), 0);
+  const ordemTipos = ['Novos', 'Frequentes', 'Recuperados'];
+
+  const porLoja = new Map();
+  linhas.filter(r => r.ativo).forEach(r => {
+    const i = LOJAS.indexOf(r.nome_loja);
+    if (!porLoja.has(i)) porLoja.set(i, { Novos: 0, Frequentes: 0, Recuperados: 0 });
+    porLoja.get(i)[r.tipo_cliente] = (porLoja.get(i)[r.tipo_cliente] || 0) + (r.total_clientes || 0);
+  });
+  const lojas = [...porLoja.entries()].map(([i, o]) => ({
+    nome: LOJAS[i], ...o, total: (o.Novos || 0) + (o.Frequentes || 0) + (o.Recuperados || 0),
+  })).sort((a, b) => b.total - a.total);
+
+  const rotuloMes = (() => { const [a, m2] = mes.split('-'); return `${MESES_ABREV[Number(m2) - 1]}/${a}`; })();
+
+  alvo.innerHTML = `
+  <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Clientes — canal iFood</div>
+  <div class="caption-label" style="text-align:center;">
+    Retrato mensal do Portal de Redes (seletor abaixo — não segue o filtro de datas do topo).
+    <b>Novo</b> = primeiro pedido no mês · <b>Frequente</b> = mais de um pedido · <b>Recuperado</b> = voltou após 30+ dias sem comprar.
+  </div>
+  <div class="periodo-presets">
+    ${meses.map(m2 => { const [a2, mm] = m2.split('-'); return `<button class="preset-btn ${m2 === mes ? 'active' : ''}"
+      onclick="renderModuloClientes('${m2}')">${MESES_ABREV[Number(mm) - 1]}/${a2}</button>`; }).join('')}
+  </div>
+  <div class="cards">
+    ${ordemTipos.map(t => { const o = porTipo.get(t) || { cli: 0, ped: 0, vendas: 0 }; return `
+      <div class="card ${t === 'Novos' ? 'pos' : 'neutral'}"><div class="card-lbl">${t}</div>
+      <div class="card-val">${o.cli.toLocaleString('pt-BR')}</div>
+      <div class="card-pct">${o.ped.toLocaleString('pt-BR')} pedidos · R$ ${fmt(o.vendas)}</div></div>`; }).join('')}
+    <div class="card neg"><div class="card-lbl">Inativos (30+ dias sem pedir)</div><div class="card-val">${inativos.toLocaleString('pt-BR')}</div><div class="card-pct">base parada — alvo de reativação</div></div>
+  </div>
+
+  <div class="section-label">Por loja (${rotuloMes})</div>
+  <div id="tabelaClientesLojas">
+    <table>
+      <tr><th>Loja</th><th>Novos</th><th>Frequentes</th><th>Recuperados</th><th>Total ativos</th></tr>
+      ${lojas.map(x => `<tr><td>${x.nome}</td><td>${x.Novos || 0}</td><td>${x.Frequentes || 0}</td>
+        <td>${x.Recuperados || 0}</td><td><b>${x.total}</b></td></tr>`).join('')}
+    </table>
+  </div>
+  <div class="caption-label">Loja com muitos novos e poucos frequentes conquista mas não retém — cardápio/experiência merecem olhar. O contrário indica base fiel mas pouca atração.</div>`;
+}
+
 // Agrupamento automatico pelo tamanho do periodo filtrado — evita colocar mais um controle na
 // tela e evita grafico ilegivel (ex.: 7 meses agrupados por dia).
 function granularidadeAutomatica() {
@@ -2134,89 +2354,35 @@ function renderAll() {
   html += tabelaLiquidoPorLoja(ant);
   html += extratoFinanceiro(m, a);
   html += blocoSinais(m, a);
+  // Fecho da pagina: a tendencia no tempo (o unico grafico que valia manter do antigo
+  // modulo Tendencias — bruto x liquido, com agrupamento automatico pelo tamanho do periodo).
+  html += `<div class="section-label">Evolução do resultado</div>
+    <div class="chart-box" style="height:300px;">
+      <div class="chart-title">Faturamento bruto x líquido no tempo</div>
+      <div class="chart-canvas-wrap"><canvas id="chartTendencia"></canvas></div>
+    </div>
+    <div class="caption-label" style="text-align:center;">Agrupado por ${granularidadeAutomatica() === 'dia' ? 'dia' : granularidadeAutomatica() === 'semana' ? 'semana' : 'mês'}, conforme o tamanho do período filtrado.</div>`;
   document.getElementById('view-content').innerHTML = html;
   document.getElementById('view-cancelamentos').innerHTML = contexto + moduloCancelamentos(m, a);
-  document.getElementById('contexto-evolucao').innerHTML = contexto;
   document.getElementById('view-promocoes').innerHTML = contexto + moduloPromocoes();
   // So desenha os graficos do modulo que esta visivel — Chart.js calcula tamanho zero em
   // container escondido, e o grafico sairia deformado.
   const ativo = moduloAtivo();
-  if (ativo === 'resumo') renderChartWaterfall(m, a, ant);
+  if (ativo === 'resumo') { renderChartWaterfall(m, a, ant); renderChartTendencia(); }
   if (ativo === 'cancelamentos') renderChartMotivos();
   if (ativo === 'promocoes') renderChartsPromocoes();
-  if (ativo === 'evolucao') renderEvolucao();
   // Modulos de carga sob demanda: so re-renderiza se os dados ja foram buscados.
   if (ativo === 'negociacoes' && NEGOCIACOES !== null) renderModuloNegociacoes();
   if (ativo === 'avaliacoes' && AVALIACOES !== null) renderModuloAvaliacoes();
+  if (ativo === 'vendas' && VENDAS_REDE !== null) renderModuloVendas();
+  if (ativo === 'cardapio' && CARDAPIO !== null) renderModuloCardapio();
+  if (ativo === 'clientes' && CLIENTES_REDE !== null) renderModuloClientes();
 }
 
 // ------------------------------------------------------------------
 // Graficos de evolucao (mesma logica financeira, agrupada no tempo)
 // ------------------------------------------------------------------
-const selGranularidade = document.getElementById('fGranularidade');
 let chartInstances = {};
-
-function grupoInfo(r, gran) {
-  const dataStr = DATAS[r[5]]; // 'YYYY-MM-DD'
-  const [yyyy, mm, dd] = dataStr.split('-');
-  if (gran === 'dia') return { key: dataStr, label: `${dd}/${mm}/${yyyy}`, sort: dataStr };
-  if (gran === 'diaSemana') {
-    const idx = r[4];
-    return { key: String(idx), label: DIAS[idx], sort: String(idx).padStart(2,'0') };
-  }
-  if (gran === 'mes') {
-    const key = `${yyyy}-${mm}`;
-    return { key, label: `${MESES_ABREV[Number(mm)-1]}/${yyyy}`, sort: key };
-  }
-  if (gran === 'ano') return { key: yyyy, label: yyyy, sort: yyyy };
-  // semana (padrao) — o texto da semana nao tem ano, entao usamos a data real pra ordenar
-  const semanaStr = SEMANAS[r[3]];
-  return { key: semanaStr, label: formatarSemana(semanaStr), sort: dataStr };
-}
-
-function computeEvolucao(rows, gran) {
-  const grupos = new Map();
-  rows.forEach(r => {
-    const info = grupoInfo(r, gran);
-    if (!grupos.has(info.key)) {
-      grupos.set(info.key, {
-        label: info.label, sort: info.sort,
-        totalPedidos: 0, itens: 0, frete: 0, promoLoja: 0, taxasComissoes: 0, freteSobDemanda: 0, nFull: 0,
-      });
-    }
-    const g = grupos.get(info.key);
-    if (gran !== 'diaSemana' && info.sort < g.sort) g.sort = info.sort;
-    if (r[6] !== 1) {
-      g.totalPedidos += r[7];
-      g.itens += (r[8] - r[9]);
-      g.frete += r[10];
-      g.promoLoja += r[13];
-      g.taxasComissoes += r[15];
-      g.freteSobDemanda += r[16];
-    } else {
-      g.nFull += r[7];
-    }
-  });
-
-  const lista = Array.from(grupos.values());
-  lista.sort((a,b) => a.sort < b.sort ? -1 : a.sort > b.sort ? 1 : 0);
-
-  return lista.map(g => {
-    const bruto = g.itens + g.frete;
-    // Liquido consolidado (liquido iFood + recebido direto) — mesma logica dos cards do topo.
-    const liquido = bruto + g.taxasComissoes - g.promoLoja - g.freteSobDemanda;
-    return {
-      label: g.label,
-      totalPedidos: g.totalPedidos,
-      bruto,
-      liquido,
-      margem: bruto ? (liquido/bruto*100) : 0,
-      ticketMedio: g.totalPedidos ? (bruto/g.totalPedidos) : 0,
-      custoMkt: g.totalPedidos ? (g.promoLoja/g.totalPedidos) : 0,
-      cancelados: g.nFull,
-    };
-  });
-}
 
 // Chave de periodo generica, calculada direto a partir de uma data (string 'YYYY-MM-DD'),
 // sem depender dos indices de semana/dia_semana pre-calculados de ROWS. Precisamos disso pra
@@ -2339,53 +2505,6 @@ function renderLineChart(id, labels, datasets, yLabel) {
   });
 }
 
-function renderChartPedidos(labels, dados) {
-  destroyChart('chartPedidos');
-  const ctx = document.getElementById('chartPedidos').getContext('2d');
-  chartInstances['chartPedidos'] = new Chart(ctx, {
-    data: {
-      labels,
-      datasets: [
-        { type: 'bar', label: 'Pedidos (concluidos/parciais)', data: dados.map(d=>d.totalPedidos), backgroundColor: '#58a6ff' },
-        { type: 'line', label: 'Cancelados (totais)', data: dados.map(d=>d.cancelados), borderColor: '#ff6b6b', backgroundColor: '#ff6b6b', tension: .25, pointRadius: 2 },
-      ],
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: { mode: 'index', intersect: false },
-      scales: { x: { ticks: { maxRotation: 60, autoSkip: true } }, y: { beginAtZero: true } },
-    },
-  });
-}
-
-function renderTabelaEvolucao(dados) {
-  let html = `<table>
-    <tr><th>Período</th><th>Pedidos</th><th>Bruto</th><th>Líquido</th><th>Margem</th><th>Ticket médio</th><th>Marketing/pedido</th></tr>`;
-  dados.forEach(d => {
-    html += `<tr>
-      <td>${d.label}</td>
-      <td>${d.totalPedidos}</td>
-      <td>R$ ${fmt(d.bruto)}</td>
-      <td>R$ ${fmt(d.liquido)}</td>
-      <td>${pct(d.margem)}%</td>
-      <td>R$ ${fmt(d.ticketMedio)}</td>
-      <td>R$ ${fmt(d.custoMkt)}</td>
-    </tr>`;
-  });
-  html += `</table>`;
-  document.getElementById('tabelaEvolucao').innerHTML = html;
-}
-
-// ------------------------------------------------------------------
-// Graficos executivos (Analise executiva): cruzam volume, preco e
-// investimento em marketing com o resultado final (liquido).
-// ------------------------------------------------------------------
-
-// "Ponte" do liquido entre o penultimo e o ultimo periodo da lista (respeitando a
-// granularidade escolhida): decompoe a variacao do liquido em efeito volume (mudanca no
-// numero de pedidos, ao ticket medio antigo), efeito ticket medio/preco (mudanca no ticket
-// medio, ao volume novo), efeito descontos/taxas e efeito investimento em mkt.
 // Explica a diferenca de resultado entre o periodo FILTRADO e o periodo anterior de mesmo
 // tamanho — exatamente a mesma comparacao dos selos dos cards, pra nao existir dois numeros
 // diferentes de "variacao" no painel.
@@ -2436,105 +2555,6 @@ function renderChartWaterfall(m, a, ant) {
       },
     },
   });
-}
-
-// Dispersao: cada ponto e' um periodo. Responde "quando o investimento em mkt por pedido
-// cai/sobe, o liquido por pedido acompanha, ou fica igual/melhora?"
-function renderChartMktLiquido(dados) {
-  destroyChart('chartMktLiquido');
-  const ctx = document.getElementById('chartMktLiquido').getContext('2d');
-  chartInstances['chartMktLiquido'] = new Chart(ctx, {
-    type: 'scatter',
-    data: { datasets: [{
-      label: 'Periodos',
-      data: dados.map(d => ({ x: d.mktPorPedido, y: d.liquidoPorPedido, label: d.label })),
-      backgroundColor: '#f5a623', pointRadius: 5, pointHoverRadius: 7,
-    }] },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-        tooltip: { callbacks: { label: (c) => `${c.raw.label}: MKT R$ ${fmt(c.raw.x)}/pedido | Liquido R$ ${fmt(c.raw.y)}/pedido` } },
-      },
-      scales: {
-        x: { title: { display: true, text: 'Investimento MKT por pedido (R$)' } },
-        y: { title: { display: true, text: 'Liquido por pedido (R$)' } },
-      },
-    },
-  });
-}
-
-// Bolha: X = ticket medio, Y = numero de pedidos, tamanho da bolha = liquido total do
-// periodo. Responde "quando o ticket medio sobe e o volume cai, o liquido total melhora,
-// piora ou fica igual?" numa imagem so.
-function renderChartTicketVolumeLiquido(dados) {
-  destroyChart('chartTicketVolumeLiquido');
-  const ctx = document.getElementById('chartTicketVolumeLiquido').getContext('2d');
-  const maxLiquido = Math.max(1, ...dados.map(d => Math.abs(d.liquido)));
-  chartInstances['chartTicketVolumeLiquido'] = new Chart(ctx, {
-    type: 'bubble',
-    data: { datasets: [{
-      label: 'Periodos',
-      data: dados.map(d => ({ x: d.ticketMedio, y: d.totalPedidos, r: 5 + (Math.abs(d.liquido)/maxLiquido)*20, label: d.label, liquido: d.liquido })),
-      backgroundColor: 'rgba(88,166,255,0.5)', borderColor: '#58a6ff',
-    }] },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-        tooltip: { callbacks: { label: (c) => `${c.raw.label}: Ticket R$ ${fmt(c.raw.x)} | ${c.raw.y} pedidos | Liquido R$ ${fmt(c.raw.liquido)}` } },
-      },
-      scales: {
-        x: { title: { display: true, text: 'Ticket medio (R$)' } },
-        y: { title: { display: true, text: 'Numero de pedidos' }, beginAtZero: true },
-      },
-    },
-  });
-}
-
-function renderEvolucao() {
-  const rows = linhasFiltradas();
-  const gran = selGranularidade.value;
-  const dados = computeEvolucao(rows, gran);
-  const labels = dados.map(d => d.label);
-
-  // Tendencia com poucos pontos nao e tendencia. Em vez de mostrar um grafico vazio ou
-  // enganoso, avisa e oferece o atalho pro historico completo.
-  const aviso = document.getElementById('avisoPoucosPontos');
-  if (aviso) {
-    aviso.innerHTML = dados.length < 3
-      ? `<div class="contexto" style="border-color:#f5a623;">
-           O período filtrado gera apenas <b>${dados.length} ${dados.length === 1 ? 'ponto' : 'pontos'}</b> neste agrupamento —
-           pouco para enxergar tendência.
-           <div style="margin-top:10px;"><button class="preset-btn" onclick="aplicarPreset('tudo')">Ver todo o histórico</button></div>
-         </div>`
-      : '';
-  }
-
-  renderLineChart('chartBrutoLiquido', labels, [
-    { label: 'Bruto', data: dados.map(d=>d.bruto), borderColor: '#58a6ff', backgroundColor: '#58a6ff' },
-    { label: 'Liquido', data: dados.map(d=>d.liquido), borderColor: '#3fb950', backgroundColor: '#3fb950' },
-  ], 'R$');
-
-  renderLineChart('chartMargem', labels, [
-    { label: 'Margem final (%)', data: dados.map(d=>d.margem), borderColor: '#f5a623', backgroundColor: '#f5a623' },
-  ], '%');
-
-  renderLineChart('chartTicket', labels, [
-    { label: 'Ticket medio', data: dados.map(d=>d.ticketMedio), borderColor: '#a371f7', backgroundColor: '#a371f7' },
-  ], 'R$');
-
-  renderChartPedidos(labels, dados);
-
-  renderLineChart('chartMkt', labels, [
-    { label: 'Custo de marketing por pedido', data: dados.map(d=>d.custoMkt), borderColor: '#e3b341', backgroundColor: '#e3b341' },
-  ], 'R$');
-
-  renderTabelaEvolucao(dados);
-
-  const dadosCompletos = computeEvolucaoCompleta(gran);
-  renderChartMktLiquido(dadosCompletos);
-  renderChartTicketVolumeLiquido(dadosCompletos);
 }
 
 // ------------------------------------------------------------------
