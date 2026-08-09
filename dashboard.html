@@ -259,7 +259,7 @@
 
     <button class="sidebar-secao" onclick="toggleGrupo('gIfood')">Canal · iFood <span class="seta">▶</span></button>
     <div class="sidebar-grupo" id="gIfood">
-      <button class="sidebar-btn active" id="navBtnResumo" onclick="mostrarModulo('resumo')">Visão geral</button>
+      <button class="sidebar-btn active" id="navBtnResumo" onclick="mostrarModulo('resumo')">Resumo financeiro</button>
       <button class="sidebar-btn" id="navBtnVendas" onclick="mostrarModulo('vendas')">Vendas</button>
       <button class="sidebar-btn" id="navBtnCardapio" onclick="mostrarModulo('cardapio')">Cardápio</button>
       <button class="sidebar-btn" id="navBtnClientes" onclick="mostrarModulo('clientes')">Clientes</button>
@@ -1174,6 +1174,7 @@ function kpisRapidos(m, a) {
   return `<div class="cards" style="margin-top:4px;">
     <div class="card neutral"><div class="card-lbl">Pedidos</div><div class="card-val">${m.totalPedidos.toLocaleString('pt-BR')}</div>${selo(m.totalPedidos, a && a.totalPedidos)}</div>
     <div class="card neutral"><div class="card-lbl">Ticket médio</div><div class="card-val">R$ ${fmt(m.ticketMedio)}</div>${selo(m.ticketMedio, a && a.ticketMedio)}</div>
+    <div class="card neg"><div class="card-lbl">Custo iFood</div><div class="card-val">R$ ${fmt(m.custoIfood)}</div><div class="card-pct">${pct(m.custoIfoodPct)}% do bruto</div>${selo(m.custoIfood, a && a.custoIfood, 'menorMelhor')}</div>
     <div class="card neutral"><div class="card-lbl">Marketing por pedido</div><div class="card-val">R$ ${fmt(m.custoMktPorPedido)}</div>${selo(m.custoMktPorPedido, a && a.custoMktPorPedido, 'menorMelhor')}</div>
     <div class="card neutral"><div class="card-lbl">Taxa de cancelamento</div><div class="card-val">${pct(m.totalCanceladosPct)}%</div>${selo(m.totalCanceladosPct, a && a.totalCanceladosPct, 'menorMelhor')}</div>
     <div class="card neutral"><div class="card-lbl">Perdido com cancelamentos</div><div class="card-val">R$ ${fmt(m.valorPerdidoReal)}</div>${selo(m.valorPerdidoReal, a && a.valorPerdidoReal, 'menorMelhor')}</div>
@@ -1210,7 +1211,8 @@ function extratoFinanceiro(m, a) {
     </table>
   </div>
   <div class="caption-label" style="text-align:center;">
-    De cada R$ 100 vendidos, <b>R$ ${fmt(m.liquidoPct)}</b> ficam com a loja — antes dos custos próprios (insumos, equipe, aluguel).
+    De cada R$ 100 vendidos, o iFood levou <b>R$ ${fmt(m.custoIfoodPct)}</b> entre taxas, comissões e marketing.
+    O líquido ainda não desconta os custos próprios (insumos, equipe, aluguel) — não é a margem final do negócio.
     Investimento em marketing fica em cinza: gastar mais não é bom nem ruim por si só, depende do retorno.
   </div>`;
 }
@@ -1295,9 +1297,9 @@ function blocoAbertura(m, a, ant) {
 
   const frase = `Neste período a operação vendeu <b>R$ ${fmt(m.bruto)}</b> em
     <b>${m.totalPedidos.toLocaleString('pt-BR')} pedidos</b>. O iFood ficou com
-    <b>R$ ${fmt(m.custoIfood)}</b> entre taxas, comissões e marketing (${pct(m.custoIfoodPct)}%),
-    sobrando <b>R$ ${fmt(m.liquido)}</b> para a loja — <b>${pct(m.liquidoPct)}%</b> do que foi vendido.
-    Esse valor ainda não desconta os custos próprios (insumos, equipe, aluguel).`;
+    <b>R$ ${fmt(m.custoIfood)}</b> entre taxas, comissões e marketing —
+    <b>${pct(m.custoIfoodPct)}%</b> de tudo que foi vendido. O que sobrou ainda
+    não desconta os custos próprios (insumos, equipe, aluguel), então não é a margem final do negócio.`;
 
   return `<div class="hero" style="border-left-color:${cor};">
     <div class="hero-lbl">O que sobrou para a loja no período</div>
@@ -2005,7 +2007,7 @@ async function gerarRelatorioAdHoc() {
       ${linha('Custo total do iFood', m.custoIfood, a && a.custoIfood, 'moeda', 'menorMelhor')}
       ${linha('Marketing total', m.totalMkt, a && a.totalMkt, 'moeda', 'neutro')}
       ${linha('Líquido', m.liquido, a && a.liquido, 'moeda')}
-      ${linha('Margem', m.liquidoPct, a && a.liquidoPct, 'pct')}
+      ${linha('Custo iFood (% do bruto)', m.custoIfoodPct, a && a.custoIfoodPct, 'pct', 'menorMelhor')}
       ${linha('Valor cancelado', m.valorCancelado, a && a.valorCancelado, 'moeda', 'menorMelhor')}
     </table>
     <h3>Qualidade e pós-venda</h3>
