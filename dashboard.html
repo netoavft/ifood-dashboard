@@ -36,7 +36,14 @@
   .sidebar-marca-nome { color:#ffffff; font-size:14px; font-weight:bold; letter-spacing:.3px; }
 
   .sidebar-secao { color:#6e7681; font-size:9.5px; font-weight:bold; text-transform:uppercase;
-                   letter-spacing:1px; padding:16px 24px 6px; }
+                   letter-spacing:1px; padding:16px 24px 6px; cursor:pointer; user-select:none;
+                   display:flex; align-items:center; justify-content:space-between;
+                   background:none; border:none; width:100%; font-family:inherit; text-align:left; }
+  .sidebar-secao:hover { color:#9aa4af; }
+  .sidebar-secao .seta { font-size:8px; transition:transform .15s; }
+  .sidebar-secao.aberto .seta { transform:rotate(90deg); }
+  .sidebar-grupo { display:none; flex-direction:column; gap:2px; }
+  .sidebar-grupo.aberto { display:flex; }
   .sidebar-btn.breve { color:#4d5560; cursor:default; font-weight:normal; }
   .sidebar-btn.breve:hover { color:#4d5560; }
   .sidebar-btn.breve::after { content:' · em breve'; font-size:9px; color:#3d444d; }
@@ -204,6 +211,9 @@
     .sidebar { width:100%; flex:0 0 auto; flex-direction:row; overflow-x:auto; border-right:none; border-bottom:1px solid #262c36; padding:8px; }
     .sidebar-btn { border-left:none; border-bottom:3px solid transparent; padding:10px 16px; white-space:nowrap; }
     .sidebar-btn.active { border-left-color:transparent; border-bottom-color:#f5a623; }
+    /* no menu horizontal do celular a sanfona atrapalha: tudo fica visivel */
+    .sidebar-grupo { display:flex; flex-direction:row; }
+    .sidebar-secao { display:none; }
   }
 </style>
 </head>
@@ -227,43 +237,59 @@
       <span class="sidebar-marca-nome">Cidadão do Mundo</span>
     </div>
 
-    <div class="sidebar-secao">Resultado</div>
-    <span class="sidebar-btn breve">Visão consolidada</span>
-    <span class="sidebar-btn breve">DRE</span>
-    <span class="sidebar-btn breve">Fluxo de caixa</span>
-    <span class="sidebar-btn breve">Margem por item</span>
+    <button class="sidebar-secao" onclick="toggleGrupo('gResultado')">Resultado <span class="seta">▶</span></button>
+    <div class="sidebar-grupo" id="gResultado">
+      <span class="sidebar-btn breve">Visão consolidada</span>
+      <span class="sidebar-btn breve">DRE</span>
+      <span class="sidebar-btn breve">Fluxo de caixa</span>
+      <span class="sidebar-btn breve">Margem por item</span>
+    </div>
 
-    <div class="sidebar-secao">Relatórios</div>
-    <button class="sidebar-btn" id="navBtnRelatorios" onclick="mostrarModulo('relatorios')">Resumos semanais</button>
+    <button class="sidebar-secao" onclick="toggleGrupo('gRelatorios')">Relatórios <span class="seta">▶</span></button>
+    <div class="sidebar-grupo" id="gRelatorios">
+      <button class="sidebar-btn" id="navBtnRelatorios" onclick="mostrarModulo('relatorios')">Resumos semanais</button>
+    </div>
 
-    <div class="sidebar-secao">Vendas</div>
-    <span class="sidebar-btn breve">Por período</span>
-    <span class="sidebar-btn breve">Por item</span>
-    <span class="sidebar-btn breve">Por canal</span>
+    <button class="sidebar-secao" onclick="toggleGrupo('gVendas')">Vendas <span class="seta">▶</span></button>
+    <div class="sidebar-grupo" id="gVendas">
+      <span class="sidebar-btn breve">Por período</span>
+      <span class="sidebar-btn breve">Por item</span>
+      <span class="sidebar-btn breve">Por canal</span>
+    </div>
 
-    <div class="sidebar-secao">Canal · iFood</div>
-    <button class="sidebar-btn active" id="navBtnResumo" onclick="mostrarModulo('resumo')">Visão geral</button>
-    <button class="sidebar-btn" id="navBtnVendas" onclick="mostrarModulo('vendas')">Vendas</button>
-    <button class="sidebar-btn" id="navBtnCardapio" onclick="mostrarModulo('cardapio')">Cardápio</button>
-    <button class="sidebar-btn" id="navBtnClientes" onclick="mostrarModulo('clientes')">Clientes</button>
-    <button class="sidebar-btn" id="navBtnCancelamentos" onclick="mostrarModulo('cancelamentos')">Cancelamentos</button>
-    <button class="sidebar-btn" id="navBtnPromocoes" onclick="mostrarModulo('promocoes')">Promoções</button>
-    <button class="sidebar-btn" id="navBtnNegociacoes" onclick="mostrarModulo('negociacoes')">Negociações</button>
-    <button class="sidebar-btn" id="navBtnAvaliacoes" onclick="mostrarModulo('avaliacoes')">Avaliações</button>
+    <button class="sidebar-secao" onclick="toggleGrupo('gIfood')">Canal · iFood <span class="seta">▶</span></button>
+    <div class="sidebar-grupo" id="gIfood">
+      <button class="sidebar-btn active" id="navBtnResumo" onclick="mostrarModulo('resumo')">Visão geral</button>
+      <button class="sidebar-btn" id="navBtnVendas" onclick="mostrarModulo('vendas')">Vendas</button>
+      <button class="sidebar-btn" id="navBtnCardapio" onclick="mostrarModulo('cardapio')">Cardápio</button>
+      <button class="sidebar-btn" id="navBtnClientes" onclick="mostrarModulo('clientes')">Clientes</button>
+      <button class="sidebar-btn" id="navBtnCancelamentos" onclick="mostrarModulo('cancelamentos')">Cancelamentos</button>
+      <button class="sidebar-btn" id="navBtnPromocoes" onclick="mostrarModulo('promocoes')">Promoções</button>
+      <button class="sidebar-btn" id="navBtnNegociacoes" onclick="mostrarModulo('negociacoes')">Negociações</button>
+      <button class="sidebar-btn" id="navBtnAvaliacoes" onclick="mostrarModulo('avaliacoes')">Avaliações</button>
+    </div>
 
-    <div class="sidebar-secao">Logística</div>
-    <span class="sidebar-btn breve">Tempo de entrega</span>
-    <span class="sidebar-btn breve">Por entregador</span>
+    <button class="sidebar-secao" onclick="toggleGrupo('gLogistica')">Logística <span class="seta">▶</span></button>
+    <div class="sidebar-grupo" id="gLogistica">
+      <span class="sidebar-btn breve">Tempo de entrega</span>
+      <span class="sidebar-btn breve">Por entregador</span>
+    </div>
 
-    <div class="sidebar-secao">Pessoas</div>
-    <span class="sidebar-btn breve">A definir (Flash)</span>
+    <button class="sidebar-secao" onclick="toggleGrupo('gPessoas')">Pessoas <span class="seta">▶</span></button>
+    <div class="sidebar-grupo" id="gPessoas">
+      <span class="sidebar-btn breve">A definir (Flash)</span>
+    </div>
 
-    <div class="sidebar-secao">Planejamento</div>
-    <span class="sidebar-btn breve">Formação de preço</span>
+    <button class="sidebar-secao" onclick="toggleGrupo('gPlanejamento')">Planejamento <span class="seta">▶</span></button>
+    <div class="sidebar-grupo" id="gPlanejamento">
+      <span class="sidebar-btn breve">Formação de preço</span>
+    </div>
 
-    <div class="sidebar-secao">Cadastros</div>
-    <span class="sidebar-btn breve">Ficha técnica</span>
-    <span class="sidebar-btn breve">Despesas e rateio</span>
+    <button class="sidebar-secao" onclick="toggleGrupo('gCadastros')">Cadastros <span class="seta">▶</span></button>
+    <div class="sidebar-grupo" id="gCadastros">
+      <span class="sidebar-btn breve">Ficha técnica</span>
+      <span class="sidebar-btn breve">Despesas e rateio</span>
+    </div>
   </nav>
   <div class="main-content">
   <div class="wrap">
@@ -709,7 +735,24 @@ function resetFiltros() {
 // sem recarregar a pagina nem mudar a URL. Os filtros continuam
 // compartilhados entre todos os modulos.
 // ------------------------------------------------------------------
+// Menu em sanfona: cada secao abre/fecha ao clicar no titulo.
+function toggleGrupo(id) {
+  const grupo = document.getElementById(id);
+  const aberto = grupo.classList.toggle('aberto');
+  grupo.previousElementSibling.classList.toggle('aberto', aberto);
+}
+
+// Garante que o grupo que contem o modulo esteja aberto (ex.: botao que leva
+// a Cancelamentos a partir da Visao geral, ou o modulo inicial no boot).
+function abrirGrupoDoModulo(nome) {
+  const grupoDe = { relatorios: 'gRelatorios' };
+  const id = grupoDe[nome] || 'gIfood';
+  const grupo = document.getElementById(id);
+  if (!grupo.classList.contains('aberto')) toggleGrupo(id);
+}
+
 function mostrarModulo(nome) {
+  abrirGrupoDoModulo(nome);
   const modulos = {
     resumo: ['modulo-resumo', 'navBtnResumo'],
     cancelamentos: ['modulo-cancelamentos', 'navBtnCancelamentos'],
@@ -743,6 +786,9 @@ function mostrarModulo(nome) {
   if (nome === 'avaliacoes') entrarAvaliacoes();
   if (nome === 'relatorios') entrarRelatorios();
 }
+
+// No boot o modulo inicial e a Visao geral do iFood: abre o grupo dela.
+abrirGrupoDoModulo('resumo');
 
 // Qual modulo esta aberto agora — usado pra so redesenhar os graficos do modulo visivel.
 function moduloAtivo() {
