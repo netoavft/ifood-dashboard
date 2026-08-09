@@ -989,9 +989,12 @@ function computeMetrics(iniAlt = null, fimAlt = null) {
   // ressarcimentos de cancelamento viraram uma entrada, contabilizados abaixo.
   const taxaOnline = -somaConciliacaoRaw('TAXA_CARTAO', iniAlt, fimAlt);
   const comissaoVendas = -somaConciliacaoRaw('COMISSAO_VENDAS', iniAlt, fimAlt);
+  // Mensalidade e um valor pequeno e esporadico — na APRESENTACAO ela entra dentro de
+  // "Outros ajustes". No banco continua classificada a parte (grupo MENSALIDADE), entao
+  // da pra destrinchar quando quiser.
   const mensalidade = -somaConciliacaoRaw('MENSALIDADE', iniAlt, fimAlt);
-  const outrosAjustes = -somaConciliacaoRaw('OUTROS_AJUSTES', iniAlt, fimAlt);
-  const totalTaxasComissoes = taxaOnline + comissaoVendas + mensalidade + outrosAjustes;
+  const outrosAjustes = -somaConciliacaoRaw('OUTROS_AJUSTES', iniAlt, fimAlt) + mensalidade;
+  const totalTaxasComissoes = taxaOnline + comissaoVendas + outrosAjustes;
   // Total de descontos exibido no card soma tambem o frete sob demanda.
   const totalDescontos = totalTaxasComissoes + freteSobDemanda;
 
@@ -1180,8 +1183,7 @@ function extratoFinanceiro(m, a) {
       ${linha('<b>= Faturamento bruto</b>', m.bruto, 100, variacaoSpan(m.bruto, a && a.bruto), 'sub')}
       ${linha('− Taxa de pagamento online', m.taxaOnline, m.taxaOnlinePct, variacaoSpan(m.taxaOnline, a && a.taxaOnline, 'menorMelhor'))}
       ${linha('− Comissão sobre vendas', m.comissaoVendas, m.comissaoVendasPct, variacaoSpan(m.comissaoVendas, a && a.comissaoVendas, 'menorMelhor'))}
-      ${linha('− Mensalidade', m.mensalidade, m.mensalidadePct, variacaoSpan(m.mensalidade, a && a.mensalidade, 'menorMelhor'))}
-      ${linha('− Outros ajustes', m.outrosAjustes, m.outrosAjustesPct, variacaoSpan(m.outrosAjustes, a && a.outrosAjustes, 'menorMelhor'))}
+      ${linha('− Outros ajustes (inclui mensalidade)', m.outrosAjustes, m.outrosAjustesPct, variacaoSpan(m.outrosAjustes, a && a.outrosAjustes, 'menorMelhor'))}
       ${linha('− Frete sob demanda', m.freteSobDemanda, m.freteSobDemandaPct, variacaoSpan(m.freteSobDemanda, a && a.freteSobDemanda, 'menorMelhor'))}
       ${linha('+ Ressarcimento por cancelamentos', m.ressarcimentoCancelamento, m.ressarcimentoCancelamentoPct, variacaoSpan(m.ressarcimentoCancelamento, a && a.ressarcimentoCancelamento))}
       ${linha('<b>= Total cobrado pelo iFood</b>', m.totalDescontosComRessarcimento, m.totalDescontosComRessarcimentoPct, variacaoSpan(m.totalDescontosComRessarcimento, a && a.totalDescontosComRessarcimento, 'menorMelhor'), 'sub')}
