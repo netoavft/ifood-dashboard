@@ -147,6 +147,19 @@
   #tabelaMotivos tr:nth-child(even), #tabelaPromo tr:nth-child(even), #tabelaPromoLojas tr:nth-child(even),
   #tabelaNegLojas tr:nth-child(even), #tabelaAvalLojas tr:nth-child(even), #tabelaComentarios tr:nth-child(even) { background:#12161c; }
 
+  #extratoFin { overflow-x:auto; max-width:100%; }
+  #extratoFin table { border-collapse:collapse; width:100%; font-size:13px; }
+  #extratoFin th, #extratoFin td { border:1px solid #30363d; padding:7px 12px; text-align:right; white-space:nowrap; }
+  #extratoFin th:first-child, #extratoFin td:first-child { text-align:left; white-space:normal; }
+  #extratoFin th { background:#21262d; color:#9aa4af; font-weight:bold; font-size:11px; text-transform:uppercase; }
+  #extratoFin tr.sub td { background:#1a2029; border-top:2px solid #3d444d; }
+  #extratoFin tr.liq td { background:#1c1508; border-top:2px solid #f5a623; font-size:14.5px; }
+  #extratoFin tr.liq td:first-child { color:#f5a623; }
+
+  details.detalhes-extra { margin-top:22px; border:1px solid #262c36; border-radius:10px; padding:14px 18px; background:#12161c; }
+  details.detalhes-extra summary { cursor:pointer; color:#9aa4af; font-size:12.5px; font-weight:bold; }
+  details.detalhes-extra summary:hover { color:#f5a623; }
+
   #tabelaLojasResumo { overflow-x:auto; max-width:100%; }
   #tabelaLojasResumo table { border-collapse:collapse; width:100%; font-size:12.5px; }
   #tabelaLojasResumo th, #tabelaLojasResumo td { border:1px solid #30363d; padding:6px 10px; text-align:right; white-space:nowrap; }
@@ -1053,130 +1066,6 @@ function computeMetrics(iniAlt = null, fimAlt = null) {
   };
 }
 
-function cardsEntradas(m, a) {
-  return `<div class="section-label">Quanto entrou</div>
-  <div class="equation-row">
-    <div class="card pos"><div class="card-lbl">Venda dos produtos</div><div class="card-val">R$ ${fmt(m.itens)}</div><div class="card-pct">${pct(m.itensPct)}%</div>${selo(m.itens, a && a.itens)}</div>
-    <div class="eq-symbol">+</div>
-    <div class="card pos"><div class="card-lbl">Taxa de entrega paga pelo cliente</div><div class="card-val">R$ ${fmt(m.frete)}</div><div class="card-pct">${pct(m.fretePct)}%</div>${selo(m.frete, a && a.frete)}</div>
-    <div class="eq-symbol">=</div>
-    <div class="card pos highlight"><div class="card-lbl">Faturamento bruto</div><div class="card-val">R$ ${fmt(m.bruto)}</div>${selo(m.bruto, a && a.bruto)}</div>
-  </div>
-  <div class="section-label" style="color:#58a6ff; border-top:none; padding-top:0; margin-top:0;">Como o cliente pagou</div>
-  <div class="cards">
-    <div class="card blue"><div class="card-lbl">Pelo app do iFood</div><div class="card-val">R$ ${fmt(m.vendasOnline)}</div><div class="card-pct">${pct(m.vendasOnlinePct)}%</div>${selo(m.vendasOnline, a && a.vendasOnline)}</div>
-    <div class="card blue"><div class="card-lbl">Na entrega (cartão/vale)</div><div class="card-val">R$ ${fmt(m.vendasCartao)}</div><div class="card-pct">${pct(m.vendasCartaoPct)}%</div>${selo(m.vendasCartao, a && a.vendasCartao)}</div>
-  </div>`;
-}
-
-function cardsSaidas(m, a) {
-  return `<div class="section-label">O que o iFood cobrou</div>
-  <div class="equation-row">
-    <div class="card neg"><div class="card-lbl">Taxa de pagamento online</div><div class="card-val">R$ ${fmt(m.taxaOnline)}</div><div class="card-pct">${pct(m.taxaOnlinePct)}%</div>${selo(m.taxaOnline, a && a.taxaOnline, 'menorMelhor')}</div>
-    <div class="eq-symbol">+</div>
-    <div class="card neg"><div class="card-lbl">Comissão sobre vendas</div><div class="card-val">R$ ${fmt(m.comissaoVendas)}</div><div class="card-pct">${pct(m.comissaoVendasPct)}%</div>${selo(m.comissaoVendas, a && a.comissaoVendas, 'menorMelhor')}</div>
-    <div class="eq-symbol">+</div>
-    <div class="card neg"><div class="card-lbl">Mensalidade</div><div class="card-val">R$ ${fmt(m.mensalidade)}</div><div class="card-pct">${pct(m.mensalidadePct)}%</div>${selo(m.mensalidade, a && a.mensalidade, 'menorMelhor')}</div>
-    <div class="eq-symbol">+</div>
-    <div class="card neg"><div class="card-lbl">Outros ajustes</div><div class="card-val">R$ ${fmt(m.outrosAjustes)}</div><div class="card-pct">${pct(m.outrosAjustesPct)}%</div>${selo(m.outrosAjustes, a && a.outrosAjustes, 'menorMelhor')}</div>
-  </div>
-  <div class="equation-row">
-    <div class="eq-symbol">+</div>
-    <div class="card neg"><div class="card-lbl">Frete sob demanda</div><div class="card-val">R$ ${fmt(m.freteSobDemanda)}</div><div class="card-pct">${pct(m.freteSobDemandaPct)}%</div>${selo(m.freteSobDemanda, a && a.freteSobDemanda, 'menorMelhor')}</div>
-    <div class="eq-symbol">-</div>
-    <div class="card pos"><div class="card-lbl">Ressarcimento por cancelamentos</div><div class="card-val">R$ ${fmt(m.ressarcimentoCancelamento)}</div><div class="card-pct">${pct(m.ressarcimentoCancelamentoPct)}%</div>${selo(m.ressarcimentoCancelamento, a && a.ressarcimentoCancelamento)}</div>
-    <div class="eq-symbol">=</div>
-    <div class="card highlight"><div class="card-lbl">Total cobrado pelo iFood</div><div class="card-val">R$ ${fmt(m.totalDescontosComRessarcimento)}</div><div class="card-pct">${pct(m.totalDescontosComRessarcimentoPct)}%</div>${selo(m.totalDescontosComRessarcimento, a && a.totalDescontosComRessarcimento, 'menorMelhor')}</div>
-  </div>
-  <div class="caption-label" style="text-align:center;">
-    Taxas e comissões que o iFood desconta do repasse. "Outros ajustes" reune lancamentos pequenos e pontuais
-    (taxa de parcelamento, correções, retenções) que não se encaixam nas categorias acima.
-  </div>
-
-  <div class="section-label">Quanto investimos para vender</div>
-  <div class="equation-row">
-    <div class="card neg"><div class="card-lbl">Promoções bancadas pela loja</div><div class="card-val">R$ ${fmt(m.promoLoja)}</div><div class="card-pct">${pct(m.promoLojaPct)}%</div>${selo(m.promoLoja, a && a.promoLoja, 'neutro')}</div>
-    <div class="eq-symbol">+</div>
-    <div class="card neg"><div class="card-lbl">Anúncios</div><div class="card-val">R$ ${fmt(m.anuncios)}</div><div class="card-pct">${pct(m.anunciosPct)}%</div>${selo(m.anuncios, a && a.anuncios, 'neutro')}</div>
-    <div class="eq-symbol">=</div>
-    <div class="card highlight"><div class="card-lbl">Total investido em marketing</div><div class="card-val">R$ ${fmt(m.totalMkt)}</div><div class="card-pct">${pct(m.totalMktPct)}%</div>${selo(m.totalMkt, a && a.totalMkt, 'neutro')}</div>
-    <div class="card neutral"><div class="card-lbl">Marketing por pedido</div><div class="card-val">R$ ${fmt(m.custoMktPorPedido)}</div>${selo(m.custoMktPorPedido, a && a.custoMktPorPedido, 'menorMelhor')}</div>
-  </div>
-  <div class="section-label" style="color:#58a6ff; border-top:none; padding-top:0; margin-top:0;">Quem pagou a promoção</div>
-  <div class="cards">
-    <div class="card neg"><div class="card-lbl">Bancado pela loja</div><div class="card-val">R$ ${fmt(m.investLoja)}</div><div class="card-pct" style="color:#ff6b6b;">${pct(m.investLojaPct)}% do total</div>${selo(m.investLoja, a && a.investLoja, 'neutro')}</div>
-    <div class="card pos"><div class="card-lbl">Bancado pelo iFood</div><div class="card-val">R$ ${fmt(m.investPlataforma)}</div><div class="card-pct" style="color:#3fb950;">${pct(m.investPlataformaPct)}% do total</div>${selo(m.investPlataforma, a && a.investPlataforma)}</div>
-  </div>
-  <div class="caption-label" style="text-align:center;">
-    Quanto mais o iFood banca das promoções, menos sai do seu caixa para gerar a mesma venda.
-  </div>
-
-  <div class="section-label">O que sobrou</div>
-  <div class="equation-row">
-    <div class="card pos highlight"><div class="card-lbl">Faturamento bruto</div><div class="card-val">R$ ${fmt(m.bruto)}</div>${selo(m.bruto, a && a.bruto)}</div>
-    <div class="eq-symbol">-</div>
-    <div style="flex:2 1 380px; display:flex; align-items:center; gap:10px; border:1px solid #f5a623; border-radius:10px; padding:10px;">
-      <div class="card neg" style="background:transparent;"><div class="card-lbl">Total cobrado pelo iFood</div><div class="card-val">R$ ${fmt(m.totalDescontosComRessarcimento)}</div><div class="card-pct">${pct(m.totalDescontosComRessarcimentoPct)}%</div></div>
-      <div class="eq-symbol">+</div>
-      <div class="card neg" style="background:transparent;"><div class="card-lbl">Total investido em marketing</div><div class="card-val">R$ ${fmt(m.totalMkt)}</div><div class="card-pct">${pct(m.totalMktPct)}%</div></div>
-      <div class="eq-symbol">=</div>
-      <div class="card neg highlight"><div class="card-lbl">Custo total do iFood</div><div class="card-val">R$ ${fmt(m.custoIfood)}</div><div class="card-pct">${pct(m.custoIfoodPct)}%</div>${selo(m.custoIfood, a && a.custoIfood, 'menorMelhor')}</div>
-    </div>
-    <div class="eq-symbol">=</div>
-    <div class="card pos highlight"><div class="card-lbl">Líquido — o que sobra para a loja</div><div class="card-val">R$ ${fmt(m.liquido)}</div><div class="card-pct">${pct(m.liquidoPct)}%</div>${selo(m.liquido, a && a.liquido)}</div>
-  </div>
-  <div class="caption-label" style="text-align:center;">
-    De cada R$ 100 vendidos, <b>R$ ${fmt(m.liquidoPct)}</b> ficam com a loja e <b>R$ ${fmt(m.custoIfoodPct)}</b> vão para taxas, comissões e marketing.
-    Valores antes dos custos próprios da operação (insumos, equipe, aluguel).
-  </div>`;
-}
-
-// Frase que declara, sem ambiguidade, exatamente o recorte que esta na tela. Aparece igual em
-// todos os modulos — o periodo e um so, entao a leitura e sempre a mesma independente de onde
-// a pessoa esteja no painel.
-function linhaContexto(ant) {
-  const ini = fDataIni.value, fim = fDataFim.value;
-  const dias = Math.round((new Date(fim + 'T00:00:00') - new Date(ini + 'T00:00:00')) / 86400000) + 1;
-
-  const lojasMarcadas = Array.from(lojaOptCont.querySelectorAll('input[data-l]'));
-  const nLojas = lojasMarcadas.filter(c => c.checked).length;
-  const totalLojas = lojasMarcadas.length;
-  const todasUnid = activeUnidades.size === UNIDADES.length;
-
-  const partes = [];
-  partes.push(`<b>${formatarDataCurta(ini)}</b> a <b>${formatarDataCurta(fim)}</b> (${dias} ${dias === 1 ? 'dia' : 'dias'})`);
-  partes.push(todasUnid ? 'todas as unidades' : `unidades: <b>${Array.from(activeUnidades).join(', ')}</b>`);
-  partes.push(nLojas === totalLojas ? `todas as ${totalLojas} marcas` : `<b>${nLojas}</b> de ${totalLojas} marcas`);
-
-  const dias7 = selecionados.fDia.size === DIAS.length;
-  const turnos4 = selecionados.fTurno.size === TURNOS.length;
-  if (!dias7) partes.push(`apenas <b>${Array.from(selecionados.fDia).map(i => DIAS[i]).join(', ')}</b>`);
-  if (!turnos4) partes.push(`apenas <b>${Array.from(selecionados.fTurno).map(i => TURNOS[i]).join(', ')}</b>`);
-
-  const comparacao = ant
-    ? `Comparado com os ${ant.dias} dias anteriores: ${formatarDataCurta(ant.ini)} a ${formatarDataCurta(ant.fim)}.`
-    : `Sem período anterior de mesmo tamanho para comparar.`;
-
-  // Enquanto so o iFood estiver na base, "consolidado" e "iFood" sao a mesma coisa. Deixar isso
-  // escrito evita que alguem leia a Visao Geral como se ja incluisse salao, site e atacado.
-  const canais = `<div style="margin-top:6px; color:#7d8590; font-size:11.5px;">
-    Estes módulos cobrem o <b>canal iFood</b>. A visão consolidada (com site próprio, salão e atacado)
-    nascerá na seção Resultado quando os demais canais forem integrados.
-  </div>`;
-
-  return `<div class="contexto">
-    Mostrando ${partes.join(' &middot; ')}.<br>${comparacao}
-    ${canais}
-    <div style="margin-top:8px; padding-top:8px; border-top:1px solid #262c36; font-size:11.5px; color:#7d8590;">
-      Nas comparações, a palavra diz o que aconteceu (<b>subiu</b> / <b>caiu</b>) e a cor diz se é bom ou ruim:
-      <span style="color:#3fb950; font-weight:bold;">verde</span> melhora o resultado,
-      <span style="color:#ff6b6b; font-weight:bold;">vermelho</span> piora.
-      Em custos, cair é verde. Investimento em marketing fica em
-      <span style="color:#7d8590; font-weight:bold;">cinza</span> — gastar mais não é bom nem ruim por si só, depende do retorno.
-    </div>
-  </div>`;
-}
-
 // Liquido por loja no periodo (mesma formula validada, agregada por loja): bruto − custos
 // iFood − marketing. Usada na tabela "Liquido por loja" da Visao Geral.
 function resumoPorLojaPeriodo(ini, fim) {
@@ -1243,8 +1132,141 @@ function tabelaLiquidoPorLoja(ant) {
   </div>`;
 }
 
+// Variacao compacta em texto (subiu/caiu + cor), para tabelas.
+// tipo: maiorMelhor | menorMelhor | neutro
+function variacaoSpan(atual, anterior, tipo = 'maiorMelhor') {
+  if (anterior === null || anterior === undefined || !isFinite(anterior)) return '<span style="color:#7d8590;">—</span>';
+  if (Math.abs(anterior) < 0.005) {
+    return Math.abs(atual) < 0.005
+      ? '<span style="color:#7d8590;">—</span>'
+      : '<span style="color:#7d8590;">apareceu agora</span>';
+  }
+  const v = (atual - anterior) / Math.abs(anterior) * 100;
+  if (Math.abs(v) < 0.05) return '<span style="color:#7d8590;">estável</span>';
+  const subiu = v > 0;
+  let cor = '#7d8590';
+  if (tipo === 'maiorMelhor') cor = subiu ? '#3fb950' : '#ff6b6b';
+  else if (tipo === 'menorMelhor') cor = subiu ? '#ff6b6b' : '#3fb950';
+  return `<span style="color:${cor}; font-weight:bold;">${subiu ? '▲' : '▼'} ${subiu ? 'subiu' : 'caiu'} ${pct(Math.abs(v))}%</span>`;
+}
+
+// Linha de indicadores rapidos logo abaixo da manchete: os numeros de "pulso" da operacao.
+function kpisRapidos(m, a) {
+  return `<div class="cards" style="margin-top:4px;">
+    <div class="card neutral"><div class="card-lbl">Pedidos</div><div class="card-val">${m.totalPedidos.toLocaleString('pt-BR')}</div>${selo(m.totalPedidos, a && a.totalPedidos)}</div>
+    <div class="card neutral"><div class="card-lbl">Ticket médio</div><div class="card-val">R$ ${fmt(m.ticketMedio)}</div>${selo(m.ticketMedio, a && a.ticketMedio)}</div>
+    <div class="card neutral"><div class="card-lbl">Marketing por pedido</div><div class="card-val">R$ ${fmt(m.custoMktPorPedido)}</div>${selo(m.custoMktPorPedido, a && a.custoMktPorPedido, 'menorMelhor')}</div>
+    <div class="card neutral"><div class="card-lbl">Taxa de cancelamento</div><div class="card-val">${pct(m.totalCanceladosPct)}%</div>${selo(m.totalCanceladosPct, a && a.totalCanceladosPct, 'menorMelhor')}</div>
+    <div class="card neutral"><div class="card-lbl">Perdido com cancelamentos</div><div class="card-val">R$ ${fmt(m.valorPerdidoReal)}</div>${selo(m.valorPerdidoReal, a && a.valorPerdidoReal, 'menorMelhor')}</div>
+  </div>`;
+}
+
+// O EXTRATO: substitui os antigos blocos de cards com sinais de + e −. Uma tabela unica
+// contando a historia do dinheiro, do bruto ao liquido, com % do bruto e variacao por linha.
+function extratoFinanceiro(m, a) {
+  const linha = (rotulo, valor, pctBруto, varHtml, classe = '') =>
+    `<tr class="${classe}"><td>${rotulo}</td><td>R$ ${fmt(valor)}</td>
+     <td>${pctBруto === null ? '' : pct(pctBруto) + '%'}</td><td>${varHtml}</td></tr>`;
+
+  return `<div class="section-label">Para onde foi o dinheiro</div>
+  <div class="caption-label" style="text-align:center;">
+    A conta inteira, do que o cliente pagou ao que sobrou. A coluna % é sempre sobre o faturamento bruto.
+  </div>
+  <div id="extratoFin">
+    <table>
+      <tr><th>Item</th><th>Valor</th><th>% do bruto</th><th>vs período anterior</th></tr>
+      ${linha('Venda dos produtos', m.itens, m.itensPct, variacaoSpan(m.itens, a && a.itens))}
+      ${linha('Taxa de entrega paga pelo cliente', m.frete, m.fretePct, variacaoSpan(m.frete, a && a.frete))}
+      ${linha('<b>= Faturamento bruto</b>', m.bruto, 100, variacaoSpan(m.bruto, a && a.bruto), 'sub')}
+      ${linha('− Taxa de pagamento online', m.taxaOnline, m.taxaOnlinePct, variacaoSpan(m.taxaOnline, a && a.taxaOnline, 'menorMelhor'))}
+      ${linha('− Comissão sobre vendas', m.comissaoVendas, m.comissaoVendasPct, variacaoSpan(m.comissaoVendas, a && a.comissaoVendas, 'menorMelhor'))}
+      ${linha('− Mensalidade', m.mensalidade, m.mensalidadePct, variacaoSpan(m.mensalidade, a && a.mensalidade, 'menorMelhor'))}
+      ${linha('− Outros ajustes', m.outrosAjustes, m.outrosAjustesPct, variacaoSpan(m.outrosAjustes, a && a.outrosAjustes, 'menorMelhor'))}
+      ${linha('− Frete sob demanda', m.freteSobDemanda, m.freteSobDemandaPct, variacaoSpan(m.freteSobDemanda, a && a.freteSobDemanda, 'menorMelhor'))}
+      ${linha('+ Ressarcimento por cancelamentos', m.ressarcimentoCancelamento, m.ressarcimentoCancelamentoPct, variacaoSpan(m.ressarcimentoCancelamento, a && a.ressarcimentoCancelamento))}
+      ${linha('<b>= Total cobrado pelo iFood</b>', m.totalDescontosComRessarcimento, m.totalDescontosComRessarcimentoPct, variacaoSpan(m.totalDescontosComRessarcimento, a && a.totalDescontosComRessarcimento, 'menorMelhor'), 'sub')}
+      ${linha('− Promoções bancadas pela loja', m.promoLoja, m.promoLojaPct, variacaoSpan(m.promoLoja, a && a.promoLoja, 'neutro'))}
+      ${linha('− Anúncios', m.anuncios, m.anunciosPct, variacaoSpan(m.anuncios, a && a.anuncios, 'neutro'))}
+      ${linha('<b>= Total investido em marketing</b>', m.totalMkt, m.totalMktPct, variacaoSpan(m.totalMkt, a && a.totalMkt, 'neutro'), 'sub')}
+      ${linha('<b>= LÍQUIDO — o que sobra para a loja</b>', m.liquido, m.liquidoPct, variacaoSpan(m.liquido, a && a.liquido), 'liq')}
+    </table>
+  </div>
+  <div class="caption-label" style="text-align:center;">
+    De cada R$ 100 vendidos, <b>R$ ${fmt(m.liquidoPct)}</b> ficam com a loja — antes dos custos próprios (insumos, equipe, aluguel).
+    Investimento em marketing fica em cinza: gastar mais não é bom nem ruim por si só, depende do retorno.
+  </div>`;
+}
+
+// Sinais e detalhes secundarios: resumo de cancelamentos com atalho pro modulo, e os
+// recortes informativos (como o cliente pagou / quem banca a promocao) recolhidos.
+function blocoSinais(m, a) {
+  return `<div class="section-label">Cancelamentos — resumo</div>
+  <div class="cards">
+    <div class="card neg"><div class="card-lbl">Total cancelado</div><div class="card-val">R$ ${fmt(m.valorCancelado)}</div><div class="card-pct">${pct(m.valorCanceladoPct)}% do bruto</div>${selo(m.valorCancelado, a && a.valorCancelado, 'menorMelhor')}</div>
+    <div class="card neg highlight"><div class="card-lbl">Valor perdido de verdade</div><div class="card-val">R$ ${fmt(m.valorPerdidoReal)}</div><div class="card-pct">já descontando o que o iFood devolveu</div>${selo(m.valorPerdidoReal, a && a.valorPerdidoReal, 'menorMelhor')}</div>
+  </div>
+  <div style="text-align:center; margin-top:6px;">
+    <button class="preset-btn" onclick="mostrarModulo('cancelamentos')">Ver análise completa de cancelamentos →</button>
+  </div>
+
+  <details class="detalhes-extra">
+    <summary>Mais detalhes: como o cliente pagou e quem banca as promoções</summary>
+    <div class="cards" style="margin-top:12px;">
+      <div class="card blue"><div class="card-lbl">Pago pelo app do iFood</div><div class="card-val">R$ ${fmt(m.vendasOnline)}</div><div class="card-pct">${pct(m.vendasOnlinePct)}%</div></div>
+      <div class="card blue"><div class="card-lbl">Pago na entrega (cartão/vale)</div><div class="card-val">R$ ${fmt(m.vendasCartao)}</div><div class="card-pct">${pct(m.vendasCartaoPct)}%</div></div>
+      <div class="card neg"><div class="card-lbl">Promoção bancada pela loja</div><div class="card-val">R$ ${fmt(m.investLoja)}</div><div class="card-pct" style="color:#ff6b6b;">${pct(m.investLojaPct)}% do total</div></div>
+      <div class="card pos"><div class="card-lbl">Promoção bancada pelo iFood</div><div class="card-val">R$ ${fmt(m.investPlataforma)}</div><div class="card-pct" style="color:#3fb950;">${pct(m.investPlataformaPct)}% do total</div></div>
+    </div>
+    <div class="caption-label" style="text-align:center;">Quanto mais o iFood banca das promoções, menos sai do seu caixa para gerar a mesma venda.</div>
+  </details>`;
+}
+
 // Bloco de abertura da Visao Geral: o numero que resume tudo (o que sobrou), a variacao, uma
 // frase em portugues explicando o resultado, e o grafico que explica POR QUE mudou.
+// Frase que declara, sem ambiguidade, exatamente o recorte que esta na tela. Aparece igual em
+// todos os modulos — o periodo e um so, entao a leitura e sempre a mesma independente de onde
+// a pessoa esteja no painel.
+function linhaContexto(ant) {
+  const ini = fDataIni.value, fim = fDataFim.value;
+  const dias = Math.round((new Date(fim + 'T00:00:00') - new Date(ini + 'T00:00:00')) / 86400000) + 1;
+
+  const lojasMarcadas = Array.from(lojaOptCont.querySelectorAll('input[data-l]'));
+  const nLojas = lojasMarcadas.filter(c => c.checked).length;
+  const totalLojas = lojasMarcadas.length;
+  const todasUnid = activeUnidades.size === UNIDADES.length;
+
+  const partes = [];
+  partes.push(`<b>${formatarDataCurta(ini)}</b> a <b>${formatarDataCurta(fim)}</b> (${dias} ${dias === 1 ? 'dia' : 'dias'})`);
+  partes.push(todasUnid ? 'todas as unidades' : `unidades: <b>${Array.from(activeUnidades).join(', ')}</b>`);
+  partes.push(nLojas === totalLojas ? `todas as ${totalLojas} marcas` : `<b>${nLojas}</b> de ${totalLojas} marcas`);
+
+  const dias7 = selecionados.fDia.size === DIAS.length;
+  const turnos4 = selecionados.fTurno.size === TURNOS.length;
+  if (!dias7) partes.push(`apenas <b>${Array.from(selecionados.fDia).map(i => DIAS[i]).join(', ')}</b>`);
+  if (!turnos4) partes.push(`apenas <b>${Array.from(selecionados.fTurno).map(i => TURNOS[i]).join(', ')}</b>`);
+
+  const comparacao = ant
+    ? `Comparado com os ${ant.dias} dias anteriores: ${formatarDataCurta(ant.ini)} a ${formatarDataCurta(ant.fim)}.`
+    : `Sem período anterior de mesmo tamanho para comparar.`;
+
+  const canais = `<div style="margin-top:6px; color:#7d8590; font-size:11.5px;">
+    Estes módulos cobrem o <b>canal iFood</b>. A visão consolidada (com site próprio, salão e atacado)
+    nascerá na seção Resultado quando os demais canais forem integrados.
+  </div>`;
+
+  return `<div class="contexto">
+    Mostrando ${partes.join(' &middot; ')}.<br>${comparacao}
+    ${canais}
+    <div style="margin-top:8px; padding-top:8px; border-top:1px solid #262c36; font-size:11.5px; color:#7d8590;">
+      Nas comparações, a palavra diz o que aconteceu (<b>subiu</b> / <b>caiu</b>) e a cor diz se é bom ou ruim:
+      <span style="color:#3fb950; font-weight:bold;">verde</span> melhora o resultado,
+      <span style="color:#ff6b6b; font-weight:bold;">vermelho</span> piora.
+      Em custos, cair é verde. Investimento em marketing fica em
+      <span style="color:#7d8590; font-weight:bold;">cinza</span> — gastar mais não é bom nem ruim por si só, depende do retorno.
+    </div>
+  </div>`;
+}
+
 function blocoAbertura(m, a, ant) {
   const variacao = (a && Math.abs(a.liquido) > 0.005) ? (m.liquido - a.liquido) / Math.abs(a.liquido) * 100 : null;
   const cor = variacao === null ? '#7d8590' : (variacao >= 0 ? '#3fb950' : '#ff6b6b');
@@ -1273,13 +1295,6 @@ function blocoAbertura(m, a, ant) {
     A barra azul da esquerda é o resultado do período anterior; a da direita, o atual. As barras do meio
     mostram o quanto cada fator empurrou o resultado para cima (verde) ou para baixo (vermelho).
   </div>` : ''}`;
-}
-
-function cardsInfo(m, a) {
-  return `<div class="cards">
-    <div class="card neutral"><div class="card-lbl">Pedidos no período</div><div class="card-val">${m.totalPedidos.toLocaleString('pt-BR')}</div>${selo(m.totalPedidos, a && a.totalPedidos)}</div>
-    <div class="card neutral"><div class="card-lbl">Ticket médio</div><div class="card-val">R$ ${fmt(m.ticketMedio)}</div>${selo(m.ticketMedio, a && a.ticketMedio)}</div>
-  </div>`;
 }
 
 // Os 4 cards de totais — aparecem tanto na Visao Geral (fechando o resumo) quanto no topo do
@@ -2109,13 +2124,14 @@ function renderAll() {
   renderPresets();
   const contexto = linhaContexto(ant);
 
+  // Ordem de leitura de dono: quanto sobrou → por que mudou → pulso da operacao →
+  // quem fez/quem vazou → para onde foi o dinheiro → sinais e detalhes.
   let html = contexto;
   html += blocoAbertura(m, a, ant);
-  html += cardsInfo(m, a);
-  html += cardsEntradas(m, a);
-  html += cardsSaidas(m, a);
+  html += kpisRapidos(m, a);
   html += tabelaLiquidoPorLoja(ant);
-  html += cardsCancel(m, a);
+  html += extratoFinanceiro(m, a);
+  html += blocoSinais(m, a);
   document.getElementById('view-content').innerHTML = html;
   document.getElementById('view-cancelamentos').innerHTML = contexto + moduloCancelamentos(m, a);
   document.getElementById('contexto-evolucao').innerHTML = contexto;
