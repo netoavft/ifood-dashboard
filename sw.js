@@ -2,15 +2,21 @@
 // Estratégia REDE-PRIMEIRO de propósito: o painel muda com frequência e os dados são ao vivo,
 // então o cache só entra em cena quando a rede falha (ex.: abrir no elevador). Assim nunca
 // existe o risco de alguém ficar preso numa versão antiga do painel.
-const CACHE = 'painel-cdm-v1';
+const CACHE = 'painel-cdm-v2';
 
 self.addEventListener('install', (e) => self.skipWaiting());
-self.addEventListener('activate', (e) => e.waitUntil(clients.claim()));
+self.addEventListener('activate', (e) => e.waitUntil(
+  caches.keys()
+    .then((nomes) => Promise.all(nomes.filter((n) => n !== CACHE).map((n) => caches.delete(n))))
+    .then(() => clients.claim())
+));
 
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
   e.respondWith(
-    fetch(e.request)
+    // cache: 'no-cache' força revalidar com o servidor (o GitHub Pages manda max-age=600,
+    // que seguraria a versão antiga por até 10 minutos no cache HTTP do navegador)
+    fetch(e.request, { cache: 'no-cache' })
       .then((resp) => {
         // guarda uma copia só do que é nosso (mesma origem) para o modo offline
         if (resp.ok && new URL(e.request.url).origin === location.origin) {
