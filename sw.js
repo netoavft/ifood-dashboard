@@ -1,0 +1,24 @@
+// Service worker do Painel Cidadão do Mundo.
+// Estratégia REDE-PRIMEIRO de propósito: o painel muda com frequência e os dados são ao vivo,
+// então o cache só entra em cena quando a rede falha (ex.: abrir no elevador). Assim nunca
+// existe o risco de alguém ficar preso numa versão antiga do painel.
+const CACHE = 'painel-cdm-v1';
+
+self.addEventListener('install', (e) => self.skipWaiting());
+self.addEventListener('activate', (e) => e.waitUntil(clients.claim()));
+
+self.addEventListener('fetch', (e) => {
+  if (e.request.method !== 'GET') return;
+  e.respondWith(
+    fetch(e.request)
+      .then((resp) => {
+        // guarda uma copia só do que é nosso (mesma origem) para o modo offline
+        if (resp.ok && new URL(e.request.url).origin === location.origin) {
+          const copia = resp.clone();
+          caches.open(CACHE).then((c) => c.put(e.request, copia));
+        }
+        return resp;
+      })
+      .catch(() => caches.match(e.request))
+  );
+});
