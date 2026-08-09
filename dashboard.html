@@ -262,9 +262,9 @@
       <button class="sidebar-btn active" id="navBtnResumo" onclick="mostrarModulo('resumo')">Resumo financeiro</button>
       <button class="sidebar-btn" id="navBtnVendas" onclick="mostrarModulo('vendas')">Vendas</button>
       <button class="sidebar-btn" id="navBtnCardapio" onclick="mostrarModulo('cardapio')">Cardápio</button>
+      <button class="sidebar-btn" id="navBtnPromocoes" onclick="mostrarModulo('promocoes')">Promoções</button>
       <button class="sidebar-btn" id="navBtnClientes" onclick="mostrarModulo('clientes')">Clientes</button>
       <button class="sidebar-btn" id="navBtnCancelamentos" onclick="mostrarModulo('cancelamentos')">Cancelamentos</button>
-      <button class="sidebar-btn" id="navBtnPromocoes" onclick="mostrarModulo('promocoes')">Promoções</button>
       <button class="sidebar-btn" id="navBtnNegociacoes" onclick="mostrarModulo('negociacoes')">Negociações</button>
       <button class="sidebar-btn" id="navBtnAvaliacoes" onclick="mostrarModulo('avaliacoes')">Avaliações</button>
     </div>
@@ -786,9 +786,6 @@ function mostrarModulo(nome) {
   if (nome === 'avaliacoes') entrarAvaliacoes();
   if (nome === 'relatorios') entrarRelatorios();
 }
-
-// No boot o modulo inicial e a Visao geral do iFood: abre o grupo dela.
-abrirGrupoDoModulo('resumo');
 
 // Qual modulo esta aberto agora — usado pra so redesenhar os graficos do modulo visivel.
 function moduloAtivo() {
