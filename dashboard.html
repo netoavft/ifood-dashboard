@@ -147,6 +147,13 @@
   #tabelaMotivos tr:nth-child(even), #tabelaPromo tr:nth-child(even), #tabelaPromoLojas tr:nth-child(even),
   #tabelaNegLojas tr:nth-child(even), #tabelaAvalLojas tr:nth-child(even), #tabelaComentarios tr:nth-child(even) { background:#12161c; }
 
+  #tabelaLojasResumo { overflow-x:auto; max-width:100%; }
+  #tabelaLojasResumo table { border-collapse:collapse; width:100%; font-size:12.5px; }
+  #tabelaLojasResumo th, #tabelaLojasResumo td { border:1px solid #30363d; padding:6px 10px; text-align:right; white-space:nowrap; }
+  #tabelaLojasResumo th:first-child, #tabelaLojasResumo td:first-child { text-align:left; white-space:normal; }
+  #tabelaLojasResumo th { background:#21262d; color:#9aa4af; font-weight:bold; font-size:11px; text-transform:uppercase; }
+  #tabelaLojasResumo tr:nth-child(even) { background:#12161c; }
+
   .relatorio-corpo { background:#161b22; border:1px solid #262c36; border-radius:10px; padding:24px 28px; line-height:1.7; font-size:13.5px; }
   .relatorio-corpo h2 { color:#f5a623; font-size:18px; margin:18px 0 10px; }
   .relatorio-corpo h3 { color:#e6e6e6; font-size:15px; margin:16px 0 8px; }
@@ -196,8 +203,7 @@
     </div>
 
     <div class="sidebar-secao">Resultado</div>
-    <button class="sidebar-btn active" id="navBtnResumo" onclick="mostrarModulo('resumo')">Visão Geral</button>
-    <button class="sidebar-btn" id="navBtnEvolucao" onclick="mostrarModulo('evolucao')">Tendências</button>
+    <span class="sidebar-btn breve">Visão consolidada</span>
     <span class="sidebar-btn breve">DRE</span>
     <span class="sidebar-btn breve">Fluxo de caixa</span>
     <span class="sidebar-btn breve">Margem por item</span>
@@ -211,6 +217,8 @@
     <span class="sidebar-btn breve">Por canal</span>
 
     <div class="sidebar-secao">Canal · iFood</div>
+    <button class="sidebar-btn active" id="navBtnResumo" onclick="mostrarModulo('resumo')">Visão geral</button>
+    <button class="sidebar-btn" id="navBtnEvolucao" onclick="mostrarModulo('evolucao')">Tendências</button>
     <button class="sidebar-btn" id="navBtnCancelamentos" onclick="mostrarModulo('cancelamentos')">Cancelamentos</button>
     <button class="sidebar-btn" id="navBtnPromocoes" onclick="mostrarModulo('promocoes')">Promoções</button>
     <button class="sidebar-btn" id="navBtnNegociacoes" onclick="mostrarModulo('negociacoes')">Negociações</button>
@@ -828,8 +836,8 @@ function linhasFiltradas(respeitarPeriodo = true, iniAlt = null, fimAlt = null) 
 
 // Cancelamentos por motivo respeitam os mesmos filtros de ROWS (loja/unidade, dia da semana,
 // turno, periodo).
-function linhasCancelamentoFiltradas() {
-  const dIni = fDataIni.value, dFim = fDataFim.value;
+function linhasCancelamentoFiltradas(iniAlt = null, fimAlt = null) {
+  const dIni = iniAlt || fDataIni.value, dFim = fimAlt || fDataFim.value;
   const activeL = activeLojas();
   return MOTIVOS.filter(r => {
     if (!activeL.has(r[0])) return false;
@@ -842,8 +850,8 @@ function linhasCancelamentoFiltradas() {
   });
 }
 
-function resumoMotivosCancelamento() {
-  const linhas = linhasCancelamentoFiltradas();
+function resumoMotivosCancelamento(iniAlt = null, fimAlt = null) {
+  const linhas = linhasCancelamentoFiltradas(iniAlt, fimAlt);
   const total = linhas.reduce((s,r)=>s+r[6],0) || 1;
   const porResp = new Map();
   linhas.forEach(r => {
@@ -1152,7 +1160,8 @@ function linhaContexto(ant) {
   // Enquanto so o iFood estiver na base, "consolidado" e "iFood" sao a mesma coisa. Deixar isso
   // escrito evita que alguem leia a Visao Geral como se ja incluisse salao, site e atacado.
   const canais = `<div style="margin-top:6px; color:#7d8590; font-size:11.5px;">
-    Base atual: <b>somente o canal iFood</b>. Site próprio, salão e atacado ainda não foram integrados.
+    Estes módulos cobrem o <b>canal iFood</b>. A visão consolidada (com site próprio, salão e atacado)
+    nascerá na seção Resultado quando os demais canais forem integrados.
   </div>`;
 
   return `<div class="contexto">
@@ -1165,6 +1174,72 @@ function linhaContexto(ant) {
       Em custos, cair é verde. Investimento em marketing fica em
       <span style="color:#7d8590; font-weight:bold;">cinza</span> — gastar mais não é bom nem ruim por si só, depende do retorno.
     </div>
+  </div>`;
+}
+
+// Liquido por loja no periodo (mesma formula validada, agregada por loja): bruto − custos
+// iFood − marketing. Usada na tabela "Liquido por loja" da Visao Geral.
+function resumoPorLojaPeriodo(ini, fim) {
+  const activeL = activeLojas();
+  const porLoja = new Map();
+  const g = (i) => {
+    if (!porLoja.has(i)) porLoja.set(i, { ped: 0, itens: 0, frete: 0, promo: 0, fsd: 0, taxas: 0, ads: 0, ress: 0 });
+    return porLoja.get(i);
+  };
+  linhasFiltradas(true, ini, fim).forEach(r => {
+    if (r[6] === 1) return;
+    const o = g(r[0]);
+    o.ped += r[7]; o.itens += (r[8] - r[9]); o.frete += r[10]; o.promo += r[13]; o.fsd += r[16];
+  });
+  CONCILIACAO.forEach(c => {
+    if (!activeL.has(c[0])) return;
+    if (ini && c[1] < ini) return;
+    if (fim && c[1] > fim) return;
+    const o = g(c[0]);
+    if (c[2] === 'ANUNCIOS') o.ads += -c[3];
+    else if (c[2] === 'RESSARCIMENTO_CANCELAMENTO') o.ress += c[3];
+    else o.taxas += -c[3]; // taxa online, comissao, mensalidade, outros ajustes
+  });
+  const out = new Map();
+  porLoja.forEach((o, i) => {
+    const bruto = o.itens + o.frete;
+    const liq = bruto - ((o.taxas + o.fsd - o.ress) + (o.promo + o.ads));
+    out.set(i, { ped: o.ped, bruto, liq });
+  });
+  return out;
+}
+
+function tabelaLiquidoPorLoja(ant) {
+  const atual = resumoPorLojaPeriodo(fDataIni.value, fDataFim.value);
+  const anterior = ant ? resumoPorLojaPeriodo(ant.ini, ant.fim) : null;
+
+  const lista = [...atual.entries()]
+    .map(([i, o]) => {
+      const prev = anterior && anterior.get(i);
+      let varTxt = '—';
+      if (prev && Math.abs(prev.liq) > 0.005) {
+        const v = (o.liq - prev.liq) / Math.abs(prev.liq) * 100;
+        const palavra = v > 0.05 ? 'subiu' : v < -0.05 ? 'caiu' : 'estável';
+        const cor = palavra === 'estável' ? '#7d8590' : (v > 0 ? '#3fb950' : '#ff6b6b');
+        varTxt = `<span style="color:${cor}; font-weight:bold;">${palavra}${palavra !== 'estável' ? ' ' + pct(Math.abs(v)) + '%' : ''}</span>`;
+      }
+      return { nome: LOJAS[i], ...o, varTxt };
+    })
+    .filter(x => x.ped > 0 || Math.abs(x.liq) > 0.005)
+    .sort((a, b) => b.liq - a.liq);
+
+  if (!lista.length) return '';
+
+  return `<div class="section-label">Líquido por loja</div>
+  <div class="caption-label" style="text-align:center;">
+    Onde o resultado está sendo feito — e onde está vazando. Ordenado do maior para o menor líquido do período.
+  </div>
+  <div id="tabelaLojasResumo">
+    <table>
+      <tr><th>Loja</th><th>Pedidos</th><th>Bruto</th><th>Líquido</th><th>vs período anterior</th></tr>
+      ${lista.map(x => `<tr><td>${x.nome}</td><td>${x.ped.toLocaleString('pt-BR')}</td>
+        <td>R$ ${fmt(x.bruto)}</td><td><b>R$ ${fmt(x.liq)}</b></td><td>${x.varTxt}</td></tr>`).join('')}
+    </table>
   </div>`;
 }
 
@@ -1511,14 +1586,7 @@ async function entrarNegociacoes() {
   const alvo = document.getElementById('view-negociacoes');
   if (NEGOCIACOES === null) {
     alvo.innerHTML = '<div class="contexto">Carregando negociações...</div>';
-    const rows = await consultarTudo(
-      "vw_negociacoes?select=nome_loja,data,turno,motivo,momento,quem_respondeu,impactou_super,valor_cancelamento,valor_pedido&order=nome_loja,data"
-    );
-    NEGOCIACOES = rows.map(r => [
-      LOJAS.indexOf(r.nome_loja), r.data, r.turno, r.motivo, r.momento,
-      r.quem_respondeu, r.impactou_super,
-      Number(r.valor_cancelamento || 0), Number(r.valor_pedido || 0),
-    ]);
+    await entrarNegociacoesSoDados();
   }
   renderModuloNegociacoes();
 }
@@ -1631,12 +1699,7 @@ async function entrarAvaliacoes() {
   const alvo = document.getElementById('view-avaliacoes');
   if (AVALIACOES === null) {
     alvo.innerHTML = '<div class="contexto">Carregando avaliações...</div>';
-    const rows = await consultarTudo(
-      "vw_avaliacoes?select=nome_loja,data,nota,tags,comentario&order=data.desc"
-    );
-    AVALIACOES = rows.map(r => [
-      LOJAS.indexOf(r.nome_loja), r.data, r.nota, r.tags || [], r.comentario,
-    ]);
+    await entrarAvaliacoesSoDados();
   }
   renderModuloAvaliacoes();
 }
@@ -1768,20 +1831,162 @@ async function entrarRelatorios() {
 
 function renderModuloRelatorios(idSelecionado) {
   const alvo = document.getElementById('view-relatorios');
+
+  // Barra do gerador sob demanda: escolhe um período e monta o relatório na hora,
+  // direto no navegador. Padrão: a última semana completa (segunda a domingo).
+  const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+  const dow = (hoje.getDay() + 6) % 7; // 0 = segunda
+  const segAtual = new Date(hoje); segAtual.setDate(segAtual.getDate() - dow);
+  const domPassado = new Date(segAtual); domPassado.setDate(domPassado.getDate() - 1);
+  const segPassada = new Date(domPassado); segPassada.setDate(segPassada.getDate() - 6);
+  const isoD = (d) => d.toISOString().slice(0, 10);
+
+  const gerador = `
+  <div class="contexto" style="text-align:left;">
+    <b>Gerar relatório de qualquer período</b> — números e alertas calculados na hora, com os filtros de
+    unidade/marca atuais. <span style="color:#7d8590;">(A análise interpretada e as ações recomendadas
+    continuam vindo do resumo automático de segunda-feira.)</span>
+    <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-top:10px;">
+      <label style="font-size:12px; color:#9aa4af;">De <input type="date" id="relIni" value="${isoD(segPassada)}"
+        style="background:#0d1117; border:1px solid #30363d; color:#e6e6e6; border-radius:6px; padding:5px 8px;"></label>
+      <label style="font-size:12px; color:#9aa4af;">Até <input type="date" id="relFim" value="${isoD(domPassado)}"
+        style="background:#0d1117; border:1px solid #30363d; color:#e6e6e6; border-radius:6px; padding:5px 8px;"></label>
+      <button class="preset-btn" onclick="gerarRelatorioAdHoc()">Gerar relatório</button>
+    </div>
+  </div>
+  <div id="relatorioAdHoc"></div>`;
+
   if (!RELATORIOS.length) {
-    alvo.innerHTML = `<div class="contexto" style="border-color:#f5a623;">
-      Ainda não há relatórios publicados.<br>
-      O primeiro resumo aparece aqui automaticamente depois que a rotina de segunda-feira rodar.</div>`;
+    alvo.innerHTML = `
+    <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Relatórios</div>
+    ${gerador}
+    <div class="contexto" style="border-color:#f5a623;">
+      Ainda não há resumos semanais publicados.<br>
+      O primeiro aparece aqui automaticamente depois que a rotina de segunda-feira rodar.</div>`;
     return;
   }
   const sel = RELATORIOS.find(r => r.id === idSelecionado) || RELATORIOS[0];
   alvo.innerHTML = `
-  <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Resumos semanais</div>
+  <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Relatórios</div>
+  ${gerador}
+  <div class="section-label">Resumos semanais</div>
   <div class="periodo-presets">
     ${RELATORIOS.map(r => `<button class="preset-btn ${r.id === sel.id ? 'active' : ''}"
       onclick="renderModuloRelatorios(${r.id})">${formatarDataCurta(r.semana_ini)} – ${formatarDataCurta(r.semana_fim)}</button>`).join('')}
   </div>
   <div class="relatorio-corpo">${sel.corpo_html}</div>`;
+}
+
+// Relatorio sob demanda: mesmos numeros validados do painel, para o periodo escolhido,
+// comparados com a janela anterior de mesmo tamanho. Os "pontos de atencao" saem de regras
+// fixas (limiares), nao de analise — a analise fica com a rotina de segunda.
+async function gerarRelatorioAdHoc() {
+  const alvo = document.getElementById('relatorioAdHoc');
+  const ini = document.getElementById('relIni').value;
+  const fim = document.getElementById('relFim').value;
+  if (!ini || !fim || fim < ini) {
+    alvo.innerHTML = `<div class="contexto" style="border-color:#ff6b6b;">Período inválido.</div>`;
+    return;
+  }
+  alvo.innerHTML = `<div class="contexto">Calculando...</div>`;
+
+  // garante as bases sob demanda
+  if (NEGOCIACOES === null) await entrarNegociacoesSoDados();
+  if (AVALIACOES === null) await entrarAvaliacoesSoDados();
+
+  const dias = Math.round((new Date(fim + 'T00:00:00') - new Date(ini + 'T00:00:00')) / 86400000) + 1;
+  const fimAntD = new Date(ini + 'T00:00:00'); fimAntD.setDate(fimAntD.getDate() - 1);
+  const iniAntD = new Date(fimAntD); iniAntD.setDate(iniAntD.getDate() - (dias - 1));
+  const iso = (d) => d.toISOString().slice(0, 10);
+  const iniAnt = iso(iniAntD), fimAnt = iso(fimAntD);
+  const temAnterior = fimAnt >= DATAS[0];
+
+  const m = computeMetrics(ini, fim);
+  const a = temAnterior ? computeMetrics(iniAnt, fimAnt) : null;
+
+  const activeL = activeLojas();
+  const negs = NEGOCIACOES.filter(r => activeL.has(r[0]) && r[1] >= ini && r[1] <= fim);
+  const avs = AVALIACOES.filter(r => activeL.has(r[0]) && r[1] >= ini && r[1] <= fim);
+  const motivos = resumoMotivosCancelamento(ini, fim).slice(0, 3);
+
+  const negSem = negs.filter(r => !r[5]).length;
+  const negAtraso = negs.filter(r => (r[3] || '').includes('ATRASO')).length;
+  const notaMedia = avs.length ? avs.reduce((s, r) => s + r[2], 0) / avs.length : null;
+  const pctRuins = avs.length ? avs.filter(r => r[2] <= 2).length / avs.length * 100 : 0;
+
+  const linha = (nome, atual, anterior, formato, tipo = 'maiorMelhor') => {
+    const f = formato === 'int' ? (v) => Math.round(v).toLocaleString('pt-BR')
+      : formato === 'pct' ? (v) => pct(v) + '%'
+      : (v) => 'R$ ' + fmt(v);
+    let varTxt = '—';
+    if (anterior !== null && Math.abs(anterior) > 0.005) {
+      const v = (atual - anterior) / Math.abs(anterior) * 100;
+      const palavra = v > 0.05 ? 'subiu' : v < -0.05 ? 'caiu' : 'estável';
+      const bom = tipo === 'neutro' ? null : (tipo === 'maiorMelhor' ? v > 0 : v < 0);
+      const cor = palavra === 'estável' || bom === null ? '#7d8590' : (bom ? '#3fb950' : '#ff6b6b');
+      varTxt = `<span style="color:${cor};">${palavra}${palavra !== 'estável' ? ' ' + pct(Math.abs(v)) + '%' : ''}</span>`;
+    }
+    return `<tr><td>${nome}</td><td>${f(atual)}</td><td>${anterior !== null ? f(anterior) : '—'}</td><td>${varTxt}</td></tr>`;
+  };
+
+  // pontos de atencao por regra fixa
+  const alertas = [];
+  if (negSem > 0) alertas.push(`<li><b style="color:#ff6b6b;">${negSem} negociações sem resposta</b> (${pct(negs.length ? negSem / negs.length * 100 : 0)}%) — resposta evita cancelamento automático.</li>`);
+  if (negs.length && negAtraso / negs.length > 0.4) alertas.push(`<li><b style="color:#ff6b6b;">${pct(negAtraso / negs.length * 100)}% das negociações por atraso</b> — olhar preparo/despacho no pico.</li>`);
+  if (notaMedia !== null && notaMedia < 4.6) alertas.push(`<li><b style="color:#ff6b6b;">Nota média ${notaMedia.toFixed(2).replace('.', ',')}</b> abaixo do padrão da rede (4,6+).</li>`);
+  if (pctRuins > 5) alertas.push(`<li><b style="color:#ff6b6b;">${pct(pctRuins)}% de notas 1-2</b> no período.</li>`);
+  if (m.valorCanceladoPct > 1.2) alertas.push(`<li><b style="color:#ff6b6b;">Cancelamentos em ${pct(m.valorCanceladoPct)}% do bruto</b> — acima do normal (~0,9%).</li>`);
+  if (!alertas.length) alertas.push('<li>Nenhum alerta pelas regras automáticas — período dentro dos padrões.</li>');
+
+  alvo.innerHTML = `<div class="relatorio-corpo" style="margin-top:12px;">
+    <h2>Relatório de ${formatarDataCurta(ini)} a ${formatarDataCurta(fim)} (${dias} dias)</h2>
+    <p style="color:#7d8590;">Gerado agora, no navegador — números do banco, sem análise interpretada.
+      Comparação: ${temAnterior ? `${formatarDataCurta(iniAnt)} a ${formatarDataCurta(fimAnt)}` : 'sem período anterior disponível'}.
+      Recorte atual de unidades/marcas aplicado.</p>
+    <h3>Resultado</h3>
+    <table>
+      <tr><th>Indicador</th><th>Período</th><th>Anterior</th><th>Variação</th></tr>
+      ${linha('Pedidos', m.totalPedidos, a && a.totalPedidos, 'int')}
+      ${linha('Faturamento bruto', m.bruto, a && a.bruto, 'moeda')}
+      ${linha('Ticket médio', m.ticketMedio, a && a.ticketMedio, 'moeda')}
+      ${linha('Custo total do iFood', m.custoIfood, a && a.custoIfood, 'moeda', 'menorMelhor')}
+      ${linha('Marketing total', m.totalMkt, a && a.totalMkt, 'moeda', 'neutro')}
+      ${linha('Líquido', m.liquido, a && a.liquido, 'moeda')}
+      ${linha('Margem', m.liquidoPct, a && a.liquidoPct, 'pct')}
+      ${linha('Valor cancelado', m.valorCancelado, a && a.valorCancelado, 'moeda', 'menorMelhor')}
+    </table>
+    <h3>Qualidade e pós-venda</h3>
+    <ul>
+      <li>Avaliações: <b>${avs.length}</b>${notaMedia !== null ? ` — nota média <b>${notaMedia.toFixed(2).replace('.', ',')}</b>, ${pct(pctRuins)}% de notas 1-2` : ''}</li>
+      <li>Negociações: <b>${negs.length}</b> — ${negSem} sem resposta, ${negAtraso} por atraso</li>
+      ${motivos.length ? `<li>Top motivos de cancelamento: ${motivos.map(x => `${x.responsavel} (${x.n})`).join(' · ')}</li>` : ''}
+    </ul>
+    <h3>Pontos de atenção (regras automáticas)</h3>
+    <ul>${alertas.join('')}</ul>
+    <p style="color:#7d8590; font-size:11.5px;">Líquido antes dos custos próprios (insumos, equipe, aluguel).
+    Negociações e avaliações existem na base a partir de jun-jul/2026.</p>
+  </div>`;
+}
+
+// Busca so os dados (sem renderizar o modulo) — usadas pelo gerador de relatorio.
+async function entrarNegociacoesSoDados() {
+  const rows = await consultarTudo(
+    "vw_negociacoes?select=nome_loja,data,turno,motivo,momento,quem_respondeu,impactou_super,valor_cancelamento,valor_pedido&order=nome_loja,data"
+  );
+  NEGOCIACOES = rows.map(r => [
+    LOJAS.indexOf(r.nome_loja), r.data, r.turno, r.motivo, r.momento,
+    r.quem_respondeu, r.impactou_super,
+    Number(r.valor_cancelamento || 0), Number(r.valor_pedido || 0),
+  ]);
+}
+
+async function entrarAvaliacoesSoDados() {
+  const rows = await consultarTudo(
+    "vw_avaliacoes?select=nome_loja,data,nota,tags,comentario&order=data.desc"
+  );
+  AVALIACOES = rows.map(r => [
+    LOJAS.indexOf(r.nome_loja), r.data, r.nota, r.tags || [], r.comentario,
+  ]);
 }
 
 // Agrupamento automatico pelo tamanho do periodo filtrado — evita colocar mais um controle na
@@ -1909,6 +2114,7 @@ function renderAll() {
   html += cardsInfo(m, a);
   html += cardsEntradas(m, a);
   html += cardsSaidas(m, a);
+  html += tabelaLiquidoPorLoja(ant);
   html += cardsCancel(m, a);
   document.getElementById('view-content').innerHTML = html;
   document.getElementById('view-cancelamentos').innerHTML = contexto + moduloCancelamentos(m, a);
