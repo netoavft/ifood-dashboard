@@ -2153,15 +2153,15 @@ async function entrarCardapio() {
     alvo.innerHTML = '<div class="contexto">Carregando cardápio...</div>';
     const [funil, itens, compl] = await Promise.all([
       consultarTudo("vw_cardapio_funil?select=nome_loja,periodo_ini,periodo_fim,visitas,visualizacoes,sacola,revisao,concluidos,conversao_pct&order=periodo_ini.desc"),
-      consultarTudo("fato_cardapio_itens?select=periodo_ini,periodo_fim,categoria,item,visitas,pedidos,conversao_pct,qtd_vendida,qtd_com_promocao,valor_total&order=valor_total.desc"),
-      consultarTudo("fato_cardapio_complementos?select=periodo_ini,periodo_fim,classificacao,complemento,pedidos,qtd_vendida,valor_total&order=valor_total.desc"),
+      consultarTudo("vw_cardapio_itens?select=periodo_ini,periodo_fim,nome_loja,categoria,item,visitas,pedidos,conversao_pct,qtd_vendida,qtd_com_promocao,valor_total&order=valor_total.desc"),
+      consultarTudo("vw_cardapio_complementos?select=periodo_ini,periodo_fim,nome_loja,classificacao,complemento,pedidos,qtd_vendida,valor_total&order=valor_total.desc"),
     ]);
     CARDAPIO = { funil, itens, compl };
   }
   renderModuloCardapio();
 }
 
-function renderModuloCardapio(periodoSel) {
+function renderModuloCardapio(periodoSel, lojaSel) {
   const alvo = document.getElementById('view-cardapio');
   const periodos = [...new Map(CARDAPIO.funil.map(r => [r.periodo_ini + '|' + r.periodo_fim, [r.periodo_ini, r.periodo_fim]])).values()];
   if (!periodos.length) {
@@ -2174,8 +2174,25 @@ function renderModuloCardapio(periodoSel) {
 
   const funil = CARDAPIO.funil.filter(r => r.periodo_ini === pIni && r.periodo_fim === pFim && activeL.has(LOJAS.indexOf(r.nome_loja)))
     .sort((a, b) => Number(b.conversao_pct) - Number(a.conversao_pct));
-  const itens = CARDAPIO.itens.filter(r => r.periodo_ini === pIni && r.periodo_fim === pFim).slice(0, 12);
-  const compl = CARDAPIO.compl.filter(r => r.periodo_ini === pIni && r.periodo_fim === pFim).slice(0, 8);
+
+  // Itens/complementos: cada export e um recorte — 'REDE' (arquivos agregados,
+  // nome_loja nulo) ou uma loja especifica (exports feitos loja a loja).
+  const itensPeriodo = CARDAPIO.itens.filter(r => r.periodo_ini === pIni && r.periodo_fim === pFim);
+  const complPeriodo = CARDAPIO.compl.filter(r => r.periodo_ini === pIni && r.periodo_fim === pFim);
+  const escopos = [...new Set(itensPeriodo.map(r => r.nome_loja || 'REDE'))]
+    .sort((a, b) => (a === 'REDE' ? -1 : b === 'REDE' ? 1 : a.localeCompare(b)));
+  const escopo = (lojaSel && escopos.includes(lojaSel)) ? lojaSel : escopos[0];
+  const doEscopo = (r) => (r.nome_loja || 'REDE') === escopo;
+  const itens = itensPeriodo.filter(doEscopo).slice(0, 12);
+  const compl = complPeriodo.filter(doEscopo).slice(0, 8);
+  const seletorLoja = escopos.length > 1 ? `
+    <div style="display:flex; justify-content:center; align-items:center; gap:8px; margin:10px 0 4px;">
+      <span class="caption-label" style="margin:0;">Itens e complementos de:</span>
+      <select onchange="renderModuloCardapio('${chave}', this.value)"
+        style="background:#161b22; color:#e6edf3; border:1px solid #30363d; border-radius:6px; padding:6px 10px; font-family:inherit; font-size:12.5px;">
+        ${escopos.map(e => `<option value="${e}" ${e === escopo ? 'selected' : ''}>${e === 'REDE' ? 'Rede inteira (agregado)' : e}</option>`).join('')}
+      </select>
+    </div>` : '';
 
   const totV = funil.reduce((s, r) => s + (r.visitas || 0), 0);
   const totC = funil.reduce((s, r) => s + (r.concluidos || 0), 0);
@@ -2207,7 +2224,10 @@ function renderModuloCardapio(periodoSel) {
   </div>
 
   <div class="section-label">Itens mais vendidos</div>
-  <div class="caption-label" style="text-align:center;">⚠️ O relatório soma a rede inteira como uma marca só — os itens abaixo não separam por loja. Para abrir por marca, é preciso exportar o relatório de cardápio uma marca por vez.</div>
+  ${seletorLoja}
+  <div class="caption-label" style="text-align:center;">${escopo === 'REDE'
+    ? 'Recorte agregado da rede inteira (o relatório soma tudo como uma marca só). Use o seletor acima quando houver exports por loja no período.'
+    : `Itens vendidos na loja <b>${escopo}</b> no período selecionado.`}</div>
   <div id="tabelaItens">
     <table>
       <tr><th>Item</th><th>Categoria</th><th>Pedidos</th><th>Qtd vendida</th><th>% com promoção</th><th>Valor total</th></tr>
