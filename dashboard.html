@@ -3,7 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Cidadao do Mundo - Faturamento e Liquido</title>
+<title>Painel Cidadão do Mundo</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0d1117">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <style>
   * { box-sizing: border-box; }
@@ -1810,7 +1816,7 @@ async function entrarRelatorios() {
   renderModuloRelatorios(RELATORIOS.length ? RELATORIOS[0].id : null);
 }
 
-function renderModuloRelatorios(idSelecionado) {
+function renderModuloRelatorios(idSelecionado, abaIdx = 0) {
   const alvo = document.getElementById('view-relatorios');
 
   // Barra do gerador sob demanda: escolhe um período e monta o relatório na hora,
@@ -1847,6 +1853,25 @@ function renderModuloRelatorios(idSelecionado) {
     return;
   }
   const sel = RELATORIOS.find(r => r.id === idSelecionado) || RELATORIOS[0];
+
+  // Relatorios novos vem estruturados em <section data-aba="..."> (Rede + uma aba por
+  // unidade). Se o corpo tiver essas secoes, mostramos uma barra de abas e so o conteudo
+  // da aba escolhida; relatorios antigos (sem secoes) continuam renderizando inteiros.
+  const tmp = document.createElement('div');
+  tmp.innerHTML = sel.corpo_html;
+  const secoes = Array.from(tmp.querySelectorAll('section[data-aba]'));
+  let corpoSel = sel.corpo_html;
+  let barraAbas = '';
+  if (secoes.length) {
+    if (abaIdx < 0 || abaIdx >= secoes.length) abaIdx = 0;
+    barraAbas = `
+    <div class="periodo-presets" style="margin-top:8px;">
+      ${secoes.map((s, i) => `<button class="preset-btn ${i === abaIdx ? 'active' : ''}"
+        onclick="renderModuloRelatorios(${sel.id}, ${i})">${s.dataset.aba}</button>`).join('')}
+    </div>`;
+    corpoSel = secoes[abaIdx].innerHTML;
+  }
+
   alvo.innerHTML = `
   <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Relatórios</div>
   ${gerador}
@@ -1855,7 +1880,8 @@ function renderModuloRelatorios(idSelecionado) {
     ${RELATORIOS.map(r => `<button class="preset-btn ${r.id === sel.id ? 'active' : ''}"
       onclick="renderModuloRelatorios(${r.id})">${formatarDataCurta(r.semana_ini)} – ${formatarDataCurta(r.semana_fim)}</button>`).join('')}
   </div>
-  <div class="relatorio-corpo">${sel.corpo_html}</div>`;
+  ${barraAbas}
+  <div class="relatorio-corpo">${corpoSel}</div>`;
 }
 
 // Relatorio sob demanda: mesmos numeros validados do painel, para o periodo escolhido,
@@ -2575,6 +2601,12 @@ async function iniciar() {
     erroEl.style.display = 'block';
     erroEl.textContent = `Erro ao carregar dados do Supabase: ${err.message}`;
   }
+}
+
+// Registro do service worker (so quando servido por http/https — em file:// nao existe).
+// Ele deixa o painel instalavel como app no celular e da um modo offline basico.
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
 }
 
 // ------------------------------------------------------------------
