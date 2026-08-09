@@ -265,6 +265,7 @@
       <button class="sidebar-btn" id="navBtnPromocoes" onclick="mostrarModulo('promocoes')">Promoções</button>
       <button class="sidebar-btn" id="navBtnClientes" onclick="mostrarModulo('clientes')">Clientes</button>
       <button class="sidebar-btn" id="navBtnCancelamentos" onclick="mostrarModulo('cancelamentos')">Cancelamentos</button>
+      <button class="sidebar-btn" id="navBtnContestacoes" onclick="mostrarModulo('contestacoes')">Contestações</button>
       <button class="sidebar-btn" id="navBtnNegociacoes" onclick="mostrarModulo('negociacoes')">Negociações</button>
       <button class="sidebar-btn" id="navBtnAvaliacoes" onclick="mostrarModulo('avaliacoes')">Avaliações</button>
     </div>
@@ -343,6 +344,10 @@
 
     <div id="modulo-negociacoes" class="modulo" style="display:none;">
       <div id="view-negociacoes"></div>
+    </div>
+
+    <div id="modulo-contestacoes" class="modulo" style="display:none;">
+      <div id="view-contestacoes"></div>
     </div>
 
     <div id="modulo-avaliacoes" class="modulo" style="display:none;">
@@ -760,6 +765,7 @@ function mostrarModulo(nome) {
     negociacoes: ['modulo-negociacoes', 'navBtnNegociacoes'],
     avaliacoes: ['modulo-avaliacoes', 'navBtnAvaliacoes'],
     relatorios: ['modulo-relatorios', 'navBtnRelatorios'],
+    contestacoes: ['modulo-contestacoes', 'navBtnContestacoes'],
     vendas: ['modulo-vendas', 'navBtnVendas'],
     cardapio: ['modulo-cardapio', 'navBtnCardapio'],
     clientes: ['modulo-clientes', 'navBtnClientes'],
@@ -785,6 +791,7 @@ function mostrarModulo(nome) {
   if (nome === 'negociacoes') entrarNegociacoes();
   if (nome === 'avaliacoes') entrarAvaliacoes();
   if (nome === 'relatorios') entrarRelatorios();
+  if (nome === 'contestacoes') entrarContestacoes();
 }
 
 // Qual modulo esta aberto agora — usado pra so redesenhar os graficos do modulo visivel.
@@ -2018,6 +2025,84 @@ async function gerarRelatorioAdHoc() {
     <p style="color:#7d8590; font-size:11.5px;">Líquido antes dos custos próprios (insumos, equipe, aluguel).
     Negociações e avaliações existem na base a partir de jun-jul/2026.</p>
   </div>`;
+}
+
+// ------------------------------------------------------------------
+// Modulo Contestações: pendentes de contestar (janela de 7 dias do iFood)
+// + historico do que a rotina/equipe ja contestou e os resultados.
+let CONTESTACOES = null;
+
+async function entrarContestacoes() {
+  const alvo = document.getElementById('view-contestacoes');
+  if (CONTESTACOES === null) {
+    alvo.innerHTML = '<div class="contexto">Carregando contestações...</div>';
+    const seteDias = new Date(Date.now() - 7 * 864e5).toISOString().slice(0, 10);
+    const [log, cancel] = await Promise.all([
+      consultarTudo("vw_contestacoes?select=id_curto,nome_loja,unidade,data_pedido,valor,contestado_em,resultado,resultado_em&order=contestado_em.desc"),
+      consultarTudo(`vw_cancelamentos_contestaveis?select=id_curto,nome_loja,unidade,data_hora_pedido,data_cancelamento,motivo_cancelamento,valor_itens,valor_itens_cancelados&data_hora_pedido=gte.${seteDias}&order=data_hora_pedido.desc`),
+    ]);
+    CONTESTACOES = { log, cancel };
+  }
+  renderModuloContestacoes();
+}
+
+function renderModuloContestacoes() {
+  const alvo = document.getElementById('view-contestacoes');
+  const { log, cancel } = CONTESTACOES;
+
+  // pendente = cancelamento contestavel dos ultimos 7 dias sem registro no log
+  const jaTratados = new Set(log.map(r => r.id_curto + '|' + (r.data_pedido || '').slice(0, 10)));
+  const pendentes = cancel
+    .filter(r => !jaTratados.has(r.id_curto + '|' + (r.data_hora_pedido || '').slice(0, 10)))
+    .map(r => {
+      const cancelEm = r.data_cancelamento || r.data_hora_pedido;
+      const diasRestantes = Math.max(0, 7 - Math.floor((Date.now() - new Date(cancelEm)) / 864e5));
+      return { ...r, valor: Number(r.valor_itens_cancelados) || Number(r.valor_itens) || 0, diasRestantes,
+               foraRotina: (r.unidade || '').toUpperCase().startsWith('BOQUEIR') };
+    })
+    .sort((a, b) => a.diasRestantes - b.diasRestantes);
+
+  const emAnalise = log.filter(r => !r.resultado);
+  const ganhas = log.filter(r => r.resultado === 'RESSARCIDO');
+  const negadas = log.filter(r => r.resultado === 'NEGADO');
+  const soma = (l) => l.reduce((s, r) => s + Number(r.valor || 0), 0);
+
+  const dt = (v) => v ? formatarDataCurta(String(v).slice(0, 10)) : '—';
+  const statusTxt = (r) => r.resultado === 'RESSARCIDO' ? '<span style="color:#3fb950; font-weight:bold;">Ganha</span>'
+    : r.resultado === 'NEGADO' ? '<span style="color:#ff6b6b; font-weight:bold;">Negada</span>'
+    : r.resultado === 'EXPIRADO' ? '<span style="color:#7d8590;">Expirada</span>'
+    : '<span style="color:#f5a623; font-weight:bold;">Em análise</span>';
+
+  alvo.innerHTML = `
+  <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Contestações de cancelamento</div>
+  <div class="caption-label" style="text-align:center;">
+    O iFood dá <b>7 dias</b> para contestar um cancelamento. A rotina diária (08:40) contesta sozinha os elegíveis
+    — exceto a unidade Boqueirão — e atualiza aqui os resultados.
+  </div>
+  <div class="cards">
+    <div class="card ${pendentes.length ? 'neg' : 'pos'}"><div class="card-lbl">Pendentes (7 dias)</div><div class="card-val">${pendentes.length}</div><div class="card-pct">R$ ${fmt(soma(pendentes))}</div></div>
+    <div class="card neutral"><div class="card-lbl">Em análise</div><div class="card-val">${emAnalise.length}</div><div class="card-pct">R$ ${fmt(soma(emAnalise))}</div></div>
+    <div class="card pos"><div class="card-lbl">Ganhas</div><div class="card-val">${ganhas.length}</div><div class="card-pct">R$ ${fmt(soma(ganhas))} recuperados</div></div>
+    <div class="card neutral"><div class="card-lbl">Negadas</div><div class="card-val">${negadas.length}</div><div class="card-pct">R$ ${fmt(soma(negadas))}</div></div>
+  </div>
+
+  <div class="section-label">Pendentes de contestação</div>
+  ${pendentes.length ? `<div id="tabelaContestPend"><table>
+    <tr><th>Loja</th><th>Pedido</th><th>Data</th><th>Valor</th><th>Prazo restante</th></tr>
+    ${pendentes.map(r => `<tr${r.foraRotina ? ' style="color:#7d8590;"' : ''}>
+      <td>${r.nome_loja}${r.foraRotina ? ' <span style="font-size:10px;">(fora da rotina)</span>' : ''}</td>
+      <td>${r.id_curto}</td><td>${dt(r.data_hora_pedido)}</td><td>R$ ${fmt(r.valor)}</td>
+      <td${r.diasRestantes <= 2 ? ' style="color:#ff6b6b; font-weight:bold;"' : ''}>${r.diasRestantes} dia(s)</td></tr>`).join('')}
+  </table></div>`
+  : '<div class="contexto" style="border-color:#3fb950;">Nenhum cancelamento contestável pendente — tudo tratado. ✔</div>'}
+  <div class="caption-label" style="text-align:center;">Baseado nos pedidos importados (até ontem). Cancelamentos de hoje entram após a importação da manhã.</div>
+
+  <div class="section-label">Histórico de contestações</div>
+  ${log.length ? `<div id="tabelaContestLog"><table>
+    <tr><th>Loja</th><th>Pedido</th><th>Data do pedido</th><th>Valor</th><th>Contestada em</th><th>Status</th></tr>
+    ${log.map(r => `<tr><td>${r.nome_loja || '—'}</td><td>${r.id_curto}</td><td>${dt(r.data_pedido)}</td>
+      <td>R$ ${fmt(Number(r.valor || 0))}</td><td>${dt(r.contestado_em)}</td><td>${statusTxt(r)}</td></tr>`).join('')}
+  </table></div>` : '<div class="contexto">Nenhuma contestação registrada ainda.</div>'}`;
 }
 
 // Busca so os dados (sem renderizar o modulo) — usadas pelo gerador de relatorio.
