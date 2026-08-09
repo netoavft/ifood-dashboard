@@ -186,6 +186,27 @@
   #tabelaLojasResumo th { background:#21262d; color:#9aa4af; font-weight:bold; font-size:11px; text-transform:uppercase; }
   #tabelaLojasResumo tr:nth-child(even) { background:#12161c; }
 
+  /* modulo Fluxo de Caixa (DFC) — tabela com blocos expansiveis */
+  #tabelaDFC { overflow-x:auto; max-width:100%; }
+  #tabelaDFC table { border-collapse:collapse; width:100%; font-size:12.5px; }
+  #tabelaDFC th, #tabelaDFC td { border:1px solid #30363d; padding:5px 10px; text-align:right; white-space:nowrap; }
+  #tabelaDFC th:first-child, #tabelaDFC td:first-child { text-align:left; }
+  #tabelaDFC th { background:#21262d; color:#9aa4af; font-weight:bold; font-size:11px; text-transform:uppercase; }
+  #tabelaDFC td.negativo { color:#ff6b6b; }
+  #tabelaDFC tr.dfc-bloco td { background:#1a2029; font-weight:bold; border-top:2px solid #3d444d; color:#e6e6e6; }
+  #tabelaDFC tr.dfc-grupo td { background:#161b22; font-weight:bold; color:#c9d1d9; }
+  #tabelaDFC tr.dfc-grupo td:first-child { padding-left:22px; }
+  #tabelaDFC tr.dfc-linha td { color:#9aa4af; }
+  #tabelaDFC tr.dfc-linha td:first-child { padding-left:40px; }
+  #tabelaDFC tr.dfc-resultado td { background:#1c1508; font-weight:bold; border-top:2px solid #f5a623; }
+  #tabelaDFC tr.dfc-resultado td:first-child { color:#f5a623; }
+  #tabelaDFC tr.dfc-saldo td { background:#0f1a2b; font-weight:bold; border-top:2px solid #58a6ff; }
+  #tabelaDFC tr.dfc-saldo td:first-child { color:#58a6ff; }
+  #tabelaDFC tr.dfc-conta td { color:#9aa4af; }
+  #tabelaDFC tr.dfc-conta td:first-child { padding-left:40px; }
+  #tabelaDFC tr.clicavel { cursor:pointer; }
+  #tabelaDFC tr.clicavel:hover td:first-child { color:#f5a623; }
+
   .relatorio-corpo { background:#161b22; border:1px solid #262c36; border-radius:10px; padding:24px 28px; line-height:1.7; font-size:13.5px; }
   .relatorio-corpo h2 { color:#f5a623; font-size:18px; margin:18px 0 10px; }
   .relatorio-corpo h3 { color:#e6e6e6; font-size:15px; margin:16px 0 8px; }
@@ -241,7 +262,7 @@
     <div class="sidebar-grupo" id="gResultado">
       <span class="sidebar-btn breve">Visão consolidada</span>
       <span class="sidebar-btn breve">DRE</span>
-      <span class="sidebar-btn breve">Fluxo de caixa</span>
+      <button class="sidebar-btn" id="navBtnFluxo" onclick="mostrarModulo('fluxo')">Fluxo de caixa</button>
       <span class="sidebar-btn breve">Margem por item</span>
     </div>
 
@@ -368,6 +389,10 @@
 
     <div id="modulo-clientes" class="modulo" style="display:none;">
       <div id="view-clientes"></div>
+    </div>
+
+    <div id="modulo-fluxo" class="modulo" style="display:none;">
+      <div id="view-fluxo"></div>
     </div>
 
     <div class="footer">
@@ -750,7 +775,7 @@ function toggleGrupo(id) {
 // Garante que o grupo que contem o modulo esteja aberto (ex.: botao que leva
 // a Cancelamentos a partir da Visao geral, ou o modulo inicial no boot).
 function abrirGrupoDoModulo(nome) {
-  const grupoDe = { relatorios: 'gRelatorios' };
+  const grupoDe = { relatorios: 'gRelatorios', fluxo: 'gResultado' };
   const id = grupoDe[nome] || 'gIfood';
   const grupo = document.getElementById(id);
   if (!grupo.classList.contains('aberto')) toggleGrupo(id);
@@ -769,6 +794,7 @@ function mostrarModulo(nome) {
     vendas: ['modulo-vendas', 'navBtnVendas'],
     cardapio: ['modulo-cardapio', 'navBtnCardapio'],
     clientes: ['modulo-clientes', 'navBtnClientes'],
+    fluxo: ['modulo-fluxo', 'navBtnFluxo'],
   };
   Object.entries(modulos).forEach(([chave, [idDiv, idBtn]]) => {
     document.getElementById(idDiv).style.display = (chave === nome) ? 'block' : 'none';
@@ -792,6 +818,7 @@ function mostrarModulo(nome) {
   if (nome === 'avaliacoes') entrarAvaliacoes();
   if (nome === 'relatorios') entrarRelatorios();
   if (nome === 'contestacoes') entrarContestacoes();
+  if (nome === 'fluxo') entrarFluxo();
 }
 
 // Qual modulo esta aberto agora — usado pra so redesenhar os graficos do modulo visivel.
@@ -804,6 +831,7 @@ function moduloAtivo() {
   if (document.getElementById('modulo-vendas').style.display !== 'none') return 'vendas';
   if (document.getElementById('modulo-cardapio').style.display !== 'none') return 'cardapio';
   if (document.getElementById('modulo-clientes').style.display !== 'none') return 'clientes';
+  if (document.getElementById('modulo-fluxo').style.display !== 'none') return 'fluxo';
   return 'resumo';
 }
 
@@ -2400,6 +2428,237 @@ function renderModuloClientes(mesSel) {
     </table>
   </div>
   <div class="caption-label">Loja com muitos novos e poucos frequentes conquista mas não retém — cardápio/experiência merecem olhar. O contrário indica base fiel mas pouca atração.</div>`;
+}
+
+// ------------------------------------------------------------------
+// Modulo Fluxo de Caixa (DFC) — realizado da empresa Agua Verde.
+// Fonte: fin_lancamentos (historico jan-jul/2026 da planilha; depois Saipos).
+// E' um retrato mensal da empresa inteira — NAO segue os filtros de
+// loja/periodo do topo (que sao do canal iFood).
+// ------------------------------------------------------------------
+let DFC_MENSAL = null;   // vw_fin_dfc_mensal: mes, natureza, tipo, subtipo, ordem, credito, debito
+let DFC_CONTAS = null;   // fin_contas: conta, saldo_inicial, ordem
+let DFC_MOV = null;      // vw_fin_saldo_conta_mensal: mes, conta, movimento
+let dfcModo = 'valor';   // 'valor' (R$) | 'pct' (% da receita do mes)
+const dfcAberto = new Set();
+
+// Ordem dos grupos de despesa no DFC (mesma da planilha de fluxo de caixa).
+const DFC_ORDEM_TIPOS = ['MATERIA PRIMA','USO E CONSUMO','PESSOAL','PRO LABORE',
+  'DESPESAS COMERCIAIS','DESPESAS LOGISTICA','DESPESAS MARKETING','DESPESAS ADMINISTRATIVAS',
+  'DESPESAS MANUTENÇÃO','IMPOSTOS E TAXAS','DESPESAS FINANCEIRAS'];
+
+async function entrarFluxo() {
+  const alvo = document.getElementById('view-fluxo');
+  if (DFC_MENSAL === null) {
+    alvo.innerHTML = '<div class="contexto">Carregando fluxo de caixa...</div>';
+    [DFC_MENSAL, DFC_CONTAS, DFC_MOV] = await Promise.all([
+      consultarTudo("vw_fin_dfc_mensal?select=mes,natureza,tipo,subtipo,ordem,credito,debito&order=mes,ordem"),
+      consultarTudo("fin_contas?select=conta,saldo_inicial,ordem&order=ordem"),
+      consultarTudo("vw_fin_saldo_conta_mensal?select=mes,conta,movimento&order=mes,conta"),
+    ]);
+    DFC_MENSAL.forEach(r => { r.credito = Number(r.credito); r.debito = Number(r.debito); });
+    DFC_CONTAS.forEach(r => { r.saldo_inicial = Number(r.saldo_inicial); });
+    DFC_MOV.forEach(r => { r.movimento = Number(r.movimento); });
+  }
+  renderModuloDFC();
+}
+
+function dfcToggle(chave) {
+  if (dfcAberto.has(chave)) dfcAberto.delete(chave); else dfcAberto.add(chave);
+  renderModuloDFC();
+}
+function dfcModoSet(m) { dfcModo = m; renderModuloDFC(); }
+
+function renderModuloDFC() {
+  const alvo = document.getElementById('view-fluxo');
+  if (!DFC_MENSAL || !DFC_MENSAL.length) {
+    alvo.innerHTML = `<div class="contexto" style="border-color:#f5a623;">Sem lançamentos financeiros ainda.</div>`;
+    return;
+  }
+  const meses = [...new Set(DFC_MENSAL.map(r => r.mes))].sort();
+  const nM = meses.length;
+  const idxMes = Object.fromEntries(meses.map((m, i) => [m, i]));
+  const rotuloMes = (m) => { const [a, mm] = m.split('-'); return `${MESES_ABREV[Number(mm) - 1]}/${a.slice(2)}`; };
+
+  // soma (credito-debito)*sinal por mes para as linhas que passam no predicado
+  const somar = (pred, sinal = 1) => {
+    const v = Array(nM).fill(0);
+    DFC_MENSAL.forEach(r => { if (pred(r)) v[idxMes[r.mes]] += (r.credito - r.debito) * sinal; });
+    return v;
+  };
+  const somaArr = (arrs) => arrs.reduce((acc, a) => acc.map((x, i) => x + a[i]), Array(nM).fill(0));
+  const total = (v) => v.reduce((s, x) => s + x, 0);
+
+  // subtipos de um recorte, na ordem do plano de contas
+  const subtiposDe = (pred) => {
+    const vistos = new Map();
+    DFC_MENSAL.forEach(r => { if (pred(r) && !vistos.has(r.subtipo)) vistos.set(r.subtipo, r.ordem); });
+    return [...vistos.entries()].sort((a, b) => a[1] - b[1]).map(([s]) => s);
+  };
+
+  // ---- blocos do DFC (mesma estrutura da planilha) ----
+  const ehInvest = (r) => r.tipo === 'INVESTIMENTOS';
+  const receitas   = somar(r => r.natureza === 'RECEITAS');
+  const deducoes   = somar(r => r.natureza === 'DEDUÇOES DA RECEITA', -1);
+  const despesas   = somar(r => r.natureza === 'DESPESAS' && !ehInvest(r), -1);
+  const invest     = somar(r => ehInvest(r), -1);
+  const retiradas  = somar(r => r.natureza === 'DISTRIBUICAO DE LUCROS', -1);
+  const naoOper    = somar(r => r.natureza === 'APORTE VALORES');
+  const emprest    = somar(r => r.natureza === 'EMPRESTIMOS');
+  const aplicacoes = somar(r => r.natureza === 'APLICAÇÕES');
+  const semClass   = somar(r => r.natureza === 'SEM CLASSIFICACAO');
+  const transf     = somar(r => r.natureza === 'TRANSFERENCIAS');
+
+  const resultOper = receitas.map((_, i) => receitas[i] - deducoes[i] - despesas[i]);
+  const resultInv  = resultOper.map((v, i) => v - invest[i]);
+  const resultRet  = resultInv.map((v, i) => v - retiradas[i]);
+  const resultFim  = resultRet.map((v, i) => v + naoOper[i] + emprest[i] + aplicacoes[i] + semClass[i] + transf[i]);
+
+  // ---- saldos por conta (saldo inicial + movimentos acumulados) ----
+  const contas = [...DFC_CONTAS].sort((a, b) => (a.ordem || 99) - (b.ordem || 99));
+  const movPorConta = {};
+  contas.forEach(c => { movPorConta[c.conta] = Array(nM).fill(0); });
+  DFC_MOV.forEach(r => { if (movPorConta[r.conta]) movPorConta[r.conta][idxMes[r.mes]] += r.movimento; });
+  const saldoIniConta = {}, saldoFimConta = {};
+  contas.forEach(c => {
+    let acum = c.saldo_inicial;
+    saldoIniConta[c.conta] = []; saldoFimConta[c.conta] = [];
+    for (let i = 0; i < nM; i++) {
+      saldoIniConta[c.conta].push(acum);
+      acum += movPorConta[c.conta][i];
+      saldoFimConta[c.conta].push(acum);
+    }
+  });
+  const saldoIni = meses.map((_, i) => contas.reduce((s, c) => s + saldoIniConta[c.conta][i], 0));
+  const saldoFim = meses.map((_, i) => contas.reduce((s, c) => s + saldoFimConta[c.conta][i], 0));
+
+  // ---- montagem do HTML ----
+  const receitasTot = total(receitas);
+  const cel = (v, i) => {
+    if (dfcModo === 'pct') {
+      const base = i === 'tot' ? receitasTot : receitas[i];
+      if (!base) return '<td>—</td>';
+      const p = v / base * 100;
+      return `<td class="${p < -0.05 ? 'negativo' : ''}">${pct(p)}%</td>`;
+    }
+    return `<td class="${v < -0.005 ? 'negativo' : ''}">${fmt(v)}</td>`;
+  };
+  const celRS = (v) => `<td class="${v < -0.005 ? 'negativo' : ''}">${fmt(v)}</td>`;
+
+  // linha de fluxo: valores por mes + total (em R$ ou % da receita)
+  const linha = (classe, label, vals, chave = null) => {
+    const seta = chave ? (dfcAberto.has(chave) ? '▼ ' : '▶ ') : '';
+    const attrs = chave ? ` class="${classe} clicavel" onclick="dfcToggle('${chave}')"` : ` class="${classe}"`;
+    return `<tr${attrs}><td>${seta}${label}</td>${vals.map((v, i) => cel(v, i)).join('')}${cel(total(vals), 'tot')}</tr>`;
+  };
+  // linha de saldo: sempre em R$; coluna Total mostra o saldo na ponta do periodo
+  const linhaSaldo = (classe, label, vals, chave = null, totalPonta = null) => {
+    const seta = chave ? (dfcAberto.has(chave) ? '▼ ' : '▶ ') : '';
+    const attrs = chave ? ` class="${classe} clicavel" onclick="dfcToggle('${chave}')"` : ` class="${classe}"`;
+    return `<tr${attrs}><td>${seta}${label}</td>${vals.map(v => celRS(v)).join('')}${celRS(totalPonta === null ? vals[vals.length - 1] : totalPonta)}</tr>`;
+  };
+
+  let corpo = '';
+
+  // SALDO INICIAL (abre por conta)
+  corpo += linhaSaldo('dfc-saldo', 'SALDO INICIAL', saldoIni, 'SALDO_INI', saldoIni[0]);
+  if (dfcAberto.has('SALDO_INI')) contas.forEach(c => {
+    corpo += linhaSaldo('dfc-conta', c.conta, saldoIniConta[c.conta], null, saldoIniConta[c.conta][0]);
+  });
+
+  // bloco expansivel de subtipos
+  const blocoSubtipos = (chave, pred, sinal) => {
+    if (!dfcAberto.has(chave)) return '';
+    return subtiposDe(pred).map(s =>
+      linha('dfc-linha', s, somar(r => pred(r) && r.subtipo === s, sinal))
+    ).join('');
+  };
+
+  corpo += linha('dfc-bloco', 'RECEITAS', receitas, 'RECEITAS');
+  corpo += blocoSubtipos('RECEITAS', r => r.natureza === 'RECEITAS', 1);
+
+  corpo += linha('dfc-bloco', '(−) DEDUÇÕES DA RECEITA', deducoes, 'DEDUCOES');
+  corpo += blocoSubtipos('DEDUCOES', r => r.natureza === 'DEDUÇOES DA RECEITA', -1);
+
+  corpo += linha('dfc-bloco', '(−) DESPESAS', despesas, 'DESPESAS');
+  if (dfcAberto.has('DESPESAS')) {
+    const tiposDesp = [...new Set(DFC_MENSAL.filter(r => r.natureza === 'DESPESAS' && !ehInvest(r)).map(r => r.tipo))]
+      .sort((a, b) => {
+        const ia = DFC_ORDEM_TIPOS.indexOf(a), ib = DFC_ORDEM_TIPOS.indexOf(b);
+        return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+      });
+    tiposDesp.forEach(t => {
+      const predT = (r) => r.natureza === 'DESPESAS' && r.tipo === t;
+      corpo += linha('dfc-grupo', t, somar(predT, -1), 'DESP:' + t);
+      corpo += blocoSubtipos('DESP:' + t, predT, -1);
+    });
+  }
+
+  corpo += linha('dfc-resultado', '(=) RESULTADO OPERACIONAL', resultOper);
+
+  corpo += linha('dfc-bloco', '(−) INVESTIMENTOS', invest, 'INVEST');
+  corpo += blocoSubtipos('INVEST', ehInvest, -1);
+  corpo += linha('dfc-resultado', '(=) RESULTADO APÓS INVESTIMENTOS', resultInv);
+
+  corpo += linha('dfc-bloco', '(−) DISTRIBUIÇÃO DE LUCROS', retiradas, 'RETIRADAS');
+  corpo += blocoSubtipos('RETIRADAS', r => r.natureza === 'DISTRIBUICAO DE LUCROS', -1);
+  corpo += linha('dfc-resultado', '(=) RESULTADO APÓS RETIRADAS', resultRet);
+
+  corpo += linha('dfc-bloco', '(+) FLUXO NÃO OPERACIONAL', naoOper, 'NAOOP');
+  corpo += blocoSubtipos('NAOOP', r => r.natureza === 'APORTE VALORES', 1);
+
+  if (emprest.some(v => Math.abs(v) > 0.005)) {
+    corpo += linha('dfc-bloco', '(+) EMPRÉSTIMOS SÓCIOS', emprest, 'EMPREST');
+    corpo += blocoSubtipos('EMPREST', r => r.natureza === 'EMPRESTIMOS', 1);
+  }
+
+  corpo += linha('dfc-bloco', '(+) FLUXO APLICAÇÕES', aplicacoes, 'APLIC');
+  corpo += blocoSubtipos('APLIC', r => r.natureza === 'APLICAÇÕES', 1);
+
+  if (semClass.some(v => Math.abs(v) > 0.005)) {
+    corpo += linha('dfc-bloco', 'SEM CLASSIFICAÇÃO (revisar)', semClass);
+  }
+  if (transf.some(v => Math.abs(v) > 0.005)) {
+    corpo += linha('dfc-bloco', 'TRANSFERÊNCIAS (líquido)', transf);
+  }
+
+  corpo += linha('dfc-resultado', '(=) RESULTADO FINAL', resultFim);
+
+  corpo += linhaSaldo('dfc-saldo', 'SALDO FINAL', saldoFim, 'SALDO_FIM', saldoFim[nM - 1]);
+  if (dfcAberto.has('SALDO_FIM')) contas.forEach(c => {
+    corpo += linhaSaldo('dfc-conta', c.conta, saldoFimConta[c.conta], null, saldoFimConta[c.conta][nM - 1]);
+  });
+
+  const nSemClass = Math.abs(total(semClass));
+  alvo.innerHTML = `
+  <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Fluxo de Caixa — Água Verde</div>
+  <div class="caption-label" style="text-align:center;">
+    DFC realizado, mês a mês, da empresa inteira (todos os canais) — <b>não segue os filtros de período/loja do topo</b>,
+    que valem só para o canal iFood. Clique nas linhas com ▶ para abrir o detalhe.
+  </div>
+  <div class="cards">
+    <div class="card blue"><div class="card-lbl">Receitas no ano</div><div class="card-val">R$ ${fmt(receitasTot)}</div></div>
+    <div class="card ${total(resultOper) >= 0 ? 'pos' : 'neg'}"><div class="card-lbl">Resultado operacional</div><div class="card-val">R$ ${fmt(total(resultOper))}</div>
+      <div class="card-pct">${receitasTot ? pct(total(resultOper) / receitasTot * 100) : 0}% da receita</div></div>
+    <div class="card ${total(resultFim) >= 0 ? 'pos' : 'neg'}"><div class="card-lbl">Resultado final (caixa)</div><div class="card-val">R$ ${fmt(total(resultFim))}</div></div>
+    <div class="card highlight"><div class="card-lbl">Saldo em conta (${rotuloMes(meses[nM - 1])})</div><div class="card-val">R$ ${fmt(saldoFim[nM - 1])}</div></div>
+  </div>
+  ${nSemClass > 0.005 ? `<div class="contexto" style="border-color:#f5a623;">
+    <b>R$ ${fmt(nSemClass)}</b> em lançamentos ainda <b>sem classificação</b> (linha "SEM CLASSIFICAÇÃO" abaixo) —
+    classifique na origem e reimporte para o DFC ficar 100% detalhado.</div>` : ''}
+  <div class="periodo-presets" style="margin-top:14px;">
+    <button class="preset-btn ${dfcModo === 'valor' ? 'active' : ''}" onclick="dfcModoSet('valor')">R$</button>
+    <button class="preset-btn ${dfcModo === 'pct' ? 'active' : ''}" onclick="dfcModoSet('pct')">% da receita</button>
+  </div>
+  <div id="tabelaDFC">
+    <table>
+      <tr><th></th>${meses.map(m => `<th>${rotuloMes(m)}</th>`).join('')}<th>Total</th></tr>
+      ${corpo}
+    </table>
+  </div>
+  <div class="caption-label">Histórico de jan a jul/2026 importado da planilha de fluxo realizado (validado linha a linha contra ela).
+  A partir de agosto a base passa a ser alimentada pelo Saipos. Saldos por conta: clique em SALDO INICIAL/FINAL.
+  Nos saldos, a coluna Total mostra o saldo na ponta do período (não a soma dos meses).</div>`;
 }
 
 // Agrupamento automatico pelo tamanho do periodo filtrado — evita colocar mais um controle na
