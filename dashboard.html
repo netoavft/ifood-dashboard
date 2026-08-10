@@ -1888,11 +1888,18 @@ function moduloPromocoes() {
   const r = resumoPromocoes();
   const teste = blocoTestePromos();
 
+  // Os blocos que dependem do relatório MENSAL de promoções (decomposição por
+  // mecânica e recorte de frete) só existem nos meses importados. Os que vêm dos
+  // pedidos diários — teste e alavancagem por loja — funcionam sempre e ficam fora
+  // deste corte, senão o painel some justo no período mais recente.
   if (!r.lista.length) {
-    return teste + `<div class="contexto" style="border-color:#c8102e; margin-top:16px;">
-      Sem dados do <b>relatório mensal</b> de promoções no período selecionado
-      (ele é mensal e só existe a partir de <b>junho/2026</b> — o portal libera 90 dias).
-      O acompanhamento do teste acima usa os dados diários dos pedidos e não depende dele.
+    return teste + blocoAlavancagemPorLoja() + `
+    <div class="contexto" style="border-color:#f5a623; margin-top:16px;">
+      <b>Detalhe por tipo de promoção indisponível neste período.</b><br>
+      A quebra por mecânica (Hits, Campanha Inteligente, Clube, Frete grátis) vem do
+      <b>relatório de promoções</b> do portal, que hoje temos importado só para
+      <b>junho e julho/2026</b>. Os blocos acima usam os pedidos diários e estão sempre atualizados.<br>
+      Para ver a quebra por promoção, escolha um período dentro de jun–jul ou use "Todo o histórico".
     </div>`;
   }
 
