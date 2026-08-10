@@ -2972,23 +2972,23 @@ function renderModuloDRE() {
     return '#ff6b6b';
   };
 
-  // celula: R$ em cima; embaixo AV (com farol nas linhas com meta) e AH
-  // (verde/vermelho conforme melhora ou piora — em custo, cair e' bom)
+  // celula: R$ em cima; embaixo AV e AH em cinza discreto. Cor e' EXCEÇÃO:
+  // so aparece quando uma linha com meta esta fora dela (ambar = ate 10% de
+  // distancia, vermelho = alem) — dentro da meta, nada pisca (decisao do
+  // usuario: a versao com verde/vermelho em toda celula ficou carnavalesca).
   const celula = (v, base, vAnt, kind, metaChave) => {
     const valorHtml = `<div class="${v < -0.005 ? 'negativo' : ''}">${fmt(v)}</div>`;
     const subs = [];
     if (base) {
       const av = v / base * 100;
       const cor = metaChave ? corFarol(metaChave, av) : null;
-      subs.push(`${cor ? `<span class="dre-farol" style="background:${cor}"></span>` : ''}` +
-                `<b${cor ? ` style="color:${cor}"` : ''}>AV ${pct(av)}%</b>`);
+      const alerta = cor && cor !== '#3fb950';
+      subs.push(`${alerta ? `<span class="dre-farol" style="background:${cor}"></span>` : ''}` +
+                `<span${alerta ? ` style="color:${cor}"` : ''}>AV ${pct(av)}%</span>`);
     }
     if (vAnt !== null && Math.abs(vAnt) > 0.005) {
       const d = (v - vAnt) / Math.abs(vAnt) * 100;
-      const melhor = kind === 'custo' ? d < -0.5 : kind === 'ganho' ? d > 0.5 : null;
-      const pior   = kind === 'custo' ? d > 0.5  : kind === 'ganho' ? d < -0.5 : null;
-      const corAh = melhor ? '#3fb950' : pior ? '#ff6b6b' : '#7d8590';
-      subs.push(`<span style="color:${corAh}">${d > 0.5 ? '▲' : d < -0.5 ? '▼' : '•'} ${pct(Math.abs(d))}%</span>`);
+      subs.push(`<span>${d > 0.5 ? '▲' : d < -0.5 ? '▼' : '•'} ${pct(Math.abs(d))}%</span>`);
     }
     return `<td>${valorHtml}${subs.length ? `<div class="dre-sub">${subs.join(' ')}</div>` : ''}</td>`;
   };
@@ -3061,8 +3061,9 @@ function renderModuloDRE() {
   <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">DRE Gerencial — Água Verde</div>
   <div class="caption-label" style="text-align:center;">
     Resultado mês a mês da empresa inteira, na mesma base do fluxo de caixa — <b>não segue os filtros do topo</b>.
-    Em cada célula: valor, <b>AV</b> (% da receita líquida) e <b>▲▼</b> (variação vs mês anterior — verde = melhorou).
-    Bolinha colorida = comparação com a meta da linha. Clique nas linhas com ▶ para abrir o detalhe.
+    Em cada célula: valor, <b>AV</b> (% da receita líquida) e <b>▲▼</b> (variação vs mês anterior).
+    Marcação colorida só aparece quando a linha está <b>fora da meta</b> (âmbar = perto, vermelho = longe) —
+    sem marcação, está tudo dentro. Clique nas linhas com ▶ para abrir o detalhe.
   </div>
   <div class="cards">
     <div class="card blue"><div class="card-lbl">Receita líquida (${rotuloPeriodo})</div><div class="card-val">R$ ${fmt(recLiqTotJan)}</div></div>
@@ -3087,8 +3088,8 @@ function renderModuloDRE() {
   <div class="caption-label">DRE gerencial em regime de caixa: receita quando o dinheiro entra na conta, despesa de cartão de crédito
   no ciclo da fatura. Investimentos, retiradas e aportes ficam fora do resultado (são o destino do lucro) — por isso o
   resultado daqui difere do "resultado final" do fluxo de caixa, que soma tudo que passou pelo caixa.
-  Metas por linha na tabela <b>fin_metas_dre</b> do banco (verde = na meta, âmbar = até 10% de distância, vermelho = fora) —
-  os valores iniciais vieram da média jan–jul/2026; peça ao Claude para ajustá-los aos seus objetivos.</div>`;
+  Metas por linha na tabela <b>fin_metas_dre</b> do banco (âmbar = até 10% de distância da meta, vermelho = além;
+  dentro da meta não há marcação) — os valores iniciais vieram da média jan–jul/2026; peça ao Claude para ajustá-los.</div>`;
 }
 
 // Agrupamento automatico pelo tamanho do periodo filtrado — evita colocar mais um controle na
