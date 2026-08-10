@@ -1706,6 +1706,62 @@ function blocoFreteGratis() {
   ${alerta}`;
 }
 
+// Alavancagem loja a loja — é por aqui que acompanhamos o teste: as lojas em teste
+// devem subir a alavancagem sem perder pedidos contra as lojas de controle.
+// Usa os pedidos (diários), não o relatório mensal de promoções, para dar leitura semanal.
+function blocoAlavancagemPorLoja() {
+  const rows = linhasFiltradas(true).filter(r => r[6] !== 1);
+  if (!rows.length) return '';
+
+  const porLoja = new Map();
+  rows.forEach(r => {
+    const k = r[0];
+    if (!porLoja.has(k)) porLoja.set(k, { loja: k, uni: r[1], ped: 0, bruto: 0, nosso: 0, ifood: 0 });
+    const o = porLoja.get(k);
+    o.ped += r[7];
+    o.bruto += (r[8] - r[9]) + r[10];
+    o.nosso += r[13];          // incentivo bancado pela loja
+    o.ifood += r[11] + r[12];  // incentivo do iFood
+  });
+
+  const lista = [...porLoja.values()]
+    .filter(o => o.ped > 0)
+    .map(o => ({
+      ...o,
+      nome: LOJAS[o.loja], unidade: UNIDADES[o.uni],
+      promoPed: o.ped ? o.nosso / o.ped : 0,
+      alav: o.nosso > 0.005 ? o.ifood / o.nosso : null,
+    }))
+    .sort((a, b) => (b.alav || 0) - (a.alav || 0));
+
+  const totNosso = lista.reduce((s, o) => s + o.nosso, 0);
+  const totIfood = lista.reduce((s, o) => s + o.ifood, 0);
+  const cor = (v) => v === null ? '#7d8590' : v >= 1 ? '#3fb950' : v >= 0.8 ? '#f5a623' : '#ff6b6b';
+  const alavTxt = (v) => v === null ? '—'
+    : `<b style="color:${cor(v)};">${v.toFixed(2).replace('.', ',')}x</b>`;
+
+  return `
+  <div class="section-label">Alavancagem por loja — quem faz o iFood pagar mais</div>
+  <div class="caption-label" style="text-align:center;">
+    Quanto o iFood investe em promoção para cada R$ 1 nosso, loja a loja, no período filtrado acima.
+    <b>Acima de 1,00x o iFood banca mais que a loja.</b> É por esta tabela que acompanhamos o teste semana a semana.
+  </div>
+  <div id="tabelaAlavLoja">
+    <table>
+      <tr><th>Loja</th><th>Unidade</th><th>Pedidos</th><th>Nossa promo (R$)</th><th>Promo/pedido</th><th>iFood (R$)</th><th>Alavancagem</th></tr>
+      ${lista.map(o => `<tr>
+        <td>${o.nome}</td><td>${o.unidade}</td>
+        <td>${o.ped.toLocaleString('pt-BR')}</td>
+        <td>R$ ${fmt(o.nosso)}</td>
+        <td>R$ ${fmt(o.promoPed)}</td>
+        <td>R$ ${fmt(o.ifood)}</td>
+        <td>${alavTxt(o.alav)}</td></tr>`).join('')}
+      <tr class="sub"><td><b>REDE</b></td><td></td><td></td><td><b>R$ ${fmt(totNosso)}</b></td><td></td>
+        <td><b>R$ ${fmt(totIfood)}</b></td><td>${alavTxt(totNosso > 0.005 ? totIfood / totNosso : null)}</td></tr>
+    </table>
+  </div>`;
+}
+
 function blocoMecanicas() {
   const d = decomporPorMecanica();
   if (!d.lista.length) return '';
@@ -1867,7 +1923,7 @@ function moduloPromocoes() {
       <td>R$ ${fmt(x.ticket)}</td>
     </tr>`).join('');
 
-  return teste + blocoMecanicas() + blocoFreteGratis() + `
+  return teste + blocoAlavancagemPorLoja() + blocoMecanicas() + blocoFreteGratis() + `
   <div class="section-label">Quanto e onde investimos em promoção (relatório mensal)</div>
   <div class="caption-label" style="text-align:center;">
     Dados de <b>${mesesTexto}</b>. O relatório de promoções do iFood é mensal — este bloco ignora o recorte por dia,
