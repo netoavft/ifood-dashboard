@@ -287,7 +287,7 @@
     <button class="sidebar-secao" onclick="toggleGrupo('gFinanceiro')">Financeiro <span class="seta">▶</span></button>
     <div class="sidebar-grupo" id="gFinanceiro">
       <button class="sidebar-btn" id="navBtnFluxo" onclick="mostrarModulo('fluxo')">Fluxo de caixa</button>
-      <span class="sidebar-btn breve">Fluxo projetado</span>
+      <button class="sidebar-btn" id="navBtnProjecao" onclick="mostrarModulo('projecao')">Fluxo projetado</button>
       <span class="sidebar-btn breve">Análise de despesas</span>
       <span class="sidebar-btn breve">Conciliação</span>
     </div>
@@ -423,6 +423,10 @@
 
     <div id="modulo-dre" class="modulo" style="display:none;">
       <div id="view-dre"></div>
+    </div>
+
+    <div id="modulo-projecao" class="modulo" style="display:none;">
+      <div id="view-projecao"></div>
     </div>
 
     <div id="modulo-indicadores" class="modulo" style="display:none;">
@@ -809,7 +813,7 @@ function toggleGrupo(id) {
 // Garante que o grupo que contem o modulo esteja aberto (ex.: botao que leva
 // a Cancelamentos a partir da Visao geral, ou o modulo inicial no boot).
 function abrirGrupoDoModulo(nome) {
-  const grupoDe = { relatorios: 'gRelatorios', fluxo: 'gFinanceiro', dre: 'gResultado', indicadores: 'gResultado' };
+  const grupoDe = { relatorios: 'gRelatorios', fluxo: 'gFinanceiro', projecao: 'gFinanceiro', dre: 'gResultado', indicadores: 'gResultado' };
   const id = grupoDe[nome] || 'gIfood';
   const grupo = document.getElementById(id);
   if (!grupo.classList.contains('aberto')) toggleGrupo(id);
@@ -830,6 +834,7 @@ function mostrarModulo(nome) {
     clientes: ['modulo-clientes', 'navBtnClientes'],
     fluxo: ['modulo-fluxo', 'navBtnFluxo'],
     dre: ['modulo-dre', 'navBtnDre'],
+    projecao: ['modulo-projecao', 'navBtnProjecao'],
     indicadores: ['modulo-indicadores', 'navBtnIndicadores'],
   };
   Object.entries(modulos).forEach(([chave, [idDiv, idBtn]]) => {
@@ -856,6 +861,7 @@ function mostrarModulo(nome) {
   if (nome === 'contestacoes') entrarContestacoes();
   if (nome === 'fluxo') entrarFluxo();
   if (nome === 'dre') entrarDre();
+  if (nome === 'projecao') entrarProjecao();
   if (nome === 'indicadores') entrarIndicadores();
 }
 
@@ -3129,6 +3135,185 @@ function renderModuloDRE() {
   as despesas do mês já estão quase todas lá, mas as vendas ainda estão acontecendo.
   Investimentos, retiradas e aportes ficam fora do resultado (são o destino do lucro).
   Metas por linha na tabela <b>fin_metas_dre</b> (âmbar = até 10% de distância, vermelho = além; dentro da meta não há marcação).</div>`;
+}
+
+// ------------------------------------------------------------------
+// Modulo Fluxo Projetado — para onde o caixa vai nos proximos 45 dias.
+// Saidas = contas a pagar LANCADAS no Saipos (fonte SAIPOS_PREV, ja com
+// vencimento) + estimativa da fatura de cartao (saldo devedor dos cartoes,
+// paga por volta do dia 5). Entradas = contas a receber lancadas + receita
+// projetada pela media por dia da semana das ultimas 4 semanas de
+// recebimentos REAIS. O que nao foi lancado no Saipos nao aparece aqui.
+// ------------------------------------------------------------------
+let PROJ_PAGAR = null;    // vw_fin_contas_pagar
+let PROJ_RECEB = null;    // vw_fin_receitas_diarias (ultimas semanas)
+
+// contas que nao sao caixa operacional (investimentos, pessoais e cartoes)
+const PROJ_FORA_CAIXA = ['XP INVESTIMENTOS', 'PARTICIPACOES', 'FABIO PESSOAL'];
+
+async function entrarProjecao() {
+  const alvo = document.getElementById('view-projecao');
+  if (PROJ_PAGAR === null) alvo.innerHTML = '<div class="contexto">Carregando projeção...</div>';
+  const corte = new Date(); corte.setDate(corte.getDate() - 35);
+  const corteIso = corte.toISOString().slice(0, 10);
+  const [pagar, receb] = await Promise.all([
+    consultarTudo('vw_fin_contas_pagar?select=vencimento,conta,subtipo,tipo,natureza,descricao,credito,debito&order=vencimento'),
+    consultarTudo(`vw_fin_receitas_diarias?select=data,recebido&data=gte.${corteIso}&order=data`),
+    garantirDadosFin(),
+  ]);
+  PROJ_PAGAR = pagar;
+  PROJ_PAGAR.forEach(r => { r.credito = Number(r.credito); r.debito = Number(r.debito); });
+  PROJ_RECEB = receb;
+  PROJ_RECEB.forEach(r => { r.recebido = Number(r.recebido); });
+  renderModuloProjecao();
+}
+
+function renderModuloProjecao() {
+  const alvo = document.getElementById('view-projecao');
+  const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+  const iso = (d) => d.toISOString().slice(0, 10);
+  const hojeIso = iso(hoje);
+  const HORIZONTE = 45;
+
+  // ---- saldo atual por conta (saldo inicial + todos os movimentos) ----
+  const movTotal = {};
+  DFC_MOV.forEach(r => { movTotal[r.conta] = (movTotal[r.conta] || 0) + r.movimento; });
+  let caixaOper = 0, investido = 0, saldoCartoes = 0;
+  DFC_CONTAS.forEach(c => {
+    const s = c.saldo_inicial + (movTotal[c.conta] || 0);
+    if (c.conta.startsWith('CREDITO')) saldoCartoes += s;
+    else if (PROJ_FORA_CAIXA.includes(c.conta)) investido += s;
+    else caixaOper += s;
+  });
+
+  // ---- media de recebimento por dia da semana (ultimas 4 semanas) ----
+  const porDow = {};
+  PROJ_RECEB.filter(r => r.data < hojeIso).slice(-28).forEach(r => {
+    const dow = new Date(r.data + 'T00:00:00').getDay();
+    (porDow[dow] = porDow[dow] || []).push(r.recebido);
+  });
+  const mediaDow = {};
+  for (let d = 0; d < 7; d++) {
+    const v = porDow[d] || [];
+    mediaDow[d] = v.length ? v.reduce((s, x) => s + x, 0) / v.length : 0;
+  }
+  const mediaSemana = Object.values(mediaDow).reduce((s, x) => s + x, 0);
+
+  // ---- contas a pagar/receber por dia (vencidas caem em hoje) ----
+  const pagarDia = {}, receberDia = {}, itensDia = {};
+  let vencidas = 0;
+  PROJ_PAGAR.forEach(r => {
+    const dia = r.vencimento < hojeIso ? hojeIso : r.vencimento;
+    if (r.vencimento < hojeIso) vencidas += r.debito - r.credito;
+    pagarDia[dia] = (pagarDia[dia] || 0) + r.debito;
+    receberDia[dia] = (receberDia[dia] || 0) + r.credito;
+    (itensDia[dia] = itensDia[dia] || []).push(r);
+  });
+
+  // ---- fatura de cartao estimada: saldo devedor pago por volta do dia 5 ----
+  let faturaDia = null, faturaValor = 0;
+  if (saldoCartoes < -0.005) {
+    faturaValor = -saldoCartoes;
+    const f = new Date(hoje);
+    f.setDate(5);
+    if (f <= hoje) f.setMonth(f.getMonth() + 1);
+    faturaDia = iso(f);
+  }
+
+  // ---- projecao dia a dia ----
+  const dias = [], serieSaldo = [];
+  let saldo = caixaOper, menorSaldo = caixaOper, menorDia = hojeIso;
+  let pagar30 = 0;
+  for (let i = 0; i <= HORIZONTE; i++) {
+    const d = new Date(hoje); d.setDate(d.getDate() + i);
+    const dIso = iso(d);
+    const entradas = (i === 0 ? 0 : mediaDow[d.getDay()]) + (receberDia[dIso] || 0);
+    let saidas = pagarDia[dIso] || 0;
+    if (dIso === faturaDia) saidas += faturaValor;
+    saldo += entradas - saidas;
+    if (i <= 30) pagar30 += pagarDia[dIso] || 0;
+    dias.push(dIso);
+    serieSaldo.push(saldo);
+    if (saldo < menorSaldo) { menorSaldo = saldo; menorDia = dIso; }
+  }
+
+  // ---- agenda de vencimentos (dias com lancamento, proximos 30) ----
+  const fmtDia = (dIso) => {
+    const d = new Date(dIso + 'T00:00:00');
+    return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')} (${['dom','seg','ter','qua','qui','sex','sáb'][d.getDay()]})`;
+  };
+  let agenda = '';
+  Object.keys(itensDia).sort().forEach(dia => {
+    if (dia > iso(new Date(hoje.getTime() + 30 * 86400000))) return;
+    const itens = itensDia[dia];
+    const tot = (pagarDia[dia] || 0) - (receberDia[dia] || 0);
+    const eHoje = dia === hojeIso;
+    agenda += `
+    <details style="border-bottom:1px solid #21262d;">
+      <summary style="cursor:pointer; padding:7px 4px; display:flex; justify-content:space-between;">
+        <span>${fmtDia(dia)}${eHoje && vencidas > 0.005 ? ' <span style="color:#ff6b6b;">(inclui vencidas)</span>' : ''}</span>
+        <b class="${tot > 0 ? 'negativo' : ''}" style="${tot > 0 ? '' : 'color:#3fb950;'}">${tot > 0 ? '−' : '+'} R$ ${fmt(Math.abs(tot))}</b>
+      </summary>
+      ${itens.sort((a, b) => (b.debito - b.credito) - (a.debito - a.credito)).map(r => `
+        <div style="display:flex; justify-content:space-between; padding:3px 4px 3px 22px; font-size:12px; color:#9aa4af;">
+          <span>${r.subtipo}${r.descricao ? ' — ' + r.descricao.slice(0, 60) : ''}</span>
+          <span class="${r.debito > r.credito ? 'negativo' : ''}">${r.debito > r.credito ? '−' : '+'} R$ ${fmt(Math.abs(r.debito - r.credito))}</span>
+        </div>`).join('')}
+    </details>`;
+  });
+  if (faturaDia) {
+    agenda = `<div class="contexto" style="border-color:#f5a623; text-align:left;">
+      Estimativa: <b>fatura dos cartões ~R$ ${fmt(faturaValor)}</b> por volta de ${fmtDia(faturaDia)}
+      (saldo devedor atual dos cartões — a data real depende do fechamento).</div>` + agenda;
+  }
+
+  const corMenor = menorSaldo < 0 ? '#ff6b6b' : menorSaldo < mediaSemana ? '#f5a623' : '#3fb950';
+  alvo.innerHTML = `
+  <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Fluxo de Caixa Projetado — Água Verde</div>
+  <div class="caption-label" style="text-align:center;">
+    Próximos ${HORIZONTE} dias, dia a dia: contas a pagar lançadas no Saipos + receita projetada
+    (média por dia da semana das últimas 4 semanas). <b>O que não está lançado no Saipos não aparece aqui.</b>
+  </div>
+  <div class="cards">
+    <div class="card blue"><div class="card-lbl">Caixa operacional hoje</div><div class="card-val">R$ ${fmt(caixaOper)}</div>
+      <div class="card-pct">+ R$ ${fmt(investido)} investidos (XP/Part.)</div></div>
+    <div class="card ${vencidas > 0.005 ? 'neg' : ''}"><div class="card-lbl">A pagar (30 dias)</div><div class="card-val">R$ ${fmt(pagar30 + (faturaDia ? faturaValor : 0))}</div>
+      ${vencidas > 0.005 ? `<div class="card-pct" style="color:#ff6b6b;">R$ ${fmt(vencidas)} já vencidas!</div>` : '<div class="card-pct">inclui estimativa de fatura</div>'}</div>
+    <div class="card"><div class="card-lbl">Receita projetada / semana</div><div class="card-val">R$ ${fmt(mediaSemana)}</div>
+      <div class="card-pct">média das últimas 4 semanas</div></div>
+    <div class="card" style="border-color:${corMenor};"><div class="card-lbl">Menor saldo projetado</div>
+      <div class="card-val" style="color:${corMenor};">R$ ${fmt(menorSaldo)}</div>
+      <div class="card-pct">em ${fmtDia(menorDia)}</div></div>
+  </div>
+  <div style="height:280px; margin:14px 0;"><canvas id="chartProjecao"></canvas></div>
+  <div class="section-label">Agenda de vencimentos (30 dias)</div>
+  ${agenda || '<div class="contexto">Nenhuma conta a pagar lançada para os próximos 30 dias.</div>'}
+  <div class="caption-label">Saldo projetado sobre o caixa operacional (bancos + cofre; XP/Participações e cartões fora).
+  Vencidas entram como pagáveis hoje. A fatura de cartão é estimada pelo saldo devedor atual dos cartões.
+  A base atualiza na importação diária das 07:30 — lançou no Saipos, aparece aqui no dia seguinte.</div>`;
+
+  destroyChart('chartProjecao');
+  chartInstances['chartProjecao'] = new Chart(document.getElementById('chartProjecao').getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: dias.map(d => d.slice(8, 10) + '/' + d.slice(5, 7)),
+      datasets: [{
+        label: 'Saldo projetado',
+        data: serieSaldo,
+        borderColor: '#58a6ff',
+        backgroundColor: 'rgba(88,166,255,0.12)',
+        fill: true, tension: 0.25, pointRadius: 2,
+      }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: (c) => `R$ ${fmt(c.parsed.y)}` } },
+      },
+      scales: { y: { title: { display: true, text: 'R$' } }, x: { ticks: { maxRotation: 60, autoSkip: true } } },
+    },
+  });
 }
 
 // Agrupamento automatico pelo tamanho do periodo filtrado — evita colocar mais um controle na
