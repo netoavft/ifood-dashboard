@@ -134,50 +134,23 @@
   .chart-title { color:#a5a49a; font-size:11px; text-transform:uppercase; letter-spacing:.5px; margin-bottom:8px; }
   .chart-box .chart-canvas-wrap { position:relative; flex:1; }
 
-  /* Grade padrao das tabelas. Ao criar uma tabela nova, inclua o id nos grupos abaixo. */
-  #tabelaMotivos, #tabelaPromo, #tabelaPromoLojas, #tabelaTestePromo, #tabelaMecanicas, #tabelaFreteGratis,
-  #tabelaAlavLoja, #tabelaContestPend, #tabelaContestLog,
-  #tabelaNegLojas, #tabelaAvalLojas, #tabelaComentarios { overflow-x:auto; max-width:100%; }
-  #tabelaMotivos table, #tabelaPromo table, #tabelaPromoLojas table, #tabelaTestePromo table, #tabelaMecanicas table,
-  #tabelaFreteGratis table, #tabelaAlavLoja table, #tabelaContestPend table, #tabelaContestLog table,
-  #tabelaNegLojas table, #tabelaAvalLojas table, #tabelaComentarios table { border-collapse:collapse; width:100%; font-size:12.5px; }
-  #tabelaMotivos th, #tabelaMotivos td,
-  #tabelaPromo th, #tabelaPromo td,
-  #tabelaPromoLojas th, #tabelaPromoLojas td,
-  #tabelaTestePromo th, #tabelaTestePromo td,
-  #tabelaMecanicas th, #tabelaMecanicas td,
-  #tabelaFreteGratis th, #tabelaFreteGratis td,
-  #tabelaAlavLoja th, #tabelaAlavLoja td,
-  #tabelaContestPend th, #tabelaContestPend td,
-  #tabelaContestLog th, #tabelaContestLog td,
-  #tabelaNegLojas th, #tabelaNegLojas td,
-  #tabelaAvalLojas th, #tabelaAvalLojas td,
-  #tabelaComentarios th, #tabelaComentarios td { border:1px solid #34332f; padding:6px 10px; text-align:right; white-space:nowrap; }
-  #tabelaMotivos th:first-child, #tabelaMotivos td:first-child,
-  #tabelaPromo th:first-child, #tabelaPromo td:first-child,
-  #tabelaPromoLojas th:first-child, #tabelaPromoLojas td:first-child,
-  #tabelaTestePromo th:first-child, #tabelaTestePromo td:first-child,
-  #tabelaMecanicas th:first-child, #tabelaMecanicas td:first-child,
-  #tabelaFreteGratis th:first-child, #tabelaFreteGratis td:first-child,
-  #tabelaAlavLoja th:first-child, #tabelaAlavLoja td:first-child,
-  #tabelaContestPend th:first-child, #tabelaContestPend td:first-child,
-  #tabelaContestLog th:first-child, #tabelaContestLog td:first-child,
-  #tabelaNegLojas th:first-child, #tabelaNegLojas td:first-child,
-  #tabelaAvalLojas th:first-child, #tabelaAvalLojas td:first-child,
-  #tabelaComentarios th:first-child, #tabelaComentarios td:first-child { text-align:left; white-space:normal; }
-  #tabelaMotivos th, #tabelaPromo th, #tabelaPromoLojas th, #tabelaTestePromo th, #tabelaMecanicas th,
-  #tabelaFreteGratis th, #tabelaAlavLoja th, #tabelaContestPend th, #tabelaContestLog th,
-  #tabelaNegLojas th, #tabelaAvalLojas th, #tabelaComentarios th { background:#232321; color:#a5a49a; font-weight:bold; font-size:11px; text-transform:uppercase; }
-  #tabelaMotivos tr:nth-child(even), #tabelaPromo tr:nth-child(even), #tabelaPromoLojas tr:nth-child(even), #tabelaTestePromo tr:nth-child(even),
-  #tabelaMecanicas tr:nth-child(even), #tabelaFreteGratis tr:nth-child(even), #tabelaAlavLoja tr:nth-child(even),
-  #tabelaContestPend tr:nth-child(even), #tabelaContestLog tr:nth-child(even),
-  #tabelaNegLojas tr:nth-child(even), #tabelaAvalLojas tr:nth-child(even), #tabelaComentarios tr:nth-child(even) { background:#171716; }
+  /* GRADE PADRAO DAS TABELAS — vale para qualquer <div id="tabelaAlgumaCoisa">.
+     Nao e preciso cadastrar id novo: basta usar esse prefixo no id do container.
+     A especificidade e baixa de proposito, entao regras por id (DFC, DRE,
+     Despesas...) continuam mandando mais que estas. */
+  div[id^="tabela"] { overflow-x:auto; max-width:100%; }
+  div[id^="tabela"] table { border-collapse:collapse; width:100%; font-size:12.5px; }
+  div[id^="tabela"] th, div[id^="tabela"] td { border:1px solid #34332f; padding:6px 10px; text-align:right; white-space:nowrap; }
+  div[id^="tabela"] th:first-child, div[id^="tabela"] td:first-child { text-align:left; white-space:normal; }
+  div[id^="tabela"] th { background:#232321; color:#a5a49a; font-weight:bold; font-size:11px; text-transform:uppercase; }
+  div[id^="tabela"] tr:nth-child(even) { background:#171716; }
+  /* tabelas hierarquicas (blocos/grupos/linhas) pintam o fundo por conta propria */
+  #tabelaDFC tr, #tabelaDRE tr, #tabelaDespesas tr { background:transparent; }
 
   /* linhas de fechamento (mesmo padrao do extrato financeiro) */
-  #tabelaAlavLoja tr.sub td { background:#232321; border-top:2px solid #45443f; }
-  #tabelaMecanicas tr.sub td { background:#232321; border-top:2px solid #45443f; }
-  #tabelaMecanicas tr.liq td { background:#250f13; border-top:2px solid #c8102e; }
-  #tabelaMecanicas tr.liq td:first-child { color:#c8102e; }
+  div[id^="tabela"] tr.sub td { background:#232321; border-top:2px solid #45443f; }
+  div[id^="tabela"] tr.liq td { background:#250f13; border-top:2px solid #c8102e; }
+  div[id^="tabela"] tr.liq td:first-child { color:#c8102e; }
 
   /* tabelas dos modulos Vendas/Cardapio/Clientes (mesmo visual das demais) */
   #tabelaVendasCanal, #tabelaVendasLojas, #tabelaFunil, #tabelaItens, #tabelaCompl, #tabelaClientesLojas { overflow-x:auto; max-width:100%; }
@@ -253,8 +226,7 @@
   /* vermelho de valor negativo vale para todas as tabelas financeiras */
   td.negativo, .negativo { color:#ff6b6b; }
 
-  /* Analise de despesas e Conferencia da base */
-  #tabelaDespesas table td, #tabelaSaldos table td, #tabelaSemClass table td { border-bottom:1px solid #232321; }
+  /* Analise de despesas e Conferencia da base (a grade vem do bloco padrao acima) */
   #tabelaDespesas tr.dfc-bloco td { background:#232321; font-weight:bold; border-top:2px solid #45443f; color:#ffffff; }
   #tabelaDespesas tr.dfc-grupo td { background:#1a1a19; font-weight:bold; color:#c3c2b7; }
   #tabelaDespesas tr.dfc-grupo td:first-child { padding-left:22px; }
