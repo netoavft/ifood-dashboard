@@ -1625,11 +1625,17 @@ function decomporPorMecanica() {
 // Carregado sob demanda (vw_promocoes_frete) na primeira visita ao módulo.
 let PROMO_FRETE = null;
 
-async function carregarPromoFrete() {
-  if (PROMO_FRETE !== null) return;
-  PROMO_FRETE = await consultarTudo(
-    'vw_promocoes_frete?select=competencia,nome_loja,grupo_frete,pedidos,valor_itens,investimento_loja,investimento_ifood&order=competencia'
-  );
+// O recorte de frete vem de outra consulta; na primeira visita ao módulo buscamos
+// e redesenhamos o bloco, para não atrasar a abertura do painel.
+async function entrarPromocoes() {
+  if (PROMO_FRETE === null) {
+    PROMO_FRETE = await consultarTudo(
+      'vw_promocoes_frete?select=competencia,nome_loja,grupo_frete,pedidos,valor_itens,investimento_loja,investimento_ifood&order=competencia'
+    );
+    const alvo = document.getElementById('view-promocoes');
+    if (alvo) alvo.innerHTML = linhaContexto(periodoAnterior()) + moduloPromocoes();
+  }
+  renderChartsPromocoes();
 }
 
 function blocoFreteGratis() {
@@ -3734,7 +3740,7 @@ function renderAll() {
   const ativo = moduloAtivo();
   if (ativo === 'resumo') { renderChartWaterfall(m, a, ant); renderChartTendencia(); }
   if (ativo === 'cancelamentos') renderChartMotivos();
-  if (ativo === 'promocoes') renderChartsPromocoes();
+  if (ativo === 'promocoes') entrarPromocoes();
   // Modulos de carga sob demanda: so re-renderiza se os dados ja foram buscados.
   if (ativo === 'negociacoes' && NEGOCIACOES !== null) renderModuloNegociacoes();
   if (ativo === 'avaliacoes' && AVALIACOES !== null) renderModuloAvaliacoes();
