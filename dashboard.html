@@ -263,7 +263,7 @@
     <div class="sidebar-grupo" id="gResultado">
       <button class="sidebar-btn" id="navBtnIndicadores" onclick="mostrarModulo('indicadores')">Indicadores e metas</button>
       <span class="sidebar-btn breve">Visão consolidada</span>
-      <span class="sidebar-btn breve">DRE</span>
+      <button class="sidebar-btn" id="navBtnDre" onclick="mostrarModulo('dre')">DRE</button>
       <button class="sidebar-btn" id="navBtnFluxo" onclick="mostrarModulo('fluxo')">Fluxo de caixa</button>
       <span class="sidebar-btn breve">Margem por item</span>
     </div>
@@ -395,6 +395,10 @@
 
     <div id="modulo-fluxo" class="modulo" style="display:none;">
       <div id="view-fluxo"></div>
+    </div>
+
+    <div id="modulo-dre" class="modulo" style="display:none;">
+      <div id="view-dre"></div>
     </div>
 
     <div id="modulo-indicadores" class="modulo" style="display:none;">
@@ -801,6 +805,7 @@ function mostrarModulo(nome) {
     cardapio: ['modulo-cardapio', 'navBtnCardapio'],
     clientes: ['modulo-clientes', 'navBtnClientes'],
     fluxo: ['modulo-fluxo', 'navBtnFluxo'],
+    dre: ['modulo-dre', 'navBtnDre'],
     indicadores: ['modulo-indicadores', 'navBtnIndicadores'],
   };
   Object.entries(modulos).forEach(([chave, [idDiv, idBtn]]) => {
@@ -826,6 +831,7 @@ function mostrarModulo(nome) {
   if (nome === 'relatorios') entrarRelatorios();
   if (nome === 'contestacoes') entrarContestacoes();
   if (nome === 'fluxo') entrarFluxo();
+  if (nome === 'dre') entrarDre();
   if (nome === 'indicadores') entrarIndicadores();
 }
 
@@ -2622,19 +2628,23 @@ async function entrarIndicadores() {
   ${corpo}`;
 }
 
+// Carrega os dados financeiros uma vez so — compartilhados entre DFC e DRE.
+async function garantirDadosFin() {
+  if (DFC_MENSAL !== null) return;
+  [DFC_MENSAL, DFC_CONTAS, DFC_MOV] = await Promise.all([
+    consultarTudo("vw_fin_dfc_mensal?select=mes,natureza,tipo,subtipo,ordem,credito,debito&order=mes,ordem"),
+    consultarTudo("fin_contas?select=conta,saldo_inicial,ordem&order=ordem"),
+    consultarTudo("vw_fin_saldo_conta_mensal?select=mes,conta,movimento&order=mes,conta"),
+  ]);
+  DFC_MENSAL.forEach(r => { r.credito = Number(r.credito); r.debito = Number(r.debito); });
+  DFC_CONTAS.forEach(r => { r.saldo_inicial = Number(r.saldo_inicial); });
+  DFC_MOV.forEach(r => { r.movimento = Number(r.movimento); });
+}
+
 async function entrarFluxo() {
   const alvo = document.getElementById('view-fluxo');
-  if (DFC_MENSAL === null) {
-    alvo.innerHTML = '<div class="contexto">Carregando fluxo de caixa...</div>';
-    [DFC_MENSAL, DFC_CONTAS, DFC_MOV] = await Promise.all([
-      consultarTudo("vw_fin_dfc_mensal?select=mes,natureza,tipo,subtipo,ordem,credito,debito&order=mes,ordem"),
-      consultarTudo("fin_contas?select=conta,saldo_inicial,ordem&order=ordem"),
-      consultarTudo("vw_fin_saldo_conta_mensal?select=mes,conta,movimento&order=mes,conta"),
-    ]);
-    DFC_MENSAL.forEach(r => { r.credito = Number(r.credito); r.debito = Number(r.debito); });
-    DFC_CONTAS.forEach(r => { r.saldo_inicial = Number(r.saldo_inicial); });
-    DFC_MOV.forEach(r => { r.movimento = Number(r.movimento); });
-  }
+  if (DFC_MENSAL === null) alvo.innerHTML = '<div class="contexto">Carregando fluxo de caixa...</div>';
+  await garantirDadosFin();
   renderModuloDFC();
 }
 
@@ -2834,6 +2844,185 @@ function renderModuloDFC() {
   <div class="caption-label">Histórico de jan a jul/2026 importado da planilha de fluxo realizado (validado linha a linha contra ela).
   A partir de agosto a base passa a ser alimentada pelo Saipos. Saldos por conta: clique em SALDO INICIAL/FINAL.
   Nos saldos, a coluna Total mostra o saldo na ponta do período (não a soma dos meses).</div>`;
+}
+
+// ------------------------------------------------------------------
+// Modulo DRE — demonstrativo de resultado gerencial da Agua Verde.
+// Mesma base do DFC (fin_lancamentos), reorganizada em formato DRE:
+// receita liquida, custo, lucro bruto, despesas por funcao, EBITDA e
+// resultado. E' regime de caixa gerencial (nao e' a DRE contabil):
+// receita quando o dinheiro entra, despesa de cartao no ciclo da fatura.
+// ------------------------------------------------------------------
+let dreModo = 'valor';   // 'valor' (R$) | 'pct' (% da receita liquida)
+const dreAberto = new Set();
+
+// Agrupamento das funcoes da DRE -> tipos do plano de contas
+const DRE_GRUPOS = [
+  ['CUSTO',   '(−) CUSTO (mercadoria + uso e consumo)', ['MATERIA PRIMA', 'USO E CONSUMO']],
+  ['PESSOAL', '(−) PESSOAL (inclui pró-labore)',        ['PESSOAL', 'PRO LABORE']],
+  ['VENDA',   '(−) DESPESAS DE VENDA (comercial, logística, marketing)', ['DESPESAS COMERCIAIS', 'DESPESAS LOGISTICA', 'DESPESAS MARKETING']],
+  ['ADMIN',   '(−) DESPESAS ADMINISTRATIVAS (adm, manutenção, impostos)', ['DESPESAS ADMINISTRATIVAS', 'DESPESAS MANUTENÇÃO', 'IMPOSTOS E TAXAS']],
+];
+
+async function entrarDre() {
+  const alvo = document.getElementById('view-dre');
+  if (DFC_MENSAL === null) alvo.innerHTML = '<div class="contexto">Carregando DRE...</div>';
+  await garantirDadosFin();
+  renderModuloDRE();
+}
+
+function dreToggle(chave) {
+  if (dreAberto.has(chave)) dreAberto.delete(chave); else dreAberto.add(chave);
+  renderModuloDRE();
+}
+function dreModoSet(m) { dreModo = m; renderModuloDRE(); }
+
+function renderModuloDRE() {
+  const alvo = document.getElementById('view-dre');
+  if (!DFC_MENSAL || !DFC_MENSAL.length) {
+    alvo.innerHTML = `<div class="contexto" style="border-color:#f5a623;">Sem lançamentos financeiros ainda.</div>`;
+    return;
+  }
+  const meses = [...new Set(DFC_MENSAL.map(r => r.mes))].sort();
+  const nM = meses.length;
+  const idxMes = Object.fromEntries(meses.map((m, i) => [m, i]));
+  const rotuloMes = (m) => { const [a, mm] = m.split('-'); return `${MESES_ABREV[Number(mm) - 1]}/${a.slice(2)}`; };
+
+  const somar = (pred, sinal = 1) => {
+    const v = Array(nM).fill(0);
+    DFC_MENSAL.forEach(r => { if (pred(r)) v[idxMes[r.mes]] += (r.credito - r.debito) * sinal; });
+    return v;
+  };
+  const menos = (a, b) => a.map((x, i) => x - b[i]);
+  const total = (v) => v.reduce((s, x) => s + x, 0);
+  const subtiposDe = (pred) => {
+    const vistos = new Map();
+    DFC_MENSAL.forEach(r => { if (pred(r) && !vistos.has(r.subtipo)) vistos.set(r.subtipo, r.ordem); });
+    return [...vistos.entries()].sort((a, b) => a[1] - b[1]).map(([s]) => s);
+  };
+
+  // ---- blocos da DRE ----
+  const ehInvest = (r) => r.tipo === 'INVESTIMENTOS';
+  const recBruta = somar(r => r.natureza === 'RECEITAS');
+  const deducoes = somar(r => r.natureza === 'DEDUÇOES DA RECEITA', -1);
+  const recLiq   = menos(recBruta, deducoes);
+
+  const predGrupo = (tipos) => (r) => r.natureza === 'DESPESAS' && !ehInvest(r) && tipos.includes(r.tipo);
+  const gruposVals = DRE_GRUPOS.map(([chave, rotulo, tipos]) => [chave, rotulo, tipos, somar(predGrupo(tipos), -1)]);
+  // tipos de despesa que nao entraram em nenhum grupo (menos financeiras, tratadas abaixo)
+  const tiposMapeados = DRE_GRUPOS.flatMap(g => g[2]).concat(['DESPESAS FINANCEIRAS']);
+  const outrasDesp = somar(r => r.natureza === 'DESPESAS' && !ehInvest(r) && !tiposMapeados.includes(r.tipo), -1);
+
+  const lucroBruto = menos(recLiq, gruposVals[0][3]);
+  const ebitda = gruposVals.slice(1).reduce((acc, g) => menos(acc, g[3]), lucroBruto).map((v, i) => v - outrasDesp[i]);
+
+  const despFin = somar(r => r.tipo === 'DESPESAS FINANCEIRAS', -1);
+  const recFin  = somar(r => r.natureza === 'APLICAÇÕES' && r.subtipo === 'RENDIMENTOS');
+  const resFin  = menos(recFin, despFin);
+  const semClass = somar(r => r.natureza === 'SEM CLASSIFICACAO');
+  const resultado = ebitda.map((v, i) => v + resFin[i] + semClass[i]);
+
+  // abaixo da linha (nao entram no resultado — sao destino do lucro, nao custo dele)
+  const invest    = somar(r => ehInvest(r) || r.natureza === 'INVESTIMENTOS', -1);
+  const retiradas = somar(r => r.natureza === 'DISTRIBUICAO DE LUCROS', -1);
+  const naoOper   = somar(r => r.natureza === 'APORTE VALORES');
+
+  // ---- montagem ----
+  const recLiqTot = total(recLiq);
+  const cel = (v, i) => {
+    if (dreModo === 'pct') {
+      const base = i === 'tot' ? recLiqTot : recLiq[i];
+      if (!base) return '<td>—</td>';
+      const p = v / base * 100;
+      return `<td class="${p < -0.05 ? 'negativo' : ''}">${pct(p)}%</td>`;
+    }
+    return `<td class="${v < -0.005 ? 'negativo' : ''}">${fmt(v)}</td>`;
+  };
+  const linha = (classe, label, vals, chave = null) => {
+    const seta = chave ? (dreAberto.has(chave) ? '▼ ' : '▶ ') : '';
+    const attrs = chave ? ` class="${classe} clicavel" onclick="dreToggle('${chave}')"` : ` class="${classe}"`;
+    return `<tr${attrs}><td>${seta}${label}</td>${vals.map((v, i) => cel(v, i)).join('')}${cel(total(vals), 'tot')}</tr>`;
+  };
+  const blocoSubtipos = (chave, pred, sinal) => {
+    if (!dreAberto.has(chave)) return '';
+    return subtiposDe(pred).map(s =>
+      linha('dfc-linha', s, somar(r => pred(r) && r.subtipo === s, sinal))
+    ).join('');
+  };
+
+  let corpo = '';
+  corpo += linha('dfc-bloco', 'RECEITA BRUTA', recBruta, 'RECBRUTA');
+  corpo += blocoSubtipos('RECBRUTA', r => r.natureza === 'RECEITAS', 1);
+  corpo += linha('dfc-bloco', '(−) DEDUÇÕES (impostos s/ venda, devoluções)', deducoes, 'DEDUC');
+  corpo += blocoSubtipos('DEDUC', r => r.natureza === 'DEDUÇOES DA RECEITA', -1);
+  corpo += linha('dfc-resultado', '(=) RECEITA LÍQUIDA', recLiq);
+
+  gruposVals.forEach(([chave, rotulo, tipos, vals], gi) => {
+    corpo += linha('dfc-bloco', rotulo, vals, 'G:' + chave);
+    if (dreAberto.has('G:' + chave)) {
+      tipos.forEach(t => {
+        const predT = predGrupo([t]);
+        corpo += linha('dfc-grupo', t, somar(predT, -1), 'GT:' + t);
+        corpo += blocoSubtipos('GT:' + t, predT, -1);
+      });
+    }
+    if (gi === 0) corpo += linha('dfc-resultado', '(=) LUCRO BRUTO', lucroBruto);
+  });
+  if (outrasDesp.some(v => Math.abs(v) > 0.005)) {
+    corpo += linha('dfc-bloco', '(−) OUTRAS DESPESAS', outrasDesp);
+  }
+  corpo += linha('dfc-resultado', '(=) RESULTADO OPERACIONAL (EBITDA gerencial)', ebitda);
+
+  corpo += linha('dfc-bloco', '(±) RESULTADO FINANCEIRO (rendimentos − juros/tarifas)', resFin, 'FIN');
+  if (dreAberto.has('FIN')) {
+    corpo += linha('dfc-grupo', 'RENDIMENTOS DE APLICAÇÕES', recFin);
+    corpo += linha('dfc-grupo', 'DESPESAS FINANCEIRAS', despFin.map(v => -v));
+  }
+  if (semClass.some(v => Math.abs(v) > 0.005)) {
+    corpo += linha('dfc-bloco', '(±) SEM CLASSIFICAÇÃO (revisar)', semClass);
+  }
+  corpo += linha('dfc-resultado', '(=) RESULTADO LÍQUIDO GERENCIAL', resultado);
+
+  corpo += `<tr class="dfc-saldo"><td colspan="${nM + 2}" style="text-align:left; color:#9aa4af; font-weight:normal;">
+    Destino do resultado (informativo — não entra na DRE):</td></tr>`;
+  corpo += linha('dfc-bloco', 'Investimentos no período', invest.map(v => -v), 'INFOINV');
+  corpo += blocoSubtipos('INFOINV', r => ehInvest(r) || r.natureza === 'INVESTIMENTOS', -1);
+  corpo += linha('dfc-bloco', 'Distribuição de lucros / retiradas', retiradas.map(v => -v), 'INFORET');
+  corpo += blocoSubtipos('INFORET', r => r.natureza === 'DISTRIBUICAO DE LUCROS', -1);
+  if (naoOper.some(v => Math.abs(v) > 0.005)) {
+    corpo += linha('dfc-bloco', 'Fluxo não operacional (lucros filiais, aportes)', naoOper, 'INFONOP');
+    corpo += blocoSubtipos('INFONOP', r => r.natureza === 'APORTE VALORES', 1);
+  }
+
+  const margem = (v) => recLiqTot ? pct(total(v) / recLiqTot * 100) : '0';
+  alvo.innerHTML = `
+  <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">DRE Gerencial — Água Verde</div>
+  <div class="caption-label" style="text-align:center;">
+    Resultado mês a mês da empresa inteira, na mesma base do fluxo de caixa — <b>não segue os filtros do topo</b>.
+    Percentuais sobre a receita líquida. Clique nas linhas com ▶ para abrir o detalhe.
+  </div>
+  <div class="cards">
+    <div class="card blue"><div class="card-lbl">Receita líquida no ano</div><div class="card-val">R$ ${fmt(recLiqTot)}</div></div>
+    <div class="card ${total(lucroBruto) >= 0 ? 'pos' : 'neg'}"><div class="card-lbl">Lucro bruto</div><div class="card-val">R$ ${fmt(total(lucroBruto))}</div>
+      <div class="card-pct">${margem(lucroBruto)}% da receita líquida</div></div>
+    <div class="card ${total(ebitda) >= 0 ? 'pos' : 'neg'}"><div class="card-lbl">EBITDA gerencial</div><div class="card-val">R$ ${fmt(total(ebitda))}</div>
+      <div class="card-pct">${margem(ebitda)}% da receita líquida</div></div>
+    <div class="card ${total(resultado) >= 0 ? 'pos' : 'neg'}"><div class="card-lbl">Resultado líquido</div><div class="card-val">R$ ${fmt(total(resultado))}</div>
+      <div class="card-pct">${margem(resultado)}% da receita líquida</div></div>
+  </div>
+  <div class="periodo-presets" style="margin-top:14px;">
+    <button class="preset-btn ${dreModo === 'valor' ? 'active' : ''}" onclick="dreModoSet('valor')">R$</button>
+    <button class="preset-btn ${dreModo === 'pct' ? 'active' : ''}" onclick="dreModoSet('pct')">% da receita líquida</button>
+  </div>
+  <div id="tabelaDRE">
+    <table>
+      <tr><th></th>${meses.map(m => `<th>${rotuloMes(m)}</th>`).join('')}<th>Total</th></tr>
+      ${corpo}
+    </table>
+  </div>
+  <div class="caption-label">DRE gerencial em regime de caixa: receita quando o dinheiro entra na conta, despesa de cartão de crédito
+  no ciclo da fatura. Investimentos, retiradas e aportes ficam fora do resultado (são o destino do lucro) — por isso o
+  resultado daqui difere do "resultado final" do fluxo de caixa, que soma tudo que passou pelo caixa.</div>`;
 }
 
 // Agrupamento automatico pelo tamanho do periodo filtrado — evita colocar mais um controle na
