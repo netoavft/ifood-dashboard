@@ -134,13 +134,14 @@
   .chart-title { color:#a5a49a; font-size:11px; text-transform:uppercase; letter-spacing:.5px; margin-bottom:8px; }
   .chart-box .chart-canvas-wrap { position:relative; flex:1; }
 
-  #tabelaMotivos, #tabelaPromo, #tabelaPromoLojas, #tabelaTestePromo, #tabelaNegLojas, #tabelaAvalLojas, #tabelaComentarios { overflow-x:auto; max-width:100%; }
-  #tabelaMotivos table, #tabelaPromo table, #tabelaPromoLojas table, #tabelaTestePromo table,
+  #tabelaMotivos, #tabelaPromo, #tabelaPromoLojas, #tabelaTestePromo, #tabelaMecanicas, #tabelaNegLojas, #tabelaAvalLojas, #tabelaComentarios { overflow-x:auto; max-width:100%; }
+  #tabelaMotivos table, #tabelaPromo table, #tabelaPromoLojas table, #tabelaTestePromo table, #tabelaMecanicas table,
   #tabelaNegLojas table, #tabelaAvalLojas table, #tabelaComentarios table { border-collapse:collapse; width:100%; font-size:12.5px; }
   #tabelaMotivos th, #tabelaMotivos td,
   #tabelaPromo th, #tabelaPromo td,
   #tabelaPromoLojas th, #tabelaPromoLojas td,
   #tabelaTestePromo th, #tabelaTestePromo td,
+  #tabelaMecanicas th, #tabelaMecanicas td,
   #tabelaNegLojas th, #tabelaNegLojas td,
   #tabelaAvalLojas th, #tabelaAvalLojas td,
   #tabelaComentarios th, #tabelaComentarios td { border:1px solid #34332f; padding:6px 10px; text-align:right; white-space:nowrap; }
@@ -148,13 +149,20 @@
   #tabelaPromo th:first-child, #tabelaPromo td:first-child,
   #tabelaPromoLojas th:first-child, #tabelaPromoLojas td:first-child,
   #tabelaTestePromo th:first-child, #tabelaTestePromo td:first-child,
+  #tabelaMecanicas th:first-child, #tabelaMecanicas td:first-child,
   #tabelaNegLojas th:first-child, #tabelaNegLojas td:first-child,
   #tabelaAvalLojas th:first-child, #tabelaAvalLojas td:first-child,
   #tabelaComentarios th:first-child, #tabelaComentarios td:first-child { text-align:left; white-space:normal; }
-  #tabelaMotivos th, #tabelaPromo th, #tabelaPromoLojas th, #tabelaTestePromo th,
+  #tabelaMotivos th, #tabelaPromo th, #tabelaPromoLojas th, #tabelaTestePromo th, #tabelaMecanicas th,
   #tabelaNegLojas th, #tabelaAvalLojas th, #tabelaComentarios th { background:#232321; color:#a5a49a; font-weight:bold; font-size:11px; text-transform:uppercase; }
   #tabelaMotivos tr:nth-child(even), #tabelaPromo tr:nth-child(even), #tabelaPromoLojas tr:nth-child(even), #tabelaTestePromo tr:nth-child(even),
+  #tabelaMecanicas tr:nth-child(even),
   #tabelaNegLojas tr:nth-child(even), #tabelaAvalLojas tr:nth-child(even), #tabelaComentarios tr:nth-child(even) { background:#171716; }
+
+  /* linhas de fechamento da tabela de mecanicas (mesmo padrao do extrato financeiro) */
+  #tabelaMecanicas tr.sub td { background:#232321; border-top:2px solid #45443f; }
+  #tabelaMecanicas tr.liq td { background:#250f13; border-top:2px solid #c8102e; }
+  #tabelaMecanicas tr.liq td:first-child { color:#c8102e; }
 
   /* tabelas dos modulos Vendas/Cardapio/Clientes (mesmo visual das demais) */
   #tabelaVendasCanal, #tabelaVendasLojas, #tabelaFunil, #tabelaItens, #tabelaCompl, #tabelaClientesLojas { overflow-x:auto; max-width:100%; }
@@ -853,7 +861,7 @@ function mostrarModulo(nome) {
   if (nome === 'cardapio') entrarCardapio();
   if (nome === 'clientes') entrarClientes();
   if (nome === 'cancelamentos') renderChartMotivos();
-  if (nome === 'promocoes') renderChartsPromocoes();
+  if (nome === 'promocoes') entrarPromocoes();
   // Modulos com carga sob demanda: os dados so sao buscados na primeira visita,
   // pra nao pesar a abertura do painel.
   if (nome === 'negociacoes') entrarNegociacoes();
@@ -1613,6 +1621,73 @@ function decomporPorMecanica() {
   };
 }
 
+// Como o frete grátis chegou ao cliente — o corte que decide realocação de verba.
+// Carregado sob demanda (vw_promocoes_frete) na primeira visita ao módulo.
+let PROMO_FRETE = null;
+
+async function carregarPromoFrete() {
+  if (PROMO_FRETE !== null) return;
+  PROMO_FRETE = await consultarTudo(
+    'vw_promocoes_frete?select=competencia,nome_loja,grupo_frete,pedidos,valor_itens,investimento_loja,investimento_ifood&order=competencia'
+  );
+}
+
+function blocoFreteGratis() {
+  if (!PROMO_FRETE || !PROMO_FRETE.length) return '';
+  const comps = competenciasNoPeriodo();
+  const activeL = activeLojas();
+  const linhas = PROMO_FRETE.filter(r => comps.has(r.competencia) && activeL.has(LOJAS.indexOf(r.nome_loja)));
+  if (!linhas.length) return '';
+
+  const ORDEM = ['Frete grátis dentro do Hits', 'Frete grátis avulso',
+                 'Frete grátis empilhado em outro desconto', 'Sem frete grátis'];
+  const por = new Map();
+  linhas.forEach(r => {
+    if (!por.has(r.grupo_frete)) por.set(r.grupo_frete, { ped: 0, vendas: 0, invL: 0, invI: 0 });
+    const o = por.get(r.grupo_frete);
+    o.ped += r.pedidos; o.vendas += Number(r.valor_itens || 0);
+    o.invL += Number(r.investimento_loja || 0); o.invI += Number(r.investimento_ifood || 0);
+  });
+  const totL = [...por.values()].reduce((s, o) => s + o.invL, 0);
+  const alavTxt = (v) => `<b style="color:${v >= 1 ? '#3fb950' : v >= 0.5 ? '#f5a623' : '#ff6b6b'};">${v.toFixed(2).replace('.', ',')}x</b>`;
+
+  const tr = ORDEM.filter(g => por.has(g)).map(g => {
+    const o = por.get(g);
+    return `<tr>
+      <td>${g}</td><td>${o.ped.toLocaleString('pt-BR')}</td>
+      <td>R$ ${fmt(o.invL)}</td><td>${pct(totL ? o.invL / totL * 100 : 0)}%</td>
+      <td>R$ ${fmt(o.invI)}</td><td>${alavTxt(o.invL > 0.005 ? o.invI / o.invL : 0)}</td>
+      <td>R$ ${fmt(o.ped ? o.invL / o.ped : 0)}</td>
+      <td>R$ ${fmt(o.ped ? o.vendas / o.ped : 0)}</td>
+    </tr>`;
+  }).join('');
+
+  const emp = por.get('Frete grátis empilhado em outro desconto');
+  const avulso = por.get('Frete grátis avulso');
+  const alerta = (emp && avulso && avulso.ped)
+    ? `<div class="contexto" style="border-color:#ff6b6b; margin-top:10px;">
+        <b>Empilhamento:</b> ${emp.ped.toLocaleString('pt-BR')} pedidos receberam frete grátis
+        <b>em cima de outro desconto nosso</b> (Campanha Inteligente, Cupom ou Clube). Só a parte do frete
+        nesses pedidos custou cerca de <b>R$ ${fmt(avulso.invL / avulso.ped * emp.ped)}</b> — e é a faixa com
+        o pior retorno do iFood. É o alvo mais óbvio de corte, sem tirar o frete grátis de quem compra sem desconto.
+      </div>` : '';
+
+  return `
+  <div class="section-label">Como o frete grátis chegou ao cliente</div>
+  <div class="caption-label" style="text-align:center;">
+    O mesmo benefício (entrega grátis) custa e retorna de formas muito diferentes conforme o caminho.
+    Dentro do <b>Hits</b> o iFood divide a conta; <b>avulso</b> é quase todo nosso; <b>empilhado</b> em outro
+    desconto é o mais caro de todos.
+  </div>
+  <div id="tabelaFreteGratis">
+    <table>
+      <tr><th>Como foi entregue</th><th>Pedidos</th><th>Nós (R$)</th><th>% da verba</th><th>iFood (R$)</th><th>Alavancagem</th><th>Nosso R$/pedido</th><th>Ticket médio</th></tr>
+      ${tr}
+    </table>
+  </div>
+  ${alerta}`;
+}
+
 function blocoMecanicas() {
   const d = decomporPorMecanica();
   if (!d.lista.length) return '';
@@ -1774,7 +1849,7 @@ function moduloPromocoes() {
       <td>R$ ${fmt(x.ticket)}</td>
     </tr>`).join('');
 
-  return teste + blocoMecanicas() + `
+  return teste + blocoMecanicas() + blocoFreteGratis() + `
   <div class="section-label">Quanto e onde investimos em promoção (relatório mensal)</div>
   <div class="caption-label" style="text-align:center;">
     Dados de <b>${mesesTexto}</b>. O relatório de promoções do iFood é mensal — este bloco ignora o recorte por dia,
