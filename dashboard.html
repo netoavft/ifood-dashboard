@@ -622,14 +622,16 @@ async function carregar() {
 
   // Cancelamentos (totais e parciais) classificados por categoria de motivo. Tem as mesmas
   // dimensoes de ROWS, entao respeita todos os filtros normalmente.
-  // Promocoes: vem por MES (competencia), nao por dia — o relatorio do iFood e mensal.
-  // So existe de junho/2026 em diante, porque o portal so disponibiliza os ultimos 90 dias.
+  // Promocoes: vem por PERIODO (o relatorio do iFood aceita mes ou recorte de dias).
+  // Desde 10/08/2026 extraimos por ciclo semanal seg-dom, o mesmo do repasse do iFood.
+  // So existe de junho/2026 em diante — o portal disponibiliza apenas 90 dias.
   const promos = await consultarTudo(
-    "vw_promocoes_agregado?select=nome_loja,competencia,estrategia,pedidos,vendas,investimento_loja,investimento_ifood&order=nome_loja,competencia,estrategia"
+    "vw_promocoes_agregado?select=nome_loja,competencia,periodo_ini,periodo_fim,estrategia,pedidos,vendas,investimento_loja,investimento_ifood&order=nome_loja,periodo_ini,estrategia"
   );
   PROMOCOES = promos.map(r => [
     LOJAS.indexOf(r.nome_loja), r.competencia, r.estrategia,
     r.pedidos, Number(r.vendas), Number(r.investimento_loja), Number(r.investimento_ifood),
+    r.periodo_ini, r.periodo_fim,
   ]);
 
   const motivos = await consultarTudo(
@@ -1499,18 +1501,33 @@ function moduloCancelamentos(m, a) {
 // ------------------------------------------------------------------
 // MODULO PROMOCOES
 // ------------------------------------------------------------------
-// O relatorio de promocoes e MENSAL. Entao o filtro de periodo aqui funciona por mes:
-// entram as competencias que tem qualquer sobreposicao com o periodo escolhido.
-function competenciasNoPeriodo() {
-  const ini = (fDataIni.value || '').slice(0, 7);
-  const fim = (fDataFim.value || '').slice(0, 7);
-  return new Set(PROMOCOES.map(p => p[1]).filter(c => c >= ini && c <= fim));
+// O relatorio de promocoes vem por PERIODO fechado (mes ou semana seg-dom).
+// Só entram os recortes INTEIRAMENTE contidos no filtro — se pegássemos os que
+// apenas encostam, um mês inteiro apareceria ao filtrar uma semana e o número
+// sairia inflado. Quando nada couber, o módulo lista os períodos disponíveis.
+function periodoDaPromoContido(pIni, pFim) {
+  const ini = fDataIni.value, fim = fDataFim.value;
+  if (!pIni || !pFim || !ini || !fim) return false;
+  return String(pIni) >= ini && String(pFim) <= fim;
+}
+
+function promosNoPeriodo() {
+  const activeL = activeLojas();
+  return PROMOCOES.filter(p => activeL.has(p[0]) && periodoDaPromoContido(p[7], p[8]));
+}
+
+// Rótulos dos recortes que existem na base, para orientar quando o filtro não pega nenhum.
+function periodosPromoDisponiveis() {
+  const vistos = new Map();
+  PROMOCOES.forEach(p => {
+    if (!p[7] || !p[8]) return;
+    vistos.set(p[7] + '|' + p[8], `${formatarDataCurta(p[7])} a ${formatarDataCurta(p[8])}`);
+  });
+  return [...vistos.entries()].sort().map(([, rotulo]) => rotulo);
 }
 
 function resumoPromocoes() {
-  const comps = competenciasNoPeriodo();
-  const activeL = activeLojas();
-  const linhas = PROMOCOES.filter(p => activeL.has(p[0]) && comps.has(p[1]));
+  const linhas = promosNoPeriodo();
 
   const porEstrategia = new Map();
   linhas.forEach(([, , estrategia, ped, vendas, invL, invI]) => {
@@ -1534,7 +1551,7 @@ function resumoPromocoes() {
     totalInvIfood: linhas.reduce((s, p) => s + p[6], 0),
     totalPedidos: linhas.reduce((s, p) => s + p[3], 0),
     totalVendas: linhas.reduce((s, p) => s + p[4], 0),
-    competencias: Array.from(comps).sort(),
+    periodos: [...new Set(linhas.map(p => `${formatarDataCurta(p[7])} a ${formatarDataCurta(p[8])}`))].sort(),
   };
 }
 
@@ -1542,10 +1559,8 @@ function resumoPromocoes() {
 // porque o tipo de promocao e o mesmo dos dois lados — some o vies de "promo barata parece ter
 // retorno alto". Diferenca aqui e diferenca de operacao, nao de metrica.
 function promocoesPorLoja(estrategia) {
-  const comps = competenciasNoPeriodo();
-  const activeL = activeLojas();
   const porLoja = new Map();
-  PROMOCOES.filter(p => activeL.has(p[0]) && comps.has(p[1]) && p[2] === estrategia)
+  promosNoPeriodo().filter(p => p[2] === estrategia)
     .forEach(([loja, , , ped, vendas, invL]) => {
       if (!porLoja.has(loja)) porLoja.set(loja, { loja, ped: 0, vendas: 0, invL: 0 });
       const o = porLoja.get(loja);
@@ -1571,9 +1586,7 @@ function promocoesPorLoja(estrategia) {
 // Conferência: resíduo do CI+Frete deu R$10,30/pedido contra R$10,53 do Frete
 // Grátis puro (erro de 2%) — o modelo se sustenta.
 function decomporPorMecanica() {
-  const comps = competenciasNoPeriodo();
-  const activeL = activeLojas();
-  const linhas = PROMOCOES.filter(p => activeL.has(p[0]) && comps.has(p[1]));
+  const linhas = promosNoPeriodo();
 
   // custo unitario de cada mecanica quando ela aparece SOZINHA, por competencia
   const base = new Map();
@@ -1642,7 +1655,7 @@ let PROMO_FRETE = null;
 async function entrarPromocoes() {
   if (PROMO_FRETE === null) {
     PROMO_FRETE = await consultarTudo(
-      'vw_promocoes_frete?select=competencia,nome_loja,grupo_frete,pedidos,valor_itens,investimento_loja,investimento_ifood&order=competencia'
+      'vw_promocoes_frete?select=competencia,periodo_ini,periodo_fim,nome_loja,grupo_frete,pedidos,valor_itens,investimento_loja,investimento_ifood&order=periodo_ini'
     );
     const alvo = document.getElementById('view-promocoes');
     if (alvo) alvo.innerHTML = linhaContexto(periodoAnterior()) + moduloPromocoes();
@@ -1652,9 +1665,9 @@ async function entrarPromocoes() {
 
 function blocoFreteGratis() {
   if (!PROMO_FRETE || !PROMO_FRETE.length) return '';
-  const comps = competenciasNoPeriodo();
   const activeL = activeLojas();
-  const linhas = PROMO_FRETE.filter(r => comps.has(r.competencia) && activeL.has(LOJAS.indexOf(r.nome_loja)));
+  const linhas = PROMO_FRETE.filter(r =>
+    periodoDaPromoContido(r.periodo_ini, r.periodo_fim) && activeL.has(LOJAS.indexOf(r.nome_loja)));
   if (!linhas.length) return '';
 
   const ORDEM = ['Frete grátis dentro do Hits', 'Frete grátis avulso',
@@ -1893,19 +1906,22 @@ function moduloPromocoes() {
   // pedidos diários — teste e alavancagem por loja — funcionam sempre e ficam fora
   // deste corte, senão o painel some justo no período mais recente.
   if (!r.lista.length) {
+    const disp = periodosPromoDisponiveis();
     return teste + blocoAlavancagemPorLoja() + `
     <div class="contexto" style="border-color:#f5a623; margin-top:16px;">
       <b>Detalhe por tipo de promoção indisponível neste período.</b><br>
       A quebra por mecânica (Hits, Campanha Inteligente, Clube, Frete grátis) vem do
-      <b>relatório de promoções</b> do portal, que hoje temos importado só para
-      <b>junho e julho/2026</b>. Os blocos acima usam os pedidos diários e estão sempre atualizados.<br>
-      Para ver a quebra por promoção, escolha um período dentro de jun–jul ou use "Todo o histórico".
+      <b>relatório de promoções</b> do portal, que chega em recortes fechados. Os blocos acima
+      usam os pedidos diários e estão sempre atualizados.<br>
+      ${disp.length
+        ? `Recortes já importados — escolha um período que contenha um deles:<br><b>${disp.join('</b> · <b>')}</b>`
+        : 'Nenhum recorte importado ainda.'}
     </div>`;
   }
 
   const invPorPedidoGeral = r.totalPedidos ? r.totalInv / r.totalPedidos : 0;
   const pctIfoodGeral = (r.totalInv + r.totalInvIfood) ? r.totalInvIfood / (r.totalInv + r.totalInvIfood) * 100 : 0;
-  const mesesTexto = r.competencias.map(c => { const [a, m] = c.split('-'); return `${MESES_ABREV[Number(m) - 1]}/${a}`; }).join(', ');
+  const mesesTexto = r.periodos.join(' · ');
 
   // A estrategia com maior verba e a que vale comparar entre lojas.
   const principal = r.lista[0];
@@ -1933,7 +1949,7 @@ function moduloPromocoes() {
   return teste + blocoAlavancagemPorLoja() + blocoMecanicas() + blocoFreteGratis() + `
   <div class="section-label">Quanto e onde investimos em promoção (relatório mensal)</div>
   <div class="caption-label" style="text-align:center;">
-    Dados de <b>${mesesTexto}</b>. O relatório de promoções do iFood é mensal — este bloco ignora o recorte por dia,
+    Recortes usados: <b>${mesesTexto}</b>. O relatório de promoções vem por período fechado — este bloco ignora o recorte por dia,
     semana ou turno e usa os meses inteiros que caem no período escolhido.
   </div>
   <div class="cards">
