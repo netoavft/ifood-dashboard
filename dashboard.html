@@ -34,7 +34,7 @@
                    border-bottom:1px solid #262c36; }
   .sidebar-logo { height:38px; width:38px; border-radius:50%; object-fit:cover; flex-shrink:0; }
   .sidebar-marca-nome { color:#ffffff; font-size:14px; font-weight:bold; letter-spacing:.3px;
-                        text-transform:uppercase; flex:1; text-align:justify; text-align-last:justify; }
+                        text-transform:uppercase; flex:1; text-align:center; }
 
   .sidebar-secao { color:#6e7681; font-size:9.5px; font-weight:bold; text-transform:uppercase;
                    letter-spacing:1px; padding:16px 24px 6px; cursor:pointer; user-select:none;
@@ -261,22 +261,11 @@
 
     <button class="sidebar-secao" onclick="toggleGrupo('gResultado')">Resultado <span class="seta">▶</span></button>
     <div class="sidebar-grupo" id="gResultado">
+      <button class="sidebar-btn" id="navBtnIndicadores" onclick="mostrarModulo('indicadores')">Indicadores e metas</button>
       <span class="sidebar-btn breve">Visão consolidada</span>
       <span class="sidebar-btn breve">DRE</span>
       <button class="sidebar-btn" id="navBtnFluxo" onclick="mostrarModulo('fluxo')">Fluxo de caixa</button>
       <span class="sidebar-btn breve">Margem por item</span>
-    </div>
-
-    <button class="sidebar-secao" onclick="toggleGrupo('gRelatorios')">Relatórios <span class="seta">▶</span></button>
-    <div class="sidebar-grupo" id="gRelatorios">
-      <button class="sidebar-btn" id="navBtnRelatorios" onclick="mostrarModulo('relatorios')">Resumos semanais</button>
-    </div>
-
-    <button class="sidebar-secao" onclick="toggleGrupo('gVendas')">Vendas <span class="seta">▶</span></button>
-    <div class="sidebar-grupo" id="gVendas">
-      <span class="sidebar-btn breve">Por período</span>
-      <span class="sidebar-btn breve">Por item</span>
-      <span class="sidebar-btn breve">Por canal</span>
     </div>
 
     <button class="sidebar-secao" onclick="toggleGrupo('gIfood')">Canal · iFood <span class="seta">▶</span></button>
@@ -290,6 +279,18 @@
       <button class="sidebar-btn" id="navBtnContestacoes" onclick="mostrarModulo('contestacoes')">Contestações</button>
       <button class="sidebar-btn" id="navBtnNegociacoes" onclick="mostrarModulo('negociacoes')">Negociações</button>
       <button class="sidebar-btn" id="navBtnAvaliacoes" onclick="mostrarModulo('avaliacoes')">Avaliações</button>
+    </div>
+
+    <button class="sidebar-secao" onclick="toggleGrupo('gRelatorios')">Relatórios <span class="seta">▶</span></button>
+    <div class="sidebar-grupo" id="gRelatorios">
+      <button class="sidebar-btn" id="navBtnRelatorios" onclick="mostrarModulo('relatorios')">Resumos semanais</button>
+    </div>
+
+    <button class="sidebar-secao" onclick="toggleGrupo('gVendas')">Vendas <span class="seta">▶</span></button>
+    <div class="sidebar-grupo" id="gVendas">
+      <span class="sidebar-btn breve">Por período</span>
+      <span class="sidebar-btn breve">Por item</span>
+      <span class="sidebar-btn breve">Por canal</span>
     </div>
 
     <button class="sidebar-secao" onclick="toggleGrupo('gLogistica')">Logística <span class="seta">▶</span></button>
@@ -394,6 +395,10 @@
 
     <div id="modulo-fluxo" class="modulo" style="display:none;">
       <div id="view-fluxo"></div>
+    </div>
+
+    <div id="modulo-indicadores" class="modulo" style="display:none;">
+      <div id="view-indicadores"></div>
     </div>
 
     <div class="footer">
@@ -776,7 +781,7 @@ function toggleGrupo(id) {
 // Garante que o grupo que contem o modulo esteja aberto (ex.: botao que leva
 // a Cancelamentos a partir da Visao geral, ou o modulo inicial no boot).
 function abrirGrupoDoModulo(nome) {
-  const grupoDe = { relatorios: 'gRelatorios', fluxo: 'gResultado' };
+  const grupoDe = { relatorios: 'gRelatorios', fluxo: 'gResultado', indicadores: 'gResultado' };
   const id = grupoDe[nome] || 'gIfood';
   const grupo = document.getElementById(id);
   if (!grupo.classList.contains('aberto')) toggleGrupo(id);
@@ -796,6 +801,7 @@ function mostrarModulo(nome) {
     cardapio: ['modulo-cardapio', 'navBtnCardapio'],
     clientes: ['modulo-clientes', 'navBtnClientes'],
     fluxo: ['modulo-fluxo', 'navBtnFluxo'],
+    indicadores: ['modulo-indicadores', 'navBtnIndicadores'],
   };
   Object.entries(modulos).forEach(([chave, [idDiv, idBtn]]) => {
     document.getElementById(idDiv).style.display = (chave === nome) ? 'block' : 'none';
@@ -820,6 +826,7 @@ function mostrarModulo(nome) {
   if (nome === 'relatorios') entrarRelatorios();
   if (nome === 'contestacoes') entrarContestacoes();
   if (nome === 'fluxo') entrarFluxo();
+  if (nome === 'indicadores') entrarIndicadores();
 }
 
 // Qual modulo esta aberto agora — usado pra so redesenhar os graficos do modulo visivel.
@@ -833,6 +840,7 @@ function moduloAtivo() {
   if (document.getElementById('modulo-cardapio').style.display !== 'none') return 'cardapio';
   if (document.getElementById('modulo-clientes').style.display !== 'none') return 'clientes';
   if (document.getElementById('modulo-fluxo').style.display !== 'none') return 'fluxo';
+  if (document.getElementById('modulo-indicadores').style.display !== 'none') return 'indicadores';
   return 'resumo';
 }
 
