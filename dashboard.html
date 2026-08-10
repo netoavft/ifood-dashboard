@@ -281,8 +281,15 @@
       <button class="sidebar-btn" id="navBtnIndicadores" onclick="mostrarModulo('indicadores')">Indicadores e metas</button>
       <span class="sidebar-btn breve">Visão consolidada</span>
       <button class="sidebar-btn" id="navBtnDre" onclick="mostrarModulo('dre')">DRE</button>
-      <button class="sidebar-btn" id="navBtnFluxo" onclick="mostrarModulo('fluxo')">Fluxo de caixa</button>
       <span class="sidebar-btn breve">Margem por item</span>
+    </div>
+
+    <button class="sidebar-secao" onclick="toggleGrupo('gFinanceiro')">Financeiro <span class="seta">▶</span></button>
+    <div class="sidebar-grupo" id="gFinanceiro">
+      <button class="sidebar-btn" id="navBtnFluxo" onclick="mostrarModulo('fluxo')">Fluxo de caixa</button>
+      <span class="sidebar-btn breve">Fluxo projetado</span>
+      <span class="sidebar-btn breve">Análise de despesas</span>
+      <span class="sidebar-btn breve">Conciliação</span>
     </div>
 
     <button class="sidebar-secao" onclick="toggleGrupo('gIfood')">Canal · iFood <span class="seta">▶</span></button>
@@ -802,7 +809,7 @@ function toggleGrupo(id) {
 // Garante que o grupo que contem o modulo esteja aberto (ex.: botao que leva
 // a Cancelamentos a partir da Visao geral, ou o modulo inicial no boot).
 function abrirGrupoDoModulo(nome) {
-  const grupoDe = { relatorios: 'gRelatorios', fluxo: 'gResultado', indicadores: 'gResultado' };
+  const grupoDe = { relatorios: 'gRelatorios', fluxo: 'gFinanceiro', dre: 'gResultado', indicadores: 'gResultado' };
   const id = grupoDe[nome] || 'gIfood';
   const grupo = document.getElementById(id);
   if (!grupo.classList.contains('aberto')) toggleGrupo(id);
@@ -2876,6 +2883,8 @@ function renderModuloDFC() {
 let drePeriodo = 'ano';  // 'ano' | '6m' | '3m'
 const dreAberto = new Set();
 let DRE_METAS = null;    // fin_metas_dre: chave -> {sentido, meta}
+let DRE_FIN = null;      // vw_fin_dre_mensal: financeiro Saipos por COMPETENCIA (desde jan/26)
+let DRE_VENDAS = null;   // vw_vendas_canal_mensal: receita bruta por canal (PDV Saipos)
 
 // Agrupamento das funcoes da DRE -> tipos do plano de contas
 const DRE_GRUPOS = [
@@ -2887,12 +2896,18 @@ const DRE_GRUPOS = [
 
 async function entrarDre() {
   const alvo = document.getElementById('view-dre');
-  if (DFC_MENSAL === null) alvo.innerHTML = '<div class="contexto">Carregando DRE...</div>';
-  await garantirDadosFin();
-  if (DRE_METAS === null) {
+  if (DRE_FIN === null) {
+    alvo.innerHTML = '<div class="contexto">Carregando DRE...</div>';
+    let metas;
+    [DRE_FIN, DRE_VENDAS, metas] = await Promise.all([
+      consultarTudo('vw_fin_dre_mensal?select=mes,natureza,tipo,subtipo,ordem,credito,debito&order=mes,ordem'),
+      consultarTudo('vw_vendas_canal_mensal?select=mes,canal,vendas,receita&order=mes'),
+      consultarTudo('fin_metas_dre?select=chave,sentido,pct_meta&order=ordem'),
+    ]);
+    DRE_FIN.forEach(r => { r.credito = Number(r.credito); r.debito = Number(r.debito); });
+    DRE_VENDAS.forEach(r => { r.receita = Number(r.receita); });
     DRE_METAS = {};
-    (await consultarTudo('fin_metas_dre?select=chave,sentido,pct_meta&order=ordem'))
-      .forEach(m => { DRE_METAS[m.chave] = { sentido: m.sentido, meta: Number(m.pct_meta) }; });
+    metas.forEach(m => { DRE_METAS[m.chave] = { sentido: m.sentido, meta: Number(m.pct_meta) }; });
   }
   renderModuloDRE();
 }
@@ -2905,33 +2920,48 @@ function drePeriodoSet(p) { drePeriodo = p; renderModuloDRE(); }
 
 function renderModuloDRE() {
   const alvo = document.getElementById('view-dre');
-  if (!DFC_MENSAL || !DFC_MENSAL.length) {
+  if (!DRE_FIN || !DRE_FIN.length) {
     alvo.innerHTML = `<div class="contexto" style="border-color:#f5a623;">Sem lançamentos financeiros ainda.</div>`;
     return;
   }
-  const meses = [...new Set(DFC_MENSAL.map(r => r.mes))].sort();
+  const meses = [...new Set([...DRE_FIN.map(r => r.mes), ...DRE_VENDAS.map(r => r.mes)])].sort();
   const nM = meses.length;
   const idxMes = Object.fromEntries(meses.map((m, i) => [m, i]));
   const rotuloMes = (m) => { const [a, mm] = m.split('-'); return `${MESES_ABREV[Number(mm) - 1]}/${a.slice(2)}`; };
 
   const somar = (pred, sinal = 1) => {
     const v = Array(nM).fill(0);
-    DFC_MENSAL.forEach(r => { if (pred(r)) v[idxMes[r.mes]] += (r.credito - r.debito) * sinal; });
+    DRE_FIN.forEach(r => { if (pred(r)) v[idxMes[r.mes]] += (r.credito - r.debito) * sinal; });
     return v;
   };
   const menos = (a, b) => a.map((x, i) => x - b[i]);
   const total = (v) => v.reduce((s, x) => s + x, 0);
   const subtiposDe = (pred) => {
     const vistos = new Map();
-    DFC_MENSAL.forEach(r => { if (pred(r) && !vistos.has(r.subtipo)) vistos.set(r.subtipo, r.ordem); });
+    DRE_FIN.forEach(r => { if (pred(r) && !vistos.has(r.subtipo)) vistos.set(r.subtipo, r.ordem); });
     return [...vistos.entries()].sort((a, b) => a[1] - b[1]).map(([s]) => s);
   };
 
-  // ---- blocos da DRE ----
+  // ---- receitas: vendas do PDV por canal (bruto) + recebimentos fora do PDV ----
+  const canais = [...new Set(DRE_VENDAS.map(r => r.canal))]
+    .sort((a, b) => DRE_VENDAS.filter(r => r.canal === b).reduce((s, r) => s + r.receita, 0)
+                  - DRE_VENDAS.filter(r => r.canal === a).reduce((s, r) => s + r.receita, 0));
+  const porCanal = {};
+  canais.forEach(c => { porCanal[c] = Array(nM).fill(0); });
+  DRE_VENDAS.forEach(r => { if (idxMes[r.mes] !== undefined) porCanal[r.canal][idxMes[r.mes]] += r.receita; });
+  const recBruta = meses.map((_, i) => canais.reduce((s, c) => s + porCanal[c][i], 0));
+
+  // recebimentos do PDV no financeiro (líquidos de comissão) x demais receitas
+  const SUBT_PDV = ['RECEITAS CARTAO', 'RECEITAS ONLINE', 'RECEITAS DINHEIRO', 'RECEITAS FIADO'];
+  const recPdvFin = somar(r => r.natureza === 'RECEITAS' && SUBT_PDV.includes(r.subtipo));
+  const outrasRec = somar(r => r.natureza === 'RECEITAS' && !SUBT_PDV.includes(r.subtipo));
+  // taxas de canais estimada: o que foi vendido no PDV menos o que efetivamente
+  // entrou (comissões iFood/adquirentes). Tem defasagem de repasse (~1 semana).
+  const taxasCanais = menos(recBruta, recPdvFin);
+
   const ehInvest = (r) => r.tipo === 'INVESTIMENTOS';
-  const recBruta = somar(r => r.natureza === 'RECEITAS');
   const deducoes = somar(r => r.natureza === 'DEDUÇOES DA RECEITA', -1);
-  const recLiq   = menos(recBruta, deducoes);
+  const recLiq   = meses.map((_, i) => recBruta[i] + outrasRec[i] - taxasCanais[i] - deducoes[i]);
 
   const predGrupo = (tipos) => (r) => r.natureza === 'DESPESAS' && !ehInvest(r) && tipos.includes(r.tipo);
   const gruposVals = DRE_GRUPOS.map(([chave, rotulo, tipos]) => [chave, rotulo, tipos, somar(predGrupo(tipos), -1)]);
@@ -3012,8 +3042,13 @@ function renderModuloDRE() {
   };
 
   let corpo = '';
-  corpo += linha('dfc-bloco', 'RECEITA BRUTA', recBruta, { chave: 'RECBRUTA', kind: 'ganho' });
-  corpo += blocoSubtipos('RECBRUTA', r => r.natureza === 'RECEITAS', 1, 'ganho');
+  corpo += linha('dfc-bloco', 'RECEITA BRUTA DE VENDAS (por canal)', recBruta, { chave: 'RECBRUTA', kind: 'ganho' });
+  if (dreAberto.has('RECBRUTA')) canais.forEach(c => {
+    corpo += linha('dfc-linha', c, porCanal[c], { kind: 'ganho' });
+  });
+  corpo += linha('dfc-bloco', '(+) OUTRAS RECEITAS (revenda, filiais, aluguéis)', outrasRec, { chave: 'OUTREC', kind: 'ganho' });
+  corpo += blocoSubtipos('OUTREC', r => r.natureza === 'RECEITAS' && !SUBT_PDV.includes(r.subtipo), 1, 'ganho');
+  corpo += linha('dfc-bloco', '(−) TAXAS DE CANAIS (vendas − recebido; comissões iFood etc.)', taxasCanais, { kind: 'custo' });
   corpo += linha('dfc-bloco', '(−) DEDUÇÕES (impostos s/ venda, devoluções)', deducoes, { chave: 'DEDUC', kind: 'custo' });
   corpo += blocoSubtipos('DEDUC', r => r.natureza === 'DEDUÇOES DA RECEITA', -1, 'custo');
   corpo += linha('dfc-resultado', '(=) RECEITA LÍQUIDA', recLiq, { kind: 'ganho' });
@@ -3060,7 +3095,8 @@ function renderModuloDRE() {
   alvo.innerHTML = `
   <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">DRE Gerencial — Água Verde</div>
   <div class="caption-label" style="text-align:center;">
-    Resultado mês a mês da empresa inteira, na mesma base do fluxo de caixa — <b>não segue os filtros do topo</b>.
+    Resultado mês a mês da empresa inteira, direto do Saipos desde jan/2026 — <b>não segue os filtros do topo</b>.
+    Receitas = vendas do PDV por canal (bruto); despesas por <b>competência</b> (data de emissão da NF).
     Em cada célula: valor, <b>AV</b> (% da receita líquida) e <b>▲▼</b> (variação vs mês anterior).
     Marcação colorida só aparece quando a linha está <b>fora da meta</b> (âmbar = perto, vermelho = longe) —
     sem marcação, está tudo dentro. Clique nas linhas com ▶ para abrir o detalhe.
@@ -3085,11 +3121,14 @@ function renderModuloDRE() {
       ${corpo}
     </table>
   </div>
-  <div class="caption-label">DRE gerencial em regime de caixa: receita quando o dinheiro entra na conta, despesa de cartão de crédito
-  no ciclo da fatura. Investimentos, retiradas e aportes ficam fora do resultado (são o destino do lucro) — por isso o
-  resultado daqui difere do "resultado final" do fluxo de caixa, que soma tudo que passou pelo caixa.
-  Metas por linha na tabela <b>fin_metas_dre</b> do banco (âmbar = até 10% de distância da meta, vermelho = além;
-  dentro da meta não há marcação) — os valores iniciais vieram da média jan–jul/2026; peça ao Claude para ajustá-los.</div>`;
+  <div class="caption-label">Base: lançamentos e vendas do Saipos desde jan/2026 (o fluxo de caixa continua conferido com a planilha/banco).
+  Canais: iFood, Salão (comandas Abrahão + mesas), Balcão (retirada, telefone e fichas) e Site próprio (Accon).
+  A linha "Taxas de canais" é estimada pela diferença entre o vendido no PDV e o efetivamente recebido —
+  como o repasse do iFood é semanal, ela oscila um pouco entre meses vizinhos (no acumulado do ano é precisa).
+  A DRE inclui as contas a pagar já lançadas (competência), então o <b>mês corrente parece pior do que vai fechar</b>:
+  as despesas do mês já estão quase todas lá, mas as vendas ainda estão acontecendo.
+  Investimentos, retiradas e aportes ficam fora do resultado (são o destino do lucro).
+  Metas por linha na tabela <b>fin_metas_dre</b> (âmbar = até 10% de distância, vermelho = além; dentro da meta não há marcação).</div>`;
 }
 
 // Agrupamento automatico pelo tamanho do periodo filtrado — evita colocar mais um controle na
