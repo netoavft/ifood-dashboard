@@ -208,6 +208,23 @@
   #tabelaDFC tr.clicavel { cursor:pointer; }
   #tabelaDFC tr.clicavel:hover td:first-child { color:#f5a623; }
 
+  /* DRE: mesma familia visual do DFC, com linhas de separacao e a sub-linha AV/AH */
+  #tabelaDRE table td { border-bottom:1px solid #21262d; vertical-align:top; }
+  #tabelaDRE tr.dfc-bloco td { background:#1a2029; font-weight:bold; border-top:2px solid #3d444d; color:#e6e6e6; }
+  #tabelaDRE tr.dfc-grupo td { background:#161b22; font-weight:bold; color:#c9d1d9; }
+  #tabelaDRE tr.dfc-grupo td:first-child { padding-left:22px; }
+  #tabelaDRE tr.dfc-linha td { color:#9aa4af; }
+  #tabelaDRE tr.dfc-linha td:first-child { padding-left:40px; }
+  #tabelaDRE tr.dfc-resultado td { background:#1c1508; font-weight:bold; border-top:2px solid #f5a623; border-bottom:2px solid #f5a623; }
+  #tabelaDRE tr.dfc-resultado td:first-child { color:#f5a623; }
+  #tabelaDRE tr.dfc-saldo td { background:#0f1a2b; font-weight:bold; border-top:2px solid #58a6ff; }
+  #tabelaDRE tr.dfc-saldo td:first-child { color:#58a6ff; }
+  #tabelaDRE tr.clicavel { cursor:pointer; }
+  #tabelaDRE tr.clicavel:hover td:first-child { color:#f5a623; }
+  .dre-sub { font-size:10px; color:#7d8590; white-space:nowrap; margin-top:2px; font-weight:normal; }
+  .dre-sub b { font-weight:600; }
+  .dre-farol { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:3px; vertical-align:middle; }
+
   .relatorio-corpo { background:#161b22; border:1px solid #262c36; border-radius:10px; padding:24px 28px; line-height:1.7; font-size:13.5px; }
   .relatorio-corpo h2 { color:#f5a623; font-size:18px; margin:18px 0 10px; }
   .relatorio-corpo h3 { color:#e6e6e6; font-size:15px; margin:16px 0 8px; }
@@ -2852,9 +2869,13 @@ function renderModuloDFC() {
 // receita liquida, custo, lucro bruto, despesas por funcao, EBITDA e
 // resultado. E' regime de caixa gerencial (nao e' a DRE contabil):
 // receita quando o dinheiro entra, despesa de cartao no ciclo da fatura.
+// Cada celula traz R$ + analise vertical (AV, % da receita liquida) e
+// horizontal (AH, variacao vs mes anterior). As linhas estruturais tem
+// farol contra as metas de fin_metas_dre (editavel no banco, sem deploy).
 // ------------------------------------------------------------------
-let dreModo = 'valor';   // 'valor' (R$) | 'pct' (% da receita liquida)
+let drePeriodo = 'ano';  // 'ano' | '6m' | '3m'
 const dreAberto = new Set();
+let DRE_METAS = null;    // fin_metas_dre: chave -> {sentido, meta}
 
 // Agrupamento das funcoes da DRE -> tipos do plano de contas
 const DRE_GRUPOS = [
@@ -2868,6 +2889,11 @@ async function entrarDre() {
   const alvo = document.getElementById('view-dre');
   if (DFC_MENSAL === null) alvo.innerHTML = '<div class="contexto">Carregando DRE...</div>';
   await garantirDadosFin();
+  if (DRE_METAS === null) {
+    DRE_METAS = {};
+    (await consultarTudo('fin_metas_dre?select=chave,sentido,pct_meta&order=ordem'))
+      .forEach(m => { DRE_METAS[m.chave] = { sentido: m.sentido, meta: Number(m.pct_meta) }; });
+  }
   renderModuloDRE();
 }
 
@@ -2875,7 +2901,7 @@ function dreToggle(chave) {
   if (dreAberto.has(chave)) dreAberto.delete(chave); else dreAberto.add(chave);
   renderModuloDRE();
 }
-function dreModoSet(m) { dreModo = m; renderModuloDRE(); }
+function drePeriodoSet(p) { drePeriodo = p; renderModuloDRE(); }
 
 function renderModuloDRE() {
   const alvo = document.getElementById('view-dre');
@@ -2927,102 +2953,142 @@ function renderModuloDRE() {
   const retiradas = somar(r => r.natureza === 'DISTRIBUICAO DE LUCROS', -1);
   const naoOper   = somar(r => r.natureza === 'APORTE VALORES');
 
-  // ---- montagem ----
-  const recLiqTot = total(recLiq);
-  const cel = (v, i) => {
-    if (dreModo === 'pct') {
-      const base = i === 'tot' ? recLiqTot : recLiq[i];
-      if (!base) return '<td>—</td>';
-      const p = v / base * 100;
-      return `<td class="${p < -0.05 ? 'negativo' : ''}">${pct(p)}%</td>`;
-    }
-    return `<td class="${v < -0.005 ? 'negativo' : ''}">${fmt(v)}</td>`;
+  // ---- janela de exibicao (o calculo usa sempre a serie completa; so a
+  // exibicao e' recortada — assim a AH do 1o mes visivel ainda compara
+  // com o mes anterior, mesmo oculto) ----
+  const nExib = drePeriodo === '3m' ? 3 : drePeriodo === '6m' ? 6 : nM;
+  const ini0 = Math.max(0, nM - nExib);
+  const cols = meses.slice(ini0);
+  const totalJan = (v) => v.slice(ini0).reduce((s, x) => s + x, 0);
+  const recLiqTotJan = totalJan(recLiq);
+
+  // farol da analise vertical contra a meta (fin_metas_dre)
+  const corFarol = (metaChave, av) => {
+    const m = DRE_METAS && DRE_METAS[metaChave];
+    if (!m || av === null) return null;
+    const dist = m.sentido === 'abaixo' ? av - m.meta : m.meta - av;   // >0 = fora da meta
+    if (dist <= 0) return '#3fb950';
+    if (dist <= m.meta * 0.10) return '#f5a623';
+    return '#ff6b6b';
   };
-  const linha = (classe, label, vals, chave = null) => {
+
+  // celula: R$ em cima; embaixo AV (com farol nas linhas com meta) e AH
+  // (verde/vermelho conforme melhora ou piora — em custo, cair e' bom)
+  const celula = (v, base, vAnt, kind, metaChave) => {
+    const valorHtml = `<div class="${v < -0.005 ? 'negativo' : ''}">${fmt(v)}</div>`;
+    const subs = [];
+    if (base) {
+      const av = v / base * 100;
+      const cor = metaChave ? corFarol(metaChave, av) : null;
+      subs.push(`${cor ? `<span class="dre-farol" style="background:${cor}"></span>` : ''}` +
+                `<b${cor ? ` style="color:${cor}"` : ''}>AV ${pct(av)}%</b>`);
+    }
+    if (vAnt !== null && Math.abs(vAnt) > 0.005) {
+      const d = (v - vAnt) / Math.abs(vAnt) * 100;
+      const melhor = kind === 'custo' ? d < -0.5 : kind === 'ganho' ? d > 0.5 : null;
+      const pior   = kind === 'custo' ? d > 0.5  : kind === 'ganho' ? d < -0.5 : null;
+      const corAh = melhor ? '#3fb950' : pior ? '#ff6b6b' : '#7d8590';
+      subs.push(`<span style="color:${corAh}">${d > 0.5 ? '▲' : d < -0.5 ? '▼' : '•'} ${pct(Math.abs(d))}%</span>`);
+    }
+    return `<td>${valorHtml}${subs.length ? `<div class="dre-sub">${subs.join(' ')}</div>` : ''}</td>`;
+  };
+
+  const linha = (classe, label, vals, opts = {}) => {
+    const { chave = null, kind = null, metaChave = null } = opts;
     const seta = chave ? (dreAberto.has(chave) ? '▼ ' : '▶ ') : '';
     const attrs = chave ? ` class="${classe} clicavel" onclick="dreToggle('${chave}')"` : ` class="${classe}"`;
-    return `<tr${attrs}><td>${seta}${label}</td>${vals.map((v, i) => cel(v, i)).join('')}${cel(total(vals), 'tot')}</tr>`;
+    let tds = '';
+    for (let i = ini0; i < nM; i++) {
+      tds += celula(vals[i], recLiq[i], i > 0 ? vals[i - 1] : null, kind, metaChave);
+    }
+    tds += celula(totalJan(vals), recLiqTotJan, null, kind, metaChave);
+    return `<tr${attrs}><td>${seta}${label}</td>${tds}</tr>`;
   };
-  const blocoSubtipos = (chave, pred, sinal) => {
+  const blocoSubtipos = (chave, pred, sinal, kind = null) => {
     if (!dreAberto.has(chave)) return '';
     return subtiposDe(pred).map(s =>
-      linha('dfc-linha', s, somar(r => pred(r) && r.subtipo === s, sinal))
+      linha('dfc-linha', s, somar(r => pred(r) && r.subtipo === s, sinal), { kind })
     ).join('');
   };
 
   let corpo = '';
-  corpo += linha('dfc-bloco', 'RECEITA BRUTA', recBruta, 'RECBRUTA');
-  corpo += blocoSubtipos('RECBRUTA', r => r.natureza === 'RECEITAS', 1);
-  corpo += linha('dfc-bloco', '(−) DEDUÇÕES (impostos s/ venda, devoluções)', deducoes, 'DEDUC');
-  corpo += blocoSubtipos('DEDUC', r => r.natureza === 'DEDUÇOES DA RECEITA', -1);
-  corpo += linha('dfc-resultado', '(=) RECEITA LÍQUIDA', recLiq);
+  corpo += linha('dfc-bloco', 'RECEITA BRUTA', recBruta, { chave: 'RECBRUTA', kind: 'ganho' });
+  corpo += blocoSubtipos('RECBRUTA', r => r.natureza === 'RECEITAS', 1, 'ganho');
+  corpo += linha('dfc-bloco', '(−) DEDUÇÕES (impostos s/ venda, devoluções)', deducoes, { chave: 'DEDUC', kind: 'custo' });
+  corpo += blocoSubtipos('DEDUC', r => r.natureza === 'DEDUÇOES DA RECEITA', -1, 'custo');
+  corpo += linha('dfc-resultado', '(=) RECEITA LÍQUIDA', recLiq, { kind: 'ganho' });
 
   gruposVals.forEach(([chave, rotulo, tipos, vals], gi) => {
-    corpo += linha('dfc-bloco', rotulo, vals, 'G:' + chave);
+    corpo += linha('dfc-bloco', rotulo, vals, { chave: 'G:' + chave, kind: 'custo', metaChave: chave });
     if (dreAberto.has('G:' + chave)) {
       tipos.forEach(t => {
         const predT = predGrupo([t]);
-        corpo += linha('dfc-grupo', t, somar(predT, -1), 'GT:' + t);
-        corpo += blocoSubtipos('GT:' + t, predT, -1);
+        corpo += linha('dfc-grupo', t, somar(predT, -1), { chave: 'GT:' + t, kind: 'custo' });
+        corpo += blocoSubtipos('GT:' + t, predT, -1, 'custo');
       });
     }
-    if (gi === 0) corpo += linha('dfc-resultado', '(=) LUCRO BRUTO', lucroBruto);
+    if (gi === 0) corpo += linha('dfc-resultado', '(=) LUCRO BRUTO', lucroBruto, { kind: 'ganho', metaChave: 'LUCRO_BRUTO' });
   });
   if (outrasDesp.some(v => Math.abs(v) > 0.005)) {
-    corpo += linha('dfc-bloco', '(−) OUTRAS DESPESAS', outrasDesp);
+    corpo += linha('dfc-bloco', '(−) OUTRAS DESPESAS', outrasDesp, { kind: 'custo' });
   }
-  corpo += linha('dfc-resultado', '(=) RESULTADO OPERACIONAL (EBITDA gerencial)', ebitda);
+  corpo += linha('dfc-resultado', '(=) RESULTADO OPERACIONAL (EBITDA gerencial)', ebitda, { kind: 'ganho', metaChave: 'EBITDA' });
 
-  corpo += linha('dfc-bloco', '(±) RESULTADO FINANCEIRO (rendimentos − juros/tarifas)', resFin, 'FIN');
+  corpo += linha('dfc-bloco', '(±) RESULTADO FINANCEIRO (rendimentos − juros/tarifas)', resFin, { chave: 'FIN', kind: 'ganho' });
   if (dreAberto.has('FIN')) {
-    corpo += linha('dfc-grupo', 'RENDIMENTOS DE APLICAÇÕES', recFin);
-    corpo += linha('dfc-grupo', 'DESPESAS FINANCEIRAS', despFin.map(v => -v));
+    corpo += linha('dfc-grupo', 'RENDIMENTOS DE APLICAÇÕES', recFin, { kind: 'ganho' });
+    corpo += linha('dfc-grupo', 'DESPESAS FINANCEIRAS', despFin.map(v => -v), { kind: 'ganho' });
   }
   if (semClass.some(v => Math.abs(v) > 0.005)) {
     corpo += linha('dfc-bloco', '(±) SEM CLASSIFICAÇÃO (revisar)', semClass);
   }
-  corpo += linha('dfc-resultado', '(=) RESULTADO LÍQUIDO GERENCIAL', resultado);
+  corpo += linha('dfc-resultado', '(=) RESULTADO LÍQUIDO GERENCIAL', resultado, { kind: 'ganho', metaChave: 'RESULTADO' });
 
-  corpo += `<tr class="dfc-saldo"><td colspan="${nM + 2}" style="text-align:left; color:#9aa4af; font-weight:normal;">
+  corpo += `<tr class="dfc-saldo"><td colspan="${cols.length + 2}" style="text-align:left; color:#9aa4af; font-weight:normal;">
     Destino do resultado (informativo — não entra na DRE):</td></tr>`;
-  corpo += linha('dfc-bloco', 'Investimentos no período', invest.map(v => -v), 'INFOINV');
+  corpo += linha('dfc-bloco', 'Investimentos no período', invest.map(v => -v), { chave: 'INFOINV' });
   corpo += blocoSubtipos('INFOINV', r => ehInvest(r) || r.natureza === 'INVESTIMENTOS', -1);
-  corpo += linha('dfc-bloco', 'Distribuição de lucros / retiradas', retiradas.map(v => -v), 'INFORET');
+  corpo += linha('dfc-bloco', 'Distribuição de lucros / retiradas', retiradas.map(v => -v), { chave: 'INFORET' });
   corpo += blocoSubtipos('INFORET', r => r.natureza === 'DISTRIBUICAO DE LUCROS', -1);
   if (naoOper.some(v => Math.abs(v) > 0.005)) {
-    corpo += linha('dfc-bloco', 'Fluxo não operacional (lucros filiais, aportes)', naoOper, 'INFONOP');
+    corpo += linha('dfc-bloco', 'Fluxo não operacional (lucros filiais, aportes)', naoOper, { chave: 'INFONOP' });
     corpo += blocoSubtipos('INFONOP', r => r.natureza === 'APORTE VALORES', 1);
   }
 
-  const margem = (v) => recLiqTot ? pct(total(v) / recLiqTot * 100) : '0';
+  const margem = (v) => recLiqTotJan ? pct(totalJan(v) / recLiqTotJan * 100) : '0';
+  const rotuloPeriodo = drePeriodo === '3m' ? 'últimos 3 meses' : drePeriodo === '6m' ? 'últimos 6 meses' : 'ano';
   alvo.innerHTML = `
   <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">DRE Gerencial — Água Verde</div>
   <div class="caption-label" style="text-align:center;">
     Resultado mês a mês da empresa inteira, na mesma base do fluxo de caixa — <b>não segue os filtros do topo</b>.
-    Percentuais sobre a receita líquida. Clique nas linhas com ▶ para abrir o detalhe.
+    Em cada célula: valor, <b>AV</b> (% da receita líquida) e <b>▲▼</b> (variação vs mês anterior — verde = melhorou).
+    Bolinha colorida = comparação com a meta da linha. Clique nas linhas com ▶ para abrir o detalhe.
   </div>
   <div class="cards">
-    <div class="card blue"><div class="card-lbl">Receita líquida no ano</div><div class="card-val">R$ ${fmt(recLiqTot)}</div></div>
-    <div class="card ${total(lucroBruto) >= 0 ? 'pos' : 'neg'}"><div class="card-lbl">Lucro bruto</div><div class="card-val">R$ ${fmt(total(lucroBruto))}</div>
+    <div class="card blue"><div class="card-lbl">Receita líquida (${rotuloPeriodo})</div><div class="card-val">R$ ${fmt(recLiqTotJan)}</div></div>
+    <div class="card ${totalJan(lucroBruto) >= 0 ? 'pos' : 'neg'}"><div class="card-lbl">Lucro bruto</div><div class="card-val">R$ ${fmt(totalJan(lucroBruto))}</div>
       <div class="card-pct">${margem(lucroBruto)}% da receita líquida</div></div>
-    <div class="card ${total(ebitda) >= 0 ? 'pos' : 'neg'}"><div class="card-lbl">EBITDA gerencial</div><div class="card-val">R$ ${fmt(total(ebitda))}</div>
+    <div class="card ${totalJan(ebitda) >= 0 ? 'pos' : 'neg'}"><div class="card-lbl">EBITDA gerencial</div><div class="card-val">R$ ${fmt(totalJan(ebitda))}</div>
       <div class="card-pct">${margem(ebitda)}% da receita líquida</div></div>
-    <div class="card ${total(resultado) >= 0 ? 'pos' : 'neg'}"><div class="card-lbl">Resultado líquido</div><div class="card-val">R$ ${fmt(total(resultado))}</div>
+    <div class="card ${totalJan(resultado) >= 0 ? 'pos' : 'neg'}"><div class="card-lbl">Resultado líquido</div><div class="card-val">R$ ${fmt(totalJan(resultado))}</div>
       <div class="card-pct">${margem(resultado)}% da receita líquida</div></div>
   </div>
   <div class="periodo-presets" style="margin-top:14px;">
-    <button class="preset-btn ${dreModo === 'valor' ? 'active' : ''}" onclick="dreModoSet('valor')">R$</button>
-    <button class="preset-btn ${dreModo === 'pct' ? 'active' : ''}" onclick="dreModoSet('pct')">% da receita líquida</button>
+    <button class="preset-btn ${drePeriodo === 'ano' ? 'active' : ''}" onclick="drePeriodoSet('ano')">Ano completo</button>
+    <button class="preset-btn ${drePeriodo === '6m' ? 'active' : ''}" onclick="drePeriodoSet('6m')">Últimos 6 meses</button>
+    <button class="preset-btn ${drePeriodo === '3m' ? 'active' : ''}" onclick="drePeriodoSet('3m')">Últimos 3 meses</button>
   </div>
   <div id="tabelaDRE">
     <table>
-      <tr><th></th>${meses.map(m => `<th>${rotuloMes(m)}</th>`).join('')}<th>Total</th></tr>
+      <tr><th></th>${cols.map(m => `<th>${rotuloMes(m)}</th>`).join('')}<th>Total</th></tr>
       ${corpo}
     </table>
   </div>
   <div class="caption-label">DRE gerencial em regime de caixa: receita quando o dinheiro entra na conta, despesa de cartão de crédito
   no ciclo da fatura. Investimentos, retiradas e aportes ficam fora do resultado (são o destino do lucro) — por isso o
-  resultado daqui difere do "resultado final" do fluxo de caixa, que soma tudo que passou pelo caixa.</div>`;
+  resultado daqui difere do "resultado final" do fluxo de caixa, que soma tudo que passou pelo caixa.
+  Metas por linha na tabela <b>fin_metas_dre</b> do banco (verde = na meta, âmbar = até 10% de distância, vermelho = fora) —
+  os valores iniciais vieram da média jan–jul/2026; peça ao Claude para ajustá-los aos seus objetivos.</div>`;
 }
 
 // Agrupamento automatico pelo tamanho do periodo filtrado — evita colocar mais um controle na
