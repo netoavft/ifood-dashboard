@@ -250,6 +250,22 @@
   .dre-sub b { font-weight:600; }
   .dre-farol { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:3px; vertical-align:middle; }
 
+  /* vermelho de valor negativo vale para todas as tabelas financeiras */
+  td.negativo, .negativo { color:#ff6b6b; }
+
+  /* Analise de despesas e Conferencia da base */
+  #tabelaDespesas table td, #tabelaSaldos table td, #tabelaSemClass table td { border-bottom:1px solid #232321; }
+  #tabelaDespesas tr.dfc-bloco td { background:#232321; font-weight:bold; border-top:2px solid #45443f; color:#ffffff; }
+  #tabelaDespesas tr.dfc-grupo td { background:#1a1a19; font-weight:bold; color:#c3c2b7; }
+  #tabelaDespesas tr.dfc-grupo td:first-child { padding-left:22px; }
+  #tabelaDespesas tr.dfc-linha td { color:#a5a49a; }
+  #tabelaDespesas tr.dfc-linha td:first-child { padding-left:40px; }
+  #tabelaDespesas tr.dfc-resultado td { background:#250f13; font-weight:bold; border-top:2px solid #c8102e; }
+  #tabelaDespesas tr.dfc-resultado td:first-child { color:#c8102e; }
+  #tabelaDespesas tr.clicavel { cursor:pointer; }
+  #tabelaDespesas tr.clicavel:hover td:first-child { color:#c8102e; }
+  #tabelaSaldos tr.dfc-linha td { color:#6e6d64; }
+
   .relatorio-corpo { background:#1a1a19; border:1px solid #34332f; border-radius:14px; padding:24px 28px; line-height:1.7; font-size:13.5px; }
   .relatorio-corpo h2 { color:#c8102e; font-size:18px; margin:18px 0 10px; }
   .relatorio-corpo h3 { color:#ffffff; font-size:15px; margin:16px 0 8px; }
@@ -312,8 +328,8 @@
     <div class="sidebar-grupo" id="gFinanceiro">
       <button class="sidebar-btn" id="navBtnFluxo" onclick="mostrarModulo('fluxo')">Fluxo de caixa</button>
       <button class="sidebar-btn" id="navBtnProjecao" onclick="mostrarModulo('projecao')">Fluxo projetado</button>
-      <span class="sidebar-btn breve">Análise de despesas</span>
-      <span class="sidebar-btn breve">Conciliação</span>
+      <button class="sidebar-btn" id="navBtnDespesas" onclick="mostrarModulo('despesas')">Análise de despesas</button>
+      <button class="sidebar-btn" id="navBtnConciliacao" onclick="mostrarModulo('conciliacao')">Conferência da base</button>
     </div>
 
     <button class="sidebar-secao" onclick="toggleGrupo('gIfood')">Canal · iFood <span class="seta">▶</span></button>
@@ -451,6 +467,14 @@
 
     <div id="modulo-projecao" class="modulo" style="display:none;">
       <div id="view-projecao"></div>
+    </div>
+
+    <div id="modulo-despesas" class="modulo" style="display:none;">
+      <div id="view-despesas"></div>
+    </div>
+
+    <div id="modulo-conciliacao" class="modulo" style="display:none;">
+      <div id="view-conciliacao"></div>
     </div>
 
     <div id="modulo-indicadores" class="modulo" style="display:none;">
@@ -839,7 +863,9 @@ function toggleGrupo(id) {
 // Garante que o grupo que contem o modulo esteja aberto (ex.: botao que leva
 // a Cancelamentos a partir da Visao geral, ou o modulo inicial no boot).
 function abrirGrupoDoModulo(nome) {
-  const grupoDe = { relatorios: 'gRelatorios', fluxo: 'gFinanceiro', projecao: 'gFinanceiro', dre: 'gResultado', indicadores: 'gResultado' };
+  const grupoDe = { relatorios: 'gRelatorios', fluxo: 'gFinanceiro', projecao: 'gFinanceiro',
+                    despesas: 'gFinanceiro', conciliacao: 'gFinanceiro',
+                    dre: 'gResultado', indicadores: 'gResultado' };
   const id = grupoDe[nome] || 'gIfood';
   const grupo = document.getElementById(id);
   if (!grupo.classList.contains('aberto')) toggleGrupo(id);
@@ -861,6 +887,8 @@ function mostrarModulo(nome) {
     fluxo: ['modulo-fluxo', 'navBtnFluxo'],
     dre: ['modulo-dre', 'navBtnDre'],
     projecao: ['modulo-projecao', 'navBtnProjecao'],
+    despesas: ['modulo-despesas', 'navBtnDespesas'],
+    conciliacao: ['modulo-conciliacao', 'navBtnConciliacao'],
     indicadores: ['modulo-indicadores', 'navBtnIndicadores'],
   };
   Object.entries(modulos).forEach(([chave, [idDiv, idBtn]]) => {
@@ -888,6 +916,8 @@ function mostrarModulo(nome) {
   if (nome === 'fluxo') entrarFluxo();
   if (nome === 'dre') entrarDre();
   if (nome === 'projecao') entrarProjecao();
+  if (nome === 'despesas') entrarDespesas();
+  if (nome === 'conciliacao') entrarConciliacao();
   if (nome === 'indicadores') entrarIndicadores();
 }
 
@@ -3688,6 +3718,309 @@ function renderModuloProjecao() {
       scales: { y: { title: { display: true, text: 'R$' } }, x: { ticks: { maxRotation: 60, autoSkip: true } } },
     },
   });
+}
+
+// ------------------------------------------------------------------
+// Modulo Analise de Despesas — onde o dinheiro esta indo e o que mudou.
+// Base: vw_fin_despesas_detalhe (competencia, ate o fornecedor).
+// A pergunta que ele responde nao e' "quanto gastei" (isso a DRE ja diz),
+// e sim "o que saiu do padrao" — por isso toda linha compara com a media
+// dos meses anteriores, e o destaque vai para as maiores VARIACOES.
+// ------------------------------------------------------------------
+let DESP_DET = null;      // vw_fin_despesas_detalhe
+let despMes = null;       // mes selecionado (YYYY-MM-01) ou 'ano'
+const despAberto = new Set();
+
+async function entrarDespesas() {
+  const alvo = document.getElementById('view-despesas');
+  if (DESP_DET === null) {
+    alvo.innerHTML = '<div class="contexto">Carregando despesas...</div>';
+    DESP_DET = await consultarTudo('vw_fin_despesas_detalhe?select=mes,tipo,subtipo,fornecedor,lancamentos,valor&order=mes');
+    DESP_DET.forEach(r => { r.valor = Number(r.valor); r.lancamentos = Number(r.lancamentos); });
+  }
+  renderModuloDespesas();
+}
+
+function despToggle(chave) {
+  if (despAberto.has(chave)) despAberto.delete(chave); else despAberto.add(chave);
+  renderModuloDespesas();
+}
+function despMesSet(m) { despMes = m; despAberto.clear(); renderModuloDespesas(); }
+
+function renderModuloDespesas() {
+  const alvo = document.getElementById('view-despesas');
+  if (!DESP_DET || !DESP_DET.length) {
+    alvo.innerHTML = `<div class="contexto" style="border-color:#f5a623;">Sem despesas importadas ainda.</div>`;
+    return;
+  }
+  const meses = [...new Set(DESP_DET.map(r => r.mes))].sort();
+  // abre no mes corrente (nao no ultimo da base, que so tem contas a pagar futuras)
+  if (despMes === null) {
+    const atual = new Date().toISOString().slice(0, 8) + '01';
+    despMes = meses.includes(atual) ? atual : meses[meses.length - 1];
+  }
+  const rotuloMes = (m) => { const [a, mm] = m.split('-'); return `${MESES_ABREV[Number(mm) - 1]}/${a.slice(2)}`; };
+
+  // periodo selecionado x base de comparacao (meses anteriores a ele)
+  const noPeriodo = (r) => despMes === 'ano' ? true : r.mes === despMes;
+  const anteriores = despMes === 'ano' ? [] : meses.filter(m => m < despMes);
+  const nAnt = anteriores.length;
+
+  // soma no periodo e media/mes nos anteriores, para qualquer recorte
+  const soma = (pred) => DESP_DET.filter(r => noPeriodo(r) && pred(r)).reduce((s, r) => s + r.valor, 0);
+  const mediaAnt = (pred) => nAnt === 0 ? null :
+    DESP_DET.filter(r => anteriores.includes(r.mes) && pred(r)).reduce((s, r) => s + r.valor, 0) / nAnt;
+
+  const totalPeriodo = soma(() => true);
+  const totalMediaAnt = mediaAnt(() => true);
+
+  // celula de variacao vs media dos meses anteriores (em despesa, subir e' ruim)
+  const varia = (v, base) => {
+    if (base === null || Math.abs(base) < 0.005) return '';
+    const d = (v - base) / Math.abs(base) * 100;
+    if (Math.abs(d) < 3) return `<span style="color:#7d8590;">≈ média</span>`;
+    const cor = d > 0 ? '#ff6b6b' : '#3fb950';
+    return `<span style="color:${cor};">${d > 0 ? '▲' : '▼'} ${pct(Math.abs(d))}% vs média</span>`;
+  };
+
+  const grupos = [...new Set(DESP_DET.filter(noPeriodo).map(r => r.tipo))]
+    .map(t => [t, soma(r => r.tipo === t), mediaAnt(r => r.tipo === t)])
+    .sort((a, b) => b[1] - a[1]);
+
+  let corpo = '';
+  grupos.forEach(([tipo, valor, media]) => {
+    const abertoT = despAberto.has('T:' + tipo);
+    corpo += `
+    <tr class="dfc-bloco clicavel" onclick="despToggle('T:${tipo}')">
+      <td>${abertoT ? '▼ ' : '▶ '}${tipo}</td>
+      <td>${fmt(valor)}</td>
+      <td>${totalPeriodo ? pct(valor / totalPeriodo * 100) : 0}%</td>
+      <td>${varia(valor, media)}</td>
+    </tr>`;
+    if (!abertoT) return;
+    const subs = [...new Set(DESP_DET.filter(r => noPeriodo(r) && r.tipo === tipo).map(r => r.subtipo))]
+      .map(s => [s, soma(r => r.subtipo === s), mediaAnt(r => r.subtipo === s)])
+      .sort((a, b) => b[1] - a[1]);
+    subs.forEach(([sub, v, m]) => {
+      const abertoS = despAberto.has('S:' + sub);
+      corpo += `
+      <tr class="dfc-grupo clicavel" onclick="despToggle('S:${sub.replace(/'/g, "\\'")}')">
+        <td>${abertoS ? '▼ ' : '▶ '}${sub}</td>
+        <td>${fmt(v)}</td>
+        <td>${totalPeriodo ? pct(v / totalPeriodo * 100) : 0}%</td>
+        <td>${varia(v, m)}</td>
+      </tr>`;
+      if (!abertoS) return;
+      const forns = DESP_DET.filter(r => noPeriodo(r) && r.subtipo === sub)
+        .reduce((acc, r) => { acc[r.fornecedor] = (acc[r.fornecedor] || 0) + r.valor; return acc; }, {});
+      Object.entries(forns).sort((a, b) => b[1] - a[1]).forEach(([f, v2]) => {
+        corpo += `<tr class="dfc-linha"><td>${f}</td><td>${fmt(v2)}</td>
+                  <td>${v ? pct(v2 / v * 100) : 0}% do grupo</td>
+                  <td>${varia(v2, mediaAnt(r => r.subtipo === sub && r.fornecedor === f))}</td></tr>`;
+      });
+    });
+  });
+
+  // top fornecedores do periodo (ignora o balde "(sem fornecedor)", que
+  // mistura folha, impostos e tudo que nao tem NF de fornecedor)
+  const porForn = DESP_DET.filter(noPeriodo).reduce((acc, r) => {
+    if (r.fornecedor === '(sem fornecedor)') return acc;
+    acc[r.fornecedor] = (acc[r.fornecedor] || 0) + r.valor;
+    return acc;
+  }, {});
+  const topForn = Object.entries(porForn).sort((a, b) => b[1] - a[1]).slice(0, 12);
+
+  // maiores variacoes do periodo (o que realmente mudou)
+  const variacoes = [...new Set(DESP_DET.filter(noPeriodo).map(r => r.subtipo))]
+    .map(s => { const v = soma(r => r.subtipo === s), m = mediaAnt(r => r.subtipo === s);
+                return [s, v, m, m === null ? 0 : v - m]; })
+    .filter(x => x[2] !== null && Math.abs(x[3]) > 500)
+    .sort((a, b) => Math.abs(b[3]) - Math.abs(a[3])).slice(0, 6);
+
+  alvo.innerHTML = `
+  <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Análise de Despesas — Água Verde</div>
+  <div class="caption-label" style="text-align:center;">
+    Despesas e investimentos por <b>competência</b> (mesma base da DRE), abrindo até o fornecedor.
+    Cada linha compara com a <b>média dos meses anteriores</b> — vermelho = gastou mais que o normal.
+  </div>
+  <div class="periodo-presets" style="margin-top:10px;">
+    ${meses.map(m => `<button class="preset-btn ${despMes === m ? 'active' : ''}" onclick="despMesSet('${m}')">${rotuloMes(m)}</button>`).join('')}
+    <button class="preset-btn ${despMes === 'ano' ? 'active' : ''}" onclick="despMesSet('ano')">Ano todo</button>
+  </div>
+  <div class="cards">
+    <div class="card blue"><div class="card-lbl">Total ${despMes === 'ano' ? 'no ano' : 'em ' + rotuloMes(despMes)}</div>
+      <div class="card-val">R$ ${fmt(totalPeriodo)}</div>
+      ${totalMediaAnt !== null ? `<div class="card-pct">${varia(totalPeriodo, totalMediaAnt)}</div>` : ''}</div>
+    <div class="card"><div class="card-lbl">Maior grupo</div><div class="card-val">R$ ${fmt(grupos[0] ? grupos[0][1] : 0)}</div>
+      <div class="card-pct">${grupos[0] ? grupos[0][0] : '—'}</div></div>
+    <div class="card"><div class="card-lbl">Maior fornecedor</div><div class="card-val">R$ ${fmt(topForn[0] ? topForn[0][1] : 0)}</div>
+      <div class="card-pct">${topForn[0] ? topForn[0][0].slice(0, 30) : '—'}</div></div>
+    <div class="card"><div class="card-lbl">Fornecedores no período</div><div class="card-val">${Object.keys(porForn).length}</div>
+      <div class="card-pct">com NF lançada no Saipos</div></div>
+  </div>
+  ${variacoes.length ? `
+  <div class="section-label">O que saiu do padrão</div>
+  <div class="contexto" style="text-align:left;">
+    ${variacoes.map(([s, v, m, d]) => `
+      <div style="display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid #21262d;">
+        <span><b>${s}</b> <span style="color:#7d8590;">R$ ${fmt(v)} (média R$ ${fmt(m)})</span></span>
+        <span style="color:${d > 0 ? '#ff6b6b' : '#3fb950'};">${d > 0 ? '+' : '−'} R$ ${fmt(Math.abs(d))}</span>
+      </div>`).join('')}
+    <div style="font-size:11px; color:#6e7681; margin-top:6px;">Diferença entre o período e a média dos meses anteriores (acima de R$ 500).</div>
+  </div>` : ''}
+  <div class="section-label">Detalhe por grupo → categoria → fornecedor</div>
+  <div id="tabelaDespesas">
+    <table>
+      <tr><th></th><th>Valor</th><th>% do total</th><th>vs média dos meses anteriores</th></tr>
+      ${corpo}
+      <tr class="dfc-resultado"><td>TOTAL</td><td>${fmt(totalPeriodo)}</td><td>100%</td><td>${totalMediaAnt !== null ? varia(totalPeriodo, totalMediaAnt) : ''}</td></tr>
+    </table>
+  </div>
+  <div class="section-label">Top fornecedores ${despMes === 'ano' ? 'do ano' : 'de ' + rotuloMes(despMes)}</div>
+  <div style="height:${Math.max(220, topForn.length * 26)}px;"><canvas id="chartFornecedores"></canvas></div>
+  <div class="caption-label">Fornecedor vem do cadastro da NF no Saipos; folha, impostos e taxas caem em "(sem fornecedor)"
+  no detalhe e ficam fora do ranking. Inclui contas a pagar já lançadas (competência), então o mês corrente cresce até fechar.</div>`;
+
+  destroyChart('chartFornecedores');
+  chartInstances['chartFornecedores'] = new Chart(document.getElementById('chartFornecedores').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: topForn.map(f => f[0].length > 34 ? f[0].slice(0, 32) + '…' : f[0]),
+      datasets: [{ data: topForn.map(f => f[1]), backgroundColor: '#58a6ff', borderRadius: 4 }],
+    },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      layout: { padding: { right: 70 } },
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => `R$ ${fmt(c.parsed.x)}` } } },
+      scales: { x: { beginAtZero: true, title: { display: true, text: 'R$' } } },
+    },
+    plugins: [pluginRotulosBarra((i) => 'R$ ' + fmt(topForn[i][1]))],
+  });
+}
+
+// ------------------------------------------------------------------
+// Modulo Conferencia — a base do painel esta batendo com a realidade?
+// A conciliacao com o extrato e' feita no Saipos (que ja importa OFX). O
+// campo "conciliated" da API vem SEMPRE 'N', mesmo em meses ja conciliados,
+// entao ele nao serve para medir a fila — em vez de mostrar um numero
+// errado, aqui rodamos as conferencias que a base permite provar:
+//   1. saldo por conta (para bater no extrato/no Saipos)
+//   2. transferencias que nao fecham (toda saida tem de ter uma entrada)
+//   3. lancamentos sem classificacao
+// ------------------------------------------------------------------
+let CONF_SALDOS = null, CONF_TRANSF = null, CONF_SEMCLASS = null;
+
+async function entrarConciliacao() {
+  const alvo = document.getElementById('view-conciliacao');
+  if (CONF_SALDOS === null) {
+    alvo.innerHTML = '<div class="contexto">Carregando conferências...</div>';
+    [CONF_SALDOS, CONF_TRANSF, CONF_SEMCLASS] = await Promise.all([
+      consultarTudo('vw_fin_saldo_conta?select=conta,ordem,saldo,ultimo_lancamento,lancamentos&order=ordem'),
+      consultarTudo('vw_fin_transf_conferencia?select=mes,diferenca,lancamentos&order=mes'),
+      consultarTudo('vw_fin_sem_classificacao?select=data,conta,descricao,credito,debito&order=data.desc'),
+    ]);
+    CONF_SALDOS.forEach(r => { r.saldo = Number(r.saldo); r.lancamentos = Number(r.lancamentos); });
+    CONF_TRANSF.forEach(r => { r.diferenca = Number(r.diferenca); });
+  }
+  renderModuloConciliacao();
+}
+
+function renderModuloConciliacao() {
+  const alvo = document.getElementById('view-conciliacao');
+  const hojeIso = new Date().toISOString().slice(0, 10);
+  const rotuloMes = (m) => { const [a, mm] = m.split('-'); return `${MESES_ABREV[Number(mm) - 1]}/${a.slice(2)}`; };
+  const fmtData = (d) => d ? `${d.slice(8, 10)}/${d.slice(5, 7)}` : '—';
+  const diasDesde = (d) => d ? Math.round((new Date(hojeIso) - new Date(d)) / 86400000) : null;
+
+  const ativas = CONF_SALDOS.filter(c => c.lancamentos > 0);
+  const negativas = ativas.filter(c => c.saldo < -0.005 && !c.conta.startsWith('CREDITO'));
+  const paradas = ativas.filter(c => diasDesde(c.ultimo_lancamento) > 7 && !c.conta.startsWith('CREDITO'));
+  const transfRuins = CONF_TRANSF.filter(t => Math.abs(t.diferenca) > 0.005);
+  const alertas = negativas.length + paradas.length + transfRuins.length + CONF_SEMCLASS.length;
+  const saldoTotal = ativas.filter(c => !c.conta.startsWith('CREDITO')).reduce((s, c) => s + c.saldo, 0);
+
+  let blocos = '';
+
+  if (negativas.length) {
+    blocos += `
+    <div class="section-label">Contas com saldo negativo no painel</div>
+    <div class="contexto" style="border-color:#ff6b6b; text-align:left;">
+      ${negativas.map(c => `<div style="padding:3px 0;"><b>${c.conta}</b>: <span class="negativo">R$ ${fmt(c.saldo)}</span></div>`).join('')}
+      <div style="font-size:12px; color:#9aa4af; margin-top:6px;">
+        Se o extrato real não está negativo, faltam <b>recebimentos lançados no Saipos</b> (ex.: repasse que caiu no banco
+        mas ainda não foi baixado) — é exatamente o que a conciliação no Saipos resolve.
+      </div>
+    </div>`;
+  }
+
+  if (transfRuins.length) {
+    blocos += `
+    <div class="section-label">Transferências que não fecham</div>
+    <div class="contexto" style="border-color:#f5a623; text-align:left;">
+      ${transfRuins.map(t => `<div style="display:flex; justify-content:space-between; padding:3px 0;">
+        <span>${rotuloMes(t.mes)} — ${t.lancamentos} lançamentos</span>
+        <b class="negativo">R$ ${fmt(t.diferenca)}</b></div>`).join('')}
+      <div style="font-size:12px; color:#9aa4af; margin-top:6px;">
+        Transferência entre contas próprias tem de somar zero (toda saída tem uma entrada). Diferente de zero =
+        perna faltando ou valor divergente entre as duas contas. Não muda o resultado, mas distorce o saldo das contas.
+      </div>
+    </div>`;
+  }
+
+  if (paradas.length) {
+    blocos += `
+    <div class="section-label">Contas sem movimento recente</div>
+    <div class="contexto" style="border-color:#f5a623; text-align:left;">
+      ${paradas.map(c => `<div style="display:flex; justify-content:space-between; padding:3px 0;">
+        <span>${c.conta}</span><span style="color:#9aa4af;">último lançamento em ${fmtData(c.ultimo_lancamento)}
+        (${diasDesde(c.ultimo_lancamento)} dias)</span></div>`).join('')}
+      <div style="font-size:12px; color:#9aa4af; margin-top:6px;">
+        Pode ser normal (conta pouco usada) ou sinal de que os lançamentos dessa conta pararam de ser feitos no Saipos.
+      </div>
+    </div>`;
+  }
+
+  if (CONF_SEMCLASS.length) {
+    blocos += `
+    <div class="section-label">Lançamentos sem classificação</div>
+    <div id="tabelaSemClass"><table>
+      <tr><th>Data</th><th>Conta</th><th>Descrição</th><th>Valor</th></tr>
+      ${CONF_SEMCLASS.slice(0, 30).map(r => `<tr><td>${fmtData(r.data)}</td><td>${r.conta}</td>
+        <td>${(r.descricao || '').slice(0, 60)}</td>
+        <td class="negativo">R$ ${fmt(Number(r.debito) - Number(r.credito))}</td></tr>`).join('')}
+    </table></div>`;
+  }
+
+  alvo.innerHTML = `
+  <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Conferência da base — Água Verde</div>
+  <div class="caption-label" style="text-align:center;">
+    A conciliação com o extrato é feita no Saipos (Financeiro → Conciliação, que importa o OFX e sugere os pares).
+    Aqui o painel confere <b>a consistência da própria base</b> e aponta o que provavelmente falta lançar lá.
+  </div>
+  <div class="cards">
+    <div class="card ${alertas === 0 ? 'pos' : 'neg'}"><div class="card-lbl">Pontos de atenção</div>
+      <div class="card-val">${alertas}</div><div class="card-pct">${alertas === 0 ? 'base consistente' : 'detalhes abaixo'}</div></div>
+    <div class="card blue"><div class="card-lbl">Saldo em conta (painel)</div>
+      <div class="card-val">R$ ${fmt(saldoTotal)}</div><div class="card-pct">bancos, cofre e investimentos</div></div>
+    <div class="card"><div class="card-lbl">Contas ativas</div><div class="card-val">${ativas.length}</div>
+      <div class="card-pct">com lançamentos no ano</div></div>
+    <div class="card ${CONF_SEMCLASS.length ? 'neg' : 'pos'}"><div class="card-lbl">Sem classificação</div>
+      <div class="card-val">${CONF_SEMCLASS.length}</div><div class="card-pct">lançamentos sem categoria</div></div>
+  </div>
+  ${alertas === 0 ? '<div class="contexto" style="border-color:#3fb950;">Nenhuma inconsistência encontrada na base. 🎉</div>' : blocos}
+  <div class="section-label">Saldo por conta (para bater com o extrato)</div>
+  <div id="tabelaSaldos"><table>
+    <tr><th>Conta</th><th>Saldo no painel</th><th>Último lançamento</th><th>Lançamentos</th></tr>
+    ${CONF_SALDOS.map(c => `<tr class="${c.lancamentos ? '' : 'dfc-linha'}">
+      <td>${c.conta}</td>
+      <td class="${c.saldo < -0.005 ? 'negativo' : ''}">R$ ${fmt(c.saldo)}</td>
+      <td>${fmtData(c.ultimo_lancamento)}</td>
+      <td>${c.lancamentos || '—'}</td></tr>`).join('')}
+  </table></div>
+  <div class="caption-label">Saldo = saldo inicial de 01/01 + todos os lançamentos de caixa (planilha até jul, Saipos depois).
+  Cartões aparecem com saldo negativo enquanto a fatura não é paga — é o normal.
+  <b>Sobre o status de conciliação do Saipos:</b> a API expõe um campo de conciliado, mas ele vem sempre "não" mesmo em
+  meses já conciliados, então o painel não o utiliza — preferimos não mostrar número a mostrar número errado.</div>`;
 }
 
 // Agrupamento automatico pelo tamanho do periodo filtrado — evita colocar mais um controle na
