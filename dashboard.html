@@ -1542,6 +1542,115 @@ function promocoesPorLoja(estrategia) {
 }
 
 // ------------------------------------------------------------------
+// DECOMPOSIÇÃO POR MECÂNICA
+// O relatório do iFood agrupa por COMBINAÇÃO de promoções ("Campanha Inteligente +
+// Frete Grátis"), o que esconde quanto custa cada mecânica isolada. Validado em
+// 10/08/2026: as mecânicas-base têm custo FIXO por pedido (CI = R$5,00 exato em
+// todas as lojas; Clube ≈ R$1,85; Cupom ≈ R$3,10). Então, numa linha combinada,
+// cobramos da base o seu valor fixo e atribuímos o RESÍDUO ao Frete Grátis.
+// Conferência: resíduo do CI+Frete deu R$10,30/pedido contra R$10,53 do Frete
+// Grátis puro (erro de 2%) — o modelo se sustenta.
+function decomporPorMecanica() {
+  const comps = competenciasNoPeriodo();
+  const activeL = activeLojas();
+  const linhas = PROMOCOES.filter(p => activeL.has(p[0]) && comps.has(p[1]));
+
+  // custo unitario de cada mecanica quando ela aparece SOZINHA, por competencia
+  const base = new Map();
+  linhas.forEach(([, comp, est, ped, , invL, invI]) => {
+    if (est.includes(' + ') || !ped) return;
+    const k = comp + '|' + est;
+    if (!base.has(k)) base.set(k, { ped: 0, invL: 0, invI: 0 });
+    const o = base.get(k);
+    o.ped += ped; o.invL += invL; o.invI += invI;
+  });
+  const unit = (comp, mec) => {
+    const o = base.get(comp + '|' + mec);
+    return o && o.ped ? { l: o.invL / o.ped, i: o.invI / o.ped } : { l: 0, i: 0 };
+  };
+
+  const porMec = new Map();
+  const soma = (mec, l, i, ped) => {
+    if (!porMec.has(mec)) porMec.set(mec, { mec, invL: 0, invI: 0, ped: 0 });
+    const o = porMec.get(mec);
+    o.invL += l; o.invI += i; o.ped += ped;
+  };
+
+  let totL = 0, totI = 0;
+  linhas.forEach(([, comp, est, ped, , invL, invI]) => {
+    totL += invL; totI += invI;
+    const partes = est.split(' + ').map(s => s.trim());
+    const outras = partes.filter(p => p !== 'Frete Grátis');
+    if (partes.includes('Frete Grátis') && outras.length) {
+      let usadoL = 0, usadoI = 0;
+      outras.forEach(p => {
+        const u = unit(comp, p);
+        soma(p, u.l * ped, u.i * ped, ped);
+        usadoL += u.l * ped; usadoI += u.i * ped;
+      });
+      soma('Frete Grátis', Math.max(0, invL - usadoL), Math.max(0, invI - usadoI), ped);
+    } else {
+      partes.forEach(p => soma(p, invL / partes.length, invI / partes.length, ped));
+    }
+  });
+
+  const lista = [...porMec.values()]
+    .filter(o => o.invL > 0.005 || o.invI > 0.005)
+    .map(o => ({
+      ...o,
+      pctVerba: totL ? o.invL / totL * 100 : 0,
+      alav: o.invL > 0.005 ? o.invI / o.invL : null,
+      porPedido: o.ped ? o.invL / o.ped : 0,
+    }))
+    .sort((a, b) => b.invL - a.invL);
+
+  const fg = porMec.get('Frete Grátis') || { invL: 0, invI: 0 };
+  return {
+    lista, totL, totI,
+    alavGeral: totL > 0.005 ? totI / totL : null,
+    semFreteL: totL - fg.invL, semFreteI: totI - fg.invI,
+    alavSemFrete: (totL - fg.invL) > 0.005 ? (totI - fg.invI) / (totL - fg.invL) : null,
+  };
+}
+
+function blocoMecanicas() {
+  const d = decomporPorMecanica();
+  if (!d.lista.length) return '';
+  const alavTxt = (v) => v === null ? '—'
+    : `<b style="color:${v >= 1 ? '#3fb950' : v >= 0.5 ? '#f5a623' : '#ff6b6b'};">${v.toFixed(2).replace('.', ',')}x</b>`;
+
+  const linhas = d.lista.map(o => `<tr>
+      <td>${o.mec}</td>
+      <td>${o.ped.toLocaleString('pt-BR')}</td>
+      <td>R$ ${fmt(o.invL)}</td>
+      <td>${pct(o.pctVerba)}%</td>
+      <td>R$ ${fmt(o.invI)}</td>
+      <td>${alavTxt(o.alav)}</td>
+      <td>R$ ${fmt(o.porPedido)}</td>
+    </tr>`).join('');
+
+  return `
+  <div class="section-label">Cada promoção isolada — quanto custa e quanto o iFood devolve</div>
+  <div class="caption-label" style="text-align:center;">
+    O relatório do iFood mistura as promoções que caem no mesmo pedido ("Campanha Inteligente + Frete Grátis").
+    Aqui elas foram <b>separadas</b>: cada mecânica-base cobra seu valor fixo por pedido (a Campanha Inteligente custa
+    exatamente R$ 5,00) e o que sobra é o custo real do Frete Grátis.
+  </div>
+  <div id="tabelaMecanicas">
+    <table>
+      <tr><th>Promoção</th><th>Pedidos</th><th>Nós (R$)</th><th>% da verba</th><th>iFood (R$)</th><th>Alavancagem</th><th>Nosso R$/pedido</th></tr>
+      ${linhas}
+      <tr class="sub"><td><b>TOTAL</b></td><td></td><td><b>R$ ${fmt(d.totL)}</b></td><td>100%</td><td><b>R$ ${fmt(d.totI)}</b></td><td>${alavTxt(d.alavGeral)}</td><td></td></tr>
+      <tr class="liq"><td><b>Total SEM o Frete Grátis</b></td><td></td><td><b>R$ ${fmt(d.semFreteL)}</b></td><td></td><td><b>R$ ${fmt(d.semFreteI)}</b></td><td>${alavTxt(d.alavSemFrete)}</td><td></td></tr>
+    </table>
+  </div>
+  <div class="caption-label" style="text-align:center;">
+    A última linha é a mais importante: mostra qual seria a alavancagem da rede <b>sem</b> o frete grátis avulso —
+    a única mecânica que o iFood praticamente não co-financia.
+  </div>`;
+}
+
+// ------------------------------------------------------------------
 // TESTE DE PROMOÇÕES (desde 10/08/2026): Hits + Campanha Inteligente +
 // Frete grátis até R$9,99 em todas as lojas, anúncios desligados.
 // Verbas SEMANAIS configuradas no portal (fonte de verdade: tabela verbas_promo).
@@ -1665,7 +1774,7 @@ function moduloPromocoes() {
       <td>R$ ${fmt(x.ticket)}</td>
     </tr>`).join('');
 
-  return teste + `
+  return teste + blocoMecanicas() + `
   <div class="section-label">Quanto e onde investimos em promoção (relatório mensal)</div>
   <div class="caption-label" style="text-align:center;">
     Dados de <b>${mesesTexto}</b>. O relatório de promoções do iFood é mensal — este bloco ignora o recorte por dia,
@@ -2612,6 +2721,9 @@ function computeKpisSemana(ini, fim) {
     neg_sem_resposta_pct: negs.length ? negSem / negs.length * 100 : null,
     neg_atraso_pct: negs.length ? negAtraso / negs.length * 100 : null,
     mkt_por_pedido: m.custoMktPorPedido,
+    // investPlataforma = incentivo do iFood; promoLoja = o que saiu do nosso bolso.
+    alavancagem: m.promoLoja > 0.005 ? m.investPlataforma / m.promoLoja : null,
+    roa_promo: m.promoLoja > 0.005 ? m.bruto / m.promoLoja : null,
     _negs: negs, _avs: avs,
   };
 }
@@ -2641,6 +2753,7 @@ function fmtKpi(unidade, v) {
   if (unidade === 'rs') return 'R$ ' + fmt(v);
   if (unidade === 'pct') return pct(v) + '%';
   if (unidade === 'nota') return v.toFixed(2).replace('.', ',');
+  if (unidade === 'x') return v.toFixed(2).replace('.', ',') + 'x';
   return Math.round(v).toLocaleString('pt-BR');
 }
 
