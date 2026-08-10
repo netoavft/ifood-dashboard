@@ -2456,6 +2456,172 @@ const DFC_ORDEM_TIPOS = ['MATERIA PRIMA','USO E CONSUMO','PESSOAL','PRO LABORE',
   'DESPESAS COMERCIAIS','DESPESAS LOGISTICA','DESPESAS MARKETING','DESPESAS ADMINISTRATIVAS',
   'DESPESAS MANUTENÇÃO','IMPOSTOS E TAXAS','DESPESAS FINANCEIRAS'];
 
+// ------------------------------------------------------------------
+// MODULO INDICADORES E METAS — placar semanal vs metas_kpi (banco)
+// ------------------------------------------------------------------
+let METAS_KPI = null;
+
+// Ultima semana completa seg-dom (mesmo recorte do resumo semanal e do repasse iFood).
+function ultimaSemanaCompleta() {
+  const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+  const dow = (hoje.getDay() + 6) % 7; // 0 = segunda
+  const segAtual = new Date(hoje); segAtual.setDate(segAtual.getDate() - dow);
+  const dom = new Date(segAtual); dom.setDate(dom.getDate() - 1);
+  const seg = new Date(dom); seg.setDate(seg.getDate() - 6);
+  const iso = (d) => d.toISOString().slice(0, 10);
+  return { ini: iso(seg), fim: iso(dom) };
+}
+
+// Calcula o valor de cada KPI num intervalo, com as mesmas formulas do painel.
+function computeKpisSemana(ini, fim) {
+  const m = computeMetrics(ini, fim);
+  const activeL = activeLojas();
+  const negs = NEGOCIACOES.filter(r => activeL.has(r[0]) && r[1] >= ini && r[1] <= fim);
+  const avs = AVALIACOES.filter(r => activeL.has(r[0]) && r[1] >= ini && r[1] <= fim);
+  const negSem = negs.filter(r => !r[5]).length;
+  const negAtraso = negs.filter(r => (r[4] || '').includes('ATRASO')).length;
+  return {
+    liquido_semana: m.liquido,
+    pedidos_semana: m.totalPedidos,
+    margem_pct: m.liquidoPct,
+    nota_media: avs.length ? avs.reduce((s, r) => s + r[2], 0) / avs.length : null,
+    pct_notas_ruins: avs.length ? avs.filter(r => r[2] <= 2).length / avs.length * 100 : null,
+    taxa_cancelamento: m.nFullPct, // so cancelamentos TOTAIS (parciais ficam no modulo Cancelamentos)
+    neg_sem_resposta_pct: negs.length ? negSem / negs.length * 100 : null,
+    neg_atraso_pct: negs.length ? negAtraso / negs.length * 100 : null,
+    mkt_por_pedido: m.custoMktPorPedido,
+    _negs: negs, _avs: avs,
+  };
+}
+
+function farolKpi(meta, valor) {
+  if (valor === null || valor === undefined) return ['#7d8590', 'sem dado'];
+  const m = Number(meta.meta), m2 = meta.meta2 !== null ? Number(meta.meta2) : null;
+  const tol = (x) => Math.abs(x) > 0 ? Math.abs(x) * 0.10 : 5; // 10% (ou 5 p.p. quando a meta e zero)
+  if (meta.sentido === 'acima') {
+    if (valor >= m) return ['#3fb950', 'na meta'];
+    if (valor >= m - tol(m)) return ['#f5a623', 'perto'];
+    return ['#ff6b6b', 'fora'];
+  }
+  if (meta.sentido === 'abaixo') {
+    if (valor <= m) return ['#3fb950', 'na meta'];
+    if (valor <= m + tol(m)) return ['#f5a623', 'perto'];
+    return ['#ff6b6b', 'fora'];
+  }
+  // faixa
+  if (valor >= m && valor <= m2) return ['#3fb950', 'na faixa'];
+  if (valor >= m - tol(m) && valor <= m2 + tol(m2)) return ['#f5a623', 'perto'];
+  return ['#ff6b6b', 'fora'];
+}
+
+function fmtKpi(unidade, v) {
+  if (v === null || v === undefined) return '—';
+  if (unidade === 'rs') return 'R$ ' + fmt(v);
+  if (unidade === 'pct') return pct(v) + '%';
+  if (unidade === 'nota') return v.toFixed(2).replace('.', ',');
+  return Math.round(v).toLocaleString('pt-BR');
+}
+
+function fmtMeta(meta) {
+  const f = (v) => fmtKpi(meta.unidade, Number(v));
+  if (meta.sentido === 'faixa') return `${f(meta.meta)} – ${f(meta.meta2)}`;
+  return (meta.sentido === 'acima' ? '≥ ' : '≤ ') + f(meta.meta);
+}
+
+async function entrarIndicadores() {
+  const alvo = document.getElementById('view-indicadores');
+  alvo.innerHTML = '<div class="contexto">Carregando indicadores...</div>';
+  if (METAS_KPI === null) {
+    METAS_KPI = await consultarTudo('metas_kpi?select=chave,nome,bloco,sentido,meta,meta2,unidade,descricao,ordem&ativo=eq.true&order=ordem');
+  }
+  if (NEGOCIACOES === null) await entrarNegociacoesSoDados();
+  if (AVALIACOES === null) await entrarAvaliacoesSoDados();
+
+  const sem = ultimaSemanaCompleta();
+  const antFim = new Date(sem.ini + 'T00:00:00'); antFim.setDate(antFim.getDate() - 1);
+  const antIni = new Date(antFim); antIni.setDate(antIni.getDate() - 6);
+  const iso = (d) => d.toISOString().slice(0, 10);
+  const atual = computeKpisSemana(sem.ini, sem.fim);
+  const anterior = computeKpisSemana(iso(antIni), iso(antFim));
+
+  const filtroAtivo = activeLojas().size < LOJAS.length;
+  const aviso = filtroAtivo
+    ? `<div class="contexto" style="border-color:#f5a623;">Atenção: há filtro de unidade/loja ativo — o placar abaixo
+       é do recorte filtrado, mas as metas são da REDE inteira. Limpe os filtros para o placar oficial.</div>`
+    : '';
+
+  // Onde esta o gap (por loja) — para os KPIs operacionais
+  const notaPorLoja = {};
+  atual._avs.forEach(r => {
+    (notaPorLoja[r[0]] = notaPorLoja[r[0]] || []).push(r[2]);
+  });
+  const lojasNotaBaixa = Object.entries(notaPorLoja)
+    .map(([i, notas]) => [LOJAS[i], notas.reduce((s, n) => s + n, 0) / notas.length, notas.length])
+    .filter(([, media, n]) => n >= 10 && media < 4.5)
+    .sort((a, b) => a[1] - b[1]);
+  const semRespPorLoja = {};
+  atual._negs.filter(r => !r[5]).forEach(r => { semRespPorLoja[r[0]] = (semRespPorLoja[r[0]] || 0) + 1; });
+  const topSemResp = Object.entries(semRespPorLoja).map(([i, n]) => [LOJAS[i], n])
+    .sort((a, b) => b[1] - a[1]).slice(0, 4);
+  const atrasoPorLoja = {};
+  atual._negs.filter(r => (r[4] || '').includes('ATRASO')).forEach(r => { atrasoPorLoja[r[0]] = (atrasoPorLoja[r[0]] || 0) + 1; });
+  const topAtraso = Object.entries(atrasoPorLoja).map(([i, n]) => [LOJAS[i], n])
+    .sort((a, b) => b[1] - a[1]).slice(0, 4);
+
+  const gapDe = {
+    nota_media: lojasNotaBaixa.length
+      ? 'Lojas abaixo de 4,5 (10+ aval.): ' + lojasNotaBaixa.map(([n, m, q]) => `${n} (${m.toFixed(2).replace('.', ',')} em ${q})`).join(', ')
+      : 'Nenhuma loja abaixo de 4,5 com 10+ avaliações.',
+    neg_sem_resposta_pct: topSemResp.length
+      ? 'Onde está o gap: ' + topSemResp.map(([n, q]) => `${n} (${q})`).join(', ')
+      : 'Todas as negociações da semana foram respondidas.',
+    neg_atraso_pct: topAtraso.length
+      ? 'Onde está o gap: ' + topAtraso.map(([n, q]) => `${n} (${q})`).join(', ')
+      : '',
+  };
+
+  const blocos = [...new Set(METAS_KPI.map(k => k.bloco))];
+  let corpo = '';
+  for (const bloco of blocos) {
+    corpo += `<div class="section-label">${bloco}</div>`;
+    corpo += METAS_KPI.filter(k => k.bloco === bloco).map(k => {
+      const v = atual[k.chave], va = anterior[k.chave];
+      const [cor, rotulo] = farolKpi(k, v);
+      let varTxt = '';
+      if (v !== null && va !== null && va !== undefined && Math.abs(va) > 0.005) {
+        const d = (v - va) / Math.abs(va) * 100;
+        const palavra = d > 0.5 ? 'subiu' : d < -0.5 ? 'caiu' : 'estável';
+        varTxt = `<span style="color:#7d8590;">· vs sem. anterior: ${palavra}${palavra !== 'estável' ? ' ' + pct(Math.abs(d)) + '%' : ''}</span>`;
+      }
+      const gap = gapDe[k.chave] ? `<div style="font-size:12px; color:#9aa4af; margin-top:4px;">${gapDe[k.chave]}</div>` : '';
+      return `
+      <div class="contexto" style="text-align:left; display:flex; gap:14px; align-items:flex-start;">
+        <div style="width:14px; height:14px; border-radius:50%; background:${cor}; flex-shrink:0; margin-top:3px;" title="${rotulo}"></div>
+        <div style="flex:1;">
+          <b>${k.nome}</b> <span style="color:#7d8590; font-size:12px;">(${k.bloco.toLowerCase()})</span><br>
+          <span style="font-size:20px; font-weight:bold;">${fmtKpi(k.unidade, v)}</span>
+          <span style="color:#9aa4af;">/ meta ${fmtMeta(k)}</span>
+          <span style="color:${cor}; font-weight:bold;">· ${rotulo}</span> ${varTxt}
+          ${gap}
+          <div style="font-size:11px; color:#6e7681; margin-top:3px;">${k.descricao || ''}</div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  const naMeta = METAS_KPI.filter(k => farolKpi(k, atual[k.chave])[1].startsWith('na')).length;
+  alvo.innerHTML = `
+  <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Indicadores e metas</div>
+  <div class="contexto" style="text-align:left;">
+    <b>Placar da semana ${formatarDataCurta(sem.ini)} – ${formatarDataCurta(sem.fim)}</b>
+    (última semana completa seg–dom) · <b style="color:${naMeta >= 6 ? '#3fb950' : naMeta >= 4 ? '#f5a623' : '#ff6b6b'}">${naMeta} de ${METAS_KPI.length} metas atingidas</b><br>
+    <span style="font-size:12px; color:#9aa4af;">As metas moram no banco (tabela metas_kpi) — o resumo de segunda-feira analisa como fechar cada gap.
+    Líquido/margem dependem da conciliação da semana estar completa no iFood.</span>
+  </div>
+  ${aviso}
+  ${corpo}`;
+}
+
 async function entrarFluxo() {
   const alvo = document.getElementById('view-fluxo');
   if (DFC_MENSAL === null) {
