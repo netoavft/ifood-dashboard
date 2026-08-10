@@ -1539,15 +1539,100 @@ function promocoesPorLoja(estrategia) {
     .sort((a, b) => b.invL - a.invL);
 }
 
+// ------------------------------------------------------------------
+// TESTE DE PROMOÇÕES (desde 10/08/2026): Hits + Campanha Inteligente +
+// Frete grátis até R$9,99 em todas as lojas, anúncios desligados.
+// Verbas SEMANAIS configuradas no portal (fonte de verdade: tabela verbas_promo).
+// Acompanhamento diário via incentivos por pedido (quem bancou: loja/rede vs iFood).
+const VERBAS_TESTE = [
+  ['A Famosa Marmita', 300], ['Baixa Gastronomia', 300], ['Burger - Água Verde', 1000],
+  ['Burger - Ahú', 200], ['Burger - São Braz', 200], ['Comida Brasileira - Ahú', 200],
+  ['Comida Brasileira AV', 200], ['Comida Brasileira - Sb', 200], ['Vegan  - Ahú', 200],
+  ['Vegan Burger Agua Verde', 200], ['Vegan - São Braz', 200], ['Ufo Burger', 200],
+  ['Veganete - Agua Verde', 200],
+];
+const verbaDaLoja = (nome) => { const v = VERBAS_TESTE.find(([t]) => nome.includes(t)); return v ? v[1] : null; };
+
+// Agrega investimento promocional por loja no intervalo: nosso (loja+rede) x iFood.
+function promoTesteResumo(ini, fim) {
+  const rows = linhasFiltradas(true, ini, fim).filter(r => r[6] !== 1);
+  const porLoja = new Map();
+  rows.forEach(r => {
+    if (!porLoja.has(r[0])) porLoja.set(r[0], { loja: r[0], ped: 0, bruto: 0, nosso: 0, ifood: 0 });
+    const o = porLoja.get(r[0]);
+    o.ped += r[7]; o.bruto += (r[8] - r[9]) + r[10];
+    o.nosso += r[13] + r[12]; o.ifood += r[11];
+  });
+  const lojas = [...porLoja.values()].filter(o => o.ped > 0).sort((a, b) => b.nosso - a.nosso);
+  const tot = lojas.reduce((s, o) => ({ ped: s.ped + o.ped, bruto: s.bruto + o.bruto, nosso: s.nosso + o.nosso, ifood: s.ifood + o.ifood }),
+    { ped: 0, bruto: 0, nosso: 0, ifood: 0 });
+  return { lojas, tot };
+}
+
+function blocoTestePromos() {
+  const atual = promoTesteResumo();
+  if (!atual.tot.ped) return '';
+  const ant = periodoAnterior();
+  const antR = ant ? promoTesteResumo(ant.ini, ant.fim) : null;
+
+  const dias = Math.round((new Date(fDataFim.value) - new Date(fDataIni.value)) / 864e5) + 1;
+  // A verba do teste vigora desde 10/08/2026 — fora dessa janela, % da verba nao se aplica.
+  const dentroDoTeste = fDataIni.value >= '2026-08-10';
+  const alav = (o) => o.nosso > 0.005 ? o.ifood / o.nosso : null;
+  const alavTxt = (v) => v === null ? '—' : `<b style="color:${v >= 1 ? '#3fb950' : '#ff6b6b'};">${v.toFixed(2).replace('.', ',')}x</b>`;
+
+  const linhas = atual.lojas.map(o => {
+    const nome = LOJAS[o.loja];
+    const verba = verbaDaLoja(nome);
+    const verbaPeriodo = (dentroDoTeste && verba !== null) ? verba * dias / 7 : null;
+    const usoPct = verbaPeriodo ? o.nosso / verbaPeriodo * 100 : null;
+    const prev = antR && antR.lojas.find(x => x.loja === o.loja);
+    return `<tr>
+      <td>${nome}</td><td>${o.ped.toLocaleString('pt-BR')}</td>
+      <td>R$ ${fmt(o.nosso)}</td><td>R$ ${fmt(o.ifood)}</td>
+      <td>${alavTxt(alav(o))}</td>
+      <td>${o.ped ? 'R$ ' + fmt(o.nosso / o.ped) : '—'}</td>
+      <td>${usoPct === null ? '—' : `<span${usoPct > 100 ? ' style="color:#ff6b6b; font-weight:bold;"' : ''}>${pct(usoPct)}%</span>`}</td>
+      <td>${variacaoSpan(o.nosso, prev ? prev.nosso : (antR ? 0 : null), 'neutro')}</td>
+    </tr>`;
+  }).join('');
+
+  const t = atual.tot;
+  const alavGeral = alav(t);
+  return `
+  <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Teste de promoções — quem está pagando a conta</div>
+  <div class="caption-label" style="text-align:center;">
+    Desde <b>10/08/2026</b>: Hits + Campanha Inteligente + Frete grátis até R$ 9,99 em todas as lojas, anúncios desligados.
+    Dados diários dos pedidos (segue o filtro de período do topo). <b>Alavancagem</b> = quantos R$ o iFood investe para cada R$ 1 nosso — a meta é ficar acima de <b>1,00x</b>.
+  </div>
+  <div class="cards">
+    <div class="card neutral"><div class="card-lbl">Investimos (loja + rede)</div><div class="card-val">R$ ${fmt(t.nosso)}</div>${selo(t.nosso, antR && antR.tot.nosso, 'neutro')}</div>
+    <div class="card pos"><div class="card-lbl">iFood investiu</div><div class="card-val">R$ ${fmt(t.ifood)}</div>${selo(t.ifood, antR && antR.tot.ifood)}</div>
+    <div class="card ${alavGeral !== null && alavGeral >= 1 ? 'pos' : 'neg'}"><div class="card-lbl">Alavancagem</div><div class="card-val">${alavGeral === null ? '—' : alavGeral.toFixed(2).replace('.', ',') + 'x'}</div><div class="card-pct">R$ do iFood por R$ 1 nosso</div></div>
+    <div class="card neutral"><div class="card-lbl">Nosso custo por pedido</div><div class="card-val">R$ ${fmt(t.ped ? t.nosso / t.ped : 0)}</div>${selo(t.ped ? t.nosso / t.ped : 0, antR && antR.tot.ped ? antR.tot.nosso / antR.tot.ped : null, 'menorMelhor')}</div>
+  </div>
+  <div id="tabelaTestePromo">
+    <table>
+      <tr><th>Loja</th><th>Pedidos</th><th>Nós (R$)</th><th>iFood (R$)</th><th>Alavanc.</th><th>Nosso R$/pedido</th><th>% da verba semanal</th><th>Nosso invest. vs anterior</th></tr>
+      ${linhas}
+    </table>
+  </div>
+  <div class="caption-label" style="text-align:center;">
+    "% da verba semanal" compara o que gastamos com o teto configurado no portal (Hits + Campanha Inteligente,
+    proporcional aos dias do período) e só é calculado para períodos a partir de <b>10/08/2026</b>, quando as verbas
+    do teste entraram em vigor. Acima de 100% em vermelho = verba estourou. Lojas do Boqueirão não têm verba cadastrada (coluna —).
+  </div>`;
+}
+
 function moduloPromocoes() {
   const r = resumoPromocoes();
+  const teste = blocoTestePromos();
 
   if (!r.lista.length) {
-    return `<div class="contexto" style="border-color:#c8102e;">
-      Não há dados de promoções no período selecionado.<br>
-      O relatório de promoções do iFood é <b>mensal</b> e só está disponível a partir de
-      <b>junho/2026</b> (o portal libera apenas os últimos 90 dias).
-      Use o atalho <b>"Todo o histórico"</b> ou escolha um período dentro dos meses já importados.
+    return teste + `<div class="contexto" style="border-color:#c8102e; margin-top:16px;">
+      Sem dados do <b>relatório mensal</b> de promoções no período selecionado
+      (ele é mensal e só existe a partir de <b>junho/2026</b> — o portal libera 90 dias).
+      O acompanhamento do teste acima usa os dados diários dos pedidos e não depende dele.
     </div>`;
   }
 
@@ -1578,8 +1663,8 @@ function moduloPromocoes() {
       <td>R$ ${fmt(x.ticket)}</td>
     </tr>`).join('');
 
-  return `
-  <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Quanto e onde investimos em promoção</div>
+  return teste + `
+  <div class="section-label">Quanto e onde investimos em promoção (relatório mensal)</div>
   <div class="caption-label" style="text-align:center;">
     Dados de <b>${mesesTexto}</b>. O relatório de promoções do iFood é mensal — este bloco ignora o recorte por dia,
     semana ou turno e usa os meses inteiros que caem no período escolhido.
