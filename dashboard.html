@@ -134,14 +134,21 @@
   .chart-title { color:#a5a49a; font-size:11px; text-transform:uppercase; letter-spacing:.5px; margin-bottom:8px; }
   .chart-box .chart-canvas-wrap { position:relative; flex:1; }
 
-  #tabelaMotivos, #tabelaPromo, #tabelaPromoLojas, #tabelaTestePromo, #tabelaMecanicas, #tabelaNegLojas, #tabelaAvalLojas, #tabelaComentarios { overflow-x:auto; max-width:100%; }
+  /* Grade padrao das tabelas. Ao criar uma tabela nova, inclua o id nos grupos abaixo. */
+  #tabelaMotivos, #tabelaPromo, #tabelaPromoLojas, #tabelaTestePromo, #tabelaMecanicas, #tabelaFreteGratis,
+  #tabelaContestPend, #tabelaContestLog,
+  #tabelaNegLojas, #tabelaAvalLojas, #tabelaComentarios { overflow-x:auto; max-width:100%; }
   #tabelaMotivos table, #tabelaPromo table, #tabelaPromoLojas table, #tabelaTestePromo table, #tabelaMecanicas table,
+  #tabelaFreteGratis table, #tabelaContestPend table, #tabelaContestLog table,
   #tabelaNegLojas table, #tabelaAvalLojas table, #tabelaComentarios table { border-collapse:collapse; width:100%; font-size:12.5px; }
   #tabelaMotivos th, #tabelaMotivos td,
   #tabelaPromo th, #tabelaPromo td,
   #tabelaPromoLojas th, #tabelaPromoLojas td,
   #tabelaTestePromo th, #tabelaTestePromo td,
   #tabelaMecanicas th, #tabelaMecanicas td,
+  #tabelaFreteGratis th, #tabelaFreteGratis td,
+  #tabelaContestPend th, #tabelaContestPend td,
+  #tabelaContestLog th, #tabelaContestLog td,
   #tabelaNegLojas th, #tabelaNegLojas td,
   #tabelaAvalLojas th, #tabelaAvalLojas td,
   #tabelaComentarios th, #tabelaComentarios td { border:1px solid #34332f; padding:6px 10px; text-align:right; white-space:nowrap; }
@@ -150,13 +157,18 @@
   #tabelaPromoLojas th:first-child, #tabelaPromoLojas td:first-child,
   #tabelaTestePromo th:first-child, #tabelaTestePromo td:first-child,
   #tabelaMecanicas th:first-child, #tabelaMecanicas td:first-child,
+  #tabelaFreteGratis th:first-child, #tabelaFreteGratis td:first-child,
+  #tabelaContestPend th:first-child, #tabelaContestPend td:first-child,
+  #tabelaContestLog th:first-child, #tabelaContestLog td:first-child,
   #tabelaNegLojas th:first-child, #tabelaNegLojas td:first-child,
   #tabelaAvalLojas th:first-child, #tabelaAvalLojas td:first-child,
   #tabelaComentarios th:first-child, #tabelaComentarios td:first-child { text-align:left; white-space:normal; }
   #tabelaMotivos th, #tabelaPromo th, #tabelaPromoLojas th, #tabelaTestePromo th, #tabelaMecanicas th,
+  #tabelaFreteGratis th, #tabelaContestPend th, #tabelaContestLog th,
   #tabelaNegLojas th, #tabelaAvalLojas th, #tabelaComentarios th { background:#232321; color:#a5a49a; font-weight:bold; font-size:11px; text-transform:uppercase; }
   #tabelaMotivos tr:nth-child(even), #tabelaPromo tr:nth-child(even), #tabelaPromoLojas tr:nth-child(even), #tabelaTestePromo tr:nth-child(even),
-  #tabelaMecanicas tr:nth-child(even),
+  #tabelaMecanicas tr:nth-child(even), #tabelaFreteGratis tr:nth-child(even),
+  #tabelaContestPend tr:nth-child(even), #tabelaContestLog tr:nth-child(even),
   #tabelaNegLojas tr:nth-child(even), #tabelaAvalLojas tr:nth-child(even), #tabelaComentarios tr:nth-child(even) { background:#171716; }
 
   /* linhas de fechamento da tabela de mecanicas (mesmo padrao do extrato financeiro) */
