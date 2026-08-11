@@ -2482,28 +2482,40 @@ async function entrarContestacoes() {
   if (CONTESTACOES === null) {
     alvo.innerHTML = '<div class="contexto">Carregando contestações...</div>';
     const seteDias = new Date(Date.now() - 7 * 864e5).toISOString().slice(0, 10);
-    const [log, cancel] = await Promise.all([
+    const hoje = new Date().toISOString().slice(0, 10);
+    const [log, cancel, manuais] = await Promise.all([
       consultarTudo("vw_contestacoes?select=id_curto,nome_loja,unidade,data_pedido,valor,contestado_em,resultado,resultado_em&order=contestado_em.desc"),
       consultarTudo(`vw_cancelamentos_contestaveis?select=id_curto,nome_loja,unidade,data_hora_pedido,data_cancelamento,motivo_cancelamento,valor_itens,valor_itens_cancelados&data_hora_pedido=gte.${seteDias}&order=data_hora_pedido.desc`),
+      consultarTudo(`vw_contestacoes_manuais?select=id_curto,nome_loja,unidade,status,data_hora_pedido,motivo_cancelamento,valor,prazo_final,por_que_manual&prazo_final=gte.${hoje}&order=prazo_final`),
     ]);
-    CONTESTACOES = { log, cancel };
+    CONTESTACOES = { log, cancel, manuais };
   }
   renderModuloContestacoes();
 }
 
 function renderModuloContestacoes() {
   const alvo = document.getElementById('view-contestacoes');
-  const { log, cancel } = CONTESTACOES;
+  const { log, cancel, manuais } = CONTESTACOES;
 
-  // pendente = cancelamento contestavel dos ultimos 7 dias sem registro no log
+  // manuais = a rotina nao consegue contestar sozinha (Boqueirao ou motivo sem
+  // texto aprovado, inclusive os CANCELAMENTO PARCIAL). Precisam do dono.
+  const chaveManual = new Set(manuais.map(r => r.id_curto + '|' + (r.data_hora_pedido || '').slice(0, 10)));
+  const manuaisOrd = manuais.map(r => ({
+    ...r,
+    valor: Number(r.valor) || 0,
+    diasRestantes: Math.max(0, Math.ceil((new Date(r.prazo_final + 'T23:59:59') - Date.now()) / 864e5)),
+  })).sort((a, b) => a.diasRestantes - b.diasRestantes);
+
+  // pendente = cancelamento contestavel dos ultimos 7 dias sem registro no log,
+  // tirando os manuais (que tem tabela propria logo abaixo).
   const jaTratados = new Set(log.map(r => r.id_curto + '|' + (r.data_pedido || '').slice(0, 10)));
   const pendentes = cancel
     .filter(r => !jaTratados.has(r.id_curto + '|' + (r.data_hora_pedido || '').slice(0, 10)))
+    .filter(r => !chaveManual.has(r.id_curto + '|' + (r.data_hora_pedido || '').slice(0, 10)))
     .map(r => {
       const cancelEm = r.data_cancelamento || r.data_hora_pedido;
       const diasRestantes = Math.max(0, 7 - Math.floor((Date.now() - new Date(cancelEm)) / 864e5));
-      return { ...r, valor: Number(r.valor_itens_cancelados) || Number(r.valor_itens) || 0, diasRestantes,
-               foraRotina: (r.unidade || '').toUpperCase().startsWith('BOQUEIR') };
+      return { ...r, valor: Number(r.valor_itens_cancelados) || Number(r.valor_itens) || 0, diasRestantes };
     })
     .sort((a, b) => a.diasRestantes - b.diasRestantes);
 
@@ -2521,26 +2533,44 @@ function renderModuloContestacoes() {
   alvo.innerHTML = `
   <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Contestações de cancelamento</div>
   <div class="caption-label" style="text-align:center;">
-    O iFood dá <b>7 dias</b> para contestar um cancelamento. A rotina diária (08:40) contesta sozinha os elegíveis
-    — exceto a unidade Boqueirão — e atualiza aqui os resultados.
+    O iFood dá <b>7 dias</b> para contestar um cancelamento. A rotina diária (09:30) contesta sozinha os elegíveis
+    — exceto a unidade Boqueirão — e atualiza aqui os resultados. O que ela não pode fazer sozinha aparece
+    em <b>“Precisa de você”</b>.
   </div>
   <div class="cards">
-    <div class="card ${pendentes.length ? 'neg' : 'pos'}"><div class="card-lbl">Pendentes (7 dias)</div><div class="card-val">${pendentes.length}</div><div class="card-pct">R$ ${fmt(soma(pendentes))}</div></div>
+    <div class="card ${manuaisOrd.length ? 'neg' : 'pos'}"><div class="card-lbl">Precisa de você</div><div class="card-val">${manuaisOrd.length}</div><div class="card-pct">R$ ${fmt(soma(manuaisOrd))} em risco</div></div>
+    <div class="card ${pendentes.length ? 'neg' : 'pos'}"><div class="card-lbl">Pendentes da rotina</div><div class="card-val">${pendentes.length}</div><div class="card-pct">R$ ${fmt(soma(pendentes))}</div></div>
     <div class="card neutral"><div class="card-lbl">Em análise</div><div class="card-val">${emAnalise.length}</div><div class="card-pct">R$ ${fmt(soma(emAnalise))}</div></div>
     <div class="card pos"><div class="card-lbl">Ganhas</div><div class="card-val">${ganhas.length}</div><div class="card-pct">R$ ${fmt(soma(ganhas))} recuperados</div></div>
     <div class="card neutral"><div class="card-lbl">Negadas</div><div class="card-val">${negadas.length}</div><div class="card-pct">R$ ${fmt(soma(negadas))}</div></div>
   </div>
 
-  <div class="section-label">Pendentes de contestação</div>
+  <div class="section-label">Precisa de você — contestar à mão no portal</div>
+  ${manuaisOrd.length ? `<div id="tabelaContestManual"><table>
+    <tr><th>Loja</th><th>Pedido</th><th>Data</th><th>Motivo</th><th>Valor</th><th>Prazo restante</th><th>Por quê</th></tr>
+    ${manuaisOrd.map(r => `<tr>
+      <td>${r.nome_loja}</td><td>${r.id_curto}</td><td>${dt(r.data_hora_pedido)}</td>
+      <td style="font-size:11.5px;">${r.motivo_cancelamento || '—'}${r.status === 'CANCELAMENTO PARCIAL' ? ' <span style="color:#8a897e;">(parcial)</span>' : ''}</td>
+      <td>R$ ${fmt(r.valor)}</td>
+      <td${r.diasRestantes <= 2 ? ' style="color:#ff6b6b; font-weight:bold;"' : ''}>${r.diasRestantes} dia(s)</td>
+      <td style="font-size:11px; color:#8a897e;">${r.por_que_manual}</td></tr>`).join('')}
+  </table></div>
+  <div class="caption-label" style="text-align:center;">A rotina só contesta cancelamentos totais com texto aprovado pelo dono.
+  Estes ficam de fora: unidade Boqueirão, motivos sem texto aprovado e cancelamentos parciais.
+  Se um motivo se repetir, vale aprovar um texto padrão para ele entrar na automação.</div>`
+  : '<div class="contexto" style="border-color:#3fb950;">Nada esperando ação manual. ✔</div>'}
+
+  <div class="section-label">Pendentes da rotina automática</div>
   ${pendentes.length ? `<div id="tabelaContestPend"><table>
     <tr><th>Loja</th><th>Pedido</th><th>Data</th><th>Valor</th><th>Prazo restante</th></tr>
-    ${pendentes.map(r => `<tr${r.foraRotina ? ' style="color:#8a897e;"' : ''}>
-      <td>${r.nome_loja}${r.foraRotina ? ' <span style="font-size:10px;">(fora da rotina)</span>' : ''}</td>
+    ${pendentes.map(r => `<tr>
+      <td>${r.nome_loja}</td>
       <td>${r.id_curto}</td><td>${dt(r.data_hora_pedido)}</td><td>R$ ${fmt(r.valor)}</td>
       <td${r.diasRestantes <= 2 ? ' style="color:#ff6b6b; font-weight:bold;"' : ''}>${r.diasRestantes} dia(s)</td></tr>`).join('')}
   </table></div>`
-  : '<div class="contexto" style="border-color:#3fb950;">Nenhum cancelamento contestável pendente — tudo tratado. ✔</div>'}
-  <div class="caption-label" style="text-align:center;">Baseado nos pedidos importados (até ontem). Cancelamentos de hoje entram após a importação da manhã.</div>
+  : '<div class="contexto" style="border-color:#3fb950;">Nenhum cancelamento esperando a rotina — tudo tratado. ✔</div>'}
+  <div class="caption-label" style="text-align:center;">Estes a rotina das 09:30 contesta sozinha no próximo ciclo.
+  Baseado nos pedidos importados (até ontem); cancelamentos de hoje entram após a importação da manhã.</div>
 
   <div class="section-label">Histórico de contestações</div>
   ${log.length ? `<div id="tabelaContestLog"><table>
