@@ -2537,9 +2537,16 @@ function renderModuloContestacoes() {
       return `<td${d !== null && d <= 2 ? ' style="color:#ff6b6b; font-weight:bold;"' : ''}>${dt(r.contestavel_ate)}${d !== null ? ` (${d}d)` : ''}</td>`; },
   };
   const colQuem = { cabecalho: '<th>Contestada por</th>', celula: (r) => `<td>${quem(r)}</td>` };
+  // O iFood devolve um texto padrão longo ("Analisando o cancelamento, não
+  // identificamos responsabilidade...") quando reprova por falta de evidência.
+  // Trocamos por um rótulo curto para caber na coluna e ficar direto ao ponto.
+  const justificativa = (r) => {
+    const t = (r.retorno_contestacao || '').trim();
+    return /^analisando/i.test(t) ? 'Sem evidências' : (t || '—').slice(0, 180);
+  };
   const colRetorno = {
     cabecalho: '<th>Contestada por</th><th>Justificativa do iFood</th>',
-    celula: (r) => `<td>${quem(r)}</td><td style="font-size:10.5px; color:#8a897e;">${(r.retorno_contestacao || '—').slice(0, 180)}</td>`,
+    celula: (r) => `<td>${quem(r)}</td><td style="font-size:10.5px; color:#8a897e;">${justificativa(r)}</td>`,
   };
 
   alvo.innerHTML = `
