@@ -2538,14 +2538,14 @@ function renderModuloContestacoes() {
     em <b>“Precisa de você”</b>.
   </div>
   <div class="cards">
-    <div class="card ${manuaisOrd.length ? 'neg' : 'pos'}"><div class="card-lbl">Precisa de você</div><div class="card-val">${manuaisOrd.length}</div><div class="card-pct">R$ ${fmt(soma(manuaisOrd))} em risco</div></div>
+    <div class="card ${manuaisOrd.length ? 'neg' : 'pos'}"><div class="card-lbl">Conferir à mão</div><div class="card-val">${manuaisOrd.length}</div><div class="card-pct">R$ ${fmt(soma(manuaisOrd))}</div></div>
     <div class="card ${pendentes.length ? 'neg' : 'pos'}"><div class="card-lbl">Pendentes da rotina</div><div class="card-val">${pendentes.length}</div><div class="card-pct">R$ ${fmt(soma(pendentes))}</div></div>
     <div class="card neutral"><div class="card-lbl">Em análise</div><div class="card-val">${emAnalise.length}</div><div class="card-pct">R$ ${fmt(soma(emAnalise))}</div></div>
     <div class="card pos"><div class="card-lbl">Ganhas</div><div class="card-val">${ganhas.length}</div><div class="card-pct">R$ ${fmt(soma(ganhas))} recuperados</div></div>
     <div class="card neutral"><div class="card-lbl">Negadas</div><div class="card-val">${negadas.length}</div><div class="card-pct">R$ ${fmt(soma(negadas))}</div></div>
   </div>
 
-  <div class="section-label">Precisa de você — contestar à mão no portal</div>
+  <div class="section-label">Conferir à mão no portal</div>
   ${manuaisOrd.length ? `<div id="tabelaContestManual"><table>
     <tr><th>Loja</th><th>Pedido</th><th>Data</th><th>Motivo</th><th>Valor</th><th>Prazo restante</th><th>Por quê</th></tr>
     ${manuaisOrd.map(r => `<tr>
@@ -2557,7 +2557,9 @@ function renderModuloContestacoes() {
   </table></div>
   <div class="caption-label" style="text-align:center;">A rotina só contesta cancelamentos totais com texto aprovado pelo dono.
   Estes ficam de fora: unidade Boqueirão, motivos sem texto aprovado e cancelamentos parciais.
-  Se um motivo se repetir, vale aprovar um texto padrão para ele entrar na automação.</div>`
+  <b>Atenção:</b> a planilha do iFood não diz se um pedido já foi contestado — a coluna “contestável” continua SIM
+  mesmo depois de ganho. Esta lista mostra <i>candidatos sem registro nosso</i>; o estado real só aparece
+  abrindo o pedido no portal. Se um motivo se repetir, vale aprovar um texto padrão para ele entrar na automação.</div>`
   : '<div class="contexto" style="border-color:#3fb950;">Nada esperando ação manual. ✔</div>'}
 
   <div class="section-label">Pendentes da rotina automática</div>
