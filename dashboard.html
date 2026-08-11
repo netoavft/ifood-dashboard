@@ -2481,105 +2481,116 @@ async function entrarContestacoes() {
   const alvo = document.getElementById('view-contestacoes');
   if (CONTESTACOES === null) {
     alvo.innerHTML = '<div class="contexto">Carregando contestações...</div>';
-    const seteDias = new Date(Date.now() - 7 * 864e5).toISOString().slice(0, 10);
-    const hoje = new Date().toISOString().slice(0, 10);
-    const [log, cancel, manuais] = await Promise.all([
-      consultarTudo("vw_contestacoes?select=id_curto,nome_loja,unidade,data_pedido,valor,contestado_em,resultado,resultado_em&order=contestado_em.desc"),
-      consultarTudo(`vw_cancelamentos_contestaveis?select=id_curto,nome_loja,unidade,data_hora_pedido,data_cancelamento,motivo_cancelamento,valor_itens,valor_itens_cancelados&data_hora_pedido=gte.${seteDias}&order=data_hora_pedido.desc`),
-      consultarTudo(`vw_contestacoes_manuais?select=id_curto,nome_loja,unidade,status,data_hora_pedido,motivo_cancelamento,valor,prazo_final,por_que_manual&prazo_final=gte.${hoje}&order=prazo_final`),
-    ]);
-    CONTESTACOES = { log, cancel, manuais };
+    // Fonte unica: a propria planilha de pedidos ja traz o ciclo completo da
+    // contestacao (houve / status / prazo). Nao dependemos mais do portal.
+    const janela = new Date(Date.now() - 60 * 864e5).toISOString().slice(0, 10);
+    const linhas = await consultarTudo(
+      "vw_contestacoes_status?select=id_curto,nome_loja,unidade,status,data_hora_pedido,hora,turno,dia_semana," +
+      "motivo_cancelamento,valor,contestavel_ate,houve_contestacao,status_contestacao,retorno_contestacao," +
+      `origem_contestacao,automatizavel,bloco&data_hora_pedido=gte.${janela}&order=data_hora_pedido.desc`
+    );
+    CONTESTACOES = { linhas };
   }
   renderModuloContestacoes();
 }
 
 function renderModuloContestacoes() {
   const alvo = document.getElementById('view-contestacoes');
-  const { log, cancel, manuais } = CONTESTACOES;
+  const linhas = CONTESTACOES.linhas.map(r => ({ ...r, valor: Number(r.valor) || 0 }));
 
-  // manuais = a rotina nao consegue contestar sozinha (Boqueirao ou motivo sem
-  // texto aprovado, inclusive os CANCELAMENTO PARCIAL). Precisam do dono.
-  const chaveManual = new Set(manuais.map(r => r.id_curto + '|' + (r.data_hora_pedido || '').slice(0, 10)));
-  const manuaisOrd = manuais.map(r => ({
-    ...r,
-    valor: Number(r.valor) || 0,
-    diasRestantes: Math.max(0, Math.ceil((new Date(r.prazo_final + 'T23:59:59') - Date.now()) / 864e5)),
-  })).sort((a, b) => a.diasRestantes - b.diasRestantes);
+  const hojeISO = new Date().toISOString().slice(0, 10);
+  const diasAte = (d) => d ? Math.ceil((new Date(d + 'T23:59:59') - Date.now()) / 864e5) : null;
 
-  // pendente = cancelamento contestavel dos ultimos 7 dias sem registro no log,
-  // tirando os manuais (que tem tabela propria logo abaixo).
-  const jaTratados = new Set(log.map(r => r.id_curto + '|' + (r.data_pedido || '').slice(0, 10)));
-  const pendentes = cancel
-    .filter(r => !jaTratados.has(r.id_curto + '|' + (r.data_hora_pedido || '').slice(0, 10)))
-    .filter(r => !chaveManual.has(r.id_curto + '|' + (r.data_hora_pedido || '').slice(0, 10)))
-    .map(r => {
-      const cancelEm = r.data_cancelamento || r.data_hora_pedido;
-      const diasRestantes = Math.max(0, 7 - Math.floor((Date.now() - new Date(cancelEm)) / 864e5));
-      return { ...r, valor: Number(r.valor_itens_cancelados) || Number(r.valor_itens) || 0, diasRestantes };
-    })
-    .sort((a, b) => a.diasRestantes - b.diasRestantes);
+  const bloco = (b) => linhas.filter(r => r.bloco === b);
+  const aContestarVoce  = bloco('A_CONTESTAR').filter(r => !r.automatizavel)
+                            .sort((a, b) => (a.contestavel_ate || '').localeCompare(b.contestavel_ate || ''));
+  const aContestarRotina = bloco('A_CONTESTAR').filter(r => r.automatizavel)
+                            .sort((a, b) => (a.contestavel_ate || '').localeCompare(b.contestavel_ate || ''));
+  const aguardando = bloco('AGUARDANDO');
+  const aprovadas  = bloco('APROVADA');
+  const reprovadas = bloco('REPROVADA');
+  const perdidas   = bloco('PRAZO_PERDIDO');
+  // Pedidos importados antes de 10/08/2026 nao trazem os campos de contestacao:
+  // ficam de fora dos blocos em vez de virar falso "prazo perdido".
+  const semDado    = bloco('SEM_DADO');
 
-  const emAnalise = log.filter(r => !r.resultado);
-  const ganhas = log.filter(r => r.resultado === 'RESSARCIDO');
-  const negadas = log.filter(r => r.resultado === 'NEGADO');
-  const soma = (l) => l.reduce((s, r) => s + Number(r.valor || 0), 0);
-
+  const soma = (l) => l.reduce((s, r) => s + r.valor, 0);
   const dt = (v) => v ? formatarDataCurta(String(v).slice(0, 10)) : '—';
-  const statusTxt = (r) => r.resultado === 'RESSARCIDO' ? '<span style="color:#3fb950; font-weight:bold;">Ganha</span>'
-    : r.resultado === 'NEGADO' ? '<span style="color:#ff6b6b; font-weight:bold;">Negada</span>'
-    : r.resultado === 'EXPIRADO' ? '<span style="color:#8a897e;">Expirada</span>'
-    : '<span style="color:#f5a623; font-weight:bold;">Em análise</span>';
+  const parcial = (r) => r.status === 'CANCELAMENTO PARCIAL' ? ' <span style="color:#8a897e; font-size:10px;">(parcial)</span>' : '';
+  const quem = (r) => r.origem_contestacao === 'ROTINA'
+    ? '<span style="color:#3fb950;">rotina</span>' : '<span style="color:#8a897e;">manual</span>';
+
+  // Grade padrao dos blocos: hora e turno entram porque identificam a equipe
+  // que estava na operacao quando o problema aconteceu.
+  const grade = (lista, extra) => `<table>
+    <tr><th>Loja</th><th>Pedido</th><th>Data</th><th>Hora</th><th>Turno</th><th>Motivo</th><th>Valor</th>${extra.cabecalho}</tr>
+    ${lista.map(r => `<tr>
+      <td>${r.nome_loja}</td><td>${r.id_curto}</td><td>${dt(r.data_hora_pedido)}</td>
+      <td>${r.hora || '—'}</td><td>${r.turno || '—'}</td>
+      <td style="font-size:11.5px;">${r.motivo_cancelamento || '—'}${parcial(r)}</td>
+      <td>R$ ${fmt(r.valor)}</td>${extra.celula(r)}</tr>`).join('')}
+  </table>`;
+
+  const colPrazo = {
+    cabecalho: '<th>Contestar até</th>',
+    celula: (r) => { const d = diasAte(r.contestavel_ate);
+      return `<td${d !== null && d <= 2 ? ' style="color:#ff6b6b; font-weight:bold;"' : ''}>${dt(r.contestavel_ate)}${d !== null ? ` (${d}d)` : ''}</td>`; },
+  };
+  const colQuem = { cabecalho: '<th>Contestada por</th>', celula: (r) => `<td>${quem(r)}</td>` };
+  const colRetorno = {
+    cabecalho: '<th>Contestada por</th><th>Justificativa do iFood</th>',
+    celula: (r) => `<td>${quem(r)}</td><td style="font-size:10.5px; color:#8a897e;">${(r.retorno_contestacao || '—').slice(0, 180)}</td>`,
+  };
 
   alvo.innerHTML = `
   <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Contestações de cancelamento</div>
   <div class="caption-label" style="text-align:center;">
-    O iFood dá <b>7 dias</b> para contestar um cancelamento. A rotina diária (09:30) contesta sozinha os elegíveis
-    — exceto a unidade Boqueirão — e atualiza aqui os resultados. O que ela não pode fazer sozinha aparece
-    em <b>“Precisa de você”</b>.
+    Tudo aqui vem da <b>própria planilha de pedidos</b> — o export traz prazo, se houve contestação e o resultado.
+    Atualiza a cada importação da manhã. O <b>status do iFood leva até 48h</b>, então contestação de ontem
+    costuma aparecer em “aguardando”.
   </div>
   <div class="cards">
-    <div class="card ${manuaisOrd.length ? 'neg' : 'pos'}"><div class="card-lbl">Conferir à mão</div><div class="card-val">${manuaisOrd.length}</div><div class="card-pct">R$ ${fmt(soma(manuaisOrd))}</div></div>
-    <div class="card ${pendentes.length ? 'neg' : 'pos'}"><div class="card-lbl">Pendentes da rotina</div><div class="card-val">${pendentes.length}</div><div class="card-pct">R$ ${fmt(soma(pendentes))}</div></div>
-    <div class="card neutral"><div class="card-lbl">Em análise</div><div class="card-val">${emAnalise.length}</div><div class="card-pct">R$ ${fmt(soma(emAnalise))}</div></div>
-    <div class="card pos"><div class="card-lbl">Ganhas</div><div class="card-val">${ganhas.length}</div><div class="card-pct">R$ ${fmt(soma(ganhas))} recuperados</div></div>
-    <div class="card neutral"><div class="card-lbl">Negadas</div><div class="card-val">${negadas.length}</div><div class="card-pct">R$ ${fmt(soma(negadas))}</div></div>
+    <div class="card ${aContestarVoce.length ? 'neg' : 'pos'}"><div class="card-lbl">Você precisa contestar</div><div class="card-val">${aContestarVoce.length}</div><div class="card-pct">R$ ${fmt(soma(aContestarVoce))}</div></div>
+    <div class="card neutral"><div class="card-lbl">A rotina contesta</div><div class="card-val">${aContestarRotina.length}</div><div class="card-pct">R$ ${fmt(soma(aContestarRotina))}</div></div>
+    <div class="card neutral"><div class="card-lbl">Aguardando iFood</div><div class="card-val">${aguardando.length}</div><div class="card-pct">R$ ${fmt(soma(aguardando))}</div></div>
+    <div class="card pos"><div class="card-lbl">Aprovadas</div><div class="card-val">${aprovadas.length}</div><div class="card-pct">R$ ${fmt(soma(aprovadas))} recuperados</div></div>
+    <div class="card ${reprovadas.length ? 'neg' : 'neutral'}"><div class="card-lbl">Reprovadas</div><div class="card-val">${reprovadas.length}</div><div class="card-pct">R$ ${fmt(soma(reprovadas))}</div></div>
   </div>
 
-  <div class="section-label">Conferir à mão no portal</div>
-  ${manuaisOrd.length ? `<div id="tabelaContestManual"><table>
-    <tr><th>Loja</th><th>Pedido</th><th>Data</th><th>Motivo</th><th>Valor</th><th>Prazo restante</th><th>Por quê</th></tr>
-    ${manuaisOrd.map(r => `<tr>
-      <td>${r.nome_loja}</td><td>${r.id_curto}</td><td>${dt(r.data_hora_pedido)}</td>
-      <td style="font-size:11.5px;">${r.motivo_cancelamento || '—'}${r.status === 'CANCELAMENTO PARCIAL' ? ' <span style="color:#8a897e;">(parcial)</span>' : ''}</td>
-      <td>R$ ${fmt(r.valor)}</td>
-      <td${r.diasRestantes <= 2 ? ' style="color:#ff6b6b; font-weight:bold;"' : ''}>${r.diasRestantes} dia(s)</td>
-      <td style="font-size:11px; color:#8a897e;">${r.por_que_manual}</td></tr>`).join('')}
-  </table></div>
-  <div class="caption-label" style="text-align:center;">A rotina só contesta cancelamentos totais com texto aprovado pelo dono.
-  Estes ficam de fora: unidade Boqueirão, motivos sem texto aprovado e cancelamentos parciais.
-  <b>Atenção:</b> a planilha do iFood não diz se um pedido já foi contestado — a coluna “contestável” continua SIM
-  mesmo depois de ganho. Esta lista mostra <i>candidatos sem registro nosso</i>; o estado real só aparece
-  abrindo o pedido no portal. Se um motivo se repetir, vale aprovar um texto padrão para ele entrar na automação.</div>`
-  : '<div class="contexto" style="border-color:#3fb950;">Nada esperando ação manual. ✔</div>'}
+  <div class="section-label">Você precisa contestar</div>
+  ${aContestarVoce.length ? `<div id="tabelaContestVoce">${grade(aContestarVoce, colPrazo)}</div>
+  <div class="caption-label" style="text-align:center;">A rotina não cobre estes: unidade Boqueirão, cancelamentos parciais
+  e motivos que ainda não têm texto aprovado. Quando um motivo virar rotina, ele passa para o bloco de baixo.</div>`
+  : '<div class="contexto" style="border-color:#3fb950;">Nada esperando você. ✔</div>'}
 
-  <div class="section-label">Pendentes da rotina automática</div>
-  ${pendentes.length ? `<div id="tabelaContestPend"><table>
-    <tr><th>Loja</th><th>Pedido</th><th>Data</th><th>Valor</th><th>Prazo restante</th></tr>
-    ${pendentes.map(r => `<tr>
-      <td>${r.nome_loja}</td>
-      <td>${r.id_curto}</td><td>${dt(r.data_hora_pedido)}</td><td>R$ ${fmt(r.valor)}</td>
-      <td${r.diasRestantes <= 2 ? ' style="color:#ff6b6b; font-weight:bold;"' : ''}>${r.diasRestantes} dia(s)</td></tr>`).join('')}
-  </table></div>`
-  : '<div class="contexto" style="border-color:#3fb950;">Nenhum cancelamento esperando a rotina — tudo tratado. ✔</div>'}
-  <div class="caption-label" style="text-align:center;">Estes a rotina das 09:30 contesta sozinha no próximo ciclo.
-  Baseado nos pedidos importados (até ontem); cancelamentos de hoje entram após a importação da manhã.</div>
+  <div class="section-label">A rotina contesta sozinha</div>
+  ${aContestarRotina.length ? `<div id="tabelaContestRotina">${grade(aContestarRotina, colPrazo)}</div>
+  <div class="caption-label" style="text-align:center;">Entram na próxima execução da rotina das 09:30.</div>`
+  : '<div class="contexto" style="border-color:#3fb950;">Nada na fila da rotina. ✔</div>'}
 
-  <div class="section-label">Histórico de contestações</div>
-  ${log.length ? `<div id="tabelaContestLog"><table>
-    <tr><th>Loja</th><th>Pedido</th><th>Data do pedido</th><th>Valor</th><th>Contestada em</th><th>Status</th></tr>
-    ${log.map(r => `<tr><td>${r.nome_loja || '—'}</td><td>${r.id_curto}</td><td>${dt(r.data_pedido)}</td>
-      <td>R$ ${fmt(Number(r.valor || 0))}</td><td>${dt(r.contestado_em)}</td><td>${statusTxt(r)}</td></tr>`).join('')}
-  </table></div>` : '<div class="contexto">Nenhuma contestação registrada ainda.</div>'}`;
+  <div class="section-label">Aguardando resposta do iFood</div>
+  ${aguardando.length ? `<div id="tabelaContestAguard">${grade(aguardando, colQuem)}</div>
+  <div class="caption-label" style="text-align:center;">Contestadas, sem status ainda. O iFood leva até 48h para responder.</div>`
+  : '<div class="contexto">Nenhuma contestação aguardando resposta.</div>'}
+
+  <div class="section-label">Aprovadas — valor recuperado</div>
+  ${aprovadas.length ? `<div id="tabelaContestAprov">${grade(aprovadas, colQuem)}</div>`
+  : '<div class="contexto">Nenhuma contestação aprovada no período.</div>'}
+
+  <div class="section-label">Reprovadas</div>
+  ${reprovadas.length ? `<div id="tabelaContestReprov">${grade(reprovadas, colRetorno)}</div>
+  <div class="caption-label" style="text-align:center;">A justificativa do iFood ajuda a ajustar o texto da próxima contestação.</div>`
+  : '<div class="contexto" style="border-color:#3fb950;">Nenhuma reprovada no período. ✔</div>'}
+
+  ${perdidas.length ? `<div class="section-label">Prazo encerrado sem contestação</div>
+  <div id="tabelaContestPerd">${grade(perdidas, colQuem)}</div>
+  <div class="caption-label" style="text-align:center;">Não dá mais para contestar — serve para medir quanto escapa.</div>` : ''}
+
+  <div class="caption-label" style="text-align:center; margin-top:14px;">Janela: últimos 60 dias.
+  “Cancelamento é contestável” no export indica o <i>tipo</i> do cancelamento e continua SIM mesmo depois de aprovado —
+  quem diz o estado real é “houve contestação” + “status da contestação”.
+  ${semDado.length ? `<br>${semDado.length} cancelamento(s) mais antigo(s) ficam fora dos blocos: foram importados antes
+  de passarmos a capturar esses campos, então não sabemos o desfecho — não são prazo perdido.` : ''}</div>`;
 }
 
 // Busca so os dados (sem renderizar o modulo) — usadas pelo gerador de relatorio.
