@@ -2559,8 +2559,9 @@ function renderModuloContestacoes() {
 
   <div class="section-label">Você precisa contestar</div>
   ${aContestarVoce.length ? `<div id="tabelaContestVoce">${grade(aContestarVoce, colPrazo)}</div>
-  <div class="caption-label" style="text-align:center;">A rotina não cobre estes: unidade Boqueirão, cancelamentos parciais
-  e motivos que ainda não têm texto aprovado. Quando um motivo virar rotina, ele passa para o bloco de baixo.</div>`
+  <div class="caption-label" style="text-align:center;">Motivos que dependem de avaliar evidência — item faltando,
+  itens errados, pedido violado. Os textos sugeridos estão em <b>rotinas/textos-contestacao.md</b>.
+  Quando um motivo ganhar texto aprovado, ele passa para o bloco de baixo.</div>`
   : '<div class="contexto" style="border-color:#3fb950;">Nada esperando você. ✔</div>'}
 
   <div class="section-label">A rotina contesta sozinha</div>
