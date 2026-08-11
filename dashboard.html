@@ -4162,9 +4162,8 @@ function renderModuloConciliacao() {
       </table>
       <div style="font-size:12px; color:#a5a49a; margin-top:6px;">
         Movimento de jan a jul nas duas fontes. Enquanto houver diferença, o DFC continua na planilha —
-        quando tudo zerar, a base pode virar 100% Saipos. Os cartões ficam fora desta lista: a planilha não
-        os modelava (lançava a compra direto no Itaú ao pagar a fatura) e a dívida que existia em 01/01 já
-        foi reconhecida como saldo de abertura das contas de cartão.
+        quando tudo zerar, a base pode virar 100% Saipos. Nos cartões, a diferença é a medida do que ainda
+        falta lançar de compras no Saipos (a fatura foi paga, mas as saídas não foram conciliadas lá).
       </div>
     </div>`;
   }
@@ -4176,7 +4175,8 @@ function renderModuloConciliacao() {
       ${cartoesPositivos.map(c => `<div style="display:flex; justify-content:space-between; padding:3px 0;">
         <span>${c.conta}</span><b>R$ ${fmt(c.saldo)}</b></div>`).join('')}
       <div style="font-size:12px; color:#a5a49a; margin-top:6px;">
-        Cartão só pode estar zerado ou devedor. Saldo positivo = fatura paga cujas <b>compras não foram lançadas</b> no Saipos.
+        Cartão só pode estar zerado ou devedor. Saldo positivo = fatura paga cujas <b>compras não foram lançadas</b> no Saipos —
+        some sozinho quando o cartão for conciliado lá.
       </div>
     </div>`;
   }
