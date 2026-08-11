@@ -4037,18 +4037,24 @@ function renderModuloDespesas() {
 //   3. lancamentos sem classificacao
 // ------------------------------------------------------------------
 let CONF_SALDOS = null, CONF_TRANSF = null, CONF_SEMCLASS = null;
+let CONF_IMPORT = null, CONF_GENERICAS = null, CONF_DIVERG = null;
 
 async function entrarConciliacao() {
   const alvo = document.getElementById('view-conciliacao');
   if (CONF_SALDOS === null) {
     alvo.innerHTML = '<div class="contexto">Carregando conferências...</div>';
-    [CONF_SALDOS, CONF_TRANSF, CONF_SEMCLASS] = await Promise.all([
+    [CONF_SALDOS, CONF_TRANSF, CONF_SEMCLASS, CONF_IMPORT, CONF_GENERICAS, CONF_DIVERG] = await Promise.all([
       consultarTudo('vw_fin_saldo_conta?select=conta,ordem,saldo,ultimo_lancamento,lancamentos&order=ordem'),
       consultarTudo('vw_fin_transf_conferencia?select=mes,diferenca,lancamentos&order=mes'),
       consultarTudo('vw_fin_sem_classificacao?select=data,conta,descricao,credito,debito&order=data.desc'),
+      consultarTudo('vw_fin_ultima_importacao?select=fonte,importado_em,ultimo_lancamento,lancamentos'),
+      consultarTudo('vw_fin_categorias_genericas?select=mes,subtipo,lancamentos,valor&order=mes.desc'),
+      consultarTudo('vw_fin_divergencia_fontes?select=conta,planilha,saipos,diferenca'),
     ]);
     CONF_SALDOS.forEach(r => { r.saldo = Number(r.saldo); r.lancamentos = Number(r.lancamentos); });
     CONF_TRANSF.forEach(r => { r.diferenca = Number(r.diferenca); });
+    CONF_GENERICAS.forEach(r => { r.valor = Number(r.valor); r.lancamentos = Number(r.lancamentos); });
+    CONF_DIVERG.forEach(r => { r.diferenca = Number(r.diferenca); r.planilha = Number(r.planilha); r.saipos = Number(r.saipos); });
   }
   renderModuloConciliacao();
 }
@@ -4064,10 +4070,39 @@ function renderModuloConciliacao() {
   const negativas = ativas.filter(c => c.saldo < -0.005 && !c.conta.startsWith('CREDITO'));
   const paradas = ativas.filter(c => diasDesde(c.ultimo_lancamento) > 7 && !c.conta.startsWith('CREDITO'));
   const transfRuins = CONF_TRANSF.filter(t => Math.abs(t.diferenca) > 0.005);
-  const alertas = negativas.length + paradas.length + transfRuins.length + CONF_SEMCLASS.length;
+
+  // a rotina das 07:30 rodou? base velha = tudo o que se vê aqui esta velho
+  const impSaipos = (CONF_IMPORT || []).find(r => r.fonte === 'SAIPOS');
+  const horasDesdeImport = impSaipos
+    ? Math.round((Date.now() - new Date(impSaipos.importado_em)) / 3600000) : null;
+  const importAtrasada = horasDesdeImport === null || horasDesdeImport > 30;
+
+  // categorias "balde" no mes corrente: escondem o que foi realmente gasto
+  const mesAtual = hojeIso.slice(0, 8) + '01';
+  const genericasMes = (CONF_GENERICAS || []).filter(g => g.mes === mesAtual);
+  const valorGenerico = genericasMes.reduce((s, g) => s + g.valor, 0);
+
+  // enquanto planilha e Saipos convivem, as duas tem de contar a mesma historia
+  const divergentes = (CONF_DIVERG || []).filter(d => Math.abs(d.diferenca) > 0.005);
+
+  const alertas = negativas.length + paradas.length + transfRuins.length + CONF_SEMCLASS.length
+                + (importAtrasada ? 1 : 0) + (valorGenerico > 0.005 ? 1 : 0) + divergentes.length;
   const saldoTotal = ativas.filter(c => !c.conta.startsWith('CREDITO')).reduce((s, c) => s + c.saldo, 0);
 
   let blocos = '';
+
+  if (importAtrasada) {
+    blocos += `
+    <div class="section-label">Importação do Saipos</div>
+    <div class="contexto" style="border-color:#ff6b6b; text-align:left;">
+      <b>A base pode estar desatualizada.</b> Última importação:
+      ${impSaipos ? new Date(impSaipos.importado_em).toLocaleString('pt-BR') + ` (${horasDesdeImport}h atrás)` : 'nunca'}.
+      <div style="font-size:12px; color:#a5a49a; margin-top:6px;">
+        A rotina roda todo dia às 07:30 (tarefa "Painel - Importar Saipos DFC"). Se o PC estiver desligado nesse horário,
+        rode manualmente o <b>importar_saipos.bat</b> — enquanto isso, tudo o que aparece no painel é do último dia importado.
+      </div>
+    </div>`;
+  }
 
   if (negativas.length) {
     blocos += `
@@ -4108,6 +4143,38 @@ function renderModuloConciliacao() {
     </div>`;
   }
 
+  if (divergentes.length) {
+    blocos += `
+    <div class="section-label">Planilha × Saipos (jan–jul) — as duas contam a mesma história?</div>
+    <div class="contexto" style="border-color:#f5a623; text-align:left;">
+      <table style="width:100%; font-size:12.5px;">
+        <tr><th style="text-align:left;">Conta</th><th>Planilha</th><th>Saipos</th><th>Diferença</th></tr>
+        ${divergentes.sort((a, b) => Math.abs(b.diferenca) - Math.abs(a.diferenca)).map(d => `
+          <tr><td>${d.conta}</td><td>${fmt(d.planilha)}</td><td>${fmt(d.saipos)}</td>
+          <td class="negativo">${fmt(d.diferenca)}</td></tr>`).join('')}
+      </table>
+      <div style="font-size:12px; color:#a5a49a; margin-top:6px;">
+        Movimento de jan a jul nas duas fontes. Enquanto houver diferença, o DFC continua na planilha —
+        quando tudo zerar, a base pode virar 100% Saipos. Cartões divergem porque as compras de jan/fev
+        não foram lançadas lá (só o pagamento da fatura).
+      </div>
+    </div>`;
+  }
+
+  if (valorGenerico > 0.005) {
+    blocos += `
+    <div class="section-label">Despesas em categorias genéricas (${rotuloMes(mesAtual)})</div>
+    <div class="contexto" style="border-color:#f5a623; text-align:left;">
+      ${genericasMes.map(g => `<div style="display:flex; justify-content:space-between; padding:3px 0;">
+        <span>${g.subtipo} <span style="color:#8a897e;">(${g.lancamentos} lançamentos)</span></span>
+        <b>R$ ${fmt(g.valor)}</b></div>`).join('')}
+      <div style="font-size:12px; color:#a5a49a; margin-top:6px;">
+        Lançados no Saipos como "Consumo" ou "Fornecedores", sem dizer o que foi comprado — entram no total certo,
+        mas somem da análise por categoria. Detalhe a categoria no Saipos para eles aparecerem no lugar certo.
+      </div>
+    </div>`;
+  }
+
   if (CONF_SEMCLASS.length) {
     blocos += `
     <div class="section-label">Lançamentos sem classificação</div>
@@ -4122,8 +4189,8 @@ function renderModuloConciliacao() {
   alvo.innerHTML = `
   <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Conferência da base — Água Verde</div>
   <div class="caption-label" style="text-align:center;">
-    A conciliação com o extrato é feita no Saipos (Financeiro → Conciliação, que importa o OFX e sugere os pares).
-    Aqui o painel confere <b>a consistência da própria base</b> e aponta o que provavelmente falta lançar lá.
+    Checagem diária da base: <b>se algo não bater, aparece aqui.</b> A conciliação com o extrato do banco é feita
+    fora do painel (Saipos/OFX) — aqui conferimos a consistência interna e apontamos o que provavelmente falta lançar lá.
   </div>
   <div class="cards">
     <div class="card ${alertas === 0 ? 'pos' : 'neg'}"><div class="card-lbl">Pontos de atenção</div>
@@ -4147,8 +4214,9 @@ function renderModuloConciliacao() {
   </table></div>
   <div class="caption-label">Saldo = saldo inicial de 01/01 + todos os lançamentos de caixa (planilha até jul, Saipos depois).
   Cartões aparecem com saldo negativo enquanto a fatura não é paga — é o normal.
-  <b>Sobre o status de conciliação do Saipos:</b> a API expõe um campo de conciliado, mas ele vem sempre "não" mesmo em
-  meses já conciliados, então o painel não o utiliza — preferimos não mostrar número a mostrar número errado.</div>`;
+  <b>O que o painel NÃO vê:</b> o extrato do banco. Se um recebimento nunca foi lançado no Saipos, aqui ele só aparece
+  indiretamente (saldo negativo ou conta parada) — a confirmação vem da conciliação bancária.
+  O campo de conciliado da API do Saipos não é usado: ele vem sempre "não" mesmo em meses já conciliados.</div>`;
 }
 
 // Agrupamento automatico pelo tamanho do periodo filtrado — evita colocar mais um controle na
