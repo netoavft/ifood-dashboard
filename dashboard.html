@@ -350,6 +350,11 @@
       <span class="sidebar-btn breve">Ficha técnica</span>
       <span class="sidebar-btn breve">Despesas e rateio</span>
     </div>
+
+    <button class="sidebar-secao" onclick="toggleGrupo('gSistema')">Sistema <span class="seta">▶</span></button>
+    <div class="sidebar-grupo" id="gSistema">
+      <button class="sidebar-btn" id="navBtnRotinas" onclick="mostrarModulo('rotinas')">Rotinas</button>
+    </div>
   </nav>
   <div class="main-content">
   <div class="wrap">
@@ -407,6 +412,10 @@
 
     <div id="modulo-contestacoes" class="modulo" style="display:none;">
       <div id="view-contestacoes"></div>
+    </div>
+
+    <div id="modulo-rotinas" class="modulo" style="display:none;">
+      <div id="view-rotinas"></div>
     </div>
 
     <div id="modulo-avaliacoes" class="modulo" style="display:none;">
@@ -862,6 +871,7 @@ function mostrarModulo(nome) {
     despesas: ['modulo-despesas', 'navBtnDespesas'],
     conciliacao: ['modulo-conciliacao', 'navBtnConciliacao'],
     indicadores: ['modulo-indicadores', 'navBtnIndicadores'],
+    rotinas: ['modulo-rotinas', 'navBtnRotinas'],
   };
   Object.entries(modulos).forEach(([chave, [idDiv, idBtn]]) => {
     document.getElementById(idDiv).style.display = (chave === nome) ? 'block' : 'none';
@@ -885,6 +895,7 @@ function mostrarModulo(nome) {
   if (nome === 'avaliacoes') entrarAvaliacoes();
   if (nome === 'relatorios') entrarRelatorios();
   if (nome === 'contestacoes') entrarContestacoes();
+  if (nome === 'rotinas') entrarRotinas();
   if (nome === 'fluxo') entrarFluxo();
   if (nome === 'dre') entrarDre();
   if (nome === 'projecao') entrarProjecao();
@@ -2599,6 +2610,100 @@ function renderModuloContestacoes() {
   quem diz o estado real é “houve contestação” + “status da contestação”.
   ${semDado.length ? `<br>${semDado.length} cancelamento(s) mais antigo(s) ficam fora dos blocos: foram importados antes
   de passarmos a capturar esses campos, então não sabemos o desfecho — não são prazo perdido.` : ''}</div>`;
+}
+
+// ------------------------------------------------------------------
+// Modulo Rotinas: o que esta rodando agora e como terminou da ultima vez.
+// As rotinas gravam inicio/fim em rotinas_execucao (ver rotinas/REGISTRO-EXECUCAO.md),
+// entao o painel responde "ja rodou?" sem precisar perguntar no chat.
+const ROTINAS_CONHECIDAS = [
+  { id: 'extracao-diaria-pedidos',           nome: 'Extração de pedidos',    quando: 'Todo dia 09:00' },
+  { id: 'contestacao-diaria-cancelamentos',  nome: 'Contestação',            quando: 'Todo dia 10:30' },
+  { id: 'extracao-semanal-cardapio',         nome: 'Extração de cardápio',   quando: 'Segunda 07:00' },
+  { id: 'resumo-semanal-ifood',              nome: 'Resumo semanal',         quando: 'Segunda 12:00' },
+];
+let ROTINAS_TIMER = null;
+
+async function entrarRotinas() {
+  const alvo = document.getElementById('view-rotinas');
+  if (!alvo.innerHTML) alvo.innerHTML = '<div class="contexto">Carregando rotinas...</div>';
+  await carregarRotinas();
+  // Enquanto o modulo estiver aberto, atualiza sozinho — e assim que uma rotina
+  // abre o registro, ela aparece como "rodando agora" sem recarregar a pagina.
+  if (ROTINAS_TIMER) clearInterval(ROTINAS_TIMER);
+  ROTINAS_TIMER = setInterval(() => {
+    const visivel = document.getElementById('modulo-rotinas').style.display !== 'none';
+    if (visivel) carregarRotinas(); else { clearInterval(ROTINAS_TIMER); ROTINAS_TIMER = null; }
+  }, 30000);
+}
+
+async function carregarRotinas() {
+  const [status, historico] = await Promise.all([
+    consultarTudo('vw_rotinas_status?select=rotina,inicio,fim,status,resumo,detalhe,duracao_seg,falhas_30d'),
+    consultarTudo('rotinas_execucao?select=rotina,inicio,fim,status,resumo,detalhe&order=inicio.desc&limit=40'),
+  ]);
+  renderModuloRotinas(status, historico);
+}
+
+function renderModuloRotinas(status, historico) {
+  const alvo = document.getElementById('view-rotinas');
+  const porId = Object.fromEntries(status.map(r => [r.rotina, r]));
+
+  const dtHora = (v) => v ? new Date(v).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }) : '—';
+  const dur = (s) => s == null ? '—' : (s < 60 ? `${s}s` : `${Math.floor(s/60)}min`);
+  const badge = (st) => ({
+    RODANDO:  '<span style="color:#f5a623; font-weight:bold;">● rodando agora</span>',
+    OK:       '<span style="color:#3fb950; font-weight:bold;">✔ concluída</span>',
+    FALHOU:   '<span style="color:#ff6b6b; font-weight:bold;">✖ falhou</span>',
+    PULADA:   '<span style="color:#8a897e; font-weight:bold;">— pulada</span>',
+    TRAVADA:  '<span style="color:#ff6b6b; font-weight:bold;">✖ não finalizou</span>',
+  }[st] || `<span style="color:#8a897e;">${st}</span>`);
+
+  const rodando = ROTINAS_CONHECIDAS.filter(r => porId[r.id] && porId[r.id].status === 'RODANDO');
+
+  alvo.innerHTML = `
+  <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Rotinas automáticas</div>
+  <div class="caption-label" style="text-align:center;">
+    Atualiza sozinho a cada 30 segundos. Cada rotina grava início e fim ao rodar —
+    se aparecer <b>rodando agora</b>, ela está acontecendo neste momento.
+  </div>
+
+  ${rodando.length ? `<div class="contexto" style="border-color:#f5a623;">
+    <b>Acontecendo agora:</b> ${rodando.map(r => r.nome).join(', ')} —
+    começou ${dtHora(porId[rodando[0].id].inicio)}, já faz ${dur(porId[rodando[0].id].duracao_seg)}.
+  </div>` : ''}
+
+  <div id="tabelaRotinas"><table>
+    <tr><th>Rotina</th><th>Agenda</th><th>Situação</th><th>Última execução</th><th>Duração</th><th>Resultado</th></tr>
+    ${ROTINAS_CONHECIDAS.map(r => {
+      const s = porId[r.id];
+      if (!s) return `<tr><td>${r.nome}</td><td style="font-size:11.5px;">${r.quando}</td>
+        <td style="color:#8a897e;">nunca registrada</td><td>—</td><td>—</td>
+        <td style="font-size:11px; color:#8a897e;">passa a registrar na próxima execução</td></tr>`;
+      return `<tr>
+        <td>${r.nome}</td>
+        <td style="font-size:11.5px;">${r.quando}</td>
+        <td>${badge(s.status)}${Number(s.falhas_30d) ? ` <span style="font-size:10px; color:#ff6b6b;">(${s.falhas_30d} falha(s) em 30d)</span>` : ''}</td>
+        <td>${dtHora(s.inicio)}</td>
+        <td>${dur(s.duracao_seg)}</td>
+        <td style="font-size:11.5px;">${s.resumo || '—'}${s.detalhe ? `<br><span style="font-size:10.5px; color:#8a897e;">${s.detalhe}</span>` : ''}</td>
+      </tr>`;
+    }).join('')}
+  </table></div>
+
+  <div class="section-label">Histórico</div>
+  ${historico.length ? `<div id="tabelaRotinasHist"><table>
+    <tr><th>Quando</th><th>Rotina</th><th>Situação</th><th>Resultado</th></tr>
+    ${historico.map(h => `<tr>
+      <td>${dtHora(h.inicio)}</td>
+      <td style="font-size:11.5px;">${(ROTINAS_CONHECIDAS.find(r => r.id === h.rotina) || {}).nome || h.rotina}</td>
+      <td>${badge(h.status)}</td>
+      <td style="font-size:11.5px;">${h.resumo || '—'}${h.detalhe ? `<br><span style="font-size:10.5px; color:#8a897e;">${h.detalhe}</span>` : ''}</td>
+    </tr>`).join('')}
+  </table></div>` : '<div class="contexto">Nenhuma execução registrada ainda.</div>'}
+
+  <div class="caption-label" style="text-align:center;">A contestação só roda se a extração do dia tiver completado —
+  se aparecer <b>pulada</b>, foi essa trava agindo, e basta rodar a extração antes.</div>`;
 }
 
 // Busca so os dados (sem renderizar o modulo) — usadas pelo gerador de relatorio.
