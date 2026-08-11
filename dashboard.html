@@ -4038,25 +4038,30 @@ function renderModuloDespesas() {
 // ------------------------------------------------------------------
 let CONF_SALDOS = null, CONF_TRANSF = null, CONF_SEMCLASS = null;
 let CONF_IMPORT = null, CONF_GENERICAS = null, CONF_DIVERG = null, CONF_CARTOES = null;
+let CONF_ACEITAS = null;   // fin_divergencias_aceitas: divergências já conferidas pelo dono
 
 async function entrarConciliacao() {
   const alvo = document.getElementById('view-conciliacao');
   if (CONF_SALDOS === null) {
     alvo.innerHTML = '<div class="contexto">Carregando conferências...</div>';
     [CONF_SALDOS, CONF_TRANSF, CONF_SEMCLASS, CONF_IMPORT, CONF_GENERICAS, CONF_DIVERG,
-     CONF_CARTOES] = await Promise.all([
+     CONF_CARTOES, CONF_ACEITAS] = await Promise.all([
       consultarTudo('vw_fin_saldo_conta?select=conta,ordem,saldo,ultimo_lancamento,lancamentos&order=ordem'),
       consultarTudo('vw_fin_transf_conferencia?select=mes,diferenca,lancamentos&order=mes'),
       consultarTudo('vw_fin_sem_classificacao?select=data,conta,descricao,credito,debito&order=data.desc'),
       consultarTudo('vw_fin_ultima_importacao?select=fonte,importado_em,ultimo_lancamento,lancamentos'),
       consultarTudo('vw_fin_categorias_genericas?select=mes,subtipo,lancamentos,valor&order=mes.desc'),
-      consultarTudo('vw_fin_divergencia_fontes?select=conta,planilha,saipos,diferenca'),
+      consultarTudo('vw_fin_divergencia_fontes?select=conta,planilha,saipos,diferenca,aceito,pendente,motivo'),
       consultarTudo('vw_fin_cartoes?select=conta,saldo_inicial,saldo,ultimo_lancamento'),
+      consultarTudo('fin_divergencias_aceitas?select=conta,valor,motivo,verificado_em&order=conta'),
     ]);
     CONF_SALDOS.forEach(r => { r.saldo = Number(r.saldo); r.lancamentos = Number(r.lancamentos); });
     CONF_TRANSF.forEach(r => { r.diferenca = Number(r.diferenca); });
     CONF_GENERICAS.forEach(r => { r.valor = Number(r.valor); r.lancamentos = Number(r.lancamentos); });
-    CONF_DIVERG.forEach(r => { r.diferenca = Number(r.diferenca); r.planilha = Number(r.planilha); r.saipos = Number(r.saipos); });
+    CONF_DIVERG.forEach(r => {
+      r.diferenca = Number(r.diferenca); r.planilha = Number(r.planilha);
+      r.saipos = Number(r.saipos); r.pendente = Number(r.pendente); r.aceito = Number(r.aceito);
+    });
     CONF_CARTOES.forEach(r => { r.saldo = Number(r.saldo); r.saldo_inicial = Number(r.saldo_inicial); });
   }
   renderModuloConciliacao();
@@ -4085,8 +4090,9 @@ function renderModuloConciliacao() {
   const genericasMes = (CONF_GENERICAS || []).filter(g => g.mes === mesAtual);
   const valorGenerico = genericasMes.reduce((s, g) => s + g.valor, 0);
 
-  // enquanto planilha e Saipos convivem, as duas tem de contar a mesma historia
-  const divergentes = (CONF_DIVERG || []).filter(d => Math.abs(d.diferenca) > 0.005);
+  // enquanto planilha e Saipos convivem, as duas tem de contar a mesma historia.
+  // A view ja exclui o que o dono conferiu e aceitou (fin_divergencias_aceitas).
+  const divergentes = (CONF_DIVERG || []).filter(d => Math.abs(d.pendente) > 0.005);
 
   // cartao com saldo positivo e' impossivel: fatura paga sem as compras lancadas
   const cartoesPositivos = (CONF_CARTOES || []).filter(c => c.saldo > 0.005);
@@ -4155,16 +4161,22 @@ function renderModuloConciliacao() {
     <div class="section-label">Planilha × Saipos (jan–jul) — as duas contam a mesma história?</div>
     <div class="contexto" style="border-color:#f5a623; text-align:left;">
       <table style="width:100%; font-size:12.5px;">
-        <tr><th style="text-align:left;">Conta</th><th>Planilha</th><th>Saipos</th><th>Diferença</th></tr>
-        ${divergentes.sort((a, b) => Math.abs(b.diferenca) - Math.abs(a.diferenca)).map(d => `
+        <tr><th style="text-align:left;">Conta</th><th>Planilha</th><th>Saipos</th><th>Falta resolver</th></tr>
+        ${divergentes.sort((a, b) => Math.abs(b.pendente) - Math.abs(a.pendente)).map(d => `
           <tr><td>${d.conta}</td><td>${fmt(d.planilha)}</td><td>${fmt(d.saipos)}</td>
-          <td class="negativo">${fmt(d.diferenca)}</td></tr>`).join('')}
+          <td class="negativo">${fmt(d.pendente)}</td></tr>`).join('')}
+        <tr style="border-top:1px solid #45443f;"><td colspan="3"><b>Total pendente</b></td>
+          <td class="negativo"><b>${fmt(divergentes.reduce((s, d) => s + d.pendente, 0))}</b></td></tr>
       </table>
       <div style="font-size:12px; color:#a5a49a; margin-top:6px;">
-        Movimento de jan a jul nas duas fontes. Enquanto houver diferença, o DFC continua na planilha —
-        quando tudo zerar, a base pode virar 100% Saipos. Nos cartões, a diferença é a medida do que ainda
-        falta lançar de compras no Saipos (a fatura foi paga, mas as saídas não foram conciliadas lá).
+        Movimento de jan a jul nas duas fontes. Enquanto houver pendência, o DFC continua na planilha —
+        quando esta lista zerar, a base pode virar 100% Saipos. Nos cartões, a diferença é a medida do que
+        ainda falta lançar de compras no Saipos (a fatura foi paga, mas as saídas não foram conciliadas lá).
       </div>
+      ${(CONF_ACEITAS || []).length ? `<div style="font-size:12px; color:#a5a49a; margin-top:8px; border-top:1px solid #34332f; padding-top:8px;">
+        <b>Já conferidas</b> (fora da conta acima):<br>
+        ${CONF_ACEITAS.map(a => `• ${a.conta}: R$ ${fmt(Number(a.valor))} — ${a.motivo}`).join('<br>')}
+      </div>` : ''}
     </div>`;
   }
 
