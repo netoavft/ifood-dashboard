@@ -295,7 +295,7 @@
          operação atravessando, base embaixo. -->
     <button class="sidebar-secao" onclick="toggleGrupo('gResultado')">Resultado <span class="seta">▶</span></button>
     <div class="sidebar-grupo" id="gResultado">
-      <span class="sidebar-btn breve">Esta semana</span>
+      <button class="sidebar-btn active" id="navBtnEstaSemana" onclick="mostrarModulo('estasemana')">Esta semana</button>
       <button class="sidebar-btn" id="navBtnIndicadores" onclick="mostrarModulo('indicadores')">Indicadores e metas</button>
       <span class="sidebar-btn breve">Visão consolidada</span>
       <button class="sidebar-btn" id="navBtnDre" onclick="mostrarModulo('dre')">DRE</button>
@@ -304,7 +304,7 @@
 
     <button class="sidebar-secao" onclick="toggleGrupo('gIfood')">Canal · iFood <span class="seta">▶</span></button>
     <div class="sidebar-grupo" id="gIfood">
-      <button class="sidebar-btn active" id="navBtnResumo" onclick="mostrarModulo('resumo')">Resumo do canal</button>
+      <button class="sidebar-btn" id="navBtnResumo" onclick="mostrarModulo('resumo')">Resumo do canal</button>
       <button class="sidebar-btn" id="navBtnPromocoes" onclick="mostrarModulo('promocoes')">Promoções</button>
       <button class="sidebar-btn" id="navBtnCancelamentos" onclick="mostrarModulo('cancelamentos')">Cancelamentos</button>
       <button class="sidebar-btn" id="navBtnContestacoes" onclick="mostrarModulo('contestacoes')">Contestações</button>
@@ -386,7 +386,11 @@
       <button onclick="resetFiltros()">Limpar filtros</button>
     </div>
 
-    <div id="modulo-resumo" class="modulo">
+    <div id="modulo-estasemana" class="modulo">
+      <div id="view-estasemana"></div>
+    </div>
+
+    <div id="modulo-resumo" class="modulo" style="display:none;">
       <div id="view-content"></div>
     </div>
 
@@ -837,7 +841,7 @@ function toggleGrupo(id) {
 // a Cancelamentos a partir da Visao geral, ou o modulo inicial no boot).
 function abrirGrupoDoModulo(nome) {
   const grupoDe = { fluxo: 'gFinanceiro', projecao: 'gFinanceiro', despesas: 'gFinanceiro',
-                    dre: 'gResultado', indicadores: 'gResultado',
+                    dre: 'gResultado', indicadores: 'gResultado', estasemana: 'gResultado',
                     relatorios: 'gArquivo', conciliacao: 'gArquivo', rotinas: 'gArquivo' };
   const id = grupoDe[nome] || 'gIfood';
   const grupo = document.getElementById(id);
@@ -847,6 +851,7 @@ function abrirGrupoDoModulo(nome) {
 function mostrarModulo(nome) {
   abrirGrupoDoModulo(nome);
   const modulos = {
+    estasemana: ['modulo-estasemana', 'navBtnEstaSemana'],
     resumo: ['modulo-resumo', 'navBtnResumo'],
     cancelamentos: ['modulo-cancelamentos', 'navBtnCancelamentos'],
     promocoes: ['modulo-promocoes', 'navBtnPromocoes'],
@@ -893,6 +898,7 @@ function mostrarModulo(nome) {
   if (nome === 'avaliacoes') entrarAvaliacoes();
   if (nome === 'relatorios') entrarRelatorios();
   if (nome === 'contestacoes') entrarContestacoes();
+  if (nome === 'estasemana') entrarEstaSemana();
   if (nome === 'rotinas') entrarRotinas();
   if (nome === 'fluxo') entrarFluxo();
   if (nome === 'dre') entrarDre();
@@ -3094,6 +3100,182 @@ function fmtMeta(meta) {
   return (meta.sentido === 'acima' ? '≥ ' : '≤ ') + f(meta.meta);
 }
 
+// ------------------------------------------------------------------
+// MODULO ESTA SEMANA — a home de decisao (12/08/2026).
+// Regra da casa: nenhum numero sem comparacao, sem farol ou sem acao.
+// Tres faixas: (A) o que precisa de gente AGORA; (B) a semana em curso
+// vs os MESMOS dias da semana passada (fato_pedidos, fresco toda manha);
+// (C) o placar de metas da ultima semana fechada — so o que NAO esta
+// verde, cada item com a acao de uma linha. Reusa computeMetrics,
+// computeKpisSemana e farolKpi — formulas novas aqui seriam bug.
+let HOME_PEND = null;
+
+const HOME_ACAO = {
+  liquido_semana: 'abrir o DRE e o "para onde foi o dinheiro" no Resumo do canal',
+  pedidos_semana: 'abrir o Resumo do canal e ver no ranking por loja quem puxou',
+  margem_pct: 'abrir o Resumo do canal — custo iFood e marketing explicam quase sempre',
+  nota_media: 'abrir Avaliações, piores lojas primeiro, e ler os comentários',
+  pct_notas_ruins: 'abrir Avaliações e tratar as lojas com notas 1-2 da semana',
+  taxa_cancelamento: 'abrir Cancelamentos e ver o motivo dominante da semana',
+  neg_sem_resposta_pct: 'responder as negociações no app HOJE — silêncio vira cancelamento',
+  neg_atraso_pct: 'reforçar os turnos de pico — abrir Negociações para ver onde dói',
+  mkt_por_pedido: 'abrir Promoções — o teste em curso mexe neste número',
+  alavancagem: 'abrir Promoções: cortar mecânicas que o iFood banca pouco',
+  roa_promo: 'abrir Promoções e comparar mecânicas — cortar as de pior retorno',
+};
+
+async function entrarEstaSemana() {
+  const alvo = document.getElementById('view-estasemana');
+  if (!alvo) return;
+  alvo.innerHTML = '<div class="contexto">Montando a leitura da semana...</div>';
+  try {
+    if (METAS_KPI === null) {
+      METAS_KPI = await consultarTudo('metas_kpi?select=chave,nome,bloco,sentido,meta,meta2,unidade,descricao,ordem&ativo=eq.true&order=ordem');
+    }
+    if (NEGOCIACOES === null) await entrarNegociacoesSoDados();
+    if (AVALIACOES === null) await entrarAvaliacoesSoDados();
+    if (HOME_PEND === null) {
+      const [pend, rot, concFresh] = await Promise.all([
+        consultarTudo('vw_contestacoes_status?select=id_curto,nome_loja,valor,contestavel_ate,automatizavel&bloco=eq.A_CONTESTAR'),
+        consultarTudo('vw_rotinas_status?select=rotina,status,inicio,resumo'),
+        consultarTudo('mv_conciliacao_agregado?select=data&order=data.desc&limit=1'),
+      ]);
+      HOME_PEND = { pend, rot, concAte: concFresh.length ? concFresh[0].data : null };
+    }
+    renderEstaSemana();
+  } catch (e) {
+    alvo.innerHTML = '<div class="contexto" style="border-color:#ff6b6b;">Não consegui montar a home: ' + e.message + '</div>';
+  }
+}
+
+function renderEstaSemana() {
+  const alvo = document.getElementById('view-estasemana');
+  const iso = (d) => d.toISOString().slice(0, 10);
+  const ddmm = (v) => v ? v.slice(8, 10) + '/' + v.slice(5, 7) : '—';
+  const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+  const dow = (hoje.getDay() + 6) % 7; // 0 = segunda
+  const segAtual = new Date(hoje); segAtual.setDate(segAtual.getDate() - dow);
+  const ontem = new Date(hoje); ontem.setDate(ontem.getDate() - 1);
+  const temSemanaEmCurso = ontem >= segAtual;
+
+  // ---------------- FAIXA A: precisa de gente agora ----------------
+  const pendManual = HOME_PEND.pend.filter(r => !r.automatizavel);
+  const pendValor = pendManual.reduce((s, r) => s + Number(r.valor || 0), 0);
+  const prazoMin = pendManual.map(r => r.contestavel_ate).filter(Boolean).sort()[0] || null;
+  const rotinasRuins = HOME_PEND.rot.filter(r => r.status === 'FALHOU' || r.status === 'TRAVADA');
+  const maxAv = AVALIACOES.length ? AVALIACOES.reduce((m, r) => r[1] > m ? r[1] : m, '') : null;
+  const maxNeg = NEGOCIACOES.length ? NEGOCIACOES.reduce((m, r) => r[1] > m ? r[1] : m, '') : null;
+  const idade = (v) => v ? Math.floor((hoje - new Date(String(v).slice(0, 10) + 'T00:00:00')) / 864e5) : null;
+
+  const agora = [];
+  if (pendManual.length) agora.push({ cor: '#ff6b6b', link: 'contestacoes',
+    txt: '<b>Contestar à mão no portal:</b> ' + pendManual.length + ' pedido(s), R$ ' + fmt(pendValor) +
+         (prazoMin ? ' — prazo mais curto ' + ddmm(prazoMin) : '') });
+  if (rotinasRuins.length) agora.push({ cor: '#ff6b6b', link: 'rotinas',
+    txt: '<b>Rotina com problema:</b> ' + rotinasRuins.map(r => r.rotina + ' (' + r.status + ')').join(', ') });
+  if (idade(maxAv) !== null && idade(maxAv) > 4) agora.push({ cor: '#f5a623', link: 'avaliacoes',
+    txt: '<b>Fonte parada:</b> avaliações vão só até ' + ddmm(maxAv) + ' — baixar "comentários e avaliações" no Portal de Redes' });
+  if (idade(maxNeg) !== null && idade(maxNeg) > 4) agora.push({ cor: '#f5a623', link: 'negociacoes',
+    txt: '<b>Fonte parada:</b> negociações vão só até ' + ddmm(maxNeg) + ' — baixar "negociações e chamados" (período começando no dia 01 do mês!)' });
+
+  const blocoAgora = agora.length
+    ? agora.map(a => '<div class="contexto" style="border-color:' + a.cor + '; margin-bottom:8px;' + (a.link ? ' cursor:pointer;' : '') + '"' +
+        (a.link ? ' onclick="mostrarModulo(\'' + a.link + '\')"' : '') + '>' + a.txt + '</div>').join('')
+    : '<div class="contexto" style="border-color:#3fb950;">Nada esperando ação sua neste momento. ✔</div>';
+
+  // ---------- FAIXA B: semana em curso vs mesmos dias da anterior ----------
+  let blocoEmCurso = '';
+  if (temSemanaEmCurso) {
+    const atual = computeMetrics(iso(segAtual), iso(ontem));
+    const pIni = new Date(segAtual); pIni.setDate(pIni.getDate() - 7);
+    const pFim = new Date(ontem); pFim.setDate(pFim.getDate() - 7);
+    const antes = computeMetrics(iso(pIni), iso(pFim));
+
+    const vs = (a, b, casas = 1) => {
+      if (!b) return '<span style="color:#8a897e;">sem base</span>';
+      const v = (a - b) / b * 100;
+      return (v >= 0 ? 'subiu ' : 'caiu ') + Math.abs(v).toFixed(casas).replace('.', ',') + '%';
+    };
+    const metaDe = (chave) => (METAS_KPI || []).find(k => k.chave === chave) || null;
+    const corMeta = (chave, v) => { const k = metaDe(chave); return k ? farolKpi(k, v)[0] : '#34332f'; };
+
+    const cardHome = (lbl, valor, sub, cor) =>
+      '<div class="card neutral" style="border:1px solid ' + (cor || '#34332f') + ';">' +
+      '<div class="card-lbl">' + lbl + '</div><div class="card-val">' + valor + '</div>' +
+      '<div class="card-pct">' + sub + '</div></div>';
+
+    const ticketA = atual.totalPedidos ? atual.bruto / atual.totalPedidos : 0;
+    const ticketB = antes.totalPedidos ? antes.bruto / antes.totalPedidos : 0;
+
+    blocoEmCurso =
+      '<div class="section-label">Semana em curso — seg ' + ddmm(iso(segAtual)) + ' a ' + ddmm(iso(ontem)) +
+      ' <span style="text-transform:none; font-weight:normal; font-size:12px; color:#8a897e;">(vs os mesmos dias da semana passada)</span></div>' +
+      '<div class="cards">' +
+      cardHome('Pedidos', atual.totalPedidos, vs(atual.totalPedidos, antes.totalPedidos)) +
+      cardHome('Bruto', 'R$ ' + fmt(atual.bruto), vs(atual.bruto, antes.bruto)) +
+      cardHome('Ticket médio', 'R$ ' + fmt(ticketA), vs(ticketA, ticketB)) +
+      cardHome('Cancelamento', pct(atual.nFullPct) + '%', vs(atual.nFullPct, antes.nFullPct) + ' · meta ' +
+        (metaDe('taxa_cancelamento') ? fmtKpi('pct', Number(metaDe('taxa_cancelamento').meta)) : '—'),
+        corMeta('taxa_cancelamento', atual.nFullPct)) +
+      cardHome('Marketing / pedido', 'R$ ' + fmt(atual.custoMktPorPedido), vs(atual.custoMktPorPedido, antes.custoMktPorPedido),
+        corMeta('mkt_por_pedido', atual.custoMktPorPedido)) +
+      '</div>' +
+      '<div class="caption-label" style="text-align:center;">Fonte: pedidos importados toda manhã (dados até ontem). ' +
+      'Cores nos cards = farol da meta correspondente; cinza = sem meta para este número.</div>';
+  } else {
+    blocoEmCurso = '<div class="contexto">A semana começou hoje — os primeiros números entram amanhã, depois da extração das 09:00.</div>';
+  }
+
+  // ---------- FAIXA C: placar da ultima semana fechada ----------
+  const sem = ultimaSemanaCompleta();
+  const antFim = new Date(sem.ini + 'T00:00:00'); antFim.setDate(antFim.getDate() - 1);
+  const antIni = new Date(antFim); antIni.setDate(antIni.getDate() - 6);
+  const atualK = computeKpisSemana(sem.ini, sem.fim);
+  const antK = computeKpisSemana(iso(antIni), iso(antFim));
+
+  const chips = (METAS_KPI || []).map(k => {
+    const v = atualK[k.chave];
+    const [cor, rotulo] = farolKpi(k, v);
+    return { k, v, cor, rotulo, ant: antK[k.chave] };
+  });
+  const verdes = chips.filter(c => c.cor === '#3fb950').length;
+  const atencao = chips.filter(c => c.cor !== '#3fb950');
+
+  const concIncompleta = HOME_PEND.concAte && HOME_PEND.concAte < sem.fim;
+  const avisoConc = concIncompleta
+    ? '<div class="contexto" style="border-color:#f5a623;">Conciliação só até <b>' + ddmm(HOME_PEND.concAte) +
+      '</b> — líquido, margem e marketing da semana fechada estão PROVISÓRIOS até o iFood liberar o ciclo (baixar o zip de agosto na sexta).</div>'
+    : '';
+
+  const linhasAtencao = atencao.length
+    ? atencao.map(c =>
+        '<tr><td><span class="dre-farol" style="background:' + c.cor + ';"></span>' + c.k.nome + '</td>' +
+        '<td>' + fmtKpi(c.k.unidade, c.v) + '</td>' +
+        '<td>' + fmtKpi(c.k.unidade, Number(c.k.meta)) + (c.k.meta2 !== null && c.k.meta2 !== undefined && c.k.meta2 !== '' ? ' a ' + fmtKpi(c.k.unidade, Number(c.k.meta2)) : '') + '</td>' +
+        '<td style="font-size:11.5px;">' + (c.ant === null || c.ant === undefined || c.v === null || c.v === undefined || !c.ant
+          ? '—' : ((c.v - c.ant) / Math.abs(c.ant) * 100 >= 0 ? 'subiu' : 'caiu') + ' ' + Math.abs((c.v - c.ant) / Math.abs(c.ant) * 100).toFixed(1).replace('.', ',') + '%') + '</td>' +
+        '<td style="font-size:11.5px; color:#c3c2b7;">' + (HOME_ACAO[c.k.chave] || '—') + '</td></tr>'
+      ).join('')
+    : '';
+
+  const blocoPlacar =
+    '<div class="section-label">Semana fechada ' + ddmm(sem.ini) + ' a ' + ddmm(sem.fim) + ' — o que pede atenção</div>' +
+    avisoConc +
+    '<div class="contexto" style="border-color:#3fb950;"><b>' + verdes + ' de ' + chips.length + ' metas no verde.</b> ' +
+    (atencao.length ? 'As que não estão:' : 'Semana limpa — nada fora da meta.') + '</div>' +
+    (atencao.length
+      ? '<div id="tabelaHomeAtencao"><table><tr><th>Meta</th><th>Semana</th><th>Alvo</th><th>vs anterior</th><th>O que fazer</th></tr>' + linhasAtencao + '</table></div>'
+      : '') +
+    '<div style="text-align:center; margin-top:10px;"><button class="navbtn" onclick="mostrarModulo(\'indicadores\')">placar completo de metas</button> ' +
+    '<button class="navbtn" onclick="mostrarModulo(\'relatorios\')">resumo semanal</button></div>';
+
+  alvo.innerHTML =
+    '<div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Precisa de você agora</div>' +
+    blocoAgora + blocoEmCurso + blocoPlacar +
+    '<div class="caption-label" style="text-align:center; margin-top:14px;">Esta página segue os filtros de loja do topo. ' +
+    'Regra da casa: subiu/caiu é o fato; bom ou ruim depende da meta — o farol decide.</div>';
+}
+
 async function entrarIndicadores() {
   const alvo = document.getElementById('view-indicadores');
   alvo.innerHTML = '<div class="contexto">Carregando indicadores...</div>';
@@ -4592,6 +4774,9 @@ async function iniciar() {
     renderAll();
     document.getElementById('loadingMsg').style.display = 'none';
     document.getElementById('painel').style.display = 'block';
+    // A home "Esta semana" e o modulo inicial; carrega depois que o painel
+    // aparece para nao segurar o boot (ela busca avaliacoes/negociacoes/metas).
+    entrarEstaSemana();
   } catch (err) {
     document.getElementById('loadingMsg').style.display = 'none';
     const erroEl = document.getElementById('erroMsg');
