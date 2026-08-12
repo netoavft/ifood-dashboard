@@ -3366,7 +3366,7 @@ function renderModuloConsolidada() {
   </div>
 
   <div class="section-label">Canal a canal — período atual vs anterior (${ddmm(antIni)} a ${ddmm(antFim)})</div>
-  <div><table>
+  <div id="tabelaConsolidada"><table>
     <tr><th>Canal</th><th>Vendas</th><th>Faturamento</th><th>Ticket médio</th><th>% do total</th><th>Anterior (R$)</th><th>Variação</th><th>Canceladas</th></tr>
     ${canais.map(c => {
       const a = atual[c], ant = anterior[c];
