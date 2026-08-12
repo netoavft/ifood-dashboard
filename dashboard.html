@@ -288,12 +288,43 @@
       <span class="sidebar-marca-nome">Cidadão do Mundo</span>
     </div>
 
+    <!-- Ordem dos grupos = ordem das perguntas do dono (12/08/2026):
+         1 como está o negócio -> 2 e o canal que paga as contas -> 3 os outros
+         canais -> 4 a operação está saudável -> 5 o caixa aguenta -> 6 o que
+         planejo -> 7 arquivo/sistema. Consolidado em cima, canal no meio,
+         operação atravessando, base embaixo. -->
     <button class="sidebar-secao" onclick="toggleGrupo('gResultado')">Resultado <span class="seta">▶</span></button>
     <div class="sidebar-grupo" id="gResultado">
+      <span class="sidebar-btn breve">Esta semana</span>
       <button class="sidebar-btn" id="navBtnIndicadores" onclick="mostrarModulo('indicadores')">Indicadores e metas</button>
       <span class="sidebar-btn breve">Visão consolidada</span>
       <button class="sidebar-btn" id="navBtnDre" onclick="mostrarModulo('dre')">DRE</button>
       <span class="sidebar-btn breve">Margem por item</span>
+    </div>
+
+    <button class="sidebar-secao" onclick="toggleGrupo('gIfood')">Canal · iFood <span class="seta">▶</span></button>
+    <div class="sidebar-grupo" id="gIfood">
+      <button class="sidebar-btn active" id="navBtnResumo" onclick="mostrarModulo('resumo')">Resumo do canal</button>
+      <button class="sidebar-btn" id="navBtnPromocoes" onclick="mostrarModulo('promocoes')">Promoções</button>
+      <button class="sidebar-btn" id="navBtnCancelamentos" onclick="mostrarModulo('cancelamentos')">Cancelamentos</button>
+      <button class="sidebar-btn" id="navBtnContestacoes" onclick="mostrarModulo('contestacoes')">Contestações</button>
+      <button class="sidebar-btn" id="navBtnNegociacoes" onclick="mostrarModulo('negociacoes')">Negociações</button>
+      <button class="sidebar-btn" id="navBtnAvaliacoes" onclick="mostrarModulo('avaliacoes')">Avaliações</button>
+      <button class="sidebar-btn" id="navBtnCardapio" onclick="mostrarModulo('cardapio')">Cardápio</button>
+      <button class="sidebar-btn" id="navBtnClientes" onclick="mostrarModulo('clientes')">Clientes</button>
+    </div>
+
+    <button class="sidebar-secao" onclick="toggleGrupo('gOutros')">Outros canais <span class="seta">▶</span></button>
+    <div class="sidebar-grupo" id="gOutros">
+      <span class="sidebar-btn breve">Salão · Balcão · Site</span>
+    </div>
+
+    <button class="sidebar-secao" onclick="toggleGrupo('gOperacao')">Operação <span class="seta">▶</span></button>
+    <div class="sidebar-grupo" id="gOperacao">
+      <span class="sidebar-btn breve">Qualidade &amp; Super</span>
+      <span class="sidebar-btn breve">Atrasos e turnos</span>
+      <span class="sidebar-btn breve">Tempo de entrega</span>
+      <span class="sidebar-btn breve">Pessoas (Flash)</span>
     </div>
 
     <button class="sidebar-secao" onclick="toggleGrupo('gFinanceiro')">Financeiro <span class="seta">▶</span></button>
@@ -301,58 +332,19 @@
       <button class="sidebar-btn" id="navBtnFluxo" onclick="mostrarModulo('fluxo')">Fluxo de caixa</button>
       <button class="sidebar-btn" id="navBtnProjecao" onclick="mostrarModulo('projecao')">Fluxo projetado</button>
       <button class="sidebar-btn" id="navBtnDespesas" onclick="mostrarModulo('despesas')">Análise de despesas</button>
-      <button class="sidebar-btn" id="navBtnConciliacao" onclick="mostrarModulo('conciliacao')">Conferência da base</button>
-    </div>
-
-    <button class="sidebar-secao" onclick="toggleGrupo('gIfood')">Canal · iFood <span class="seta">▶</span></button>
-    <div class="sidebar-grupo" id="gIfood">
-      <button class="sidebar-btn active" id="navBtnResumo" onclick="mostrarModulo('resumo')">Resumo financeiro</button>
-      <button class="sidebar-btn" id="navBtnVendas" onclick="mostrarModulo('vendas')">Vendas</button>
-      <button class="sidebar-btn" id="navBtnCardapio" onclick="mostrarModulo('cardapio')">Cardápio</button>
-      <button class="sidebar-btn" id="navBtnPromocoes" onclick="mostrarModulo('promocoes')">Promoções</button>
-      <button class="sidebar-btn" id="navBtnClientes" onclick="mostrarModulo('clientes')">Clientes</button>
-      <button class="sidebar-btn" id="navBtnCancelamentos" onclick="mostrarModulo('cancelamentos')">Cancelamentos</button>
-      <button class="sidebar-btn" id="navBtnContestacoes" onclick="mostrarModulo('contestacoes')">Contestações</button>
-      <button class="sidebar-btn" id="navBtnNegociacoes" onclick="mostrarModulo('negociacoes')">Negociações</button>
-      <button class="sidebar-btn" id="navBtnAvaliacoes" onclick="mostrarModulo('avaliacoes')">Avaliações</button>
-    </div>
-
-    <button class="sidebar-secao" onclick="toggleGrupo('gRelatorios')">Relatórios <span class="seta">▶</span></button>
-    <div class="sidebar-grupo" id="gRelatorios">
-      <button class="sidebar-btn" id="navBtnRelatorios" onclick="mostrarModulo('relatorios')">Resumos semanais</button>
-    </div>
-
-    <button class="sidebar-secao" onclick="toggleGrupo('gVendas')">Vendas <span class="seta">▶</span></button>
-    <div class="sidebar-grupo" id="gVendas">
-      <span class="sidebar-btn breve">Por período</span>
-      <span class="sidebar-btn breve">Por item</span>
-      <span class="sidebar-btn breve">Por canal</span>
-    </div>
-
-    <button class="sidebar-secao" onclick="toggleGrupo('gLogistica')">Logística <span class="seta">▶</span></button>
-    <div class="sidebar-grupo" id="gLogistica">
-      <span class="sidebar-btn breve">Tempo de entrega</span>
-      <span class="sidebar-btn breve">Por entregador</span>
-    </div>
-
-    <button class="sidebar-secao" onclick="toggleGrupo('gPessoas')">Pessoas <span class="seta">▶</span></button>
-    <div class="sidebar-grupo" id="gPessoas">
-      <span class="sidebar-btn breve">A definir (Flash)</span>
     </div>
 
     <button class="sidebar-secao" onclick="toggleGrupo('gPlanejamento')">Planejamento <span class="seta">▶</span></button>
     <div class="sidebar-grupo" id="gPlanejamento">
       <span class="sidebar-btn breve">Formação de preço</span>
-    </div>
-
-    <button class="sidebar-secao" onclick="toggleGrupo('gCadastros')">Cadastros <span class="seta">▶</span></button>
-    <div class="sidebar-grupo" id="gCadastros">
       <span class="sidebar-btn breve">Ficha técnica</span>
       <span class="sidebar-btn breve">Despesas e rateio</span>
     </div>
 
-    <button class="sidebar-secao" onclick="toggleGrupo('gSistema')">Sistema <span class="seta">▶</span></button>
-    <div class="sidebar-grupo" id="gSistema">
+    <button class="sidebar-secao" onclick="toggleGrupo('gArquivo')">Arquivo &amp; Sistema <span class="seta">▶</span></button>
+    <div class="sidebar-grupo" id="gArquivo">
+      <button class="sidebar-btn" id="navBtnRelatorios" onclick="mostrarModulo('relatorios')">Resumos semanais</button>
+      <button class="sidebar-btn" id="navBtnConciliacao" onclick="mostrarModulo('conciliacao')">Conferência da base</button>
       <button class="sidebar-btn" id="navBtnRotinas" onclick="mostrarModulo('rotinas')">Rotinas</button>
     </div>
   </nav>
@@ -844,12 +836,12 @@ function toggleGrupo(id) {
 // Garante que o grupo que contem o modulo esteja aberto (ex.: botao que leva
 // a Cancelamentos a partir da Visao geral, ou o modulo inicial no boot).
 function abrirGrupoDoModulo(nome) {
-  const grupoDe = { relatorios: 'gRelatorios', fluxo: 'gFinanceiro', projecao: 'gFinanceiro',
-                    despesas: 'gFinanceiro', conciliacao: 'gFinanceiro',
-                    dre: 'gResultado', indicadores: 'gResultado' };
+  const grupoDe = { fluxo: 'gFinanceiro', projecao: 'gFinanceiro', despesas: 'gFinanceiro',
+                    dre: 'gResultado', indicadores: 'gResultado',
+                    relatorios: 'gArquivo', conciliacao: 'gArquivo', rotinas: 'gArquivo' };
   const id = grupoDe[nome] || 'gIfood';
   const grupo = document.getElementById(id);
-  if (!grupo.classList.contains('aberto')) toggleGrupo(id);
+  if (grupo && !grupo.classList.contains('aberto')) toggleGrupo(id);
 }
 
 function mostrarModulo(nome) {
@@ -862,7 +854,9 @@ function mostrarModulo(nome) {
     avaliacoes: ['modulo-avaliacoes', 'navBtnAvaliacoes'],
     relatorios: ['modulo-relatorios', 'navBtnRelatorios'],
     contestacoes: ['modulo-contestacoes', 'navBtnContestacoes'],
-    vendas: ['modulo-vendas', 'navBtnVendas'],
+    // 'vendas' aposentado em 12/08/2026: usava o relatorio semanal da rede
+    // (parado ha 33 dias) e dizia menos que o Resumo, que sai de fato_pedidos
+    // sempre fresco. O modulo-vendas continua no HTML, so saiu do menu.
     cardapio: ['modulo-cardapio', 'navBtnCardapio'],
     clientes: ['modulo-clientes', 'navBtnClientes'],
     fluxo: ['modulo-fluxo', 'navBtnFluxo'],
@@ -874,8 +868,12 @@ function mostrarModulo(nome) {
     rotinas: ['modulo-rotinas', 'navBtnRotinas'],
   };
   Object.entries(modulos).forEach(([chave, [idDiv, idBtn]]) => {
-    document.getElementById(idDiv).style.display = (chave === nome) ? 'block' : 'none';
-    document.getElementById(idBtn).classList.toggle('active', chave === nome);
+    // Tolerante a botao/div ausente: o menu e mexido com frequencia e um id
+    // fora do mapa nao pode derrubar a navegacao inteira.
+    const div = document.getElementById(idDiv);
+    if (div) div.style.display = (chave === nome) ? 'block' : 'none';
+    const btn = document.getElementById(idBtn);
+    if (btn) btn.classList.toggle('active', chave === nome);
   });
   // Os graficos Chart.js ficam com tamanho zerado se forem desenhados enquanto o container
   // esta com display:none — por isso redesenhamos ao entrar no modulo.
