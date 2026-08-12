@@ -356,6 +356,12 @@
 
   <div id="painel" style="display:none;">
 
+    <!-- Perimetro de gestao (12/08/2026): Boqueirao e de outra gestao (Loana).
+         Isso NAO e filtro — e o unico controle global do painel. Padrao =
+         Minha gestao (13 lojas); "Rede completa" mostra chip de aviso e
+         esconde farol de metas (calibradas para Minha gestao). -->
+    <div id="perimetroBar" style="display:flex; flex-wrap:wrap; justify-content:center; gap:8px; align-items:center; margin-bottom:12px;"></div>
+
     <div class="periodo-presets" id="periodoPresets"></div>
 
     <div class="filters" style="margin-bottom:10px;">
@@ -371,7 +377,12 @@
       </details>
     </div>
 
-    <div style="display:flex; flex-wrap:wrap; justify-content:center; align-items:flex-start; gap:8px; margin-top:10px;">
+    <!-- Dia da semana e Turno APOSENTADOS como filtro (12/08/2026): eram os
+         campeoes do "filtro fantasma" — um 'so JANTAR' esquecido distorcia a
+         home e o placar em silencio. Viram analise no futuro modulo Atrasos e
+         turnos. Escondidos (nao removidos) para o codigo dos sets continuar
+         inicializando com tudo marcado. -->
+    <div style="display:none;">
       <details class="lojadrop filtro-dropdown">
         <summary id="fDiaSummary">Dia da semana: todos</summary>
         <div class="loja-options" id="fDiaOptions"></div>
@@ -582,6 +593,12 @@ async function carregar() {
 
   LOJAS = [...new Set(agregado.map(r => r.nome_loja))].sort();
   UNIDADES = [...new Set(agregado.map(r => r.unidade))].sort();
+
+  // Perimetro de gestao: a regra mora em dim_lojas.gestao, nunca no codigo
+  // (regra duplicada no front apodrece — licao das contestacoes).
+  const gestaoRows = await consultarTudo('dim_lojas?select=nome_loja,unidade,gestao');
+  gestaoRows.forEach(r => { GESTAO_LOJA[r.nome_loja] = r.gestao; });
+  UNIDADES_PROPRIAS = new Set(gestaoRows.filter(r => r.gestao !== 'terceiros').map(r => r.unidade));
   // Ordena pelo numero da semana (o texto comeca com "18 27/04 ..."), nao alfabeticamente.
   SEMANAS = [...new Set(agregado.map(r => r.semana))].sort((a,b) => parseInt(a,10) - parseInt(b,10));
   DATAS = [...new Set(agregado.map(r => r.data))].sort();
@@ -657,7 +674,7 @@ async function carregar() {
     Number(r.valor),
   ]);
 
-  activeUnidades = new Set(UNIDADES);
+  activeUnidades = new Set(unidadesVisiveis());
 }
 
 // ------------------------------------------------------------------
@@ -785,8 +802,50 @@ const lojaToUnidade = {};
 const lojaOptCont = document.getElementById('lojaOptions');
 const lojaSummary = document.getElementById('lojaSummary');
 
+// ------------------------------------------------------------------
+// PERIMETRO DE GESTAO (12/08/2026). Boqueirao pertence a outra gestao
+// (Loana) — o dono so tem os dados iFood de la. 'minha' = padrao, 13
+// lojas proprias; 'rede' = as 17, para conferir com o Portal ou olhar
+// junto com a Loana. Nao persiste entre recargas DE PROPOSITO: recorte
+// fora do padrao tem que ser escolhido de novo, nunca herdado sem ver.
+let PERIMETRO = 'minha';
+let MODULO_ATUAL = 'estasemana';
+let GESTAO_LOJA = {};          // nome_loja -> 'propria' | 'terceiros'
+let UNIDADES_PROPRIAS = new Set();
+
+function lojaPermitida(i) {
+  return PERIMETRO === 'rede' || GESTAO_LOJA[LOJAS[i]] !== 'terceiros';
+}
+function unidadesVisiveis() {
+  return UNIDADES.filter(u => PERIMETRO === 'rede' || UNIDADES_PROPRIAS.has(u));
+}
+
+function renderPerimetro() {
+  const el = document.getElementById('perimetroBar');
+  if (!el) return;
+  el.innerHTML =
+    '<span style="font-size:12px; color:#a5a49a;">Visão:</span>' +
+    '<button class="navbtn ' + (PERIMETRO === 'minha' ? 'active' : '') + '" onclick="setPerimetro(\'minha\')">Minha gestão</button>' +
+    '<button class="navbtn ' + (PERIMETRO === 'rede' ? 'active' : '') + '" onclick="setPerimetro(\'rede\')">Rede iFood completa</button>' +
+    (PERIMETRO === 'rede'
+      ? '<span style="font-size:11.5px; color:#f5a623; border:1px solid #f5a623; border-radius:12px; padding:3px 10px;">incluindo Boqueirão (outra gestão) · metas e farol ocultos nesta visão</span>'
+      : '');
+}
+
+function setPerimetro(p) {
+  if (PERIMETRO === p) return;
+  PERIMETRO = p;
+  activeUnidades = new Set(unidadesVisiveis());
+  renderPerimetro();
+  renderTopNav();
+  rebuildLojaOptions();
+  renderAll();
+  // modulos de carga sob demanda renderizam na entrada — reentra no atual
+  mostrarModulo(MODULO_ATUAL);
+}
+
 function rebuildLojaOptions() {
-  const visibleLojas = LOJAS.map((_,i)=>i).filter(i => activeUnidades.has(UNIDADES[lojaToUnidade[i]]));
+  const visibleLojas = LOJAS.map((_,i)=>i).filter(i => activeUnidades.has(UNIDADES[lojaToUnidade[i]]) && lojaPermitida(i));
   const html = `<label><input type="checkbox" id="lojaTodosChk" checked onchange="toggleTodasLojas(this.checked)"><b>Todos</b></label>` +
     visibleLojas.map(i =>
       `<label><input type="checkbox" data-l="${i}" checked onchange="updateLojaSummary(); renderAll();">${LOJAS[i]}</label>`
@@ -816,7 +875,11 @@ function updateLojaSummary() {
 }
 
 function activeLojas() {
-  return new Set(Array.from(lojaOptCont.querySelectorAll('input[data-l]')).filter(c=>c.checked).map(c=>Number(c.dataset.l)));
+  // lojaPermitida e a rede de seguranca do perimetro: mesmo que um checkbox
+  // de loja de terceiros sobreviva no DOM, ela nao entra em conta nenhuma.
+  return new Set(Array.from(lojaOptCont.querySelectorAll('input[data-l]'))
+    .filter(c => c.checked && lojaPermitida(Number(c.dataset.l)))
+    .map(c => Number(c.dataset.l)));
 }
 
 function resetFiltros() {
@@ -824,7 +887,7 @@ function resetFiltros() {
   fDataIni.value = padrao.ini;
   fDataFim.value = padrao.fim;
   Object.keys(FILTRO_DEFS).forEach(montarDropdownMultiplo);
-  activeUnidades = new Set(UNIDADES);
+  activeUnidades = new Set(unidadesVisiveis());
   renderTopNav();
   rebuildLojaOptions();
   renderAll();
@@ -854,6 +917,7 @@ function abrirGrupoDoModulo(nome) {
 }
 
 function mostrarModulo(nome) {
+  MODULO_ATUAL = nome; // usado pelo setPerimetro para reentrar no modulo atual
   abrirGrupoDoModulo(nome);
   const modulos = {
     estasemana: ['modulo-estasemana', 'navBtnEstaSemana'],
@@ -933,9 +997,10 @@ function moduloAtivo() {
 // ------------------------------------------------------------------
 function renderTopNav() {
   const el = document.getElementById('topnav');
-  const todasAtivas = activeUnidades.size === UNIDADES.length;
+  const visiveis = unidadesVisiveis();
+  const todasAtivas = activeUnidades.size === visiveis.length;
   let html = `<button class="navbtn ${todasAtivas?'active':''}" onclick="selecionarTodasUnidades()">Todas</button>`;
-  UNIDADES.forEach(u => {
+  visiveis.forEach(u => {
     const active = activeUnidades.has(u) ? 'active' : '';
     html += `<button class="navbtn ${active}" onclick="toggleUnidade('${u}')">${u}</button>`;
   });
@@ -955,7 +1020,7 @@ function toggleUnidade(u) {
 }
 
 function selecionarTodasUnidades() {
-  activeUnidades = new Set(UNIDADES);
+  activeUnidades = new Set(unidadesVisiveis());
   renderTopNav();
   rebuildLojaOptions();
   renderAll();
@@ -3088,6 +3153,10 @@ function cardFarol(chave, valor) {
 }
 
 function farolKpi(meta, valor) {
+  // As metas foram calibradas para o perimetro "Minha gestao" (sem Boqueirao,
+  // recalibradas em 12/08/2026). Na visao Rede completa, farol colorido
+  // mentiria — vira cinza com o motivo no rotulo.
+  if (typeof PERIMETRO !== 'undefined' && PERIMETRO === 'rede') return ['#8a897e', 'metas valem p/ Minha gestão'];
   if (valor === null || valor === undefined) return ['#8a897e', 'sem dado'];
   const m = Number(meta.meta), m2 = meta.meta2 !== null ? Number(meta.meta2) : null;
   const tol = (x) => Math.abs(x) > 0 ? Math.abs(x) * 0.10 : 5; // 10% (ou 5 p.p. quando a meta e zero)
@@ -4791,6 +4860,7 @@ async function iniciar() {
   try {
     await carregar();
     montarFiltrosBase();
+    renderPerimetro();
     renderTopNav();
     rebuildLojaOptions();
     renderAll();
