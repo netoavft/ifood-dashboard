@@ -310,6 +310,7 @@
       <button class="sidebar-btn" id="navBtnContestacoes" onclick="mostrarModulo('contestacoes')">Contestações</button>
       <button class="sidebar-btn" id="navBtnNegociacoes" onclick="mostrarModulo('negociacoes')">Negociações</button>
       <button class="sidebar-btn" id="navBtnAvaliacoes" onclick="mostrarModulo('avaliacoes')">Avaliações</button>
+      <button class="sidebar-btn" id="navBtnQualidade" onclick="mostrarModulo('qualidade')">Qualidade &amp; Super</button>
       <button class="sidebar-btn" id="navBtnCardapio" onclick="mostrarModulo('cardapio')">Cardápio</button>
       <button class="sidebar-btn" id="navBtnClientes" onclick="mostrarModulo('clientes')">Clientes</button>
     </div>
@@ -321,7 +322,10 @@
 
     <button class="sidebar-secao" onclick="toggleGrupo('gOperacao')">Operação <span class="seta">▶</span></button>
     <div class="sidebar-grupo" id="gOperacao">
-      <button class="sidebar-btn" id="navBtnQualidade" onclick="mostrarModulo('qualidade')">Qualidade &amp; Super</button>
+      <!-- Qualidade & Super mudou para Canal · iFood em 12/08/2026, a pedido do
+           dono e com razao: e programa do iFood, medido pelo iFood. Operacao
+           fica para o que atravessa canais — a base sera a API do Foody
+           Delivery (logistica propria, 97% das entregas). -->
       <span class="sidebar-btn breve">Atrasos e turnos</span>
       <span class="sidebar-btn breve">Tempo de entrega</span>
       <span class="sidebar-btn breve">Pessoas (Flash)</span>
@@ -969,7 +973,7 @@ function toggleGrupo(id) {
 function abrirGrupoDoModulo(nome) {
   const grupoDe = { fluxo: 'gFinanceiro', projecao: 'gFinanceiro', despesas: 'gFinanceiro',
                     dre: 'gResultado', indicadores: 'gResultado', estasemana: 'gResultado',
-                    qualidade: 'gOperacao',
+                    qualidade: 'gIfood',
                     relatorios: 'gArquivo', conciliacao: 'gArquivo', rotinas: 'gArquivo' };
   const id = grupoDe[nome] || 'gIfood';
   const grupo = document.getElementById(id);
