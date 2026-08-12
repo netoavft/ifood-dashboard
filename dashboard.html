@@ -321,7 +321,7 @@
 
     <button class="sidebar-secao" onclick="toggleGrupo('gOperacao')">Operação <span class="seta">▶</span></button>
     <div class="sidebar-grupo" id="gOperacao">
-      <span class="sidebar-btn breve">Qualidade &amp; Super</span>
+      <button class="sidebar-btn" id="navBtnQualidade" onclick="mostrarModulo('qualidade')">Qualidade &amp; Super</button>
       <span class="sidebar-btn breve">Atrasos e turnos</span>
       <span class="sidebar-btn breve">Tempo de entrega</span>
       <span class="sidebar-btn breve">Pessoas (Flash)</span>
@@ -427,6 +427,10 @@
 
     <div id="modulo-rotinas" class="modulo" style="display:none;">
       <div id="view-rotinas"></div>
+    </div>
+
+    <div id="modulo-qualidade" class="modulo" style="display:none;">
+      <div id="view-qualidade"></div>
     </div>
 
     <div id="modulo-avaliacoes" class="modulo" style="display:none;">
@@ -965,6 +969,7 @@ function toggleGrupo(id) {
 function abrirGrupoDoModulo(nome) {
   const grupoDe = { fluxo: 'gFinanceiro', projecao: 'gFinanceiro', despesas: 'gFinanceiro',
                     dre: 'gResultado', indicadores: 'gResultado', estasemana: 'gResultado',
+                    qualidade: 'gOperacao',
                     relatorios: 'gArquivo', conciliacao: 'gArquivo', rotinas: 'gArquivo' };
   const id = grupoDe[nome] || 'gIfood';
   const grupo = document.getElementById(id);
@@ -995,6 +1000,7 @@ function mostrarModulo(nome) {
     conciliacao: ['modulo-conciliacao', 'navBtnConciliacao'],
     indicadores: ['modulo-indicadores', 'navBtnIndicadores'],
     rotinas: ['modulo-rotinas', 'navBtnRotinas'],
+    qualidade: ['modulo-qualidade', 'navBtnQualidade'],
   };
   Object.entries(modulos).forEach(([chave, [idDiv, idBtn]]) => {
     // Tolerante a botao/div ausente: o menu e mexido com frequencia e um id
@@ -1028,6 +1034,7 @@ function mostrarModulo(nome) {
   if (nome === 'relatorios') entrarRelatorios();
   if (nome === 'contestacoes') entrarContestacoes();
   if (nome === 'estasemana') entrarEstaSemana();
+  if (nome === 'qualidade') entrarQualidade();
   if (nome === 'rotinas') entrarRotinas();
   if (nome === 'fluxo') entrarFluxo();
   if (nome === 'dre') entrarDre();
@@ -1039,6 +1046,13 @@ function mostrarModulo(nome) {
 
 // Qual modulo esta aberto agora — usado pra so redesenhar os graficos do modulo visivel.
 function moduloAtivo() {
+  // estasemana primeiro: e o modulo inicial e ficou fora desta lista ate
+  // 12/08/2026 — com a home aberta a funcao respondia 'resumo' e o renderAll
+  // redesenhava o modulo errado (por isso clicar em unidade nao atualizava).
+  const home = document.getElementById('modulo-estasemana');
+  if (home && home.style.display !== 'none') return 'estasemana';
+  const qual = document.getElementById('modulo-qualidade');
+  if (qual && qual.style.display !== 'none') return 'qualidade';
   if (document.getElementById('modulo-cancelamentos').style.display !== 'none') return 'cancelamentos';
   if (document.getElementById('modulo-promocoes').style.display !== 'none') return 'promocoes';
   if (document.getElementById('modulo-negociacoes').style.display !== 'none') return 'negociacoes';
@@ -3251,6 +3265,96 @@ function fmtMeta(meta) {
 }
 
 // ------------------------------------------------------------------
+// MODULO QUALIDADE & SUPER (12/08/2026). O nivel Super era um dado orfao:
+// importado toda semana (fato_qualidade_semana) e exibido em lugar nenhum —
+// na semana 03-09/08 duas lojas cairam de nivel e uma ficou Nao elegivel
+// sem ninguem ver. Quem caiu de nivel grita primeiro.
+let QUALIDADE = null;
+
+function rankNivel(n) {
+  if (!n) return -1;
+  const m = String(n).match(/(\d)/);
+  return m ? Number(m[1]) : 0; // 'Nao elegivel' -> 0
+}
+
+async function entrarQualidade() {
+  const alvo = document.getElementById('view-qualidade');
+  if (!alvo) return;
+  if (QUALIDADE === null) {
+    alvo.innerHTML = '<div class="contexto">Carregando qualidade...</div>';
+    QUALIDADE = await consultarTudo('vw_qualidade_semana?select=periodo_ini,periodo_fim,nome_loja,unidade,nivel_super,pedidos_totais,pct_cancelamentos_super,pct_atrasados_5min,tempo_medio_atraso_min,media_avaliacoes,qtd_avaliacoes,pct_respostas_negociacoes&order=periodo_ini.desc');
+  }
+  renderModuloQualidade();
+}
+
+function renderModuloQualidade() {
+  const alvo = document.getElementById('view-qualidade');
+  const activeL = activeLojas();
+  const rows = QUALIDADE.filter(r => activeL.has(LOJAS.indexOf(r.nome_loja)));
+  if (!rows.length) {
+    alvo.innerHTML = '<div class="contexto">Sem dados de qualidade para o recorte atual.</div>';
+    return;
+  }
+
+  const periodos = [...new Set(rows.map(r => r.periodo_ini))].sort().reverse();
+  const atualIni = periodos[0], antIni = periodos[1] || null;
+  const atual = rows.filter(r => r.periodo_ini === atualIni);
+  const antPor = {};
+  rows.filter(r => r.periodo_ini === antIni).forEach(r => { antPor[r.nome_loja] = r; });
+
+  const ddmm = (v) => v ? v.slice(8, 10) + '/' + v.slice(5, 7) : '—';
+  const num = (v, c = 1) => (v === null || v === undefined) ? '—' : Number(v).toFixed(c).replace('.', ',');
+
+  const n5 = atual.filter(r => rankNivel(r.nivel_super) === 5).length;
+  const n4 = atual.filter(r => rankNivel(r.nivel_super) === 4).length;
+  const baixo = atual.filter(r => rankNivel(r.nivel_super) <= 3).length;
+
+  const mudancas = atual.map(r => {
+    const a = antPor[r.nome_loja];
+    return a ? { loja: r.nome_loja, de: a.nivel_super, para: r.nivel_super,
+                 delta: rankNivel(r.nivel_super) - rankNivel(a.nivel_super) } : null;
+  }).filter(m => m && m.delta !== 0);
+  const caiu = mudancas.filter(m => m.delta < 0);
+  const subiu = mudancas.filter(m => m.delta > 0);
+
+  const ordenado = [...atual].sort((a, b) =>
+    rankNivel(a.nivel_super) - rankNivel(b.nivel_super) ||
+    (Number(b.pct_atrasados_5min) || 0) - (Number(a.pct_atrasados_5min) || 0));
+
+  alvo.innerHTML = `
+  <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Qualidade &amp; Super — semana ${ddmm(atualIni)}${antIni ? ' (vs ' + ddmm(antIni) + ')' : ''}</div>
+  <div class="caption-label" style="text-align:center;">O nível Super afeta visibilidade e condições no iFood. Fonte: relatório semanal de qualidade da rede.</div>
+  <div class="cards">
+    <div class="card pos"><div class="card-lbl">Nível 5</div><div class="card-val">${n5}</div><div class="card-pct">loja(s)</div></div>
+    <div class="card neutral"><div class="card-lbl">Nível 4</div><div class="card-val">${n4}</div><div class="card-pct">loja(s)</div></div>
+    <div class="card ${baixo ? 'neg' : 'pos'}"><div class="card-lbl">Nível 3 ou abaixo</div><div class="card-val">${baixo}</div><div class="card-pct">inclui "Não elegível"</div></div>
+  </div>
+  ${caiu.length ? `<div class="contexto" style="border-color:#ff6b6b;"><b>Caíram de nível:</b> ${caiu.map(m => `${m.loja} (${m.de} → ${m.para})`).join(' · ')}</div>` : ''}
+  ${subiu.length ? `<div class="contexto" style="border-color:#3fb950;"><b>Subiram de nível:</b> ${subiu.map(m => `${m.loja} (${m.de} → ${m.para})`).join(' · ')}</div>` : ''}
+  ${!caiu.length && !subiu.length && antIni ? '<div class="contexto">Nenhuma mudança de nível vs a semana anterior.</div>' : ''}
+
+  <div class="section-label">Loja a loja — piores primeiro</div>
+  <div id="tabelaQualidade"><table>
+    <tr><th>Loja</th><th>Nível</th><th>vs ant.</th><th>% atraso +5min</th><th>Atraso médio</th><th>% canc. Super</th><th>Nota</th><th>% resp. negoc.</th></tr>
+    ${ordenado.map(r => {
+      const a = antPor[r.nome_loja];
+      const d = a ? rankNivel(r.nivel_super) - rankNivel(a.nivel_super) : null;
+      const seta = d === null ? '—' : d > 0 ? '<span style="color:#3fb950;">▲ subiu</span>' : d < 0 ? '<span style="color:#ff6b6b;">▼ caiu</span>' : '=';
+      const nivelCor = rankNivel(r.nivel_super) >= 5 ? '#3fb950' : rankNivel(r.nivel_super) === 4 ? '#c3c2b7' : '#ff6b6b';
+      return `<tr><td>${r.nome_loja}</td>
+        <td style="color:${nivelCor}; font-weight:bold;">${r.nivel_super}</td>
+        <td>${seta}</td>
+        <td>${num(r.pct_atrasados_5min)}%</td>
+        <td>${num(r.tempo_medio_atraso_min, 0)} min</td>
+        <td>${num(r.pct_cancelamentos_super, 2)}%</td>
+        <td>${num(r.media_avaliacoes, 2)}${r.qtd_avaliacoes ? ' <span style="color:#8a897e; font-size:10px;">(' + r.qtd_avaliacoes + ')</span>' : ''}</td>
+        <td>${num(r.pct_respostas_negociacoes)}%</td></tr>`;
+    }).join('')}
+  </table></div>
+  <div class="caption-label" style="text-align:center;">Atualiza quando o relatório semanal de qualidade é importado — a rotina automática dele ainda está na fila (hoje o download é manual, quebra SEMANA).</div>`;
+}
+
+// ------------------------------------------------------------------
 // MODULO ESTA SEMANA — a home de decisao (12/08/2026).
 // Regra da casa: nenhum numero sem comparacao, sem farol ou sem acao.
 // Tres faixas: (A) o que precisa de gente AGORA; (B) a semana em curso
@@ -4727,6 +4831,12 @@ function renderAll() {
   if (ativo === 'cancelamentos') renderChartMotivos();
   if (ativo === 'promocoes') entrarPromocoes();
   // Modulos de carga sob demanda: so re-renderiza se os dados ja foram buscados.
+  // A home ESTAVA FORA desta lista — clicar numa unidade com a home aberta
+  // nao atualizava nada (achado do dono em 12/08/2026). Mesma regra dos
+  // demais: so re-renderiza se as fontes dela ja carregaram.
+  if (ativo === 'estasemana' && HOME_PEND !== null && METAS_KPI !== null
+      && NEGOCIACOES !== null && AVALIACOES !== null) renderEstaSemana();
+  if (ativo === 'qualidade' && QUALIDADE !== null) renderModuloQualidade();
   if (ativo === 'negociacoes' && NEGOCIACOES !== null) renderModuloNegociacoes();
   if (ativo === 'avaliacoes' && AVALIACOES !== null) renderModuloAvaliacoes();
   if (ativo === 'vendas' && VENDAS_REDE !== null) renderModuloVendas();
