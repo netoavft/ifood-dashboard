@@ -326,7 +326,7 @@
            dono e com razao: e programa do iFood, medido pelo iFood. Operacao
            fica para o que atravessa canais — a base sera a API do Foody
            Delivery (logistica propria, 97% das entregas). -->
-      <span class="sidebar-btn breve">Atrasos e turnos</span>
+      <button class="sidebar-btn" id="navBtnAtrasos" onclick="mostrarModulo('atrasos')">Atrasos e turnos</button>
       <span class="sidebar-btn breve">Tempo de entrega</span>
       <span class="sidebar-btn breve">Pessoas (Flash)</span>
     </div>
@@ -439,6 +439,10 @@
 
     <div id="modulo-consolidada" class="modulo" style="display:none;">
       <div id="view-consolidada"></div>
+    </div>
+
+    <div id="modulo-atrasos" class="modulo" style="display:none;">
+      <div id="view-atrasos"></div>
     </div>
 
     <div id="modulo-avaliacoes" class="modulo" style="display:none;">
@@ -817,6 +821,7 @@ const JANELAS = [
 const JANELA_DO_MODULO = {
   resumo: 'semAnt', cancelamentos: 'semAnt', avaliacoes: 'semAnt',
   negociacoes: 'semAnt', promocoes: 'semAnt', consolidada: 'semAnt',
+  atrasos: 'semAnt',
 };
 let JANELA_ATUAL = null;
 
@@ -977,7 +982,7 @@ function toggleGrupo(id) {
 function abrirGrupoDoModulo(nome) {
   const grupoDe = { fluxo: 'gFinanceiro', projecao: 'gFinanceiro', despesas: 'gFinanceiro',
                     dre: 'gResultado', indicadores: 'gResultado', estasemana: 'gResultado',
-                    consolidada: 'gResultado',
+                    consolidada: 'gResultado', atrasos: 'gOperacao',
                     qualidade: 'gIfood',
                     relatorios: 'gArquivo', conciliacao: 'gArquivo', rotinas: 'gArquivo' };
   const id = grupoDe[nome] || 'gIfood';
@@ -1011,6 +1016,7 @@ function mostrarModulo(nome) {
     rotinas: ['modulo-rotinas', 'navBtnRotinas'],
     qualidade: ['modulo-qualidade', 'navBtnQualidade'],
     consolidada: ['modulo-consolidada', 'navBtnConsolidada'],
+    atrasos: ['modulo-atrasos', 'navBtnAtrasos'],
   };
   Object.entries(modulos).forEach(([chave, [idDiv, idBtn]]) => {
     // Tolerante a botao/div ausente: o menu e mexido com frequencia e um id
@@ -1046,6 +1052,7 @@ function mostrarModulo(nome) {
   if (nome === 'estasemana') entrarEstaSemana();
   if (nome === 'qualidade') entrarQualidade();
   if (nome === 'consolidada') entrarConsolidada();
+  if (nome === 'atrasos') entrarAtrasos();
   if (nome === 'rotinas') entrarRotinas();
   if (nome === 'fluxo') entrarFluxo();
   if (nome === 'dre') entrarDre();
@@ -1066,6 +1073,8 @@ function moduloAtivo() {
   if (qual && qual.style.display !== 'none') return 'qualidade';
   const cons = document.getElementById('modulo-consolidada');
   if (cons && cons.style.display !== 'none') return 'consolidada';
+  const atr = document.getElementById('modulo-atrasos');
+  if (atr && atr.style.display !== 'none') return 'atrasos';
   if (document.getElementById('modulo-cancelamentos').style.display !== 'none') return 'cancelamentos';
   if (document.getElementById('modulo-promocoes').style.display !== 'none') return 'promocoes';
   if (document.getElementById('modulo-negociacoes').style.display !== 'none') return 'negociacoes';
@@ -3278,6 +3287,142 @@ function fmtMeta(meta) {
 }
 
 // ------------------------------------------------------------------
+// MODULO ATRASOS E TURNOS (13/08/2026). Fonte: API do Foody Delivery
+// (logistica propria, 97% das entregas), tabela foody_entregas via
+// vw_foody_entregas_min — busca SO a janela atual (a tabela cheia tem
+// ~35 mil entregas). A regua de atraso e a PROMESSA REAL do iFood
+// (parseada das notes pelo importador), NUNCA o deliveryDueDate, que e
+// um padrao fixo de 60 min. E os tempos sao APONTAMENTO HUMANO — a
+// caixa de qualidade do apontamento mostra o quanto da nao confiar,
+// em vez de esconder. So Agua Verde por ora (mesmo limite do Saipos).
+let ATRASOS = null; // { ini, fim, rows } — cache da janela buscada
+
+async function entrarAtrasos() {
+  const alvo = document.getElementById('view-atrasos');
+  if (!alvo) return;
+  const ini = fDataIni.value, fim = fDataFim.value;
+  if (!ATRASOS || ATRASOS.ini !== ini || ATRASOS.fim !== fim) {
+    alvo.innerHTML = '<div class="contexto">Carregando as entregas do período...</div>';
+    const rows = await consultarTudo(`vw_foody_entregas_min?select=data_local,turno,dia_semana,entregador,entregador_tipo,atraso_min,preparo_min,bancada_min,rua_min,sem_pronto,pronto_com_despacho,sem_promessa,dist_km&data_local=gte.${ini}&data_local=lte.${fim}&order=data_local`);
+    ATRASOS = { ini, fim, rows };
+  }
+  renderModuloAtrasos();
+}
+
+function medianaDe(valores) {
+  const v = valores.filter(x => x !== null && x !== undefined).map(Number).sort((a, b) => a - b);
+  if (!v.length) return null;
+  const meio = Math.floor(v.length / 2);
+  return v.length % 2 ? v[meio] : (v[meio - 1] + v[meio]) / 2;
+}
+
+function renderModuloAtrasos() {
+  const alvo = document.getElementById('view-atrasos');
+  if (!alvo || ATRASOS === null) return;
+  // janela mudou depois da busca — rebusca em vez de mostrar dado velho
+  if (ATRASOS.ini !== fDataIni.value || ATRASOS.fim !== fDataFim.value) { entrarAtrasos(); return; }
+  const rows = ATRASOS.rows;
+  const ddmm = (v) => v ? v.slice(8, 10) + '/' + v.slice(5, 7) : '—';
+  if (!rows.length) {
+    alvo.innerHTML = `<div class="contexto">Sem entregas do Foody entre ${ddmm(ATRASOS.ini)} e ${ddmm(ATRASOS.fim)} — confira se o importador (import_foody.py) já cobriu esse período.</div>`;
+    return;
+  }
+
+  const n1 = (v) => v === null ? '—' : v.toFixed(1).replace('.', ',');
+  const pctTxt = (parte, todo) => todo ? (parte / todo * 100).toFixed(1).replace('.', ',') + '%' : '—';
+
+  // metricas de um grupo de entregas — sempre sobre quem TEM a medida
+  const resumo = (grupo) => {
+    const comAtraso = grupo.filter(r => r.atraso_min !== null);
+    return {
+      n: grupo.length,
+      medidos: comAtraso.length,
+      acima5: comAtraso.filter(r => Number(r.atraso_min) > 5).length,
+      atraso: medianaDe(comAtraso.map(r => r.atraso_min)),
+      preparo: medianaDe(grupo.map(r => r.preparo_min)),
+      bancada: medianaDe(grupo.map(r => r.bancada_min)),
+      rua: medianaDe(grupo.map(r => r.rua_min)),
+    };
+  };
+
+  const geral = resumo(rows);
+  const semPronto = rows.filter(r => r.sem_pronto).length;
+  const prontoJunto = rows.filter(r => r.pronto_com_despacho).length;
+  const semPromessa = rows.filter(r => r.sem_promessa).length;
+
+  const ORDEM_TURNO = ['ALMOÇO', 'CAFÉ DA TARDE', 'JANTAR', 'MADRUGADA'];
+  const turnos = [...new Set(rows.map(r => r.turno))].sort((a, b) => {
+    const ia = a === null ? 99 : ORDEM_TURNO.indexOf(a);
+    const ib = b === null ? 99 : ORDEM_TURNO.indexOf(b);
+    return ia - ib;
+  });
+  const DOW = { 1: 'segunda', 2: 'terça', 3: 'quarta', 4: 'quinta', 5: 'sexta', 6: 'sábado', 7: 'domingo' };
+
+  const linhaResumo = (rotulo, g) => `<tr><td>${rotulo}</td>
+    <td>${g.n.toLocaleString('pt-BR')}</td>
+    <td>${pctTxt(g.acima5, g.medidos)}</td>
+    <td>${n1(g.atraso)} min</td>
+    <td>${n1(g.preparo)} min</td>
+    <td>${n1(g.bancada)} min</td>
+    <td>${n1(g.rua)} min</td></tr>`;
+  const cabecalho = '<tr><th></th><th>Entregas</th><th>% +5min</th><th>Atraso mediano</th><th>Preparo</th><th>Bancada</th><th>Rua</th></tr>';
+
+  // ranking de entregadores: minimo de 10 entregas no periodo para nao
+  // crucificar ninguem por 2 pedidos ruins
+  const porEntregador = {};
+  rows.forEach(r => {
+    const nome = r.entregador || '(sem apontamento)';
+    (porEntregador[nome] = porEntregador[nome] || []).push(r);
+  });
+  const entregadores = Object.entries(porEntregador)
+    .filter(([, g]) => g.length >= 10)
+    .map(([nome, g]) => ({ nome, tipo: g[0].entregador_tipo || '—', g: resumo(g),
+                           dist: medianaDe(g.map(r => r.dist_km)) }))
+    .sort((a, b) => (b.g.medidos ? b.g.acima5 / b.g.medidos : 0) - (a.g.medidos ? a.g.acima5 / a.g.medidos : 0));
+  const foraRanking = Object.values(porEntregador).filter(g => g.length < 10).length;
+
+  alvo.innerHTML = `
+  <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Atrasos e turnos — entregas próprias, ${ddmm(ATRASOS.ini)} a ${ddmm(ATRASOS.fim)}</div>
+  <div class="contexto" style="border-color:#f5a623;"><b>Por enquanto, só ÁGUA VERDE</b> (fonte: Foody Delivery; as outras unidades entram quando as contas delas forem conectadas). O atraso é medido contra a <b>promessa real do iFood</b>, não contra o prazo padrão de 60 min do Foody. E os tempos são <b>apontamento humano</b> — veja a caixa de qualidade no fim da tela antes de tirar conclusão fina.</div>
+
+  <div class="cards">
+    <div class="card"><div class="card-lbl">Entregas no período</div><div class="card-val">${geral.n.toLocaleString('pt-BR')}</div><div class="card-pct">${geral.medidos.toLocaleString('pt-BR')} com promessa e entrega medidas</div></div>
+    <div class="card ${geral.medidos && geral.acima5 / geral.medidos > 0.1 ? 'neg' : 'pos'}"><div class="card-lbl">Acima de 5 min da promessa</div><div class="card-val">${pctTxt(geral.acima5, geral.medidos)}</div><div class="card-pct">${geral.acima5.toLocaleString('pt-BR')} entregas — mesma régua do iFood</div></div>
+    <div class="card neutral"><div class="card-lbl">Atraso mediano</div><div class="card-val">${n1(geral.atraso)} min</div><div class="card-pct">negativo = entrega antes da promessa</div></div>
+    <div class="card neutral"><div class="card-lbl">Tempo de rua mediano</div><div class="card-val">${n1(geral.rua)} min</div><div class="card-pct">da coleta à entrega</div></div>
+  </div>
+
+  <div class="section-label">Por turno (turnos do iFood: almoço 10h–14h · café 15h–16h · jantar 17h–23h · madrugada 0h–1h)</div>
+  <div id="tabelaAtrasosTurno"><table>
+    ${cabecalho}
+    ${turnos.map(t => linhaResumo(t === null ? '— (fora das faixas)' : t, resumo(rows.filter(r => r.turno === t)))).join('')}
+  </table></div>
+
+  <div class="section-label">Por dia da semana</div>
+  <div id="tabelaAtrasosDow"><table>
+    ${cabecalho}
+    ${[1, 2, 3, 4, 5, 6, 7].map(d => {
+      const g = rows.filter(r => r.dia_semana === d);
+      return g.length ? linhaResumo(DOW[d], resumo(g)) : '';
+    }).join('')}
+  </table></div>
+
+  <div class="section-label">Por entregador — piores primeiro (mínimo 10 entregas no período)</div>
+  <div id="tabelaAtrasosEntregador"><table>
+    <tr><th>Entregador</th><th>Tipo</th><th>Entregas</th><th>% +5min</th><th>Atraso mediano</th><th>Rua</th><th>Distância mediana</th></tr>
+    ${entregadores.map(e => `<tr><td>${e.nome}</td><td>${e.tipo === 'internal' ? 'próprio' : e.tipo === 'external' ? 'externo' : e.tipo}</td>
+      <td>${e.g.n}</td><td>${pctTxt(e.g.acima5, e.g.medidos)}</td><td>${n1(e.g.atraso)} min</td><td>${n1(e.g.rua)} min</td><td>${n1(e.dist)} km</td></tr>`).join('')}
+  </table></div>
+  ${foraRanking ? `<div class="caption-label" style="text-align:center;">${foraRanking} entregador(es) com menos de 10 entregas no período ficaram fora do ranking.</div>` : ''}
+
+  <div class="section-label">Qualidade do apontamento — o quanto dá pra confiar nos tempos</div>
+  <div class="contexto">Sem "pronto" marcado: <b>${pctTxt(semPronto, geral.n)}</b> (${semPronto}) — preparo e bancada dessas entregas não existem.
+  · "Pronto" marcado junto do despacho (menos de 1 min): <b>${pctTxt(prontoJunto, geral.n)}</b> (${prontoJunto}) — cheiro de correção atrasada: o pedido esperou na estufa e alguém marcou tudo de uma vez.
+  · Sem promessa nas observações: <b>${pctTxt(semPromessa, geral.n)}</b> (${semPromessa}) — ficam fora da régua de atraso.
+  <br>Quanto maiores esses números, mais o "preparo" e a "bancada" viram ficção — o atraso final (promessa vs entrega) continua confiável, porque a entrega é apontada pelo motoboy na porta do cliente.</div>`;
+}
+
+// ------------------------------------------------------------------
 // MODULO VISAO CONSOLIDADA (12/08/2026). Primeira tela onde o iFood e
 // visto AO LADO dos outros canais (salao, balcao, site) — fonte Saipos,
 // via vw_consolidado_diario (dia x canal; a tabela crua tem 82 mil
@@ -4962,6 +5107,7 @@ function renderAll() {
       && NEGOCIACOES !== null && AVALIACOES !== null) renderEstaSemana();
   if (ativo === 'qualidade' && QUALIDADE !== null) renderModuloQualidade();
   if (ativo === 'consolidada' && CONSOLIDADO !== null) renderModuloConsolidada();
+  if (ativo === 'atrasos' && ATRASOS !== null) renderModuloAtrasos();
   if (ativo === 'negociacoes' && NEGOCIACOES !== null) renderModuloNegociacoes();
   if (ativo === 'avaliacoes' && AVALIACOES !== null) renderModuloAvaliacoes();
   if (ativo === 'vendas' && VENDAS_REDE !== null) renderModuloVendas();
