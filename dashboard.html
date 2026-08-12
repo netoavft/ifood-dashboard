@@ -624,6 +624,11 @@ async function carregar() {
   const conciliacao = await consultarTudo("mv_conciliacao_agregado?select=nome_loja,data,grupo,valor&order=nome_loja,data,grupo");
   CONCILIACAO = conciliacao.map(r => [LOJAS.indexOf(r.nome_loja), r.data, r.grupo, Number(r.valor)]);
 
+  // Metas oficiais (metas_kpi) carregadas ja no boot: qualquer modulo pinta o
+  // farol nos cards sem depender de uma visita previa ao Indicadores. E a
+  // MESMA fonte do placar — card e placar nunca podem discordar.
+  METAS_KPI = await consultarTudo('metas_kpi?select=chave,nome,bloco,sentido,meta,meta2,unidade,descricao,ordem&ativo=eq.true&order=ordem');
+
   // Cancelamentos (totais e parciais) classificados por categoria de motivo. Tem as mesmas
   // dimensoes de ROWS, entao respeita todos os filtros normalmente.
   // Promocoes: vem por PERIODO (o relatorio do iFood aceita mes ou recorte de dias).
@@ -1295,7 +1300,7 @@ function kpisRapidos(m, a) {
     <div class="card neutral"><div class="card-lbl">Pedidos</div><div class="card-val">${m.totalPedidos.toLocaleString('pt-BR')}</div>${selo(m.totalPedidos, a && a.totalPedidos)}</div>
     <div class="card neutral"><div class="card-lbl">Ticket médio</div><div class="card-val">R$ ${fmt(m.ticketMedio)}</div>${selo(m.ticketMedio, a && a.ticketMedio)}</div>
     <div class="card neg"><div class="card-lbl">Custo iFood</div><div class="card-val">R$ ${fmt(m.custoIfood)}</div><div class="card-pct">${pct(m.custoIfoodPct)}% do bruto</div>${selo(m.custoIfood, a && a.custoIfood, 'menorMelhor')}</div>
-    <div class="card neutral"><div class="card-lbl">Marketing por pedido</div><div class="card-val">R$ ${fmt(m.custoMktPorPedido)}</div>${selo(m.custoMktPorPedido, a && a.custoMktPorPedido, 'menorMelhor')}</div>
+    <div class="card neutral"${cardFarol('mkt_por_pedido', m.custoMktPorPedido)}><div class="card-lbl">Marketing por pedido</div><div class="card-val">R$ ${fmt(m.custoMktPorPedido)}</div>${selo(m.custoMktPorPedido, a && a.custoMktPorPedido, 'menorMelhor')}</div>
     <div class="card neutral"><div class="card-lbl">Taxa de cancelamento</div><div class="card-val">${pct(m.totalCanceladosPct)}%</div>${selo(m.totalCanceladosPct, a && a.totalCanceladosPct, 'menorMelhor')}</div>
     <div class="card neutral"><div class="card-lbl">Perdido com cancelamentos</div><div class="card-val">R$ ${fmt(m.valorPerdidoReal)}</div>${selo(m.valorPerdidoReal, a && a.valorPerdidoReal, 'menorMelhor')}</div>
   </div>`;
@@ -1444,7 +1449,7 @@ function cardsCancel(m, a) {
   <div class="cards">
     <div class="card neg"><div class="card-lbl">Total cancelado</div><div class="card-val">R$ ${fmt(m.valorCancelado)}</div><div class="card-pct">${pct(m.valorCanceladoPct)}% do bruto</div>${selo(m.valorCancelado, a && a.valorCancelado, 'menorMelhor')}</div>
     <div class="card neutral"><div class="card-lbl">Cancelamentos parciais</div><div class="card-val">R$ ${fmt(m.vParcial)}</div><div class="card-pct">${m.nParcial} pedidos (${pct(m.nParcialPct)}%)</div>${selo(m.vParcial, a && a.vParcial, 'menorMelhor')}</div>
-    <div class="card neutral"><div class="card-lbl">Cancelamentos totais</div><div class="card-val">R$ ${fmt(m.vFull)}</div><div class="card-pct">${m.nFull} pedidos (${pct(m.nFullPct)}%)</div>${selo(m.vFull, a && a.vFull, 'menorMelhor')}</div>
+    <div class="card neutral"${cardFarol('taxa_cancelamento', m.nFullPct)}><div class="card-lbl">Cancelamentos totais</div><div class="card-val">R$ ${fmt(m.vFull)}</div><div class="card-pct">${m.nFull} pedidos (${pct(m.nFullPct)}%)</div>${selo(m.vFull, a && a.vFull, 'menorMelhor')}</div>
     <div class="card pos"><div class="card-lbl">Devolvido pelo iFood</div><div class="card-val">R$ ${fmt(m.ressarcimentoCancelamento)}</div><div class="card-pct">${pct(m.ressarcimentoCancelamentoPct)}% do bruto</div>${selo(m.ressarcimentoCancelamento, a && a.ressarcimentoCancelamento)}</div>
   </div>
   <div class="caption-label" style="text-align:center;">
@@ -1901,7 +1906,7 @@ function blocoTestePromos() {
   <div class="cards">
     <div class="card neutral"><div class="card-lbl">Investimos (loja + rede)</div><div class="card-val">R$ ${fmt(t.nosso)}</div>${selo(t.nosso, antR && antR.tot.nosso, 'neutro')}</div>
     <div class="card pos"><div class="card-lbl">iFood investiu</div><div class="card-val">R$ ${fmt(t.ifood)}</div>${selo(t.ifood, antR && antR.tot.ifood)}</div>
-    <div class="card ${alavGeral !== null && alavGeral >= 1 ? 'pos' : 'neg'}"><div class="card-lbl">Alavancagem</div><div class="card-val">${alavGeral === null ? '—' : alavGeral.toFixed(2).replace('.', ',') + 'x'}</div><div class="card-pct">R$ do iFood por R$ 1 nosso</div></div>
+    <div class="card neutral"${cardFarol('alavancagem', alavGeral)}><div class="card-lbl">Alavancagem</div><div class="card-val">${alavGeral === null ? '—' : alavGeral.toFixed(2).replace('.', ',') + 'x'}</div><div class="card-pct">R$ do iFood por R$ 1 nosso</div></div>
     <div class="card neutral"><div class="card-lbl">Nosso custo por pedido</div><div class="card-val">R$ ${fmt(t.ped ? t.nosso / t.ped : 0)}</div>${selo(t.ped ? t.nosso / t.ped : 0, antR && antR.tot.ped ? antR.tot.nosso / antR.tot.ped : null, 'menorMelhor')}</div>
   </div>
   <div id="tabelaTestePromo">
@@ -2148,8 +2153,8 @@ function renderModuloNegociacoes() {
   </div>
   <div class="cards">
     <div class="card neutral"><div class="card-lbl">Negociações</div><div class="card-val">${total.toLocaleString('pt-BR')}</div></div>
-    <div class="card ${semResposta ? 'neg' : 'pos'}"><div class="card-lbl">Sem resposta da loja</div><div class="card-val">${semResposta}</div><div class="card-pct">${pct(semResposta/total*100)}% do total</div></div>
-    <div class="card neutral"><div class="card-lbl">Motivadas por atraso</div><div class="card-val">${pct(porAtraso/total*100)}%</div><div class="card-pct">${porAtraso} casos</div></div>
+    <div class="card neutral"${cardFarol('neg_sem_resposta_pct', total ? semResposta/total*100 : null)}><div class="card-lbl">Sem resposta da loja</div><div class="card-val">${semResposta}</div><div class="card-pct">${pct(semResposta/total*100)}% do total</div></div>
+    <div class="card neutral"${cardFarol('neg_atraso_pct', total ? porAtraso/total*100 : null)}><div class="card-lbl">Motivadas por atraso</div><div class="card-val">${pct(porAtraso/total*100)}%</div><div class="card-pct">${porAtraso} casos</div></div>
     <div class="card neg"><div class="card-lbl">Valor cancelado nas negociações</div><div class="card-val">R$ ${fmt(valorEnvolvido)}</div></div>
     <div class="card neutral"><div class="card-lbl">Com impacto no Super</div><div class="card-val">${comSuper}</div><div class="card-pct">afetam o selo da loja</div></div>
   </div>
@@ -2248,10 +2253,10 @@ function renderModuloAvaliacoes() {
     Avaliações deixadas no app após a entrega. Filtros de período, unidade e marca se aplicam; dia da semana e turno não.
   </div>
   <div class="cards">
-    <div class="card ${media >= 4.6 ? 'pos' : 'neg'}"><div class="card-lbl">Nota média</div><div class="card-val">${media.toFixed(2).replace('.', ',')} ★</div></div>
+    <div class="card neutral"${cardFarol('nota_media', media)}><div class="card-lbl">Nota média</div><div class="card-val">${media.toFixed(2).replace('.', ',')} ★</div></div>
     <div class="card neutral"><div class="card-lbl">Avaliações</div><div class="card-val">${total.toLocaleString('pt-BR')}</div></div>
     <div class="card pos"><div class="card-lbl">Nota 5</div><div class="card-val">${pct(pctCinco)}%</div></div>
-    <div class="card ${pctRuins > 5 ? 'neg' : 'neutral'}"><div class="card-lbl">Notas 1 e 2</div><div class="card-val">${pct(pctRuins)}%</div><div class="card-pct">${dist[0] + dist[1]} clientes insatisfeitos</div></div>
+    <div class="card neutral"${cardFarol('pct_notas_ruins', pctRuins)}><div class="card-lbl">Notas 1 e 2</div><div class="card-val">${pct(pctRuins)}%</div><div class="card-pct">${dist[0] + dist[1]} clientes insatisfeitos</div></div>
   </div>
 
   <div style="display:flex; flex-wrap:wrap; gap:14px; align-items:stretch; margin-top:14px;">
@@ -3063,6 +3068,23 @@ function computeKpisSemana(ini, fim) {
     roa_promo: m.promoLoja > 0.005 ? m.bruto / m.promoLoja : null,
     _negs: negs, _avs: avs,
   };
+}
+
+// Farol de meta para cards FORA do modulo Indicadores (12/08/2026).
+// So vale para indicadores de TAXA/RAZAO (%, R$/pedido, "x") — que significam
+// o mesmo em qualquer recorte de periodo. Meta ABSOLUTA (liquido, pedidos) e
+// semanal: pintar um recorte de 30 dias com ela seria comparar coisas
+// diferentes, por isso esses cards ficam sem farol de proposito.
+// Tambem substituiu os limiares improvisados que existiam nos cards
+// (nota >= 4,6; ruins > 5%; alavancagem >= 1) — a meta oficial e uma so.
+function cardFarol(chave, valor) {
+  const k = (METAS_KPI || []).find(m => m.chave === chave);
+  if (!k || valor === null || valor === undefined || isNaN(valor)) return '';
+  const [cor, rotulo] = farolKpi(k, valor);
+  const alvo = fmtKpi(k.unidade, Number(k.meta)) +
+    (k.meta2 !== null && k.meta2 !== undefined && k.meta2 !== '' ? ' a ' + fmtKpi(k.unidade, Number(k.meta2)) : '');
+  const sent = k.sentido === 'abaixo' ? 'até ' : k.sentido === 'acima' ? 'mínimo ' : '';
+  return ' style="border:1px solid ' + cor + ';" title="Meta semanal: ' + sent + alvo + ' — ' + rotulo + '"';
 }
 
 function farolKpi(meta, valor) {
