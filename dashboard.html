@@ -3332,6 +3332,11 @@ function renderModuloConsolidada() {
   const atual = consolidadoPorCanal(ini, fim);
   const anterior = consolidadoPorCanal(antIni, antFim);
 
+  // Nome de exibicao decidido pelo dono (12/08/2026): o canal chega do
+  // Saipos como "VNDX TECNOLOGIA" (fornecedor do totem de autoatendimento),
+  // mas na tela e Totem. So o rotulo muda — dado e chave continuam crus.
+  const NOME_CANAL = { 'VNDX TECNOLOGIA': 'TOTEM' };
+  const nomeCanal = (c) => NOME_CANAL[c] || c;
   const canais = Object.keys(atual).sort((a, b) => atual[b].total - atual[a].total);
   const totalGeral = canais.reduce((s, c) => s + atual[c].total, 0);
   const vendasGeral = canais.reduce((s, c) => s + atual[c].vendas, 0);
@@ -3349,7 +3354,7 @@ function renderModuloConsolidada() {
   const cardsCanais = canais.map(c => {
     const a = atual[c], ant = anterior[c];
     const share = totalGeral ? a.total / totalGeral * 100 : 0;
-    return `<div class="card neutral"><div class="card-lbl">${c}</div>
+    return `<div class="card neutral"><div class="card-lbl">${nomeCanal(c)}</div>
       <div class="card-val">R$ ${fmt(a.total)}</div>
       <div class="card-pct">${share.toFixed(1).replace('.', ',')}% do total · ${a.vendas.toLocaleString('pt-BR')} vendas · ${varTxt(a.total, ant && ant.total)}</div></div>`;
   }).join('');
@@ -3370,7 +3375,7 @@ function renderModuloConsolidada() {
     <tr><th>Canal</th><th>Vendas</th><th>Faturamento</th><th>Ticket médio</th><th>% do total</th><th>Anterior (R$)</th><th>Variação</th><th>Canceladas</th></tr>
     ${canais.map(c => {
       const a = atual[c], ant = anterior[c];
-      return `<tr><td>${c}</td>
+      return `<tr><td>${nomeCanal(c)}</td>
         <td>${a.vendas.toLocaleString('pt-BR')}</td>
         <td>R$ ${fmt(a.total)}</td>
         <td>R$ ${fmt(a.vendas ? a.total / a.vendas : 0)}</td>
