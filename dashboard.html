@@ -297,7 +297,7 @@
     <div class="sidebar-grupo" id="gResultado">
       <button class="sidebar-btn active" id="navBtnEstaSemana" onclick="mostrarModulo('estasemana')">Esta semana</button>
       <button class="sidebar-btn" id="navBtnIndicadores" onclick="mostrarModulo('indicadores')">Indicadores e metas</button>
-      <span class="sidebar-btn breve">Visão consolidada</span>
+      <button class="sidebar-btn" id="navBtnConsolidada" onclick="mostrarModulo('consolidada')">Visão consolidada</button>
       <button class="sidebar-btn" id="navBtnDre" onclick="mostrarModulo('dre')">DRE</button>
       <span class="sidebar-btn breve">Margem por item</span>
     </div>
@@ -435,6 +435,10 @@
 
     <div id="modulo-qualidade" class="modulo" style="display:none;">
       <div id="view-qualidade"></div>
+    </div>
+
+    <div id="modulo-consolidada" class="modulo" style="display:none;">
+      <div id="view-consolidada"></div>
     </div>
 
     <div id="modulo-avaliacoes" class="modulo" style="display:none;">
@@ -812,7 +816,7 @@ const JANELAS = [
 // funcao em 12/08). Cardapio e Clientes tem periodo proprio — barra escondida.
 const JANELA_DO_MODULO = {
   resumo: 'semAnt', cancelamentos: 'semAnt', avaliacoes: 'semAnt',
-  negociacoes: 'semAnt', promocoes: 'semAnt',
+  negociacoes: 'semAnt', promocoes: 'semAnt', consolidada: 'semAnt',
 };
 let JANELA_ATUAL = null;
 
@@ -973,6 +977,7 @@ function toggleGrupo(id) {
 function abrirGrupoDoModulo(nome) {
   const grupoDe = { fluxo: 'gFinanceiro', projecao: 'gFinanceiro', despesas: 'gFinanceiro',
                     dre: 'gResultado', indicadores: 'gResultado', estasemana: 'gResultado',
+                    consolidada: 'gResultado',
                     qualidade: 'gIfood',
                     relatorios: 'gArquivo', conciliacao: 'gArquivo', rotinas: 'gArquivo' };
   const id = grupoDe[nome] || 'gIfood';
@@ -1005,6 +1010,7 @@ function mostrarModulo(nome) {
     indicadores: ['modulo-indicadores', 'navBtnIndicadores'],
     rotinas: ['modulo-rotinas', 'navBtnRotinas'],
     qualidade: ['modulo-qualidade', 'navBtnQualidade'],
+    consolidada: ['modulo-consolidada', 'navBtnConsolidada'],
   };
   Object.entries(modulos).forEach(([chave, [idDiv, idBtn]]) => {
     // Tolerante a botao/div ausente: o menu e mexido com frequencia e um id
@@ -1039,6 +1045,7 @@ function mostrarModulo(nome) {
   if (nome === 'contestacoes') entrarContestacoes();
   if (nome === 'estasemana') entrarEstaSemana();
   if (nome === 'qualidade') entrarQualidade();
+  if (nome === 'consolidada') entrarConsolidada();
   if (nome === 'rotinas') entrarRotinas();
   if (nome === 'fluxo') entrarFluxo();
   if (nome === 'dre') entrarDre();
@@ -1057,6 +1064,8 @@ function moduloAtivo() {
   if (home && home.style.display !== 'none') return 'estasemana';
   const qual = document.getElementById('modulo-qualidade');
   if (qual && qual.style.display !== 'none') return 'qualidade';
+  const cons = document.getElementById('modulo-consolidada');
+  if (cons && cons.style.display !== 'none') return 'consolidada';
   if (document.getElementById('modulo-cancelamentos').style.display !== 'none') return 'cancelamentos';
   if (document.getElementById('modulo-promocoes').style.display !== 'none') return 'promocoes';
   if (document.getElementById('modulo-negociacoes').style.display !== 'none') return 'negociacoes';
@@ -3269,6 +3278,112 @@ function fmtMeta(meta) {
 }
 
 // ------------------------------------------------------------------
+// MODULO VISAO CONSOLIDADA (12/08/2026). Primeira tela onde o iFood e
+// visto AO LADO dos outros canais (salao, balcao, site) — fonte Saipos,
+// via vw_consolidado_diario (dia x canal; a tabela crua tem 82 mil
+// vendas e nao pode vir ao navegador). Limites ditos NA TELA, nao em
+// nota de rodape: so Agua Verde por enquanto, e o valor e o do PDV —
+// nao se compara direto com o bruto do portal iFood.
+// Filtros de unidade/loja/marca NAO se aplicam (uma unidade so); o que
+// vale e a janela de periodo do modulo.
+let CONSOLIDADO = null;
+
+async function entrarConsolidada() {
+  const alvo = document.getElementById('view-consolidada');
+  if (!alvo) return;
+  if (CONSOLIDADO === null) {
+    alvo.innerHTML = '<div class="contexto">Carregando os canais...</div>';
+    CONSOLIDADO = await consultarTudo('vw_consolidado_diario?select=shift_date,canal,unidade,vendas,total,canceladas,total_cancelado&order=shift_date');
+  }
+  renderModuloConsolidada();
+}
+
+// Soma vendas/total/canceladas por canal dentro de [ini, fim].
+function consolidadoPorCanal(ini, fim) {
+  const por = {};
+  CONSOLIDADO.forEach(r => {
+    if (r.shift_date < ini || r.shift_date > fim) return;
+    const c = por[r.canal] || (por[r.canal] = { vendas: 0, total: 0, canceladas: 0, cancelado: 0 });
+    c.vendas += Number(r.vendas) || 0;
+    c.total += Number(r.total) || 0;
+    c.canceladas += Number(r.canceladas) || 0;
+    c.cancelado += Number(r.total_cancelado) || 0;
+  });
+  return por;
+}
+
+function renderModuloConsolidada() {
+  const alvo = document.getElementById('view-consolidada');
+  if (!alvo || CONSOLIDADO === null) return;
+  if (!CONSOLIDADO.length) {
+    alvo.innerHTML = '<div class="contexto">Sem dados do Saipos no banco.</div>';
+    return;
+  }
+
+  const ini = fDataIni.value, fim = fDataFim.value;
+  const maxData = CONSOLIDADO[CONSOLIDADO.length - 1].shift_date;
+  const ddmm = (v) => v ? v.slice(8, 10) + '/' + v.slice(5, 7) : '—';
+
+  // Janela anterior do MESMO tamanho, colada na atual (mesma regra do Resumo).
+  const dias = Math.round((new Date(fim + 'T00:00:00') - new Date(ini + 'T00:00:00')) / 864e5) + 1;
+  const d = (s, n) => { const x = new Date(s + 'T00:00:00'); x.setDate(x.getDate() + n); return iso(x); };
+  const antIni = d(ini, -dias), antFim = d(ini, -1);
+
+  const atual = consolidadoPorCanal(ini, fim);
+  const anterior = consolidadoPorCanal(antIni, antFim);
+
+  const canais = Object.keys(atual).sort((a, b) => atual[b].total - atual[a].total);
+  const totalGeral = canais.reduce((s, c) => s + atual[c].total, 0);
+  const vendasGeral = canais.reduce((s, c) => s + atual[c].vendas, 0);
+  const totalGeralAnt = Object.values(anterior).reduce((s, c) => s + c.total, 0);
+
+  // Palavra do fato separada do juizo: subiu/caiu, sem cor de bom/ruim —
+  // salao caindo com iFood subindo pode ser otimo ou pessimo, quem le decide.
+  const varTxt = (nov, ant) => {
+    if (!ant) return '<span style="color:#8a897e;">sem base</span>';
+    const p = (nov - ant) / ant * 100;
+    const w = p > 0.05 ? 'subiu' : p < -0.05 ? 'caiu' : 'estável';
+    return `${w} ${Math.abs(p).toFixed(1).replace('.', ',')}%`;
+  };
+
+  const cardsCanais = canais.map(c => {
+    const a = atual[c], ant = anterior[c];
+    const share = totalGeral ? a.total / totalGeral * 100 : 0;
+    return `<div class="card neutral"><div class="card-lbl">${c}</div>
+      <div class="card-val">R$ ${fmt(a.total)}</div>
+      <div class="card-pct">${share.toFixed(1).replace('.', ',')}% do total · ${a.vendas.toLocaleString('pt-BR')} vendas · ${varTxt(a.total, ant && ant.total)}</div></div>`;
+  }).join('');
+
+  alvo.innerHTML = `
+  <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Visão consolidada — todos os canais, ${ddmm(ini)} a ${ddmm(fim)}</div>
+  <div class="contexto" style="border-color:#f5a623;"><b>Por enquanto, só ÁGUA VERDE:</b> a fonte é o Saipos (PDV), que ainda não está conectado nas outras unidades. Os filtros de unidade e loja não valem nesta tela.${fim > maxData ? ` <b>Dados até ${ddmm(maxData)}</b> — o período escolhido vai além.` : ''}</div>
+
+  <div class="cards">
+    <div class="card"><div class="card-lbl">Faturamento total (todos os canais)</div>
+      <div class="card-val">R$ ${fmt(totalGeral)}</div>
+      <div class="card-pct">${vendasGeral.toLocaleString('pt-BR')} vendas · vs período anterior: ${varTxt(totalGeral, totalGeralAnt)}</div></div>
+    ${cardsCanais}
+  </div>
+
+  <div class="section-label">Canal a canal — período atual vs anterior (${ddmm(antIni)} a ${ddmm(antFim)})</div>
+  <div><table>
+    <tr><th>Canal</th><th>Vendas</th><th>Faturamento</th><th>Ticket médio</th><th>% do total</th><th>Anterior (R$)</th><th>Variação</th><th>Canceladas</th></tr>
+    ${canais.map(c => {
+      const a = atual[c], ant = anterior[c];
+      return `<tr><td>${c}</td>
+        <td>${a.vendas.toLocaleString('pt-BR')}</td>
+        <td>R$ ${fmt(a.total)}</td>
+        <td>R$ ${fmt(a.vendas ? a.total / a.vendas : 0)}</td>
+        <td>${(totalGeral ? a.total / totalGeral * 100 : 0).toFixed(1).replace('.', ',')}%</td>
+        <td>${ant ? 'R$ ' + fmt(ant.total) : '—'}</td>
+        <td>${varTxt(a.total, ant && ant.total)}</td>
+        <td>${a.canceladas ? a.canceladas + ' (R$ ' + fmt(a.cancelado) + ')' : '0'}</td></tr>`;
+    }).join('')}
+  </table></div>
+  <div class="caption-label" style="text-align:center;">O valor do iFood aqui é o registrado no PDV — não bate de propósito com o "bruto" do portal iFood (promoções, taxas e cancelamentos entram diferente em cada fonte). A conferência fonte a fonte está na fila da auditoria.</div>`;
+}
+
+// ------------------------------------------------------------------
 // MODULO QUALIDADE & SUPER (12/08/2026). O nivel Super era um dado orfao:
 // importado toda semana (fato_qualidade_semana) e exibido em lugar nenhum —
 // na semana 03-09/08 duas lojas cairam de nivel e uma ficou Nao elegivel
@@ -4841,6 +4956,7 @@ function renderAll() {
   if (ativo === 'estasemana' && HOME_PEND !== null && METAS_KPI !== null
       && NEGOCIACOES !== null && AVALIACOES !== null) renderEstaSemana();
   if (ativo === 'qualidade' && QUALIDADE !== null) renderModuloQualidade();
+  if (ativo === 'consolidada' && CONSOLIDADO !== null) renderModuloConsolidada();
   if (ativo === 'negociacoes' && NEGOCIACOES !== null) renderModuloNegociacoes();
   if (ativo === 'avaliacoes' && AVALIACOES !== null) renderModuloAvaliacoes();
   if (ativo === 'vendas' && VENDAS_REDE !== null) renderModuloVendas();
