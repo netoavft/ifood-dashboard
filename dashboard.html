@@ -3365,7 +3365,7 @@ function renderModuloAtrasos() {
     <td>${n1(g.preparo)} min</td>
     <td>${n1(g.bancada)} min</td>
     <td>${n1(g.rua)} min</td></tr>`;
-  const cabecalho = '<tr><th></th><th>Entregas</th><th>% +5min</th><th>Atraso mediano</th><th>Preparo</th><th>Bancada</th><th>Rua</th></tr>';
+  const cabecalho = '<tr><th></th><th>Entregas</th><th>Fora do prazo</th><th>Atraso típico</th><th>Preparo</th><th>Bancada</th><th>Rua</th></tr>';
 
   // ranking de entregadores: minimo de 10 entregas no periodo para nao
   // crucificar ninguem por 2 pedidos ruins
@@ -3383,14 +3383,15 @@ function renderModuloAtrasos() {
 
   alvo.innerHTML = `
   <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Atrasos e turnos — entregas próprias, ${ddmm(ATRASOS.ini)} a ${ddmm(ATRASOS.fim)}</div>
-  <div class="contexto" style="border-color:#f5a623;"><b>Por enquanto, só ÁGUA VERDE</b> (fonte: Foody Delivery; as outras unidades entram quando as contas delas forem conectadas). O atraso é medido contra a <b>promessa real do iFood</b>, não contra o prazo padrão de 60 min do Foody. E os tempos são <b>apontamento humano</b> — veja a caixa de qualidade no fim da tela antes de tirar conclusão fina.</div>
+  <div class="contexto" style="border-color:#f5a623;"><b>Por enquanto, só ÁGUA VERDE</b> (fonte: Foody Delivery; as outras unidades entram quando as contas delas forem conectadas). O prazo usado aqui é <b>o horário prometido ao cliente no iFood</b>, não o prazo padrão de 60 min do Foody. E os tempos são apontados por pessoas — veja a caixa no fim da tela antes de tirar conclusão fina.</div>
 
   <div class="cards">
-    <div class="card"><div class="card-lbl">Entregas no período</div><div class="card-val">${geral.n.toLocaleString('pt-BR')}</div><div class="card-pct">${geral.medidos.toLocaleString('pt-BR')} com promessa e entrega medidas</div></div>
-    <div class="card ${geral.medidos && geral.acima5 / geral.medidos > 0.1 ? 'neg' : 'pos'}"><div class="card-lbl">Acima de 5 min da promessa</div><div class="card-val">${pctTxt(geral.acima5, geral.medidos)}</div><div class="card-pct">${geral.acima5.toLocaleString('pt-BR')} entregas — mesma régua do iFood</div></div>
-    <div class="card neutral"><div class="card-lbl">Atraso mediano</div><div class="card-val">${n1(geral.atraso)} min</div><div class="card-pct">negativo = entrega antes da promessa</div></div>
-    <div class="card neutral"><div class="card-lbl">Tempo de rua mediano</div><div class="card-val">${n1(geral.rua)} min</div><div class="card-pct">da coleta à entrega</div></div>
+    <div class="card"><div class="card-lbl">Entregas no período</div><div class="card-val">${geral.n.toLocaleString('pt-BR')}</div><div class="card-pct">${geral.medidos.toLocaleString('pt-BR')} dá para medir (têm horário prometido e hora da entrega)</div></div>
+    <div class="card ${geral.medidos && (geral.medidos - geral.acima5) / geral.medidos >= 0.9 ? 'pos' : 'neg'}"><div class="card-lbl">Entregas no prazo</div><div class="card-val">${pctTxt(geral.medidos - geral.acima5, geral.medidos)}</div><div class="card-pct">no prazo = até 5 min depois do horário prometido · ${geral.acima5.toLocaleString('pt-BR')} passaram disso</div></div>
+    <div class="card neutral"><div class="card-lbl">Entrega típica</div><div class="card-val">${geral.atraso === null ? '—' : n1(Math.abs(geral.atraso)) + ' min ' + (geral.atraso <= 0 ? 'antes' : 'depois')}</div><div class="card-pct">do horário prometido — metade das entregas chega antes disso, metade depois</div></div>
+    <div class="card neutral"><div class="card-lbl">Tempo na rua</div><div class="card-val">${n1(geral.rua)} min</div><div class="card-pct">da coleta à porta do cliente, na entrega típica</div></div>
   </div>
+  <div class="caption-label" style="text-align:center;">"Típico" = o valor do meio: metade das entregas fica abaixo dele, metade acima. Nas tabelas, atraso negativo = chegou antes do horário prometido; "fora do prazo" = mais de 5 min depois dele.</div>
 
   <div class="section-label">Por turno (turnos do iFood: almoço 10h–14h · café 15h–16h · jantar 17h–23h · madrugada 0h–1h)</div>
   <div id="tabelaAtrasosTurno"><table>
@@ -3409,7 +3410,7 @@ function renderModuloAtrasos() {
 
   <div class="section-label">Por entregador — piores primeiro (mínimo 10 entregas no período)</div>
   <div id="tabelaAtrasosEntregador"><table>
-    <tr><th>Entregador</th><th>Tipo</th><th>Entregas</th><th>% +5min</th><th>Atraso mediano</th><th>Rua</th><th>Distância mediana</th></tr>
+    <tr><th>Entregador</th><th>Tipo</th><th>Entregas</th><th>Fora do prazo</th><th>Atraso típico</th><th>Rua</th><th>Distância típica</th></tr>
     ${entregadores.map(e => `<tr><td>${e.nome}</td><td>${e.tipo === 'internal' ? 'próprio' : e.tipo === 'external' ? 'externo' : e.tipo}</td>
       <td>${e.g.n}</td><td>${pctTxt(e.g.acima5, e.g.medidos)}</td><td>${n1(e.g.atraso)} min</td><td>${n1(e.g.rua)} min</td><td>${n1(e.dist)} km</td></tr>`).join('')}
   </table></div>
@@ -3418,8 +3419,8 @@ function renderModuloAtrasos() {
   <div class="section-label">Qualidade do apontamento — o quanto dá pra confiar nos tempos</div>
   <div class="contexto">Sem "pronto" marcado: <b>${pctTxt(semPronto, geral.n)}</b> (${semPronto}) — preparo e bancada dessas entregas não existem.
   · "Pronto" marcado junto do despacho (menos de 1 min): <b>${pctTxt(prontoJunto, geral.n)}</b> (${prontoJunto}) — cheiro de correção atrasada: o pedido esperou na estufa e alguém marcou tudo de uma vez.
-  · Sem promessa nas observações: <b>${pctTxt(semPromessa, geral.n)}</b> (${semPromessa}) — ficam fora da régua de atraso.
-  <br>Quanto maiores esses números, mais o "preparo" e a "bancada" viram ficção — o atraso final (promessa vs entrega) continua confiável, porque a entrega é apontada pelo motoboy na porta do cliente.</div>`;
+  · Sem horário prometido nas observações: <b>${pctTxt(semPromessa, geral.n)}</b> (${semPromessa}) — essas ficam fora da conta de prazo.
+  <br>Quanto maiores esses números, menos dá pra confiar no "preparo" e na "bancada". Já o prazo (horário prometido vs hora da entrega) continua confiável, porque a entrega é apontada pelo motoboy na porta do cliente.</div>`;
 }
 
 // ------------------------------------------------------------------
