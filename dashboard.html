@@ -188,6 +188,7 @@
   /* modulo Fluxo de Caixa (DFC) — tabela com blocos expansiveis */
   #tabelaDFC { overflow-x:auto; max-width:100%; }
   #tabelaDFC table { border-collapse:collapse; width:100%; font-size:12.5px; }
+  #tabelaDFC table td { vertical-align:top; }
   #tabelaDFC th, #tabelaDFC td { border:1px solid #34332f; padding:5px 10px; text-align:right; white-space:nowrap; }
   #tabelaDFC th:first-child, #tabelaDFC td:first-child { text-align:left; }
   #tabelaDFC th { background:#232321; color:#a5a49a; font-weight:bold; font-size:11px; text-transform:uppercase; }
@@ -3191,7 +3192,8 @@ function renderModuloClientes(mesSel) {
 let DFC_MENSAL = null;   // vw_fin_dfc_mensal: mes, natureza, tipo, subtipo, ordem, credito, debito
 let DFC_CONTAS = null;   // fin_contas: conta, saldo_inicial, ordem
 let DFC_MOV = null;      // vw_fin_saldo_conta_mensal: mes, conta, movimento
-let dfcModo = 'valor';   // 'valor' (R$) | 'pct' (% da receita do mes)
+// dfcModo aposentado em 13/08/2026: o % da receita agora aparece junto do
+// valor em cada celula de fluxo (proposta do financeiro), sem botao de troca.
 const dfcAberto = new Set();
 
 // Ordem dos grupos de despesa no DFC (mesma da planilha de fluxo de caixa).
@@ -3948,7 +3950,6 @@ function dfcToggle(chave) {
   if (dfcAberto.has(chave)) dfcAberto.delete(chave); else dfcAberto.add(chave);
   renderModuloDFC();
 }
-function dfcModoSet(m) { dfcModo = m; renderModuloDFC(); }
 
 function renderModuloDFC() {
   const alvo = document.getElementById('view-fluxo');
@@ -4015,14 +4016,13 @@ function renderModuloDFC() {
 
   // ---- montagem do HTML ----
   const receitasTot = total(receitas);
+  // % da receita junto do valor, so nas linhas de FLUXO (celRS, de saldo,
+  // fica intacta: saldo e estoque, % da receita do mes nao significa nada).
   const cel = (v, i) => {
-    if (dfcModo === 'pct') {
-      const base = i === 'tot' ? receitasTot : receitas[i];
-      if (!base) return '<td>—</td>';
-      const p = v / base * 100;
-      return `<td class="${p < -0.05 ? 'negativo' : ''}">${pct(p)}%</td>`;
-    }
-    return `<td class="${v < -0.005 ? 'negativo' : ''}">${fmt(v)}</td>`;
+    const base = i === 'tot' ? receitasTot : receitas[i];
+    const p = base ? (v / base * 100) : null;
+    return `<td><div class="${v < -0.005 ? 'negativo' : ''}">${fmt(v)}</div>` +
+           (p === null ? '' : `<div class="dre-sub">${pct(p)}%</div>`) + `</td>`;
   };
   const celRS = (v) => `<td class="${v < -0.005 ? 'negativo' : ''}">${fmt(v)}</td>`;
 
@@ -4109,6 +4109,19 @@ function renderModuloDFC() {
   if (dfcAberto.has('SALDO_FIM')) contas.forEach(c => {
     corpo += linhaSaldo('dfc-conta', c.conta, saldoFimConta[c.conta], null, saldoFimConta[c.conta][nM - 1]);
   });
+  // saldo separado por natureza (proposta do financeiro, 13/08): o total
+  // sozinho dava impressao de folga — a maior parte esta aplicada e nao
+  // paga conta. Mesma separacao que o Projetado ja faz.
+  const APLICACAO = ['XP INVESTIMENTOS', 'PARTICIPACOES'];
+  const somaContas = (filtro) => meses.map((_, i) =>
+    contas.filter(filtro).reduce((s, c) => s + saldoFimConta[c.conta][i], 0));
+  const saldoEmConta  = somaContas(c => !APLICACAO.includes(c.conta) && !c.conta.startsWith('CREDITO'));
+  const saldoAplicado = somaContas(c => APLICACAO.includes(c.conta));
+  const saldoCartao   = somaContas(c => c.conta.startsWith('CREDITO'));
+  corpo += linhaSaldo('dfc-conta', 'em conta (paga as contas)', saldoEmConta, null, saldoEmConta[nM - 1]);
+  corpo += linhaSaldo('dfc-conta', 'aplicado (XP e Participações)', saldoAplicado, null, saldoAplicado[nM - 1]);
+  if (saldoCartao.some(v => Math.abs(v) > 0.005))
+    corpo += linhaSaldo('dfc-conta', 'a pagar no cartão', saldoCartao, null, saldoCartao[nM - 1]);
 
   // distribuição "de onde vem / pra onde vai" (proposta do financeiro, 13/08)
   const entradasPorSub = subtiposDe(r => r.natureza === 'RECEITAS')
@@ -4137,10 +4150,6 @@ function renderModuloDFC() {
     <b>R$ ${fmt(nSemClass)}</b> em lançamentos ainda <b>sem classificação</b> (linha "SEM CLASSIFICAÇÃO" abaixo) —
     classifique na origem e reimporte para o DFC ficar 100% detalhado.</div>` : ''}
   <div style="height:300px; margin:14px 0;"><canvas id="chartFluxoEvolucao"></canvas></div>
-  <div class="periodo-presets" style="margin-top:14px;">
-    <button class="preset-btn ${dfcModo === 'valor' ? 'active' : ''}" onclick="dfcModoSet('valor')">R$</button>
-    <button class="preset-btn ${dfcModo === 'pct' ? 'active' : ''}" onclick="dfcModoSet('pct')">% da receita</button>
-  </div>
   <div id="tabelaDFC">
     <table>
       <tr><th></th>${meses.map(m => `<th>${rotuloMes(m)}</th>`).join('')}<th>Total</th></tr>
@@ -4156,7 +4165,10 @@ function renderModuloDFC() {
       <div style="height:${Math.max(200, saidasPorTipo.length * 30)}px;">
         <canvas id="chartDestinoSaidas"></canvas></div></div>
   </div>
-  <div class="caption-label">Histórico de jan a jul/2026 importado da planilha de fluxo realizado (validado linha a linha contra ela).
+  <div class="caption-label">Nas linhas de fluxo, o percentual cinza é a fatia da receita do mês.
+  Aplicado é dinheiro da empresa, mas não está disponível para o dia a dia — o controle da aplicação é do Fabio;
+  no Saipos lançamos só a saída do Itaú para lá.
+  Histórico de jan a jul/2026 importado da planilha de fluxo realizado (validado linha a linha contra ela).
   A partir de agosto a base passa a ser alimentada pelo Saipos. Saldos por conta: clique em SALDO INICIAL/FINAL.
   Nos saldos, a coluna Total mostra o saldo na ponta do período (não a soma dos meses).</div>`;
 
