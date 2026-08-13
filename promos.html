@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Promoções — controle semanal · Cidadão do Mundo</title>
+<!-- Página mantida pelo Claude. Fonte dos números: contexto/reference_ifood_anuncios.md e
+     contexto/project_teste_promocoes.md. Atualizar a data do rodapé a cada mudança. -->
+<style>
+  :root { --vermelho:#c8102e; --fundo:#faf6f0; --card:#fff; --tinta:#2b2320; --suave:#8a7d74; --linha:#e8ded2; --destaque:#fff3c4; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--fundo); color:var(--tinta); padding:24px 16px 48px; }
+  .wrap { max-width:980px; margin:0 auto; }
+  h1 { font-size:1.5rem; color:var(--vermelho); margin-bottom:4px; }
+  .sub { color:var(--suave); font-size:.9rem; margin-bottom:24px; }
+  h2 { font-size:1.05rem; margin:28px 0 10px; border-left:4px solid var(--vermelho); padding-left:10px; }
+  .card { background:var(--card); border:1px solid var(--linha); border-radius:10px; padding:14px; overflow-x:auto; }
+  table { border-collapse:collapse; width:100%; font-size:.88rem; }
+  th, td { border:1px solid var(--linha); padding:7px 9px; text-align:center; }
+  th { background:#f4ece1; }
+  td.rotulo, th.rotulo { text-align:left; font-weight:600; }
+  .troca { background:var(--destaque); }
+  .on { color:var(--vermelho); font-weight:700; }
+  .off { color:var(--suave); }
+  .aviso { background:#fdf0f2; border:1px solid #f3c9d0; border-radius:10px; padding:12px 14px; font-size:.9rem; margin-top:10px; }
+  .pend { background:#f6f2ea; border:1px dashed var(--suave); border-radius:10px; padding:12px 14px; font-size:.9rem; margin-top:10px; }
+  ul { margin:6px 0 0 20px; }
+  li { margin:4px 0; }
+  .rodape { color:var(--suave); font-size:.8rem; margin-top:32px; }
+  small.na { color:var(--suave); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Promoções — controle semanal</h1>
+  <div class="sub">Todas as lojas, exceto Boqueirão (gestão própria). Atualizado em <b>13/08/2026</b> · subsídio do Hits: <b>R$ 6,99</b> (confirmado pela consultora em 13/08).</div>
+
+  <h2>A semana padrão — o que fica ligado em cada dia</h2>
+  <div class="card">
+    <table>
+      <tr><th class="rotulo"></th><th class="troca">SEG</th><th>TER</th><th>QUA</th><th>QUI</th><th class="troca">SEX</th><th>SÁB</th><th>DOM</th></tr>
+      <tr><td class="rotulo">Hits</td><td class="on">ON</td><td class="on">ON</td><td class="on">ON</td><td class="on">ON</td><td class="on">ON</td><td class="on">ON</td><td class="on">ON</td></tr>
+      <tr><td class="rotulo">Frete grátis</td><td class="troca">até 6,99</td><td>até 6,99</td><td>até 6,99</td><td>até 6,99</td><td class="troca">até 12,99</td><td>até 12,99</td><td>até 12,99</td></tr>
+      <tr><td class="rotulo">Campanha Inteligente</td><td class="on">ON</td><td class="on">ON</td><td class="on">ON</td><td class="on">ON</td><td class="off">off</td><td class="off">off</td><td class="off">off</td></tr>
+      <tr><td class="rotulo">Anúncios</td><td class="off">off*</td><td class="off">off*</td><td class="off">off*</td><td class="off">off*</td><td class="on troca">ON</td><td class="on">ON</td><td class="on">ON</td></tr>
+      <tr><td class="rotulo">Clube</td><td colspan="7"><small class="na">a definir — sem verba calculada ainda</small></td></tr>
+    </table>
+    <div class="aviso"><b>* Exceção recomendada (13/08): Burger Água Verde com Anúncios TODOS os dias.</b> O corte de seg–qui custou ~600–700 pedidos/mês nela (≈ R$ 23–29 mil de margem) pra economizar R$ 9,4 mil — prejuízo. Nas demais lojas o corte foi economia de graça: mantém só sex–dom.</div>
+  </div>
+
+  <h2>Os dois dias de troca (amarelos) — checklist</h2>
+  <div class="card">
+    <b>SEXTA de manhã:</b>
+    <ul>
+      <li>Retomar os Anúncios em todas as lojas (pausa manual não volta sozinha)</li>
+      <li>Frete grátis: ligar a "até 12,99" e desligar a "até 6,99"</li>
+      <li>Campanha Inteligente: pausar</li>
+    </ul>
+    <b>SEGUNDA de manhã:</b>
+    <ul>
+      <li>Pausar os Anúncios (menos Burger AV, se a exceção for adotada)</li>
+      <li>Frete grátis: voltar a "até 6,99" e desligar a "até 12,99"</li>
+      <li>Campanha Inteligente: reativar</li>
+    </ul>
+  </div>
+
+  <h2>Verbas por loja (R$/dia) — vigentes desde 13/08/2026</h2>
+  <div class="card">
+    <table>
+      <tr><th class="rotulo">Loja</th><th>Hits</th><th>CI</th><th>Anúncios</th><th>Lance (custo/visita)</th><th>Clube</th></tr>
+      <tr><td class="rotulo">Burger Água Verde</td><td><b>1.600</b></td><td>700</td><td>1.050</td><td>0,95 → <b>1,00 recomendado</b></td><td rowspan="13"><small class="na">a definir</small></td></tr>
+      <tr><td class="rotulo">A Famosa Marmita</td><td>350</td><td>100</td><td>120</td><td>0,78</td></tr>
+      <tr><td class="rotulo">Burger Ahú</td><td>400</td><td>80</td><td>130</td><td>0,89</td></tr>
+      <tr><td class="rotulo">Burger São Braz</td><td>300</td><td>80</td><td>170</td><td>0,89</td></tr>
+      <tr><td class="rotulo">Comida Brasileira AV</td><td>200</td><td>70</td><td>25</td><td>0,94</td></tr>
+      <tr><td class="rotulo">Comida Brasileira Sb</td><td>150</td><td>80</td><td>90</td><td>0,89</td></tr>
+      <tr><td class="rotulo">Comida Brasileira Ahú</td><td>120</td><td>50</td><td>80</td><td>0,89</td></tr>
+      <tr><td class="rotulo">Vegan Burger Água Verde</td><td>150</td><td>160</td><td>100</td><td>0,95</td></tr>
+      <tr><td class="rotulo">Veganete Água Verde</td><td>150</td><td>50</td><td>25</td><td>0,88</td></tr>
+      <tr><td class="rotulo">Baixa Gastronomia</td><td>120</td><td>120</td><td>180</td><td>0,75</td></tr>
+      <tr><td class="rotulo">Vegan Ahú</td><td>120</td><td>50</td><td>40</td><td>1,00</td></tr>
+      <tr><td class="rotulo">Vegan São Braz</td><td><small class="na">sem Hits — conferir programa</small></td><td>50</td><td>25</td><td>0,89</td></tr>
+      <tr><td class="rotulo">Ufo Burger</td><td><small class="na">N/A</small></td><td>50</td><td>25</td><td>0,88</td></tr>
+    </table>
+    <div class="aviso"><b>Regra de ouro da verba:</b> verba é freio de emergência, nunca meta. Se o gasto de um dia forte encostar em <b>70% da verba</b>, a verba está baixa — suba. Verba que o gasto alcança não economiza: esconde a loja (aprendido no São Braz, 10–12/08: verba R$ 100 = venda −56%).</div>
+  </div>
+
+  <h2>Anúncios — configuração fixa</h2>
+  <div class="card">
+    <ul>
+      <li><b>Turnos:</b> desmarcar "Manhã" (lojas fechadas 5h–9h59). Manter Almoço, Tarde, Jantar e Madrugada.</li>
+      <li><b>Otimizador de orçamento: LIGADO</b> — sobra de seg–qui acumula pro fim de semana (teto semanal = 7× a verba diária).</li>
+      <li><b>Lance nunca abaixo de 0,97 na Burger AV</b> — abaixo de 0,96 a estimativa do iFood despenca para ~11 visitas/dia. Lances das demais lojas: aguardando planilhas individuais (a régua é por região).</li>
+      <li><b>O desconto de ~10% no custo por visita é benefício de exclusividade</b> — quebrar exclusividade encerra o anúncio com desconto.</li>
+    </ul>
+  </div>
+
+  <h2>Pendências</h2>
+  <div class="pend">
+    <ul>
+      <li>Planilhas de anúncios das demais lojas → calibrar lance por loja (chegando hoje)</li>
+      <li>Verba do Clube: definir critério e valores</li>
+      <li>Semanas alternadas CI × Clube nos dias de semana (ideia do calendário de agosto): decidir se entra na rotação</li>
+      <li>Taxa de entrega: mudar para R$ 6,99 até 3 km + criar promo "frete grátis até 6,99" + desligar a de 9,99 (plano de 13/08)</li>
+    </ul>
+  </div>
+
+  <div class="rodape">Fonte: banco do painel + portal do parceiro. Manutenção: pedir ao Claude ("atualiza a página de promos") — ele edita, publica e avisa. Histórico completo em contexto/reference_ifood_anuncios.md e contexto/project_teste_promocoes.md.</div>
+</div>
+</body>
+</html>
