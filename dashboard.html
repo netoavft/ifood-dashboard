@@ -3333,20 +3333,28 @@ function renderModuloAtrasos() {
   const n1 = (v) => v === null ? '—' : v.toFixed(1).replace('.', ',');
   const pctTxt = (parte, todo) => todo ? (parte / todo * 100).toFixed(1).replace('.', ',') + '%' : '—';
 
+  // Protecao combinada com o dono (13/08/2026): tempo sem sentido e
+  // provavel erro de apontamento e fica FORA das medias — contado e dito
+  // na tela, para o numero continuar conferivel. Faixas calibradas nas
+  // caudas reais dos 6 meses (202 entregas "1h30+ antes do prometido",
+  // pior caso -24h; preparo e bancada vieram limpos, faixa e so guarda).
+  const FAIXA = { atraso: [-90, 120], preparo: [0, 120], bancada: [0, 120], rua: [0, 120] };
+  const plausivel = (v, faixa) => v !== null && v !== undefined && Number(v) >= faixa[0] && Number(v) <= faixa[1];
+
   // metricas de um grupo de entregas — sempre sobre quem TEM a medida.
   // atrasoMedio conta SO quem saiu do prazo: "quando atrasa, atrasa X min"
   // e mais acionavel que uma media geral diluida pelas adiantadas.
   const resumo = (grupo) => {
-    const comMedida = grupo.filter(r => r.atraso_min !== null);
+    const comMedida = grupo.filter(r => plausivel(r.atraso_min, FAIXA.atraso));
     const atrasadas = comMedida.filter(r => Number(r.atraso_min) > 5);
     return {
       n: grupo.length,
       medidos: comMedida.length,
       fora: atrasadas.length,
       atrasoMedio: mediaDe(atrasadas.map(r => r.atraso_min)),
-      preparo: mediaDe(grupo.map(r => r.preparo_min)),
-      bancada: mediaDe(grupo.map(r => r.bancada_min)),
-      rua: mediaDe(grupo.map(r => r.rua_min)),
+      preparo: mediaDe(grupo.filter(r => plausivel(r.preparo_min, FAIXA.preparo)).map(r => r.preparo_min)),
+      bancada: mediaDe(grupo.filter(r => plausivel(r.bancada_min, FAIXA.bancada)).map(r => r.bancada_min)),
+      rua: mediaDe(grupo.filter(r => plausivel(r.rua_min, FAIXA.rua)).map(r => r.rua_min)),
     };
   };
 
@@ -3354,6 +3362,11 @@ function renderModuloAtrasos() {
   const semPronto = rows.filter(r => r.sem_pronto).length;
   const prontoJunto = rows.filter(r => r.pronto_com_despacho).length;
   const semPromessa = rows.filter(r => r.sem_promessa).length;
+  const semSentido = rows.filter(r =>
+    (r.atraso_min !== null && !plausivel(r.atraso_min, FAIXA.atraso)) ||
+    (r.rua_min !== null && !plausivel(r.rua_min, FAIXA.rua)) ||
+    (r.preparo_min !== null && !plausivel(r.preparo_min, FAIXA.preparo)) ||
+    (r.bancada_min !== null && !plausivel(r.bancada_min, FAIXA.bancada))).length;
 
   const ORDEM_TURNO = ['ALMOÇO', 'CAFÉ DA TARDE', 'JANTAR', 'MADRUGADA'];
   const turnos = [...new Set(rows.map(r => r.turno))].sort((a, b) => {
@@ -3423,7 +3436,8 @@ function renderModuloAtrasos() {
   ${foraRanking ? `<div class="caption-label" style="text-align:center;">${foraRanking} entregador(es) com menos de 10 entregas no período ficaram fora do ranking.</div>` : ''}
 
   <div class="section-label">Qualidade do apontamento — o quanto dá pra confiar nos tempos</div>
-  <div class="contexto">Sem "pronto" marcado: <b>${pctTxt(semPronto, geral.n)}</b> (${semPronto}) — preparo e bancada dessas entregas não existem.
+  <div class="contexto">${semSentido ? `Tempos sem sentido, fora das contas: <b>${pctTxt(semSentido, geral.n)}</b> (${semSentido}) — ex.: entrega apontada 1h30 antes do horário prometido ou mais de 2h de rua; provável erro de apontamento.
+  · ` : ''}Sem "pronto" marcado: <b>${pctTxt(semPronto, geral.n)}</b> (${semPronto}) — preparo e bancada dessas entregas não existem.
   · "Pronto" marcado junto do despacho (menos de 1 min): <b>${pctTxt(prontoJunto, geral.n)}</b> (${prontoJunto}) — cheiro de correção atrasada: o pedido esperou na estufa e alguém marcou tudo de uma vez.
   · Sem horário prometido nas observações: <b>${pctTxt(semPromessa, geral.n)}</b> (${semPromessa}) — essas ficam fora da conta de prazo.
   <br>Quanto maiores esses números, menos dá pra confiar no "preparo" e na "bancada". Já o prazo (horário prometido vs hora da entrega) continua confiável, porque a entrega é apontada pelo motoboy na porta do cliente.</div>`;
