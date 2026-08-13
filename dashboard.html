@@ -4100,6 +4100,15 @@ function renderModuloDFC() {
     corpo += linhaSaldo('dfc-conta', c.conta, saldoFimConta[c.conta], null, saldoFimConta[c.conta][nM - 1]);
   });
 
+  // distribuição "de onde vem / pra onde vai" (proposta do financeiro, 13/08)
+  const entradasPorSub = subtiposDe(r => r.natureza === 'RECEITAS')
+    .map(s => [s, total(somar(r => r.natureza === 'RECEITAS' && r.subtipo === s))])
+    .filter(x => x[1] > 0).sort((a, b) => b[1] - a[1]);
+  const saidasPorTipo = [...new Set(DFC_MENSAL
+      .filter(r => r.natureza === 'DESPESAS' && r.tipo !== 'INVESTIMENTOS').map(r => r.tipo))]
+    .map(t => [t, total(somar(r => r.natureza === 'DESPESAS' && r.tipo === t, -1))])
+    .filter(x => x[1] > 0).sort((a, b) => b[1] - a[1]);
+
   const nSemClass = Math.abs(total(semClass));
   alvo.innerHTML = `
   <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Fluxo de Caixa — Água Verde</div>
@@ -4117,6 +4126,7 @@ function renderModuloDFC() {
   ${nSemClass > 0.005 ? `<div class="contexto" style="border-color:#c8102e;">
     <b>R$ ${fmt(nSemClass)}</b> em lançamentos ainda <b>sem classificação</b> (linha "SEM CLASSIFICAÇÃO" abaixo) —
     classifique na origem e reimporte para o DFC ficar 100% detalhado.</div>` : ''}
+  <div style="height:300px; margin:14px 0;"><canvas id="chartFluxoEvolucao"></canvas></div>
   <div class="periodo-presets" style="margin-top:14px;">
     <button class="preset-btn ${dfcModo === 'valor' ? 'active' : ''}" onclick="dfcModoSet('valor')">R$</button>
     <button class="preset-btn ${dfcModo === 'pct' ? 'active' : ''}" onclick="dfcModoSet('pct')">% da receita</button>
@@ -4127,9 +4137,67 @@ function renderModuloDFC() {
       ${corpo}
     </table>
   </div>
+  <div class="section-label">De onde vem e para onde vai o dinheiro</div>
+  <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:16px;">
+    <div><div class="caption-label">Entradas por origem</div>
+      <div style="height:${Math.max(200, entradasPorSub.length * 30)}px;">
+        <canvas id="chartOrigemEntradas"></canvas></div></div>
+    <div><div class="caption-label">Saídas por grupo</div>
+      <div style="height:${Math.max(200, saidasPorTipo.length * 30)}px;">
+        <canvas id="chartDestinoSaidas"></canvas></div></div>
+  </div>
   <div class="caption-label">Histórico de jan a jul/2026 importado da planilha de fluxo realizado (validado linha a linha contra ela).
   A partir de agosto a base passa a ser alimentada pelo Saipos. Saldos por conta: clique em SALDO INICIAL/FINAL.
   Nos saldos, a coluna Total mostra o saldo na ponta do período (não a soma dos meses).</div>`;
+
+  // ---- graficos (proposta do chat financeiro, 13/08/2026) ----
+  // Evolucao: barras receita x despesa + linha de saldo em eixo proprio.
+  // Dois eixos DE PROPOSITO: o saldo acumulado e uma ordem de grandeza
+  // acima do movimento mensal — num eixo so as barras achatam.
+  destroyChart('chartFluxoEvolucao');
+  chartInstances['chartFluxoEvolucao'] = new Chart(
+    document.getElementById('chartFluxoEvolucao').getContext('2d'), {
+    data: {
+      labels: meses.map(rotuloMes),
+      datasets: [
+        { type: 'bar', label: 'Receitas', data: receitas,
+          backgroundColor: 'rgba(63,185,80,0.75)', order: 2 },
+        { type: 'bar', label: 'Despesas', data: despesas,
+          backgroundColor: 'rgba(200,16,46,0.75)', order: 2 },
+        { type: 'line', label: 'Saldo no fim do mês', data: saldoFim,
+          borderColor: '#58a6ff', backgroundColor: '#58a6ff', borderWidth: 2,
+          tension: 0.25, pointRadius: 3, yAxisID: 'y2', order: 1 },
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: { tooltip: { callbacks: { label: (c) => `${c.dataset.label}: R$ ${fmt(c.parsed.y)}` } } },
+      scales: {
+        y:  { position: 'left',  title: { display: true, text: 'Receita e despesa (R$)' } },
+        y2: { position: 'right', title: { display: true, text: 'Saldo (R$)' },
+              grid: { drawOnChartArea: false } },
+      },
+    },
+  });
+
+  [['chartOrigemEntradas', entradasPorSub, '#3fb950'],
+   ['chartDestinoSaidas', saidasPorTipo, '#c8102e']].forEach(([id, dados, cor]) => {
+    destroyChart(id);
+    chartInstances[id] = new Chart(document.getElementById(id).getContext('2d'), {
+      type: 'bar',
+      data: { labels: dados.map(d => d[0]), datasets: [{ data: dados.map(d => d[1]),
+              backgroundColor: cor, borderRadius: 4 }] },
+      options: {
+        indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+        layout: { padding: { right: 80 } },
+        plugins: { legend: { display: false },
+                   tooltip: { callbacks: { label: (c) => `R$ ${fmt(c.parsed.x)}` } } },
+        scales: { x: { beginAtZero: true } },
+      },
+      plugins: [pluginRotulosBarra((i) => 'R$ ' + fmt(dados[i][1]))],
+    });
+  });
 }
 
 // ------------------------------------------------------------------
@@ -4524,6 +4592,62 @@ function renderModuloProjecao() {
   }
 
   const corMenor = menorSaldo < 0 ? '#ff6b6b' : menorSaldo < mediaSemana ? '#f5a623' : '#3fb950';
+
+  // ---- aplicado da proposta do chat financeiro (13/08/2026), decisoes do
+  // dono: XP fora do fluxo diario, frase de sobra/falta, de onde vem a
+  // entrada projetada e o a-pagar resumido por grupo ----
+  const diasAteMenor = Math.round((new Date(menorDia + 'T00:00:00') - hoje) / 86400000);
+  const fraseDecisao = menorSaldo < 0
+    ? `<div class="contexto" style="border-color:#ff6b6b; text-align:left;">
+         <b style="font-size:15px;">Vai faltar R$ ${fmt(Math.abs(menorSaldo))} em ${fmtDia(menorDia)}</b>
+         (daqui a ${diasAteMenor} dias).<br>
+         <span style="font-size:12px; color:#a5a49a;">Para cobrir: resgatar da aplicação, adiar
+         pagamento ou antecipar recebível. O valor é o pior momento do período, não o fim dele.</span>
+       </div>`
+    : `<div class="contexto" style="border-color:#3fb950; text-align:left;">
+         <b style="font-size:15px;">O caixa se sustenta nos próximos ${HORIZONTE} dias.</b>
+         Momento mais apertado: R$ ${fmt(menorSaldo)} em ${fmtDia(menorDia)}.
+       </div>`;
+
+  const faixaAplicacao = `<div class="contexto" style="text-align:left; border-color:#58a6ff;">
+     <b>Aplicação (XP + Participações): R$ ${fmt(investido)}</b> — fora do fluxo diário.
+     <div style="font-size:12px; color:#a5a49a; margin-top:4px;">
+       No Saipos lançamos apenas a <b>saída do Itaú para a aplicação</b>; o que acontece lá dentro
+       (rendimento, IR, IOF) é controlado pelo Fabio, fora deste painel. Por isso este valor não
+       entra no saldo projetado nem cobre as contas a pagar.
+     </div>
+   </div>`;
+
+  const DIAS_SEM = ['domingo','segunda','terça','quarta','quinta','sexta','sábado'];
+  const composicao = `
+    <div class="section-label">De onde vem a entrada projetada</div>
+    <div class="contexto" style="text-align:left;">
+      <table style="width:100%; font-size:12.5px;">
+        <tr><th style="text-align:left;">Dia da semana</th><th>Média das últimas 4 semanas</th></tr>
+        ${[1,2,3,4,5,6,0].map(d => `<tr><td>${DIAS_SEM[d]}</td>
+          <td>R$ ${fmt(mediaDow[d] || 0)}</td></tr>`).join('')}
+        <tr style="border-top:1px solid #45443f;"><td><b>Semana</b></td>
+          <td><b>R$ ${fmt(mediaSemana)}</b></td></tr>
+      </table>
+      <div style="font-size:12px; color:#a5a49a; margin-top:6px;">
+        Recebimentos que <b>caíram na conta</b> (repasse iFood, adquirentes, dinheiro), não vendas.
+        Contas a receber já lançadas no Saipos entram por cima disso, na data do vencimento.
+      </div>
+    </div>`;
+
+  const porGrupo = {};
+  PROJ_PAGAR.filter(r => r.debito > 0).forEach(r => {
+    porGrupo[r.tipo] = (porGrupo[r.tipo] || 0) + r.debito;
+  });
+  const resumoPagar = Object.entries(porGrupo).sort((a, b) => b[1] - a[1]);
+  const blocoPagar = `<div class="section-label">O que tem para pagar (por grupo)</div>
+   <div class="contexto" style="text-align:left;">
+     ${resumoPagar.map(([g, v]) => `<div style="display:flex; justify-content:space-between; padding:3px 0;">
+        <span>${g}</span><b>R$ ${fmt(v)}</b></div>`).join('')}
+     <div style="display:flex; justify-content:space-between; padding:6px 0 0; border-top:1px solid #45443f;">
+       <b>Total lançado</b><b>R$ ${fmt(resumoPagar.reduce((s, x) => s + x[1], 0))}</b></div>
+   </div>`;
+
   alvo.innerHTML = `
   <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Fluxo de Caixa Projetado — Água Verde</div>
   <div class="caption-label" style="text-align:center;">
@@ -4532,7 +4656,7 @@ function renderModuloProjecao() {
   </div>
   <div class="cards">
     <div class="card blue"><div class="card-lbl">Caixa operacional hoje</div><div class="card-val">R$ ${fmt(caixaOper)}</div>
-      <div class="card-pct">+ R$ ${fmt(investido)} investidos (XP/Part.)</div></div>
+      <div class="card-pct">bancos e cofre — é este que paga as contas</div></div>
     <div class="card ${vencidas > 0.005 ? 'neg' : ''}"><div class="card-lbl">A pagar (30 dias)</div><div class="card-val">R$ ${fmt(pagar30 + (faturaDia ? faturaValor : 0))}</div>
       ${vencidas > 0.005 ? `<div class="card-pct" style="color:#ff6b6b;">R$ ${fmt(vencidas)} já vencidas!</div>` : '<div class="card-pct">inclui estimativa de fatura</div>'}</div>
     <div class="card"><div class="card-lbl">Receita projetada / semana</div><div class="card-val">R$ ${fmt(mediaSemana)}</div>
@@ -4541,7 +4665,11 @@ function renderModuloProjecao() {
       <div class="card-val" style="color:${corMenor};">R$ ${fmt(menorSaldo)}</div>
       <div class="card-pct">em ${fmtDia(menorDia)}</div></div>
   </div>
+  ${fraseDecisao}
+  ${faixaAplicacao}
+  ${composicao}
   <div style="height:280px; margin:14px 0;"><canvas id="chartProjecao"></canvas></div>
+  ${blocoPagar}
   <div class="section-label">Agenda de vencimentos (30 dias)</div>
   ${agenda || '<div class="contexto">Nenhuma conta a pagar lançada para os próximos 30 dias.</div>'}
   <div class="caption-label">Saldo projetado sobre o caixa operacional (bancos + cofre; XP/Participações e cartões fora).
