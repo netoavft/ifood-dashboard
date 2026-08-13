@@ -613,7 +613,11 @@ let activeUnidades = new Set();
 // ------------------------------------------------------------------
 async function carregar() {
   const agregado = await consultarTudo(
-    "vw_resumo_agregado?select=nome_loja,unidade,turno,semana,dia_semana,data,status,n,valor_itens,valor_itens_cancelados,taxa_entrega,incentivo_ifood,incentivo_rede,incentivo_loja,taxa_servico,taxas_comissoes,frete_sob_demanda,valor_liquido,tipo_pagamento" +
+    // mv (pre-calculada) e nao vw: a view ao vivo soma fato_pedidos inteira a
+    // cada visita e estourava os 3s de timeout do anon na partida a frio (erro
+    // 57014 na primeira carga, achado do dono em 13/08/2026). O watch_and_import
+    // recalcula a mv apos cada importacao — mesmo padrao da conciliacao.
+    "mv_resumo_agregado?select=nome_loja,unidade,turno,semana,dia_semana,data,status,n,valor_itens,valor_itens_cancelados,taxa_entrega,incentivo_ifood,incentivo_rede,incentivo_loja,taxa_servico,taxas_comissoes,frete_sob_demanda,valor_liquido,tipo_pagamento" +
     "&order=nome_loja,turno,data,status,tipo_pagamento"
   );
 
