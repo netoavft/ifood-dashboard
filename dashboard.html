@@ -3622,18 +3622,22 @@ function renderModuloLogfin() {
   // a tabela real de hoje sai dos proprios dados: os valores discretos de
   // custo_entregador. Valores raros (bonus, ajuste) ficam como estao.
   const porTaxa = {};
-  let outrosN = 0, outrosSoma = 0;
+  let outrosN = 0, outrosSoma = 0, outrosAbate = 0;
   rows.forEach(r => {
     if (r.custo_entregador === null) return;
     const v = Number(r.custo_entregador);
-    (porTaxa[v.toFixed(2)] = porTaxa[v.toFixed(2)] || { n: 0 }).n += 1;
+    const x = (porTaxa[v.toFixed(2)] = porTaxa[v.toFixed(2)] || { n: 0, abate3: 0 });
+    x.n += 1;
+    // a mesma regra do frete, faixa a faixa: o que o cliente paga acima
+    // de 3 km abate o custo daquele raio
+    if (Number(r.dist_km) > 3) x.abate3 += Number(r.taxa_entrega) || 0;
   });
   const taxasTabela = Object.entries(porTaxa)
     .filter(([, x]) => x.n >= Math.max(10, entregas * 0.005))
-    .map(([v, x]) => ({ v: Number(v), n: x.n }))
+    .map(([v, x]) => ({ v: Number(v), n: x.n, abate3: x.abate3 }))
     .sort((a, b) => a.v - b.v);
   Object.entries(porTaxa).forEach(([v, x]) => {
-    if (!taxasTabela.some(t => t.v === Number(v))) { outrosN += x.n; outrosSoma += Number(v) * x.n; }
+    if (!taxasTabela.some(t => t.v === Number(v))) { outrosN += x.n; outrosSoma += Number(v) * x.n; outrosAbate += x.abate3; }
   });
   taxasTabela.forEach(t => {
     const chave = t.v.toFixed(2);
@@ -3689,12 +3693,14 @@ function renderModuloLogfin() {
   <div class="contexto">A diária é <b>fixa em R$ ${LOGFIN_DIARIA} por turno de escala</b> (dia = almoço+café, noite = jantar+madrugada — a janela do iFood não vale como turno, senão a diária contaria duas vezes). No período foram <b>${turnosReais} turnos</b> = R$ ${fmt(simDiarias)} de diárias. <b>Edite a coluna "Taxa nova"</b> e veja na hora quanto o custo muda e quanto o motoboy passa a levar por turno. As taxas começam no reajuste proporcional que empata com o custo de hoje.
   <button class="preset-btn" onclick="logfinSimReset()" style="margin-left:8px;">voltar à proporcional</button></div>
   <div id="tabelaLogfinSim"><table>
-    <tr><th>Taxa de hoje</th><th>Corridas no período</th><th>Taxa nova</th><th>Corridas com a nova</th></tr>
+    <tr><th>Taxa de hoje</th><th>Corridas no período</th><th>Taxa nova</th><th>Corridas com a nova</th><th>Frete do cliente abate (&gt;3 km)</th><th>Custo líquido da faixa</th></tr>
     ${taxasTabela.map(t => `<tr><td>R$ ${fmt(t.v)}</td><td>${t.n.toLocaleString('pt-BR')}</td>
       <td>R$ <input type="number" value="${t.nova.toFixed(2)}" min="0" step="0.25" style="width:75px; font-size:14px;" onchange="logfinTaxa('${t.chave}', this.value)"></td>
-      <td>R$ ${fmt(t.nova * t.n)}</td></tr>`).join('')}
-    ${outrosN ? `<tr><td>outros valores</td><td>${outrosN.toLocaleString('pt-BR')}</td><td>como estão</td><td>R$ ${fmt(outrosSoma)}</td></tr>` : ''}
-    <tr><td><b>Total simulado</b></td><td>${entregas.toLocaleString('pt-BR')}</td><td>diárias + corridas</td><td><b>R$ ${fmt(simCustoNovo)}</b></td></tr>
+      <td>R$ ${fmt(t.nova * t.n)}</td>
+      <td>${t.abate3 > 0 ? '− R$ ' + fmt(t.abate3) : '—'}</td>
+      <td><b>${t.nova * t.n - t.abate3 < 0 ? 'sobra R$ ' + fmt(t.abate3 - t.nova * t.n) : 'R$ ' + fmt(t.nova * t.n - t.abate3)}</b></td></tr>`).join('')}
+    ${outrosN ? `<tr><td>outros valores</td><td>${outrosN.toLocaleString('pt-BR')}</td><td>como estão</td><td>R$ ${fmt(outrosSoma)}</td><td>${outrosAbate > 0 ? '− R$ ' + fmt(outrosAbate) : '—'}</td><td>${outrosSoma - outrosAbate < 0 ? 'sobra R$ ' + fmt(outrosAbate - outrosSoma) : 'R$ ' + fmt(outrosSoma - outrosAbate)}</td></tr>` : ''}
+    <tr><td><b>Total simulado</b></td><td>${entregas.toLocaleString('pt-BR')}</td><td>diárias + corridas</td><td>R$ ${fmt(simCustoNovo)}</td><td>${abate > 0 ? '− R$ ' + fmt(abate) : '—'}</td><td><b>R$ ${fmt(simCustoNovo - abate)}</b></td></tr>
   </table></div>
   <div class="cards">
     <div class="card ${simDelta > 0 ? 'neg' : 'pos'}"><div class="card-lbl">Custo simulado vs atual</div><div class="card-val">${simDelta >= 0 ? '+' : '−'} R$ ${fmt(Math.abs(simDelta))}</div><div class="card-pct">no período (custo atual R$ ${fmt(custoTotal)} → simulado R$ ${fmt(simCustoNovo)})${dias ? ' · em 30 dias, ≈ R$ ' + fmt(Math.abs(simDelta) / dias * 30) + (simDelta >= 0 ? ' a mais' : ' a menos') : ''} · líquido do frete acima de 3 km: R$ ${fmt(custoLiquido)} → R$ ${fmt(simCustoNovo - abate)}</div></div>
