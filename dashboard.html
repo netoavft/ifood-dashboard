@@ -3476,6 +3476,12 @@ function renderModuloAtrasos() {
 const LOGFIN_PISO_HORA = 20;  // R$ por hora trabalhada (minimo garantido)
 const LOGFIN_HORAS_MAX = 12;  // turno acima disso e apontamento sem sentido
 let LOGFIN = null; // { ini, fim, rows } — cache da janela buscada
+let LOGFIN_DIARIA = 50; // simulacao: diaria por turno de escala (ajustavel na tela)
+
+function logfinDiaria(v) {
+  LOGFIN_DIARIA = Math.max(0, Number(String(v).replace(',', '.')) || 0);
+  renderModuloLogfin();
+}
 
 async function entrarLogfin() {
   const alvo = document.getElementById('view-logfin');
@@ -3592,6 +3598,41 @@ function renderModuloLogfin() {
   lista.forEach(g => { const w = semanas[segundaDe(g.data)]; if (w) w.comp += g.complemento; });
   const chavesSemana = Object.keys(semanas).sort();
 
+  // ---- SIMULACAO (14/08/2026, pedida pelo dono): diaria fixa por turno de
+  // ESCALA + tabela de corrida reajustada na mesma proporcao, mirando o
+  // MESMO custo total de hoje. Janela do iFood nao e turno de escala (quem
+  // roda 10h–16h atravessa almoco e cafe): almoco+cafe = DIA,
+  // jantar+madrugada = NOITE — senao a diaria seria contada duas vezes.
+  const TURNO_REAL = { 'ALMOÇO': 'DIA', 'CAFÉ DA TARDE': 'DIA', 'JANTAR': 'NOITE', 'MADRUGADA': 'NOITE' };
+  const turnosReais = new Set(lista.map(g => g.entregador + '|' + g.data + '|' + (TURNO_REAL[g.turno] || g.turno))).size;
+  const simDiarias = LOGFIN_DIARIA * turnosReais;
+  const simVerba = custoTotal - simDiarias;      // o que sobra p/ corridas
+  const simFator = corridas > 0 ? simVerba / corridas : 0;
+  // a tabela real de hoje sai dos proprios dados: os valores discretos de
+  // custo_entregador. Valores raros (bonus, ajuste) viram "outros".
+  const porTaxa = {};
+  let outrosN = 0, outrosSoma = 0;
+  rows.forEach(r => {
+    if (r.custo_entregador === null) return;
+    const v = Number(r.custo_entregador);
+    (porTaxa[v.toFixed(2)] = porTaxa[v.toFixed(2)] || { n: 0 }).n += 1;
+  });
+  const taxasTabela = Object.entries(porTaxa)
+    .filter(([, x]) => x.n >= Math.max(10, entregas * 0.005))
+    .map(([v, x]) => ({ v: Number(v), n: x.n }))
+    .sort((a, b) => a.v - b.v);
+  Object.entries(porTaxa).forEach(([v, x]) => {
+    if (!taxasTabela.some(t => t.v === Number(v))) { outrosN += x.n; outrosSoma += Number(v) * x.n; }
+  });
+  // sugestao redonda: proporcional exato arredondado ao quarto de real
+  taxasTabela.forEach(t => {
+    t.exato = t.v * simFator;
+    t.redonda = Math.round(t.exato * 4) / 4;
+  });
+  const simCustoNovo = simDiarias + outrosSoma * simFator
+    + taxasTabela.reduce((s, t) => s + t.redonda * t.n, 0);
+  const simDelta = simCustoNovo - custoTotal;
+
   alvo.innerHTML = `
   <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Financeiro da logística — entregas próprias, ${ddmm(LOGFIN.ini)} a ${ddmm(LOGFIN.fim)}</div>
   <div class="contexto" style="border-color:#f5a623;"><b>Por enquanto, só ÁGUA VERDE</b> (fonte: Foody Delivery). A regra usada aqui é a combinada: o motoboy recebe <b>o maior entre as corridas e R$ ${LOGFIN_PISO_HORA} por hora</b>, turno a turno — a tarde parada entre almoço e jantar não conta como trabalhada. A hora é <b>estimada da primeira à última entrega do turno</b>, não é ponto batido; o complemento é a estimativa do painel para vigiar a conta, não substitui o acerto real.</div>
@@ -3629,6 +3670,20 @@ function renderModuloLogfin() {
       return `<tr><td>${ddmm(w)}</td><td>${s.n.toLocaleString('pt-BR')}</td><td>R$ ${fmt(s.ganho)}</td>
         <td>${s.comp > 0 ? 'R$ ' + fmt(s.comp) : '—'}</td><td>R$ ${fmt(tot)}</td><td>R$ ${fmt(s.n ? tot / s.n : 0)}</td></tr>`; }).join('')}
   </table></div>
+
+  <div class="section-label">Simulação — diária por turno + tabela de corrida reajustada</div>
+  <div class="contexto">E se cada motoboy ganhasse uma <b>diária fixa por turno</b> e a tabela de corrida caísse na mesma proporção, mirando o mesmo custo de hoje? Turno de escala aqui é <b>dia</b> (almoço+café) e <b>noite</b> (jantar+madrugada) — a janela do iFood não vale como turno, senão a diária contaria duas vezes. No período: <b>${turnosReais} turnos de escala</b>.
+  <br><br>Diária por turno: <b>R$ <input type="number" value="${LOGFIN_DIARIA}" min="0" step="5" style="width:70px; font-size:14px;" onchange="logfinDiaria(this.value)"></b>
+  &nbsp;→ diárias somam <b>R$ ${fmt(simDiarias)}</b>, sobra <b>R$ ${fmt(simVerba)}</b> para as corridas: tabela na proporção de <b>${(simFator * 100).toFixed(0)}%</b> da atual.
+  ${simVerba <= 0 ? '<br><b>Com essa diária, só as diárias já passam do custo atual — não sobra nada para as corridas.</b>' : ''}</div>
+  ${simVerba > 0 ? `<div id="tabelaLogfinSim"><table>
+    <tr><th>Taxa de hoje</th><th>Corridas no período</th><th>Proporcional exato</th><th>Sugestão redonda</th><th>Custo com a redonda</th></tr>
+    ${taxasTabela.map(t => `<tr><td>R$ ${fmt(t.v)}</td><td>${t.n.toLocaleString('pt-BR')}</td>
+      <td>R$ ${fmt(t.exato)}</td><td><b>R$ ${fmt(t.redonda)}</b></td><td>R$ ${fmt(t.redonda * t.n)}</td></tr>`).join('')}
+    ${outrosN ? `<tr><td>outros valores</td><td>${outrosN.toLocaleString('pt-BR')}</td><td colspan="2">na mesma proporção</td><td>R$ ${fmt(outrosSoma * simFator)}</td></tr>` : ''}
+    <tr><td><b>Total simulado</b></td><td>${entregas.toLocaleString('pt-BR')}</td><td colspan="2">diárias R$ ${fmt(simDiarias)} + corridas</td><td><b>R$ ${fmt(simCustoNovo)}</b></td></tr>
+  </table></div>
+  <div class="caption-label" style="text-align:center;">Custo simulado ${simDelta >= 0 ? 'R$ ' + fmt(simDelta) + ' ACIMA' : 'R$ ' + fmt(-simDelta) + ' ABAIXO'} do custo atual do período (R$ ${fmt(custoTotal)}) — diferença é só o arredondamento da coluna redonda. A diária substitui o piso de R$ ${LOGFIN_PISO_HORA}/h; manter os dois seria pagar a garantia duas vezes.</div>` : ''}
 
   <div class="section-label">Qualidade do apontamento — o quanto dá pra confiar nessa conta</div>
   <div class="contexto">Entregas sem entregador apontado: <b>${pctTxt(semEntregador, entregas)}</b> (${semEntregador}) — o valor das corridas delas entra no total, mas ficam fora da conta por pessoa.
