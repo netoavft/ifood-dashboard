@@ -3476,12 +3476,15 @@ function renderModuloAtrasos() {
 const LOGFIN_PISO_HORA = 20;  // R$ por hora trabalhada (minimo garantido)
 const LOGFIN_HORAS_MAX = 12;  // turno acima disso e apontamento sem sentido
 let LOGFIN = null; // { ini, fim, rows } — cache da janela buscada
-let LOGFIN_DIARIA = 50; // simulacao: diaria por turno de escala (ajustavel na tela)
+const LOGFIN_DIARIA = 50; // decisao do dono (14/08/2026): a diaria e fixa em R$50
+let LOGFIN_SIM = {};      // taxa nova por taxa atual, editada na tela
 
-function logfinDiaria(v) {
-  LOGFIN_DIARIA = Math.max(0, Number(String(v).replace(',', '.')) || 0);
+function logfinTaxa(atual, v) {
+  const num = Number(String(v).replace(',', '.'));
+  if (!isNaN(num) && num >= 0) LOGFIN_SIM[atual] = num;
   renderModuloLogfin();
 }
+function logfinSimReset() { LOGFIN_SIM = {}; renderModuloLogfin(); }
 
 async function entrarLogfin() {
   const alvo = document.getElementById('view-logfin');
@@ -3606,10 +3609,12 @@ function renderModuloLogfin() {
   const TURNO_REAL = { 'ALMOÇO': 'DIA', 'CAFÉ DA TARDE': 'DIA', 'JANTAR': 'NOITE', 'MADRUGADA': 'NOITE' };
   const turnosReais = new Set(lista.map(g => g.entregador + '|' + g.data + '|' + (TURNO_REAL[g.turno] || g.turno))).size;
   const simDiarias = LOGFIN_DIARIA * turnosReais;
-  const simVerba = custoTotal - simDiarias;      // o que sobra p/ corridas
-  const simFator = corridas > 0 ? simVerba / corridas : 0;
+  // ponto de partida das taxas editaveis: o reajuste proporcional que
+  // fecha no custo de hoje (arredondado ao quarto de real). Dali em
+  // diante quem manda e o que o dono digitar na tela (LOGFIN_SIM).
+  const simFator = corridas > 0 ? Math.max(0, (custoTotal - simDiarias) / corridas) : 0;
   // a tabela real de hoje sai dos proprios dados: os valores discretos de
-  // custo_entregador. Valores raros (bonus, ajuste) viram "outros".
+  // custo_entregador. Valores raros (bonus, ajuste) ficam como estao.
   const porTaxa = {};
   let outrosN = 0, outrosSoma = 0;
   rows.forEach(r => {
@@ -3624,14 +3629,17 @@ function renderModuloLogfin() {
   Object.entries(porTaxa).forEach(([v, x]) => {
     if (!taxasTabela.some(t => t.v === Number(v))) { outrosN += x.n; outrosSoma += Number(v) * x.n; }
   });
-  // sugestao redonda: proporcional exato arredondado ao quarto de real
   taxasTabela.forEach(t => {
-    t.exato = t.v * simFator;
-    t.redonda = Math.round(t.exato * 4) / 4;
+    const chave = t.v.toFixed(2);
+    t.nova = LOGFIN_SIM[chave] !== undefined ? LOGFIN_SIM[chave] : Math.round(t.v * simFator * 4) / 4;
+    t.chave = chave;
   });
-  const simCustoNovo = simDiarias + outrosSoma * simFator
-    + taxasTabela.reduce((s, t) => s + t.redonda * t.n, 0);
+  const simCorridas = taxasTabela.reduce((s, t) => s + t.nova * t.n, 0) + outrosSoma;
+  const simCustoNovo = simDiarias + simCorridas;
   const simDelta = simCustoNovo - custoTotal;
+  // atratividade: o que o turno medio passa a pagar ao motoboy
+  const turnoHoje = turnosReais ? custoTotal / turnosReais : 0;
+  const turnoNovo = turnosReais ? simCustoNovo / turnosReais : 0;
 
   alvo.innerHTML = `
   <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Financeiro da logística — entregas próprias, ${ddmm(LOGFIN.ini)} a ${ddmm(LOGFIN.fim)}</div>
@@ -3671,19 +3679,23 @@ function renderModuloLogfin() {
         <td>${s.comp > 0 ? 'R$ ' + fmt(s.comp) : '—'}</td><td>R$ ${fmt(tot)}</td><td>R$ ${fmt(s.n ? tot / s.n : 0)}</td></tr>`; }).join('')}
   </table></div>
 
-  <div class="section-label">Simulação — diária por turno + tabela de corrida reajustada</div>
-  <div class="contexto">E se cada motoboy ganhasse uma <b>diária fixa por turno</b> e a tabela de corrida caísse na mesma proporção, mirando o mesmo custo de hoje? Turno de escala aqui é <b>dia</b> (almoço+café) e <b>noite</b> (jantar+madrugada) — a janela do iFood não vale como turno, senão a diária contaria duas vezes. No período: <b>${turnosReais} turnos de escala</b>.
-  <br><br>Diária por turno: <b>R$ <input type="number" value="${LOGFIN_DIARIA}" min="0" step="5" style="width:70px; font-size:14px;" onchange="logfinDiaria(this.value)"></b>
-  &nbsp;→ diárias somam <b>R$ ${fmt(simDiarias)}</b>, sobra <b>R$ ${fmt(simVerba)}</b> para as corridas: tabela na proporção de <b>${(simFator * 100).toFixed(0)}%</b> da atual.
-  ${simVerba <= 0 ? '<br><b>Com essa diária, só as diárias já passam do custo atual — não sobra nada para as corridas.</b>' : ''}</div>
-  ${simVerba > 0 ? `<div id="tabelaLogfinSim"><table>
-    <tr><th>Taxa de hoje</th><th>Corridas no período</th><th>Proporcional exato</th><th>Sugestão redonda</th><th>Custo com a redonda</th></tr>
+  <div class="section-label">Simulação — diária de R$ ${LOGFIN_DIARIA} por turno + taxa por corrida editável</div>
+  <div class="contexto">A diária é <b>fixa em R$ ${LOGFIN_DIARIA} por turno de escala</b> (dia = almoço+café, noite = jantar+madrugada — a janela do iFood não vale como turno, senão a diária contaria duas vezes). No período foram <b>${turnosReais} turnos</b> = R$ ${fmt(simDiarias)} de diárias. <b>Edite a coluna "Taxa nova"</b> e veja na hora quanto o custo muda e quanto o motoboy passa a levar por turno. As taxas começam no reajuste proporcional que empata com o custo de hoje.
+  <button class="preset-btn" onclick="logfinSimReset()" style="margin-left:8px;">voltar à proporcional</button></div>
+  <div id="tabelaLogfinSim"><table>
+    <tr><th>Taxa de hoje</th><th>Corridas no período</th><th>Taxa nova</th><th>Corridas com a nova</th></tr>
     ${taxasTabela.map(t => `<tr><td>R$ ${fmt(t.v)}</td><td>${t.n.toLocaleString('pt-BR')}</td>
-      <td>R$ ${fmt(t.exato)}</td><td><b>R$ ${fmt(t.redonda)}</b></td><td>R$ ${fmt(t.redonda * t.n)}</td></tr>`).join('')}
-    ${outrosN ? `<tr><td>outros valores</td><td>${outrosN.toLocaleString('pt-BR')}</td><td colspan="2">na mesma proporção</td><td>R$ ${fmt(outrosSoma * simFator)}</td></tr>` : ''}
-    <tr><td><b>Total simulado</b></td><td>${entregas.toLocaleString('pt-BR')}</td><td colspan="2">diárias R$ ${fmt(simDiarias)} + corridas</td><td><b>R$ ${fmt(simCustoNovo)}</b></td></tr>
+      <td>R$ <input type="number" value="${t.nova.toFixed(2)}" min="0" step="0.25" style="width:75px; font-size:14px;" onchange="logfinTaxa('${t.chave}', this.value)"></td>
+      <td>R$ ${fmt(t.nova * t.n)}</td></tr>`).join('')}
+    ${outrosN ? `<tr><td>outros valores</td><td>${outrosN.toLocaleString('pt-BR')}</td><td>como estão</td><td>R$ ${fmt(outrosSoma)}</td></tr>` : ''}
+    <tr><td><b>Total simulado</b></td><td>${entregas.toLocaleString('pt-BR')}</td><td>diárias + corridas</td><td><b>R$ ${fmt(simCustoNovo)}</b></td></tr>
   </table></div>
-  <div class="caption-label" style="text-align:center;">Custo simulado ${simDelta >= 0 ? 'R$ ' + fmt(simDelta) + ' ACIMA' : 'R$ ' + fmt(-simDelta) + ' ABAIXO'} do custo atual do período (R$ ${fmt(custoTotal)}) — diferença é só o arredondamento da coluna redonda. A diária substitui o piso de R$ ${LOGFIN_PISO_HORA}/h; manter os dois seria pagar a garantia duas vezes.</div>` : ''}
+  <div class="cards">
+    <div class="card ${simDelta > 0 ? 'neg' : 'pos'}"><div class="card-lbl">Custo simulado vs atual</div><div class="card-val">${simDelta >= 0 ? '+' : '−'} R$ ${fmt(Math.abs(simDelta))}</div><div class="card-pct">no período (custo atual R$ ${fmt(custoTotal)} → simulado R$ ${fmt(simCustoNovo)})${dias ? ' · em 30 dias, ≈ R$ ' + fmt(Math.abs(simDelta) / dias * 30) + (simDelta >= 0 ? ' a mais' : ' a menos') : ''}</div></div>
+    <div class="card neutral"><div class="card-lbl">Turno médio do motoboy</div><div class="card-val">R$ ${fmt(turnoNovo)}</div><div class="card-pct">hoje o turno médio paga R$ ${fmt(turnoHoje)} (diária + corridas do turno)</div></div>
+    <div class="card neutral"><div class="card-lbl">Mês cheio 6x1</div><div class="card-val">R$ ${fmt(turnoNovo * 26)}</div><div class="card-pct">26 turnos no ritmo médio · hoje seria R$ ${fmt(turnoHoje * 26)}</div></div>
+  </div>
+  <div class="caption-label" style="text-align:center;">A diária substitui o piso de R$ ${LOGFIN_PISO_HORA}/h — manter os dois seria pagar a garantia duas vezes. O "turno médio" reparte todo o custo simulado pelos ${turnosReais} turnos do período; turno forte paga mais, fraco paga menos.</div>
 
   <div class="section-label">Qualidade do apontamento — o quanto dá pra confiar nessa conta</div>
   <div class="contexto">Entregas sem entregador apontado: <b>${pctTxt(semEntregador, entregas)}</b> (${semEntregador}) — o valor das corridas delas entra no total, mas ficam fora da conta por pessoa.
