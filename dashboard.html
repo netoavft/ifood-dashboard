@@ -328,6 +328,7 @@
            fica para o que atravessa canais — a base sera a API do Foody
            Delivery (logistica propria, 97% das entregas). -->
       <button class="sidebar-btn" id="navBtnAtrasos" onclick="mostrarModulo('atrasos')">Atrasos e turnos</button>
+      <button class="sidebar-btn" id="navBtnLogfin" onclick="mostrarModulo('logfin')">Financeiro da logística</button>
       <span class="sidebar-btn breve">Tempo de entrega</span>
       <span class="sidebar-btn breve">Pessoas (Flash)</span>
     </div>
@@ -450,6 +451,10 @@
 
     <div id="modulo-atrasos" class="modulo" style="display:none;">
       <div id="view-atrasos"></div>
+    </div>
+
+    <div id="modulo-logfin" class="modulo" style="display:none;">
+      <div id="view-logfin"></div>
     </div>
 
     <div id="modulo-avaliacoes" class="modulo" style="display:none;">
@@ -832,7 +837,7 @@ const JANELAS = [
 const JANELA_DO_MODULO = {
   resumo: 'semAnt', cancelamentos: 'semAnt', avaliacoes: 'semAnt',
   negociacoes: 'semAnt', promocoes: 'semAnt', consolidada: 'semAnt',
-  atrasos: 'semAnt',
+  atrasos: 'semAnt', logfin: 'semAnt',
 };
 let JANELA_ATUAL = null;
 
@@ -1028,6 +1033,7 @@ function mostrarModulo(nome) {
     qualidade: ['modulo-qualidade', 'navBtnQualidade'],
     consolidada: ['modulo-consolidada', 'navBtnConsolidada'],
     atrasos: ['modulo-atrasos', 'navBtnAtrasos'],
+    logfin: ['modulo-logfin', 'navBtnLogfin'],
   };
   Object.entries(modulos).forEach(([chave, [idDiv, idBtn]]) => {
     // Tolerante a botao/div ausente: o menu e mexido com frequencia e um id
@@ -1064,6 +1070,7 @@ function mostrarModulo(nome) {
   if (nome === 'qualidade') entrarQualidade();
   if (nome === 'consolidada') entrarConsolidada();
   if (nome === 'atrasos') entrarAtrasos();
+  if (nome === 'logfin') entrarLogfin();
   if (nome === 'rotinas') entrarRotinas();
   if (nome === 'fluxo') entrarFluxo();
   if (nome === 'dre') entrarDre();
@@ -1086,6 +1093,8 @@ function moduloAtivo() {
   if (cons && cons.style.display !== 'none') return 'consolidada';
   const atr = document.getElementById('modulo-atrasos');
   if (atr && atr.style.display !== 'none') return 'atrasos';
+  const lgf = document.getElementById('modulo-logfin');
+  if (lgf && lgf.style.display !== 'none') return 'logfin';
   if (document.getElementById('modulo-cancelamentos').style.display !== 'none') return 'cancelamentos';
   if (document.getElementById('modulo-promocoes').style.display !== 'none') return 'promocoes';
   if (document.getElementById('modulo-negociacoes').style.display !== 'none') return 'negociacoes';
@@ -3456,6 +3465,179 @@ function renderModuloAtrasos() {
 }
 
 // ------------------------------------------------------------------
+// MODULO FINANCEIRO DA LOGISTICA (14/08/2026). Mesma fonte do Atrasos
+// (foody_entregas, so Agua Verde), via vw_foody_financeiro_min. Regra de
+// pagamento do dono: o motoboy recebe O MAIOR entre a soma das corridas
+// (custo_entregador) e R$20 por hora trabalhada. Sem ponto batido, a hora
+// e ESTIMADA pela primeira→ultima entrega DE CADA TURNO — decisao do dono
+// em 14/08/2026: a tarde parada entre almoco e jantar NAO conta como
+// trabalhada. O complemento do piso e portanto uma ESTIMATIVA do painel
+// para vigiar a conta, nao o acerto real com o motoboy.
+const LOGFIN_PISO_HORA = 20;  // R$ por hora trabalhada (minimo garantido)
+const LOGFIN_HORAS_MAX = 12;  // turno acima disso e apontamento sem sentido
+let LOGFIN = null; // { ini, fim, rows } — cache da janela buscada
+
+async function entrarLogfin() {
+  const alvo = document.getElementById('view-logfin');
+  if (!alvo) return;
+  const ini = fDataIni.value, fim = fDataFim.value;
+  if (!LOGFIN || LOGFIN.ini !== ini || LOGFIN.fim !== fim) {
+    alvo.innerHTML = '<div class="contexto">Carregando as entregas do período...</div>';
+    const rows = await consultarTudo(`vw_foody_financeiro_min?select=data_local,turno,entregador,entregador_tipo,inicio_corrida,entrega,custo_entregador,taxa_entrega&data_local=gte.${ini}&data_local=lte.${fim}&order=data_local`);
+    LOGFIN = { ini, fim, rows };
+  }
+  renderModuloLogfin();
+}
+
+function renderModuloLogfin() {
+  const alvo = document.getElementById('view-logfin');
+  if (!alvo || LOGFIN === null) return;
+  // janela mudou depois da busca — rebusca em vez de mostrar dado velho
+  if (LOGFIN.ini !== fDataIni.value || LOGFIN.fim !== fDataFim.value) { entrarLogfin(); return; }
+  const rows = LOGFIN.rows;
+  const ddmm = (v) => v ? v.slice(8, 10) + '/' + v.slice(5, 7) : '—';
+  if (!rows.length) {
+    alvo.innerHTML = `<div class="contexto">Sem entregas do Foody entre ${ddmm(LOGFIN.ini)} e ${ddmm(LOGFIN.fim)} — confira se o importador (import_foody.py) já cobriu esse período.</div>`;
+    return;
+  }
+
+  const n1 = (v) => v === null ? '—' : v.toFixed(1).replace('.', ',');
+  const pctTxt = (parte, todo) => todo ? (parte / todo * 100).toFixed(1).replace('.', ',') + '%' : '—';
+
+  // 1 grupo = 1 entregador num turno de um dia — a unidade da regra de
+  // pagamento. horas = ultima entrega − primeiro aceite/coleta do turno;
+  // fica de fora da conta quando falta horario ou o valor nao faz sentido
+  // (mesma filosofia da FAIXA do modulo Atrasos: contado e dito na tela).
+  const semEntregador = rows.filter(r => !r.entregador).length;
+  const semCusto = rows.filter(r => r.entregador && r.custo_entregador === null).length;
+  const grupos = {};
+  rows.filter(r => r.entregador).forEach(r => {
+    const chave = r.entregador + '|' + r.data_local + '|' + (r.turno || '—');
+    const g = grupos[chave] || (grupos[chave] = {
+      entregador: r.entregador, tipo: r.entregador_tipo, data: r.data_local,
+      turno: r.turno || '—', n: 0, ganho: 0, ini: null, fim: null });
+    g.n += 1;
+    g.ganho += Number(r.custo_entregador) || 0;
+    if (r.inicio_corrida && r.entrega) {
+      const a = new Date(r.inicio_corrida).getTime(), b = new Date(r.entrega).getTime();
+      if (g.ini === null || a < g.ini) g.ini = a;
+      if (g.fim === null || b > g.fim) g.fim = b;
+    }
+  });
+  let turnosSemHora = 0, turnosSemSentido = 0;
+  const lista = Object.values(grupos);
+  lista.forEach(g => {
+    g.horas = (g.ini !== null && g.fim !== null) ? (g.fim - g.ini) / 36e5 : null;
+    if (g.horas === null) turnosSemHora += 1;
+    else if (g.horas < 0 || g.horas > LOGFIN_HORAS_MAX) { turnosSemSentido += 1; g.horas = null; }
+    // A regra do pagamento, turno a turno: o maior entre corridas e piso.
+    g.complemento = g.horas === null ? 0 : Math.max(0, LOGFIN_PISO_HORA * g.horas - g.ganho);
+    g.pago = g.ganho + g.complemento;
+  });
+
+  const soma = (arr, f) => arr.reduce((s, x) => s + f(x), 0);
+  const entregas = rows.length;
+  const dias = new Set(rows.map(r => r.data_local)).size;
+  const corridas = soma(rows, r => Number(r.custo_entregador) || 0);
+  const complemento = soma(lista, g => g.complemento);
+  const custoTotal = corridas + complemento;
+  const taxas = soma(rows, r => Number(r.taxa_entrega) || 0);
+
+  // metricas de horas SEMPRE so sobre os turnos que tem hora valida —
+  // misturar quem nao tem horario deixaria o R$/hora inconferivel.
+  const resumoHoras = (gs) => {
+    const ok = gs.filter(g => g.horas !== null);
+    const horas = soma(ok, g => g.horas);
+    return {
+      horas: ok.length ? horas : null,
+      entregasHora: horas > 0 ? soma(ok, g => g.n) / horas : null,
+      reaisHora: horas > 0 ? soma(ok, g => g.pago) / horas : null,
+    };
+  };
+
+  const ORDEM_TURNO = ['ALMOÇO', 'CAFÉ DA TARDE', 'JANTAR', 'MADRUGADA', '—'];
+  const turnos = [...new Set(lista.map(g => g.turno))]
+    .sort((a, b) => ORDEM_TURNO.indexOf(a) - ORDEM_TURNO.indexOf(b));
+
+  const linhaTurno = (rotulo, gs) => {
+    const n = soma(gs, g => g.n), ganho = soma(gs, g => g.ganho), comp = soma(gs, g => g.complemento);
+    const h = resumoHoras(gs);
+    return `<tr><td>${rotulo}</td><td>${n.toLocaleString('pt-BR')}</td>
+      <td>R$ ${fmt(ganho)}</td><td>R$ ${fmt(n ? ganho / n : 0)}</td>
+      <td>${h.horas === null ? '—' : n1(h.horas) + ' h'}</td>
+      <td>${h.entregasHora === null ? '—' : n1(h.entregasHora)}</td>
+      <td>${h.reaisHora === null ? '—' : 'R$ ' + fmt(h.reaisHora)}</td>
+      <td>${comp > 0 ? 'R$ ' + fmt(comp) : '—'}</td></tr>`;
+  };
+
+  // por entregador: a tabela e a conta de pagamento, entao TODO MUNDO
+  // aparece (sem corte de minimo de entregas — dinheiro tem que fechar).
+  const porEntregador = {};
+  lista.forEach(g => (porEntregador[g.entregador] = porEntregador[g.entregador] || []).push(g));
+  const entregadores = Object.entries(porEntregador).map(([nome, gs]) => {
+    const h = resumoHoras(gs);
+    return { nome, tipo: gs[0].tipo, turnos: gs.length,
+             dias: new Set(gs.map(g => g.data)).size,
+             n: soma(gs, g => g.n), ganho: soma(gs, g => g.ganho),
+             comp: soma(gs, g => g.complemento), h };
+  }).sort((a, b) => b.n - a.n);
+
+  // evolucao semanal (semana seg–dom, mesma convencao do resto do painel)
+  const segundaDe = (s) => { const d = new Date(s + 'T00:00:00'); d.setDate(d.getDate() - (d.getDay() + 6) % 7); return d.toISOString().slice(0, 10); };
+  const semanas = {};
+  rows.forEach(r => {
+    const w = semanas[segundaDe(r.data_local)] || (semanas[segundaDe(r.data_local)] = { n: 0, ganho: 0, comp: 0 });
+    w.n += 1; w.ganho += Number(r.custo_entregador) || 0;
+  });
+  lista.forEach(g => { const w = semanas[segundaDe(g.data)]; if (w) w.comp += g.complemento; });
+  const chavesSemana = Object.keys(semanas).sort();
+
+  alvo.innerHTML = `
+  <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Financeiro da logística — entregas próprias, ${ddmm(LOGFIN.ini)} a ${ddmm(LOGFIN.fim)}</div>
+  <div class="contexto" style="border-color:#f5a623;"><b>Por enquanto, só ÁGUA VERDE</b> (fonte: Foody Delivery). A regra usada aqui é a combinada: o motoboy recebe <b>o maior entre as corridas e R$ ${LOGFIN_PISO_HORA} por hora</b>, turno a turno — a tarde parada entre almoço e jantar não conta como trabalhada. A hora é <b>estimada da primeira à última entrega do turno</b>, não é ponto batido; o complemento é a estimativa do painel para vigiar a conta, não substitui o acerto real.</div>
+
+  <div class="cards">
+    <div class="card"><div class="card-lbl">Entregas no período</div><div class="card-val">${entregas.toLocaleString('pt-BR')}</div><div class="card-pct">média de ${n1(dias ? entregas / dias : null)} por dia, em ${dias} dia(s) com entrega</div></div>
+    <div class="card neutral"><div class="card-lbl">Pago em corridas</div><div class="card-val">R$ ${fmt(corridas)}</div><div class="card-pct">média de R$ ${fmt(entregas ? corridas / entregas : 0)} por entrega</div></div>
+    <div class="card ${complemento > corridas * 0.05 ? 'neg' : 'neutral'}"><div class="card-lbl">Custo total estimado</div><div class="card-val">R$ ${fmt(custoTotal)}</div><div class="card-pct">corridas + R$ ${fmt(complemento)} de complemento do piso de R$ ${LOGFIN_PISO_HORA}/h</div></div>
+    <div class="card neutral"><div class="card-lbl">Custo ÷ taxa registrada</div><div class="card-val">${pctTxt(custoTotal, taxas)}</div><div class="card-pct">as taxas de entrega registradas somam R$ ${fmt(taxas)}</div></div>
+  </div>
+  <div class="caption-label" style="text-align:center;">Corridas = soma do valor pago por entrega registrado no Foody. Complemento = quanto o piso de R$ ${LOGFIN_PISO_HORA}/hora paga além das corridas, calculado turno a turno.</div>
+
+  <div class="section-label">Por turno (janelas do iFood: almoço 10h–14h · café 15h–16h · jantar 17h–23h · madrugada 0h–1h)</div>
+  <div id="tabelaLogfinTurno"><table>
+    <tr><th></th><th>Entregas</th><th>Corridas</th><th>R$ por entrega</th><th>Horas estimadas</th><th>Entregas por hora</th><th>R$ por hora</th><th>Complemento</th></tr>
+    ${turnos.map(t => linhaTurno(t === '—' ? '— (fora das faixas)' : t, lista.filter(g => g.turno === t))).join('')}
+  </table></div>
+
+  <div class="section-label">Por entregador — a conta de cada um (maior volume primeiro)</div>
+  <div id="tabelaLogfinEntregador"><table>
+    <tr><th>Entregador</th><th>Tipo</th><th>Dias</th><th>Turnos</th><th>Entregas</th><th>Corridas</th><th>Complemento</th><th>Total</th><th>Horas</th><th>Entregas/h</th><th>R$/h</th></tr>
+    ${entregadores.map(e => `<tr><td>${e.nome}</td><td>${e.tipo === 'internal' ? 'próprio' : e.tipo === 'external' ? 'externo' : '—'}</td>
+      <td>${e.dias}</td><td>${e.turnos}</td><td>${e.n.toLocaleString('pt-BR')}</td>
+      <td>R$ ${fmt(e.ganho)}</td><td>${e.comp > 0 ? 'R$ ' + fmt(e.comp) : '—'}</td><td><b>R$ ${fmt(e.ganho + e.comp)}</b></td>
+      <td>${e.h.horas === null ? '—' : n1(e.h.horas)}</td>
+      <td>${e.h.entregasHora === null ? '—' : n1(e.h.entregasHora)}</td>
+      <td>${e.h.reaisHora === null ? '—' : 'R$ ' + fmt(e.h.reaisHora)}</td></tr>`).join('')}
+  </table></div>
+  <div class="caption-label" style="text-align:center;">R$/h perto de R$ ${fmt(LOGFIN_PISO_HORA)} = o piso é quem está pagando essa pessoa. Horas, entregas/h e R$/h contam só os turnos com horário confiável.</div>
+
+  <div class="section-label">Semana a semana (seg–dom)</div>
+  <div id="tabelaLogfinSemana"><table>
+    <tr><th>Semana</th><th>Entregas</th><th>Corridas</th><th>Complemento</th><th>Custo total</th><th>Custo por entrega</th></tr>
+    ${chavesSemana.map(w => { const s = semanas[w]; const tot = s.ganho + s.comp;
+      return `<tr><td>${ddmm(w)}</td><td>${s.n.toLocaleString('pt-BR')}</td><td>R$ ${fmt(s.ganho)}</td>
+        <td>${s.comp > 0 ? 'R$ ' + fmt(s.comp) : '—'}</td><td>R$ ${fmt(tot)}</td><td>R$ ${fmt(s.n ? tot / s.n : 0)}</td></tr>`; }).join('')}
+  </table></div>
+
+  <div class="section-label">Qualidade do apontamento — o quanto dá pra confiar nessa conta</div>
+  <div class="contexto">Entregas sem entregador apontado: <b>${pctTxt(semEntregador, entregas)}</b> (${semEntregador}) — o valor das corridas delas entra no total, mas ficam fora da conta por pessoa.
+  ${semCusto ? ` · Entregas sem valor de corrida registrado: <b>${semCusto}</b>.` : ''}
+  · Turnos sem horário confiável: <b>${turnosSemHora + turnosSemSentido}</b> de ${lista.length} (${turnosSemHora} sem horário, ${turnosSemSentido} com hora sem sentido — mais de ${LOGFIN_HORAS_MAX}h no turno) — ficam fora das horas e do complemento.
+  <br>Turno com uma entrega só tem "hora" do tamanho daquela corrida — o piso quase não aparece nele. É o limite conhecido da régua primeira→última entrega; ponto batido de verdade resolveria.</div>`;
+}
+
+// ------------------------------------------------------------------
 // MODULO VISAO CONSOLIDADA (12/08/2026). Primeira tela onde o iFood e
 // visto AO LADO dos outros canais (salao, balcao, site) — fonte Saipos,
 // via vw_consolidado_diario (dia x canal; a tabela crua tem 82 mil
@@ -5279,6 +5461,7 @@ function renderAll() {
   if (ativo === 'qualidade' && QUALIDADE !== null) renderModuloQualidade();
   if (ativo === 'consolidada' && CONSOLIDADO !== null) renderModuloConsolidada();
   if (ativo === 'atrasos' && ATRASOS !== null) renderModuloAtrasos();
+  if (ativo === 'logfin' && LOGFIN !== null) renderModuloLogfin();
   if (ativo === 'negociacoes' && NEGOCIACOES !== null) renderModuloNegociacoes();
   if (ativo === 'avaliacoes' && AVALIACOES !== null) renderModuloAvaliacoes();
   if (ativo === 'vendas' && VENDAS_REDE !== null) renderModuloVendas();
