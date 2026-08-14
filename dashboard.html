@@ -3476,15 +3476,26 @@ function renderModuloAtrasos() {
 const LOGFIN_PISO_HORA = 20;  // R$ por hora trabalhada (minimo garantido)
 const LOGFIN_HORAS_MAX = 12;  // turno acima disso e apontamento sem sentido
 let LOGFIN = null; // { ini, fim, rows } — cache da janela buscada
-const LOGFIN_DIARIA = 50; // decisao do dono (14/08/2026): a diaria e fixa em R$50
+let LOGFIN_DIARIA = 50;   // diaria por turno de escala — padrao R$50, editavel
 let LOGFIN_SIM = {};      // taxa nova por taxa atual, editada na tela
+let LOGFIN_TAXAS_TELA = {}; // ultimo valor mostrado de cada taxa (p/ congelar)
 
 function logfinTaxa(atual, v) {
   const num = Number(String(v).replace(',', '.'));
   if (!isNaN(num) && num >= 0) LOGFIN_SIM[atual] = num;
   renderModuloLogfin();
 }
-function logfinSimReset() { LOGFIN_SIM = {}; renderModuloLogfin(); }
+function logfinDiaria(v) {
+  const num = Number(String(v).replace(',', '.'));
+  if (isNaN(num) || num < 0) return;
+  // congela as taxas que estao na tela: mexer na diaria deve mexer SO na
+  // linha das diarias (senao o proporcional recalcula por baixo e o total
+  // quase nao se move — confuso de conferir)
+  Object.entries(LOGFIN_TAXAS_TELA).forEach(([k, t]) => { if (LOGFIN_SIM[k] === undefined) LOGFIN_SIM[k] = t; });
+  LOGFIN_DIARIA = num;
+  renderModuloLogfin();
+}
+function logfinSimReset() { LOGFIN_SIM = {}; LOGFIN_DIARIA = 50; renderModuloLogfin(); }
 
 async function entrarLogfin() {
   const alvo = document.getElementById('view-logfin');
@@ -3643,6 +3654,7 @@ function renderModuloLogfin() {
     const chave = t.v.toFixed(2);
     t.nova = LOGFIN_SIM[chave] !== undefined ? LOGFIN_SIM[chave] : Math.round(t.v * simFator * 4) / 4;
     t.chave = chave;
+    LOGFIN_TAXAS_TELA[chave] = t.nova;
   });
   const simCorridas = taxasTabela.reduce((s, t) => s + t.nova * t.n, 0) + outrosSoma;
   const simCustoNovo = simDiarias + simCorridas;
@@ -3689,9 +3701,9 @@ function renderModuloLogfin() {
         <td>${s.comp > 0 ? 'R$ ' + fmt(s.comp) : '—'}</td><td>R$ ${fmt(tot)}</td><td>R$ ${fmt(s.n ? tot / s.n : 0)}</td></tr>`; }).join('')}
   </table></div>
 
-  <div class="section-label">Simulação — diária de R$ ${LOGFIN_DIARIA} por turno + taxa por corrida editável</div>
-  <div class="contexto">A diária é <b>fixa em R$ ${LOGFIN_DIARIA} por turno de escala</b> (dia = almoço+café, noite = jantar+madrugada — a janela do iFood não vale como turno, senão a diária contaria duas vezes). No período foram <b>${turnosReais} turnos</b> = R$ ${fmt(simDiarias)} de diárias. <b>Edite a coluna "Taxa nova"</b> e veja na hora quanto o custo muda e quanto o motoboy passa a levar por turno. As taxas começam no reajuste proporcional que empata com o custo de hoje.
-  <button class="preset-btn" onclick="logfinSimReset()" style="margin-left:8px;">voltar à proporcional</button></div>
+  <div class="section-label">Simulação — diária por turno + taxa por corrida, tudo editável</div>
+  <div class="contexto">Cada motoboy ganha uma <b>diária por turno de escala</b> (dia = almoço+café, noite = jantar+madrugada — a janela do iFood não vale como turno, senão a diária contaria duas vezes) mais a taxa por corrida. No período foram <b>${turnosReais} turnos</b>. <b>Edite a coluna "Taxa nova" e a diária na última linha</b> e veja na hora quanto o custo muda e quanto o motoboy passa a levar. As taxas começam no reajuste proporcional que, com diária de R$ 50, empata com o custo de hoje.
+  <button class="preset-btn" onclick="logfinSimReset()" style="margin-left:8px;">voltar ao padrão (diária 50 + proporcional)</button></div>
   <div id="tabelaLogfinSim"><table>
     <tr><th>Taxa de hoje</th><th>Corridas no período</th><th>Taxa nova</th><th>Corridas com a nova</th><th>Frete do cliente abate (&gt;3 km)</th><th>Custo líquido da faixa</th></tr>
     ${taxasTabela.map(t => `<tr><td>R$ ${fmt(t.v)}</td><td>${t.n.toLocaleString('pt-BR')}</td>
@@ -3700,6 +3712,9 @@ function renderModuloLogfin() {
       <td>${t.abate3 > 0 ? '− R$ ' + fmt(t.abate3) : '—'}</td>
       <td><b>${t.nova * t.n - t.abate3 < 0 ? 'sobra R$ ' + fmt(t.abate3 - t.nova * t.n) : 'R$ ' + fmt(t.nova * t.n - t.abate3)}</b></td></tr>`).join('')}
     ${outrosN ? `<tr><td>outros valores</td><td>${outrosN.toLocaleString('pt-BR')}</td><td>como estão</td><td>R$ ${fmt(outrosSoma)}</td><td>${outrosAbate > 0 ? '− R$ ' + fmt(outrosAbate) : '—'}</td><td>${outrosSoma - outrosAbate < 0 ? 'sobra R$ ' + fmt(outrosAbate - outrosSoma) : 'R$ ' + fmt(outrosSoma - outrosAbate)}</td></tr>` : ''}
+    <tr><td><b>Diárias</b></td><td>${turnosReais.toLocaleString('pt-BR')} turnos</td>
+      <td>R$ <input type="number" value="${LOGFIN_DIARIA.toFixed(2)}" min="0" step="5" style="width:75px; font-size:14px;" onchange="logfinDiaria(this.value)"></td>
+      <td>R$ ${fmt(simDiarias)}</td><td>—</td><td>R$ ${fmt(simDiarias)}</td></tr>
     <tr><td><b>Total simulado</b></td><td>${entregas.toLocaleString('pt-BR')}</td><td>diárias + corridas</td><td>R$ ${fmt(simCustoNovo)}</td><td>${abate > 0 ? '− R$ ' + fmt(abate) : '—'}</td><td><b>R$ ${fmt(simCustoNovo - abate)}</b></td></tr>
   </table></div>
   <div class="cards">
