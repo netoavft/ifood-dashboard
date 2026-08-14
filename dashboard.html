@@ -3492,7 +3492,7 @@ async function entrarLogfin() {
   const ini = fDataIni.value, fim = fDataFim.value;
   if (!LOGFIN || LOGFIN.ini !== ini || LOGFIN.fim !== fim) {
     alvo.innerHTML = '<div class="contexto">Carregando as entregas do período...</div>';
-    const rows = await consultarTudo(`vw_foody_financeiro_min?select=data_local,turno,entregador,entregador_tipo,inicio_corrida,entrega,custo_entregador,taxa_entrega&data_local=gte.${ini}&data_local=lte.${fim}&order=data_local`);
+    const rows = await consultarTudo(`vw_foody_financeiro_min?select=data_local,turno,entregador,entregador_tipo,inicio_corrida,entrega,custo_entregador,taxa_entrega,dist_km&data_local=gte.${ini}&data_local=lte.${fim}&order=data_local`);
     LOGFIN = { ini, fim, rows };
   }
   renderModuloLogfin();
@@ -3550,7 +3550,13 @@ function renderModuloLogfin() {
   const corridas = soma(rows, r => Number(r.custo_entregador) || 0);
   const complemento = soma(lista, g => g.complemento);
   const custoTotal = corridas + complemento;
-  const taxas = soma(rows, r => Number(r.taxa_entrega) || 0);
+  // Regra do dono (14/08/2026): o frete cobrado do cliente ACIMA de 3 km
+  // abate o custo da logistica — ate 3 km o frete e subsidiado na promo
+  // (verba contada no modulo de promocoes, nao aqui). O frete dessas
+  // corridas vem cheio na taxa_entrega do Foody.
+  const acima3 = rows.filter(r => Number(r.dist_km) > 3);
+  const abate = soma(acima3, r => Number(r.taxa_entrega) || 0);
+  const custoLiquido = custoTotal - abate;
 
   // metricas de horas SEMPRE so sobre os turnos que tem hora valida —
   // misturar quem nao tem horario deixaria o R$/hora inconferivel.
@@ -3649,9 +3655,9 @@ function renderModuloLogfin() {
     <div class="card"><div class="card-lbl">Entregas no período</div><div class="card-val">${entregas.toLocaleString('pt-BR')}</div><div class="card-pct">média de ${n1(dias ? entregas / dias : null)} por dia, em ${dias} dia(s) com entrega</div></div>
     <div class="card neutral"><div class="card-lbl">Pago em corridas</div><div class="card-val">R$ ${fmt(corridas)}</div><div class="card-pct">média de R$ ${fmt(entregas ? corridas / entregas : 0)} por entrega</div></div>
     <div class="card ${complemento > corridas * 0.05 ? 'neg' : 'neutral'}"><div class="card-lbl">Custo total estimado</div><div class="card-val">R$ ${fmt(custoTotal)}</div><div class="card-pct">corridas + R$ ${fmt(complemento)} de complemento do piso de R$ ${LOGFIN_PISO_HORA}/h</div></div>
-    <div class="card neutral"><div class="card-lbl">Custo ÷ taxa registrada</div><div class="card-val">${pctTxt(custoTotal, taxas)}</div><div class="card-pct">as taxas de entrega registradas somam R$ ${fmt(taxas)}</div></div>
+    <div class="card pos"><div class="card-lbl">Custo líquido do frete</div><div class="card-val">R$ ${fmt(custoLiquido)}</div><div class="card-pct">o frete cobrado do cliente acima de 3 km (R$ ${fmt(abate)} em ${acima3.length.toLocaleString('pt-BR')} corridas) abate o custo</div></div>
   </div>
-  <div class="caption-label" style="text-align:center;">Corridas = soma do valor pago por entrega registrado no Foody. Complemento = quanto o piso de R$ ${LOGFIN_PISO_HORA}/hora paga além das corridas, calculado turno a turno.</div>
+  <div class="caption-label" style="text-align:center;">Corridas = soma do valor pago por entrega registrado no Foody. Complemento = quanto o piso de R$ ${LOGFIN_PISO_HORA}/hora paga além das corridas, calculado turno a turno. Até 3 km o frete do cliente é subsidiado na promoção (verba contada no módulo de promoções), por isso só o frete acima de 3 km abate aqui.</div>
 
   <div class="section-label">Por turno (janelas do iFood: almoço 10h–14h · café 15h–16h · jantar 17h–23h · madrugada 0h–1h)</div>
   <div id="tabelaLogfinTurno"><table>
@@ -3691,7 +3697,7 @@ function renderModuloLogfin() {
     <tr><td><b>Total simulado</b></td><td>${entregas.toLocaleString('pt-BR')}</td><td>diárias + corridas</td><td><b>R$ ${fmt(simCustoNovo)}</b></td></tr>
   </table></div>
   <div class="cards">
-    <div class="card ${simDelta > 0 ? 'neg' : 'pos'}"><div class="card-lbl">Custo simulado vs atual</div><div class="card-val">${simDelta >= 0 ? '+' : '−'} R$ ${fmt(Math.abs(simDelta))}</div><div class="card-pct">no período (custo atual R$ ${fmt(custoTotal)} → simulado R$ ${fmt(simCustoNovo)})${dias ? ' · em 30 dias, ≈ R$ ' + fmt(Math.abs(simDelta) / dias * 30) + (simDelta >= 0 ? ' a mais' : ' a menos') : ''}</div></div>
+    <div class="card ${simDelta > 0 ? 'neg' : 'pos'}"><div class="card-lbl">Custo simulado vs atual</div><div class="card-val">${simDelta >= 0 ? '+' : '−'} R$ ${fmt(Math.abs(simDelta))}</div><div class="card-pct">no período (custo atual R$ ${fmt(custoTotal)} → simulado R$ ${fmt(simCustoNovo)})${dias ? ' · em 30 dias, ≈ R$ ' + fmt(Math.abs(simDelta) / dias * 30) + (simDelta >= 0 ? ' a mais' : ' a menos') : ''} · líquido do frete acima de 3 km: R$ ${fmt(custoLiquido)} → R$ ${fmt(simCustoNovo - abate)}</div></div>
     <div class="card neutral"><div class="card-lbl">Turno médio do motoboy</div><div class="card-val">R$ ${fmt(turnoNovo)}</div><div class="card-pct">hoje o turno médio paga R$ ${fmt(turnoHoje)} (diária + corridas do turno)</div></div>
     <div class="card neutral"><div class="card-lbl">Mês cheio 6x1</div><div class="card-val">R$ ${fmt(turnoNovo * 26)}</div><div class="card-pct">26 turnos no ritmo médio · hoje seria R$ ${fmt(turnoHoje * 26)}</div></div>
   </div>
