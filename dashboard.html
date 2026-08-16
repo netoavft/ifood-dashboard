@@ -165,7 +165,25 @@
   div[id^="tabela"] th { background:#232321; color:#a5a49a; font-weight:bold; font-size:11px; text-transform:uppercase; }
   div[id^="tabela"] tr:nth-child(even) { background:#171716; }
   /* tabelas hierarquicas (blocos/grupos/linhas) pintam o fundo por conta propria */
-  #tabelaDFC tr, #tabelaDRE tr, #tabelaDespesas tr { background:transparent; }
+  #tabelaDFC tr, #tabelaDRE tr, #tabelaDespesas tr { background:transparent; --linha-fundo:var(--fundo-tabela, #111110); }
+
+  /* COLUNA FIXA EM TODA TABELA LARGA (padrao nascido no DFC/DRE, 16/08/2026).
+     O fundo da celula fixa vem de --linha-fundo, definida POR LINHA: zebra,
+     subtotal (sub) e fechamento (liq) redefinem a variavel e a celula fixa
+     acompanha a cor da propria linha sem guerra de especificidade.
+     --fundo-tabela e' medido em JS (encaixarTabela) porque algumas tabelas
+     vivem dentro de card e o fundo atras delas muda. A sombra na costura so
+     aparece quando a tabela de fato rola (classe .rolavel, posta pelo JS). */
+  div[id^="tabela"] tr, #extratoFin tr { --linha-fundo:var(--fundo-tabela, #111110); }
+  div[id^="tabela"] tr:nth-child(even) { --linha-fundo:#171716; }
+  div[id^="tabela"] tr.sub, #extratoFin tr.sub { --linha-fundo:#232321; }
+  div[id^="tabela"] tr.liq, #extratoFin tr.liq { --linha-fundo:#250f13; }
+  div[id^="tabela"] td:first-child, #extratoFin td:first-child { position:sticky; left:0; z-index:2; background:var(--linha-fundo, #111110); }
+  div[id^="tabela"] th:first-child, #extratoFin th:first-child { position:sticky; left:0; z-index:3; background:#232321; }
+  div[id^="tabela"].rolavel td:first-child, #extratoFin.rolavel td:first-child,
+  div[id^="tabela"].rolavel th:first-child, #extratoFin.rolavel th:first-child { box-shadow:6px 0 8px -6px rgba(0,0,0,.55); }
+  div[id^="tabela"], #extratoFin { scroll-snap-type:x proximity; }
+  div[id^="tabela"] tr:first-child th, #extratoFin tr:first-child th { scroll-snap-align:start; }
 
   /* linhas de fechamento (mesmo padrao do extrato financeiro) */
   div[id^="tabela"] tr.sub td { background:#232321; border-top:2px solid #45443f; }
@@ -216,12 +234,10 @@
      O fundo precisa ser opaco para o numero nao passar por baixo; linhas que
      pintam o proprio fundo (bloco/grupo/resultado/saldo) vencem por
      especificidade e mantem a cor delas. */
-  #tabelaDFC td:first-child, #tabelaDRE td:first-child { position:sticky; left:0; z-index:2; background:#111110; box-shadow:6px 0 8px -6px rgba(0,0,0,.55); width:230px; min-width:230px; max-width:230px; }
-  #tabelaDFC th:first-child, #tabelaDRE th:first-child { position:sticky; left:0; z-index:3; background:#232321; box-shadow:6px 0 8px -6px rgba(0,0,0,.55); width:230px; min-width:230px; max-width:230px; }
-  /* a rolagem encaixa coluna a coluna na borda da coluna fixa — sem mes cortado
-     no meio (proximity: so ajusta quando esta perto, nao briga com o dedo) */
-  #tabelaDFC, #tabelaDRE { scroll-snap-type:x proximity; scroll-padding-left:230px; }
-  #tabelaDFC tr:first-child th, #tabelaDRE tr:first-child th { scroll-snap-align:start; }
+  /* DFC/DRE: rotulos longos pedem largura travada na coluna fixa (as demais
+     tabelas usam a largura natural). Sticky/snap/sombra vem da regra geral. */
+  #tabelaDFC td:first-child, #tabelaDRE td:first-child,
+  #tabelaDFC th:first-child, #tabelaDRE th:first-child { width:230px; min-width:230px; max-width:230px; }
   /* leveza (16/08): numero negativo fica na cor da linha — o sinal de menos ja
      diz tudo, e numa demonstracao quase toda de saidas o vermelho em cada
      celula virava ruido. Vermelho e' EXCECAO: so prejuizo em linha de resultado. */
@@ -269,7 +285,7 @@
   #tabelaDespesas tr.dfc-linha td { color:#a5a49a; }
   #tabelaDespesas tr.dfc-linha td:first-child { padding-left:40px; }
   #tabelaDespesas tr.dfc-resultado td { background:#250f13; font-weight:bold; border-top:2px solid #c8102e; }
-  #tabelaDespesas tr.dfc-resultado td:first-child { color:#c8102e; }
+  #tabelaDespesas tr.dfc-resultado td:first-child { color:#fff; }
   #tabelaDespesas tr.clicavel { cursor:pointer; }
   #tabelaDespesas tr.clicavel:hover td:first-child { color:#c8102e; }
   #tabelaSaldos tr.dfc-linha td { color:#6e6d64; }
@@ -5026,24 +5042,52 @@ async function entrarFluxo() {
   renderModuloDFC();
 }
 
-// O fim da rolagem horizontal pina no limite do conteudo, e isso deixava um mes
-// cortado ao meio embaixo da coluna fixa. Este respiro a direita e' calculado para
-// o fim da rolagem cair exatamente numa borda de coluna. Recalculado a cada
-// render (abrir/fechar grupo muda as larguras) e quando a janela muda de tamanho.
-function encaixarColunaFixa(id) {
-  const div = document.getElementById(id);
-  const tabela = div && div.querySelector('table');
-  if (!tabela || !div.clientWidth) return;
+// COLUNA FIXA DAS TABELAS LARGAS — parte dinamica (a parte estatica e' o CSS
+// de div[id^="tabela"]). Para cada tabela visivel:
+// 1. mede o fundo real atras dela (--fundo-tabela): algumas vivem dentro de
+//    card e a celula fixa precisa ser opaca na cor certa;
+// 2. marca .rolavel se ha rolagem (liga a sombra da costura) e aponta o
+//    encaixe da rolagem (scroll-padding) para a borda da coluna fixa;
+// 3. calcula um respiro a direita para o FIM da rolagem cair exatamente numa
+//    borda de coluna — sem isso o limite fisico do scroll deixava uma coluna
+//    cortada ao meio embaixo da coluna fixa.
+// Recalculado apos cada render (observador de DOM: abrir grupo, trocar
+// periodo ou modulo muda as larguras) e quando a janela muda de tamanho.
+function encaixarTabela(div) {
+  const tabela = div.querySelector('table');
+  if (!tabela || !tabela.rows.length || !div.clientWidth) return;
+  let el = div, fundo = '#111110';
+  while (el) {
+    const b = getComputedStyle(el).backgroundColor;
+    if (b && b !== 'transparent' && !b.startsWith('rgba(0, 0, 0, 0')) { fundo = b; break; }
+    el = el.parentElement;
+  }
+  div.style.setProperty('--fundo-tabela', fundo);
   div.style.paddingRight = '0px';
   const maxScroll = div.scrollWidth - div.clientWidth;
+  div.classList.toggle('rolavel', maxScroll > 0);
   if (maxScroll <= 0) return;
   const fixa = tabela.rows[0].cells[0].getBoundingClientRect().width;
+  div.style.scrollPaddingLeft = fixa + 'px';
   const costura = maxScroll + fixa;   // onde a borda da coluna fixa cai no fim da rolagem
-  const borda = [...tabela.rows[0].cells].map(th => th.offsetLeft).find(x => x >= costura - 0.5);
+  const borda = [...tabela.rows[0].cells].map(c => c.offsetLeft).find(x => x >= costura - 0.5);
   const respiro = borda === undefined ? 0 : Math.ceil(borda - costura);
   if (respiro > 0 && respiro < 250) div.style.paddingRight = respiro + 'px';
 }
-window.addEventListener('resize', () => { encaixarColunaFixa('tabelaDFC'); encaixarColunaFixa('tabelaDRE'); });
+function encaixarColunaFixa(id) {   // atalho por id (DFC/DRE chamam direto no render)
+  const div = document.getElementById(id);
+  if (div) encaixarTabela(div);
+}
+function encaixarTodas() {
+  document.querySelectorAll('div[id^="tabela"], #extratoFin').forEach(d => { if (d.clientWidth) encaixarTabela(d); });
+}
+// so mudancas de ESTRUTURA (childList) disparam — mexer em style/classe nas
+// proprias tabelas e' mutacao de atributo e nao re-dispara (sem loop)
+new MutationObserver(() => {
+  clearTimeout(encaixarTodas._t);
+  encaixarTodas._t = setTimeout(encaixarTodas, 250);
+}).observe(document.body, { childList: true, subtree: true });
+window.addEventListener('resize', () => { clearTimeout(encaixarTodas._t); encaixarTodas._t = setTimeout(encaixarTodas, 150); });
 
 function dfcToggle(chave) {
   if (dfcAberto.has(chave)) dfcAberto.delete(chave); else dfcAberto.add(chave);
