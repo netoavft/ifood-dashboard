@@ -48,13 +48,21 @@
                         flex:1; text-align:center; }
 
   /* Tipografia da sidebar harmonizada (16/08/2026): os titulos de grupo em 9,5px
-     contra botoes de 13,5px pareciam duas fontes — agora e uma familia so. */
-  .sidebar-secao { color:#a5a49a; font-size:11px; font-weight:800; text-transform:uppercase;
-                   letter-spacing:.8px; padding:16px 24px 6px; cursor:pointer; user-select:none;
-                   display:flex; align-items:center; justify-content:space-between;
-                   background:none; border:none; width:100%; font-family:inherit; text-align:left; }
+     contra botoes de 13,5px pareciam duas fontes — agora e uma familia so.
+     Com varios grupos abertos o titulo se confundia com os itens (pedido do dono,
+     16/08 a noite): agora ele le como CABECALHO DE DIVISORIA — risco curto no
+     gradiente da marca (amarelo permitido: area de navegacao), linha separando
+     do grupo anterior, cor mais apagada e a seta encostada na direita. */
+  .sidebar-secao { color:#8a897e; font-size:11px; font-weight:800; text-transform:uppercase;
+                   letter-spacing:.8px; padding:14px 12px 6px; cursor:pointer; user-select:none;
+                   display:flex; align-items:center; gap:8px;
+                   background:none; border:none; border-top:1px solid #232321; margin-top:8px;
+                   width:100%; font-family:inherit; text-align:left; }
+  .sidebar-marca + .sidebar-secao { border-top:none; margin-top:0; }
+  .sidebar-secao::before { content:''; width:14px; height:3px; border-radius:2px; flex-shrink:0;
+                           background:linear-gradient(90deg,#f6c63e,#ee8a3c); opacity:.85; }
   .sidebar-secao:hover { color:#ffffff; }
-  .sidebar-secao .seta { font-size:8px; transition:transform .15s; }
+  .sidebar-secao .seta { font-size:8px; transition:transform .15s; margin-left:auto; }
   .sidebar-secao.aberto .seta { transform:rotate(90deg); }
   .sidebar-grupo { display:none; flex-direction:column; gap:2px; }
   .sidebar-grupo.aberto { display:flex; }
