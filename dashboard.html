@@ -3317,6 +3317,21 @@ function fmtMeta(meta) {
 // caixa de qualidade do apontamento mostra o quanto da nao confiar,
 // em vez de esconder. So Agua Verde por ora (mesmo limite do Saipos).
 let ATRASOS = null; // { ini, fim, rows } — cache da janela buscada
+// Desde 15/08/2026 o Foody cobre as 4 unidades — filtro proprio do modulo
+// (o filtro global de lojas e do iFood e nao se aplica aqui).
+let ATRASOS_UNIDADE = 'TODAS';
+function atrasosUnidade(u) { ATRASOS_UNIDADE = u; renderModuloAtrasos(); }
+
+// Chips de unidade dos modulos do Foody: derivadas do DADO da janela, nao
+// de lista fixa — loja sem entrega no periodo nem aparece.
+function chipsUnidadeFoody(rows, atual, fn) {
+  const unidades = [...new Set(rows.map(r => r.unidade))].sort();
+  if (unidades.length < 2) return '';
+  return '<div style="margin:6px 0;">' +
+    ['TODAS', ...unidades].map(u =>
+      `<button class="preset-btn ${atual === u ? 'active' : ''}" onclick="${fn}('${u}')">${u === 'TODAS' ? 'Todas' : u}</button>`
+    ).join('') + '</div>';
+}
 
 async function entrarAtrasos() {
   const alvo = document.getElementById('view-atrasos');
@@ -3324,7 +3339,7 @@ async function entrarAtrasos() {
   const ini = fDataIni.value, fim = fDataFim.value;
   if (!ATRASOS || ATRASOS.ini !== ini || ATRASOS.fim !== fim) {
     alvo.innerHTML = '<div class="contexto">Carregando as entregas do período...</div>';
-    const rows = await consultarTudo(`vw_foody_entregas_min?select=data_local,turno,dia_semana,entregador,entregador_tipo,atraso_min,preparo_min,bancada_min,rua_min,sem_pronto,pronto_com_despacho,sem_promessa,dist_km&data_local=gte.${ini}&data_local=lte.${fim}&order=data_local`);
+    const rows = await consultarTudo(`vw_foody_entregas_min?select=unidade,data_local,turno,dia_semana,entregador,entregador_tipo,atraso_min,preparo_min,bancada_min,rua_min,sem_pronto,pronto_com_despacho,sem_promessa,dist_km&data_local=gte.${ini}&data_local=lte.${fim}&order=data_local`);
     ATRASOS = { ini, fim, rows };
   }
   renderModuloAtrasos();
@@ -3344,7 +3359,8 @@ function renderModuloAtrasos() {
   if (!alvo || ATRASOS === null) return;
   // janela mudou depois da busca — rebusca em vez de mostrar dado velho
   if (ATRASOS.ini !== fDataIni.value || ATRASOS.fim !== fDataFim.value) { entrarAtrasos(); return; }
-  const rows = ATRASOS.rows;
+  const rows = ATRASOS.rows.filter(r => ATRASOS_UNIDADE === 'TODAS' || r.unidade === ATRASOS_UNIDADE);
+  const chips = chipsUnidadeFoody(ATRASOS.rows, ATRASOS_UNIDADE, 'atrasosUnidade');
   const ddmm = (v) => v ? v.slice(8, 10) + '/' + v.slice(5, 7) : '—';
   if (!rows.length) {
     alvo.innerHTML = `<div class="contexto">Sem entregas do Foody entre ${ddmm(ATRASOS.ini)} e ${ddmm(ATRASOS.fim)} — confira se o importador (import_foody.py) já cobriu esse período.</div>`;
@@ -3411,19 +3427,23 @@ function renderModuloAtrasos() {
   // crucificar ninguem por 2 pedidos ruins
   const porEntregador = {};
   rows.forEach(r => {
-    const nome = r.entregador || '(sem apontamento)';
-    (porEntregador[nome] = porEntregador[nome] || []).push(r);
+    // unidade na chave: com "Todas", um mesmo nome em duas lojas nao se mistura
+    const k = r.unidade + '|' + (r.entregador || '(sem apontamento)');
+    (porEntregador[k] = porEntregador[k] || []).push(r);
   });
-  const entregadores = Object.entries(porEntregador)
-    .filter(([, g]) => g.length >= 10)
-    .map(([nome, g]) => ({ nome, tipo: g[0].entregador_tipo || '—', g: resumo(g),
-                           dist: mediaDe(g.map(r => r.dist_km)) }))
+  const multiUnidade = new Set(rows.map(r => r.unidade)).size > 1;
+  const entregadores = Object.values(porEntregador)
+    .filter(g => g.length >= 10)
+    .map(g => ({ nome: (g[0].entregador || '(sem apontamento)') + (multiUnidade ? ' · ' + g[0].unidade : ''),
+                 tipo: g[0].entregador_tipo || '—', g: resumo(g),
+                 dist: mediaDe(g.map(r => r.dist_km)) }))
     .sort((a, b) => (b.g.medidos ? b.g.fora / b.g.medidos : 0) - (a.g.medidos ? a.g.fora / a.g.medidos : 0));
   const foraRanking = Object.values(porEntregador).filter(g => g.length < 10).length;
 
   alvo.innerHTML = `
-  <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Atrasos e turnos — entregas próprias, ${ddmm(ATRASOS.ini)} a ${ddmm(ATRASOS.fim)}</div>
-  <div class="contexto" style="border-color:#f5a623;"><b>Por enquanto, só ÁGUA VERDE</b> (fonte: Foody Delivery; as outras unidades entram quando as contas delas forem conectadas). O prazo usado aqui é <b>o horário prometido ao cliente no iFood</b>, não o prazo padrão de 60 min do Foody. E os tempos são apontados por pessoas — veja a caixa no fim da tela antes de tirar conclusão fina.</div>
+  <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Atrasos e turnos — entregas próprias${ATRASOS_UNIDADE !== 'TODAS' ? ' · ' + ATRASOS_UNIDADE : ''}, ${ddmm(ATRASOS.ini)} a ${ddmm(ATRASOS.fim)}</div>
+  ${chips}
+  <div class="contexto" style="border-color:#f5a623;">Fonte: Foody Delivery (logística própria das 4 unidades). O prazo usado aqui é <b>o horário prometido ao cliente no iFood</b>, não o prazo padrão de 60 min do Foody. E os tempos são apontados por pessoas — veja a caixa no fim da tela antes de tirar conclusão fina.</div>
 
   <div class="cards">
     <div class="card"><div class="card-lbl">Entregas no período</div><div class="card-val">${geral.n.toLocaleString('pt-BR')}</div><div class="card-pct">${geral.medidos.toLocaleString('pt-BR')} têm horário prometido para comparar</div></div>
@@ -3476,6 +3496,8 @@ function renderModuloAtrasos() {
 const LOGFIN_PISO_HORA = 20;  // R$ por hora trabalhada (minimo garantido)
 const LOGFIN_HORAS_MAX = 12;  // turno acima disso e apontamento sem sentido
 let LOGFIN = null; // { ini, fim, rows } — cache da janela buscada
+let LOGFIN_UNIDADE = 'TODAS'; // filtro proprio (Foody cobre as 4 unidades desde 15/08)
+function logfinUnidade(u) { LOGFIN_UNIDADE = u; renderModuloLogfin(); }
 let LOGFIN_DIARIA = 50;   // diaria por turno de escala — padrao R$50, editavel
 let LOGFIN_SIM = {};      // taxa nova por taxa atual, editada na tela
 let LOGFIN_TAXAS_TELA = {}; // ultimo valor mostrado de cada taxa (p/ congelar)
@@ -3503,7 +3525,7 @@ async function entrarLogfin() {
   const ini = fDataIni.value, fim = fDataFim.value;
   if (!LOGFIN || LOGFIN.ini !== ini || LOGFIN.fim !== fim) {
     alvo.innerHTML = '<div class="contexto">Carregando as entregas do período...</div>';
-    const rows = await consultarTudo(`vw_foody_financeiro_min?select=data_local,turno,entregador,entregador_tipo,inicio_corrida,entrega,custo_entregador,taxa_entrega,dist_km&data_local=gte.${ini}&data_local=lte.${fim}&order=data_local`);
+    const rows = await consultarTudo(`vw_foody_financeiro_min?select=unidade,data_local,turno,entregador,entregador_tipo,inicio_corrida,entrega,custo_entregador,taxa_entrega,dist_km&data_local=gte.${ini}&data_local=lte.${fim}&order=data_local`);
     LOGFIN = { ini, fim, rows };
   }
   renderModuloLogfin();
@@ -3514,7 +3536,8 @@ function renderModuloLogfin() {
   if (!alvo || LOGFIN === null) return;
   // janela mudou depois da busca — rebusca em vez de mostrar dado velho
   if (LOGFIN.ini !== fDataIni.value || LOGFIN.fim !== fDataFim.value) { entrarLogfin(); return; }
-  const rows = LOGFIN.rows;
+  const rows = LOGFIN.rows.filter(r => LOGFIN_UNIDADE === 'TODAS' || r.unidade === LOGFIN_UNIDADE);
+  const chips = chipsUnidadeFoody(LOGFIN.rows, LOGFIN_UNIDADE, 'logfinUnidade');
   const ddmm = (v) => v ? v.slice(8, 10) + '/' + v.slice(5, 7) : '—';
   if (!rows.length) {
     alvo.innerHTML = `<div class="contexto">Sem entregas do Foody entre ${ddmm(LOGFIN.ini)} e ${ddmm(LOGFIN.fim)} — confira se o importador (import_foody.py) já cobriu esse período.</div>`;
@@ -3532,10 +3555,12 @@ function renderModuloLogfin() {
   const semCusto = rows.filter(r => r.entregador && r.custo_entregador === null).length;
   const grupos = {};
   rows.filter(r => r.entregador).forEach(r => {
-    const chave = r.entregador + '|' + r.data_local + '|' + (r.turno || '—');
+    // unidade na chave: com "Todas" selecionado, um mesmo nome em duas
+    // lojas sao turnos (e pagamentos) separados
+    const chave = r.unidade + '|' + r.entregador + '|' + r.data_local + '|' + (r.turno || '—');
     const g = grupos[chave] || (grupos[chave] = {
-      entregador: r.entregador, tipo: r.entregador_tipo, data: r.data_local,
-      turno: r.turno || '—', n: 0, ganho: 0, ini: null, fim: null });
+      unidade: r.unidade, entregador: r.entregador, tipo: r.entregador_tipo,
+      data: r.data_local, turno: r.turno || '—', n: 0, ganho: 0, ini: null, fim: null });
     g.n += 1;
     g.ganho += Number(r.custo_entregador) || 0;
     if (r.inicio_corrida && r.entrega) {
@@ -3599,10 +3624,15 @@ function renderModuloLogfin() {
   // por entregador: a tabela e a conta de pagamento, entao TODO MUNDO
   // aparece (sem corte de minimo de entregas — dinheiro tem que fechar).
   const porEntregador = {};
-  lista.forEach(g => (porEntregador[g.entregador] = porEntregador[g.entregador] || []).push(g));
-  const entregadores = Object.entries(porEntregador).map(([nome, gs]) => {
+  lista.forEach(g => {
+    const k = g.unidade + '|' + g.entregador;
+    (porEntregador[k] = porEntregador[k] || []).push(g);
+  });
+  const multiUnidade = new Set(rows.map(r => r.unidade)).size > 1;
+  const entregadores = Object.values(porEntregador).map(gs => {
     const h = resumoHoras(gs);
-    return { nome, tipo: gs[0].tipo, turnos: gs.length,
+    return { nome: gs[0].entregador + (multiUnidade ? ' · ' + gs[0].unidade : ''),
+             tipo: gs[0].tipo, turnos: gs.length,
              dias: new Set(gs.map(g => g.data)).size,
              n: soma(gs, g => g.n), ganho: soma(gs, g => g.ganho),
              comp: soma(gs, g => g.complemento), h };
@@ -3624,7 +3654,7 @@ function renderModuloLogfin() {
   // roda 10h–16h atravessa almoco e cafe): almoco+cafe = DIA,
   // jantar+madrugada = NOITE — senao a diaria seria contada duas vezes.
   const TURNO_REAL = { 'ALMOÇO': 'DIA', 'CAFÉ DA TARDE': 'DIA', 'JANTAR': 'NOITE', 'MADRUGADA': 'NOITE' };
-  const turnosReais = new Set(lista.map(g => g.entregador + '|' + g.data + '|' + (TURNO_REAL[g.turno] || g.turno))).size;
+  const turnosReais = new Set(lista.map(g => g.unidade + '|' + g.entregador + '|' + g.data + '|' + (TURNO_REAL[g.turno] || g.turno))).size;
   const simDiarias = LOGFIN_DIARIA * turnosReais;
   // ponto de partida das taxas editaveis: o reajuste proporcional que
   // fecha no custo de hoje (arredondado ao quarto de real). Dali em
@@ -3664,8 +3694,9 @@ function renderModuloLogfin() {
   const turnoNovo = turnosReais ? simCustoNovo / turnosReais : 0;
 
   alvo.innerHTML = `
-  <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Financeiro da logística — entregas próprias, ${ddmm(LOGFIN.ini)} a ${ddmm(LOGFIN.fim)}</div>
-  <div class="contexto" style="border-color:#f5a623;"><b>Por enquanto, só ÁGUA VERDE</b> (fonte: Foody Delivery). A regra usada aqui é a combinada: o motoboy recebe <b>o maior entre as corridas e R$ ${LOGFIN_PISO_HORA} por hora</b>, turno a turno — a tarde parada entre almoço e jantar não conta como trabalhada. A hora é <b>estimada da primeira à última entrega do turno</b>, não é ponto batido; o complemento é a estimativa do painel para vigiar a conta, não substitui o acerto real.</div>
+  <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Financeiro da logística — entregas próprias${LOGFIN_UNIDADE !== 'TODAS' ? ' · ' + LOGFIN_UNIDADE : ''}, ${ddmm(LOGFIN.ini)} a ${ddmm(LOGFIN.fim)}</div>
+  ${chips}
+  <div class="contexto" style="border-color:#f5a623;">Fonte: Foody Delivery (logística própria das 4 unidades). A regra usada aqui é a combinada: o motoboy recebe <b>o maior entre as corridas e R$ ${LOGFIN_PISO_HORA} por hora</b>, turno a turno — a tarde parada entre almoço e jantar não conta como trabalhada. A hora é <b>estimada da primeira à última entrega do turno</b>, não é ponto batido; o complemento é a estimativa do painel para vigiar a conta, não substitui o acerto real.</div>
 
   <div class="cards">
     <div class="card"><div class="card-lbl">Entregas no período</div><div class="card-val">${entregas.toLocaleString('pt-BR')}</div><div class="card-pct">média de ${n1(dias ? entregas / dias : null)} por dia, em ${dias} dia(s) com entrega</div></div>
