@@ -5026,6 +5026,25 @@ async function entrarFluxo() {
   renderModuloDFC();
 }
 
+// O fim da rolagem horizontal pina no limite do conteudo, e isso deixava um mes
+// cortado ao meio embaixo da coluna fixa. Este respiro a direita e' calculado para
+// o fim da rolagem cair exatamente numa borda de coluna. Recalculado a cada
+// render (abrir/fechar grupo muda as larguras) e quando a janela muda de tamanho.
+function encaixarColunaFixa(id) {
+  const div = document.getElementById(id);
+  const tabela = div && div.querySelector('table');
+  if (!tabela || !div.clientWidth) return;
+  div.style.paddingRight = '0px';
+  const maxScroll = div.scrollWidth - div.clientWidth;
+  if (maxScroll <= 0) return;
+  const fixa = tabela.rows[0].cells[0].getBoundingClientRect().width;
+  const costura = maxScroll + fixa;   // onde a borda da coluna fixa cai no fim da rolagem
+  const borda = [...tabela.rows[0].cells].map(th => th.offsetLeft).find(x => x >= costura - 0.5);
+  const respiro = borda === undefined ? 0 : Math.ceil(borda - costura);
+  if (respiro > 0 && respiro < 250) div.style.paddingRight = respiro + 'px';
+}
+window.addEventListener('resize', () => { encaixarColunaFixa('tabelaDFC'); encaixarColunaFixa('tabelaDRE'); });
+
 function dfcToggle(chave) {
   if (dfcAberto.has(chave)) dfcAberto.delete(chave); else dfcAberto.add(chave);
   renderModuloDFC();
@@ -5300,6 +5319,7 @@ function renderModuloDFC() {
       plugins: [pluginRotulosBarra((i) => 'R$ ' + fmt(dados[i][1]))],
     });
   });
+  encaixarColunaFixa('tabelaDFC');
 }
 
 // ------------------------------------------------------------------
@@ -5665,6 +5685,7 @@ function renderModuloDRE() {
   Investimentos, retiradas e aportes ficam fora do resultado (são o destino do lucro).
   Linhas com meta mostram a referência embaixo do nome ("meta: até X% da receita"); a bolinha âmbar aparece
   a até 10% de distância da meta e a vermelha além disso — dentro da meta, nada pisca. Metas editáveis na tabela <b>fin_metas_dre</b>.</div>`;
+  encaixarColunaFixa('tabelaDRE');
 }
 
 // ------------------------------------------------------------------
