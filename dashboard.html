@@ -116,6 +116,9 @@
   .caption-label { color:#a5a49a; font-size:11px; margin:14px 0 12px 0; }
 
   .cards { display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:14px; margin-bottom:8px; }
+  /* 6 cards em 2 linhas de 3 (fechamento da DRE): sem card orfao sozinho na 2a linha */
+  .cards-3 { grid-template-columns:repeat(3, 1fr); }
+  @media (max-width: 700px) { .cards-3 { grid-template-columns:1fr; } }
   .card { background:#1a1a19; border:1px solid #34332f; border-radius:14px; padding:16px 18px; text-align:center; }
   .card-lbl { color:#8a897e; font-size:10.5px; text-transform:uppercase; letter-spacing:.5px; margin-bottom:8px; }
   .card-val { color:#ffffff; font-size:21px; font-weight:800; }
@@ -5823,7 +5826,7 @@ function renderModuloDRE() {
       const primeAnt = iA >= 0 && recLiq[iA] > 0.005 ? (custo[iA] + pessoal[iA]) / recLiq[iA] * 100 : null;
       fechHtml = `
       <div class="section-label">Fechamento de ${rotuloMes(meses[iF])} — último mês completo</div>
-      <div class="cards">
+      <div class="cards cards-3">
         <div class="card blue"><div class="card-lbl">Receita líquida</div><div class="card-val">R$ ${fmt(recLiq[iF])}</div>${varRS(recLiq)}</div>
         <div class="card"><div class="card-lbl">Margem de contribuição</div><div class="card-val">${pct(mcPct)}%</div>
           ${statusDe(mcPct, DRE_METAS && DRE_METAS.LUCRO_BRUTO)}${varPP(mcPct, mcAnt)}</div>
