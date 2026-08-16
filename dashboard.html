@@ -216,8 +216,12 @@
      O fundo precisa ser opaco para o numero nao passar por baixo; linhas que
      pintam o proprio fundo (bloco/grupo/resultado/saldo) vencem por
      especificidade e mantem a cor delas. */
-  #tabelaDFC td:first-child, #tabelaDRE td:first-child { position:sticky; left:0; z-index:2; background:#111110; box-shadow:6px 0 8px -6px rgba(0,0,0,.55); }
-  #tabelaDFC th:first-child, #tabelaDRE th:first-child { position:sticky; left:0; z-index:3; background:#232321; box-shadow:6px 0 8px -6px rgba(0,0,0,.55); }
+  #tabelaDFC td:first-child, #tabelaDRE td:first-child { position:sticky; left:0; z-index:2; background:#111110; box-shadow:6px 0 8px -6px rgba(0,0,0,.55); width:230px; min-width:230px; max-width:230px; }
+  #tabelaDFC th:first-child, #tabelaDRE th:first-child { position:sticky; left:0; z-index:3; background:#232321; box-shadow:6px 0 8px -6px rgba(0,0,0,.55); width:230px; min-width:230px; max-width:230px; }
+  /* a rolagem encaixa coluna a coluna na borda da coluna fixa — sem mes cortado
+     no meio (proximity: so ajusta quando esta perto, nao briga com o dedo) */
+  #tabelaDFC, #tabelaDRE { scroll-snap-type:x proximity; scroll-padding-left:230px; }
+  #tabelaDFC tr:first-child th, #tabelaDRE tr:first-child th { scroll-snap-align:start; }
   /* leveza (16/08): numero negativo fica na cor da linha — o sinal de menos ja
      diz tudo, e numa demonstracao quase toda de saidas o vermelho em cada
      celula virava ruido. Vermelho e' EXCECAO: so prejuizo em linha de resultado. */
@@ -5529,7 +5533,7 @@ function renderModuloDRE() {
       const cor = metaChave ? corFarol(metaChave, av) : null;
       const alerta = cor && cor !== '#3fb950';
       subs.push(`${alerta ? `<span class="dre-farol" style="background:${cor}"></span>` : ''}` +
-                `<span${alerta ? ` style="color:${cor}"` : ''}>AV ${pct(av)}%</span>`);
+                `<span${alerta ? ` style="color:${cor}"` : ''}>${pct(av)}% da receita</span>`);
     }
     if (vAnt !== null && Math.abs(vAnt) > 0.005) {
       const d = (v - vAnt) / Math.abs(vAnt) * 100;
@@ -5547,7 +5551,11 @@ function renderModuloDRE() {
       tds += celula(vals[i], recLiq[i], i > 0 ? vals[i - 1] : null, kind, metaChave);
     }
     tds += celula(totalJan(vals), recLiqTotJan, null, kind, metaChave);
-    return `<tr${attrs}><td>${seta}${label}</td>${tds}</tr>`;
+    // a meta de referencia mora no rotulo da linha (fica visivel mesmo rolando
+    // os meses) — nas celulas so aparece o farol quando ela e' estourada
+    const m = metaChave && DRE_METAS ? DRE_METAS[metaChave] : null;
+    const metaTxt = m ? `<div class="dre-sub">meta: ${m.sentido === 'abaixo' ? 'até' : ''} ${pct(m.meta)}%${m.sentido === 'abaixo' ? '' : ' ou mais'} da receita</div>` : '';
+    return `<tr${attrs}><td>${seta}${label}${metaTxt}</td>${tds}</tr>`;
   };
   const blocoSubtipos = (chave, pred, sinal, kind = null) => {
     if (!dreAberto.has(chave)) return '';
@@ -5655,7 +5663,8 @@ function renderModuloDRE() {
   A DRE inclui as contas a pagar já lançadas (competência), então o <b>mês corrente parece pior do que vai fechar</b>:
   as despesas do mês já estão quase todas lá, mas as vendas ainda estão acontecendo.
   Investimentos, retiradas e aportes ficam fora do resultado (são o destino do lucro).
-  Metas por linha na tabela <b>fin_metas_dre</b> (âmbar = até 10% de distância, vermelho = além; dentro da meta não há marcação).</div>`;
+  Linhas com meta mostram a referência embaixo do nome ("meta: até X% da receita"); a bolinha âmbar aparece
+  a até 10% de distância da meta e a vermelha além disso — dentro da meta, nada pisca. Metas editáveis na tabela <b>fin_metas_dre</b>.</div>`;
 }
 
 // ------------------------------------------------------------------
