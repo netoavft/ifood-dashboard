@@ -5184,19 +5184,22 @@ function renderModuloDFC() {
   const receitasTot = total(receitas);
   // % da receita junto do valor, so nas linhas de FLUXO (celRS, de saldo,
   // fica intacta: saldo e estoque, % da receita do mes nao significa nada).
-  const cel = (v, i) => {
+  // mostra=-1: linha de SAIDA exibe o numero com sinal de menos (pedido do dono,
+  // 16/08) — o calculo e o % continuam positivos, so a exibicao inverte
+  const cel = (v, i, mostra = 1) => {
     const base = i === 'tot' ? receitasTot : receitas[i];
     const p = base ? (v / base * 100) : null;
-    return `<td><div class="${v < -0.005 ? 'negativo' : ''}">${fmt(v)}</div>` +
+    const vM = v * mostra;
+    return `<td><div class="${vM < -0.005 ? 'negativo' : ''}">${fmt(vM)}</div>` +
            (p === null ? '' : `<div class="dre-sub">${pct(p)}%</div>`) + `</td>`;
   };
   const celRS = (v) => `<td class="${v < -0.005 ? 'negativo' : ''}">${fmt(v)}</td>`;
 
   // linha de fluxo: valores por mes + total (em R$ ou % da receita)
-  const linha = (classe, label, vals, chave = null) => {
+  const linha = (classe, label, vals, chave = null, mostra = 1) => {
     const seta = chave ? (dfcAberto.has(chave) ? '▼ ' : '▶ ') : '';
     const attrs = chave ? ` class="${classe} clicavel" onclick="dfcToggle('${chave}')"` : ` class="${classe}"`;
-    return `<tr${attrs}><td>${seta}${label}</td>${vals.map((v, i) => cel(v, i)).join('')}${cel(total(vals), 'tot')}</tr>`;
+    return `<tr${attrs}><td>${seta}${label}</td>${vals.map((v, i) => cel(v, i, mostra)).join('')}${cel(total(vals), 'tot', mostra)}</tr>`;
   };
   // linha de saldo: sempre em R$; coluna Total mostra o saldo na ponta do periodo
   const linhaSaldo = (classe, label, vals, chave = null, totalPonta = null) => {
@@ -5213,21 +5216,21 @@ function renderModuloDFC() {
     corpo += linhaSaldo('dfc-conta', c.conta, saldoIniConta[c.conta], null, saldoIniConta[c.conta][0]);
   });
 
-  // bloco expansivel de subtipos
+  // bloco expansivel de subtipos (saida herda o sinal de menos na exibicao)
   const blocoSubtipos = (chave, pred, sinal) => {
     if (!dfcAberto.has(chave)) return '';
     return subtiposDe(pred).map(s =>
-      linha('dfc-linha', s, somar(r => pred(r) && r.subtipo === s, sinal))
+      linha('dfc-linha', s, somar(r => pred(r) && r.subtipo === s, sinal), null, sinal < 0 ? -1 : 1)
     ).join('');
   };
 
   corpo += linha('dfc-bloco', 'RECEITAS', receitas, 'RECEITAS');
   corpo += blocoSubtipos('RECEITAS', r => r.natureza === 'RECEITAS', 1);
 
-  corpo += linha('dfc-bloco', '(−) DEDUÇÕES DA RECEITA', deducoes, 'DEDUCOES');
+  corpo += linha('dfc-bloco', '(−) DEDUÇÕES DA RECEITA', deducoes, 'DEDUCOES', -1);
   corpo += blocoSubtipos('DEDUCOES', r => r.natureza === 'DEDUÇOES DA RECEITA', -1);
 
-  corpo += linha('dfc-bloco', '(−) DESPESAS', despesas, 'DESPESAS');
+  corpo += linha('dfc-bloco', '(−) DESPESAS', despesas, 'DESPESAS', -1);
   if (dfcAberto.has('DESPESAS')) {
     const tiposDesp = [...new Set(DFC_MENSAL.filter(r => r.natureza === 'DESPESAS' && !ehInvest(r)).map(r => r.tipo))]
       .sort((a, b) => {
@@ -5236,18 +5239,18 @@ function renderModuloDFC() {
       });
     tiposDesp.forEach(t => {
       const predT = (r) => r.natureza === 'DESPESAS' && r.tipo === t;
-      corpo += linha('dfc-grupo', t, somar(predT, -1), 'DESP:' + t);
+      corpo += linha('dfc-grupo', t, somar(predT, -1), 'DESP:' + t, -1);
       corpo += blocoSubtipos('DESP:' + t, predT, -1);
     });
   }
 
   corpo += linha('dfc-resultado', '(=) RESULTADO OPERACIONAL', resultOper);
 
-  corpo += linha('dfc-bloco', '(−) INVESTIMENTOS', invest, 'INVEST');
+  corpo += linha('dfc-bloco', '(−) INVESTIMENTOS', invest, 'INVEST', -1);
   corpo += blocoSubtipos('INVEST', ehInvest, -1);
   corpo += linha('dfc-resultado', '(=) RESULTADO APÓS INVESTIMENTOS', resultInv);
 
-  corpo += linha('dfc-bloco', '(−) DISTRIBUIÇÃO DE LUCROS', retiradas, 'RETIRADAS');
+  corpo += linha('dfc-bloco', '(−) DISTRIBUIÇÃO DE LUCROS', retiradas, 'RETIRADAS', -1);
   corpo += blocoSubtipos('RETIRADAS', r => r.natureza === 'DISTRIBUICAO DE LUCROS', -1);
   corpo += linha('dfc-resultado', '(=) RESULTADO APÓS RETIRADAS', resultRet);
 
@@ -5648,7 +5651,10 @@ function renderModuloDRE() {
   // distancia, vermelho = alem) — dentro da meta, nada pisca (decisao do
   // usuario: a versao com verde/vermelho em toda celula ficou carnavalesca).
   const celula = (v, base, vAnt, kind, metaChave) => {
-    const valorHtml = `<div class="${v < -0.005 ? 'negativo' : ''}">${fmt(v)}</div>`;
+    // linha de saida mostra o numero com sinal de menos (pedido do dono, 16/08:
+    // "o olho le o numero, nao o titulo") — o % e o farol seguem positivos
+    const vMostra = kind === 'custo' ? -v : v;
+    const valorHtml = `<div class="${vMostra < -0.005 ? 'negativo' : ''}">${fmt(vMostra)}</div>`;
     const subs = [];
     if (base) {
       const av = v / base * 100;
@@ -5721,7 +5727,7 @@ function renderModuloDRE() {
   // e calculado aqui em cima do MESMO ebitda do painel, para nunca divergir.
   const benefVals = meses.map(m => DRE_BENEF ? (DRE_BENEF[m] || 0) : 0);
   if (benefVals.some(v => v > 0.005)) {
-    corpo += linha('dfc-linha', '(−) Benefício iFood embutido acima (comissão isenta)', benefVals.map(v => -v), { kind: 'custo' });
+    corpo += linha('dfc-linha', '(−) Benefício iFood embutido acima (comissão isenta)', benefVals, { kind: 'custo' });
     corpo += linha('dfc-resultado', '(=) RESULTADO RECORRENTE (pagando comissão cheia)', ebitda.map((v, i) => v - benefVals[i]), { kind: 'ganho' });
   }
 
@@ -5735,7 +5741,7 @@ function renderModuloDRE() {
   }
   if (irpj.some(v => Math.abs(v) > 0.005)) {
     corpo += linha('dfc-resultado', '(=) RESULTADO ANTES DO IMPOSTO DE RENDA', resultadoAntes, { kind: 'ganho' });
-    corpo += linha('dfc-linha', '(−) Imposto de renda (IRPJ)', irpj.map(v => -v), { kind: 'custo' });
+    corpo += linha('dfc-linha', '(−) Imposto de renda (IRPJ)', irpj, { kind: 'custo' });
   }
   corpo += linha('dfc-resultado', '(=) RESULTADO LÍQUIDO GERENCIAL', resultado, { kind: 'ganho', metaChave: 'RESULTADO' });
 
