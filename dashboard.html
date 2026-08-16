@@ -3333,6 +3333,17 @@ function chipsUnidadeFoody(rows, atual, fn) {
     ).join('') + '</div>';
 }
 
+// PERIMETRO nos modulos do Foody (15/08/2026, pedido do dono): Boqueirao e
+// gestao separada (futuramente da Loana) — em "Minha gestao" ele sai dos
+// totais e dos chips, igual ao Esta semana; em "Rede completa" entra. A
+// regra vem de dim_lojas.gestao via UNIDADES_PROPRIAS, nunca do codigo.
+function foodyNoPerimetro(rows) {
+  // UNIDADES_PROPRIAS vazia = boot (dim_lojas) ainda nao carregou — nao
+  // filtra nada em vez de derrubar o modulo inteiro
+  if (PERIMETRO === 'rede' || UNIDADES_PROPRIAS.size === 0) return rows;
+  return rows.filter(r => UNIDADES_PROPRIAS.has(r.unidade));
+}
+
 async function entrarAtrasos() {
   const alvo = document.getElementById('view-atrasos');
   if (!alvo) return;
@@ -3359,8 +3370,12 @@ function renderModuloAtrasos() {
   if (!alvo || ATRASOS === null) return;
   // janela mudou depois da busca — rebusca em vez de mostrar dado velho
   if (ATRASOS.ini !== fDataIni.value || ATRASOS.fim !== fDataFim.value) { entrarAtrasos(); return; }
-  const rows = ATRASOS.rows.filter(r => ATRASOS_UNIDADE === 'TODAS' || r.unidade === ATRASOS_UNIDADE);
-  const chips = chipsUnidadeFoody(ATRASOS.rows, ATRASOS_UNIDADE, 'atrasosUnidade');
+  const base = foodyNoPerimetro(ATRASOS.rows);
+  // unidade escolhida saiu do perimetro (ex.: BOQUEIRAO ao voltar p/ Minha
+  // gestao) — cai para Todas em vez de mostrar tela vazia
+  if (ATRASOS_UNIDADE !== 'TODAS' && !base.some(r => r.unidade === ATRASOS_UNIDADE)) ATRASOS_UNIDADE = 'TODAS';
+  const rows = base.filter(r => ATRASOS_UNIDADE === 'TODAS' || r.unidade === ATRASOS_UNIDADE);
+  const chips = chipsUnidadeFoody(base, ATRASOS_UNIDADE, 'atrasosUnidade');
   const ddmm = (v) => v ? v.slice(8, 10) + '/' + v.slice(5, 7) : '—';
   if (!rows.length) {
     alvo.innerHTML = `<div class="contexto">Sem entregas do Foody entre ${ddmm(ATRASOS.ini)} e ${ddmm(ATRASOS.fim)} — confira se o importador (import_foody.py) já cobriu esse período.</div>`;
@@ -3443,7 +3458,7 @@ function renderModuloAtrasos() {
   alvo.innerHTML = `
   <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Atrasos e turnos — entregas próprias${ATRASOS_UNIDADE !== 'TODAS' ? ' · ' + ATRASOS_UNIDADE : ''}, ${ddmm(ATRASOS.ini)} a ${ddmm(ATRASOS.fim)}</div>
   ${chips}
-  <div class="contexto" style="border-color:#f5a623;">Fonte: Foody Delivery (logística própria das 4 unidades). O prazo usado aqui é <b>o horário prometido ao cliente no iFood</b>, não o prazo padrão de 60 min do Foody. E os tempos são apontados por pessoas — veja a caixa no fim da tela antes de tirar conclusão fina.</div>
+  <div class="contexto" style="border-color:#f5a623;">Fonte: Foody Delivery (logística própria). ${PERIMETRO === 'rede' ? 'Visão Rede completa — <b>inclui Boqueirão, que é gestão separada</b> e tem tabela de corrida e fretes próprios.' : 'Visão Minha gestão — <b>Boqueirão (gestão separada) fica fora</b>; para vê-lo, troque para Rede completa lá em cima.'} O prazo usado aqui é <b>o horário prometido ao cliente no iFood</b>, não o prazo padrão de 60 min do Foody. E os tempos são apontados por pessoas — veja a caixa no fim da tela antes de tirar conclusão fina.</div>
 
   <div class="cards">
     <div class="card"><div class="card-lbl">Entregas no período</div><div class="card-val">${geral.n.toLocaleString('pt-BR')}</div><div class="card-pct">${geral.medidos.toLocaleString('pt-BR')} têm horário prometido para comparar</div></div>
@@ -3536,8 +3551,10 @@ function renderModuloLogfin() {
   if (!alvo || LOGFIN === null) return;
   // janela mudou depois da busca — rebusca em vez de mostrar dado velho
   if (LOGFIN.ini !== fDataIni.value || LOGFIN.fim !== fDataFim.value) { entrarLogfin(); return; }
-  const rows = LOGFIN.rows.filter(r => LOGFIN_UNIDADE === 'TODAS' || r.unidade === LOGFIN_UNIDADE);
-  const chips = chipsUnidadeFoody(LOGFIN.rows, LOGFIN_UNIDADE, 'logfinUnidade');
+  const base = foodyNoPerimetro(LOGFIN.rows);
+  if (LOGFIN_UNIDADE !== 'TODAS' && !base.some(r => r.unidade === LOGFIN_UNIDADE)) LOGFIN_UNIDADE = 'TODAS';
+  const rows = base.filter(r => LOGFIN_UNIDADE === 'TODAS' || r.unidade === LOGFIN_UNIDADE);
+  const chips = chipsUnidadeFoody(base, LOGFIN_UNIDADE, 'logfinUnidade');
   const ddmm = (v) => v ? v.slice(8, 10) + '/' + v.slice(5, 7) : '—';
   if (!rows.length) {
     alvo.innerHTML = `<div class="contexto">Sem entregas do Foody entre ${ddmm(LOGFIN.ini)} e ${ddmm(LOGFIN.fim)} — confira se o importador (import_foody.py) já cobriu esse período.</div>`;
@@ -3696,7 +3713,7 @@ function renderModuloLogfin() {
   alvo.innerHTML = `
   <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Financeiro da logística — entregas próprias${LOGFIN_UNIDADE !== 'TODAS' ? ' · ' + LOGFIN_UNIDADE : ''}, ${ddmm(LOGFIN.ini)} a ${ddmm(LOGFIN.fim)}</div>
   ${chips}
-  <div class="contexto" style="border-color:#f5a623;">Fonte: Foody Delivery (logística própria das 4 unidades). A regra usada aqui é a combinada: o motoboy recebe <b>o maior entre as corridas e R$ ${LOGFIN_PISO_HORA} por hora</b>, turno a turno — a tarde parada entre almoço e jantar não conta como trabalhada. A hora é <b>estimada da primeira à última entrega do turno</b>, não é ponto batido; o complemento é a estimativa do painel para vigiar a conta, não substitui o acerto real.</div>
+  <div class="contexto" style="border-color:#f5a623;">Fonte: Foody Delivery (logística própria). ${PERIMETRO === 'rede' ? 'Visão Rede completa — <b>inclui Boqueirão, que é gestão separada</b>, com tabela de corrida mais cara (7,50/9,00) e fretes próprios no iFood (quase sem abate).' : 'Visão Minha gestão — <b>Boqueirão (gestão separada) fica fora</b> dos totais e do simulador; para vê-lo, troque para Rede completa lá em cima.'} A regra usada aqui é a combinada: o motoboy recebe <b>o maior entre as corridas e R$ ${LOGFIN_PISO_HORA} por hora</b>, turno a turno — a tarde parada entre almoço e jantar não conta como trabalhada. A hora é <b>estimada da primeira à última entrega do turno</b>, não é ponto batido; o complemento é a estimativa do painel para vigiar a conta, não substitui o acerto real.</div>
 
   <div class="cards">
     <div class="card"><div class="card-lbl">Entregas no período</div><div class="card-val">${entregas.toLocaleString('pt-BR')}</div><div class="card-pct">média de ${n1(dias ? entregas / dias : null)} por dia, em ${dias} dia(s) com entrega</div></div>
