@@ -5407,11 +5407,13 @@ let DRE_FIN = null;      // vw_fin_dre_mensal: financeiro Saipos por COMPETENCIA
 let DRE_VENDAS = null;   // vw_vendas_canal_mensal: receita bruta por canal (PDV Saipos)
 
 // Agrupamento das funcoes da DRE -> tipos do plano de contas
+// Nomes e ordem da DRE classica (Lei 11.638), pedido do dono em 16/08/2026 —
+// so renomeia e realoca categorias existentes, nao cria nenhuma.
 const DRE_GRUPOS = [
-  ['CUSTO',   '(−) CUSTO (mercadoria + uso e consumo)', ['MATERIA PRIMA', 'USO E CONSUMO']],
-  ['PESSOAL', '(−) PESSOAL (inclui pró-labore)',        ['PESSOAL', 'PRO LABORE']],
-  ['VENDA',   '(−) DESPESAS DE VENDA (comercial, logística, marketing)', ['DESPESAS COMERCIAIS', 'DESPESAS LOGISTICA', 'DESPESAS MARKETING']],
-  ['ADMIN',   '(−) DESPESAS ADMINISTRATIVAS (adm, manutenção, impostos)', ['DESPESAS ADMINISTRATIVAS', 'DESPESAS MANUTENÇÃO', 'IMPOSTOS E TAXAS']],
+  ['CUSTO',   '(−) CMV — CUSTO DA MERCADORIA VENDIDA (insumos + uso e consumo)', ['MATERIA PRIMA', 'USO E CONSUMO']],
+  ['PESSOAL', '(−) DESPESAS COM PESSOAL (salários, encargos, pró-labore)',        ['PESSOAL', 'PRO LABORE']],
+  ['VENDA',   '(−) DESPESAS COM VENDAS (comercial, logística, marketing)', ['DESPESAS COMERCIAIS', 'DESPESAS LOGISTICA', 'DESPESAS MARKETING']],
+  ['ADMIN',   '(−) DESPESAS ADMINISTRATIVAS (aluguel, energia, manutenção, taxas)', ['DESPESAS ADMINISTRATIVAS', 'DESPESAS MANUTENÇÃO', 'IMPOSTOS E TAXAS']],
 ];
 
 // ---------------------------------------------------------------
@@ -5581,7 +5583,10 @@ function renderModuloDRE() {
   const taxasCanais = menos(recBruta, recPdvFin);
 
   const ehInvest = (r) => r.tipo === 'INVESTIMENTOS';
-  const deducoes = somar(r => r.natureza === 'DEDUÇOES DA RECEITA', -1);
+  // classico: IRPJ e' imposto sobre o LUCRO, nao sobre a venda — sai das
+  // deducoes e desce para logo antes do resultado liquido (Lei 11.638)
+  const deducoes = somar(r => r.natureza === 'DEDUÇOES DA RECEITA' && r.subtipo !== 'IRPJ', -1);
+  const irpj     = somar(r => r.natureza === 'DEDUÇOES DA RECEITA' && r.subtipo === 'IRPJ', -1);
   const recLiq   = meses.map((_, i) => recBruta[i] + outrasRec[i] - taxasCanais[i] - deducoes[i]);
   // base dos percentuais (AV, metas, fechamento) = receita BRUTA (vendas + outras
   // receitas), decisao do dono em 16/08: e' o numero que o operador conhece, o que
@@ -5602,7 +5607,8 @@ function renderModuloDRE() {
   const recFin  = somar(r => r.natureza === 'APLICAÇÕES' && r.subtipo === 'RENDIMENTOS');
   const resFin  = menos(recFin, despFin);
   const semClass = somar(r => r.natureza === 'SEM CLASSIFICACAO');
-  const resultado = ebitda.map((v, i) => v + resFin[i] + semClass[i]);
+  const resultadoAntes = ebitda.map((v, i) => v + resFin[i] + semClass[i]);
+  const resultado = resultadoAntes.map((v, i) => v - irpj[i]);
 
   // abaixo da linha (nao entram no resultado — sao destino do lucro, nao custo dele)
   const invest    = somar(r => ehInvest(r) || r.natureza === 'INVESTIMENTOS', -1);
@@ -5687,9 +5693,9 @@ function renderModuloDRE() {
   });
   corpo += linha('dfc-bloco', '(+) OUTRAS RECEITAS (revenda, filiais, aluguéis)', outrasRec, { chave: 'OUTREC', kind: 'ganho' });
   corpo += blocoSubtipos('OUTREC', r => r.natureza === 'RECEITAS' && !SUBT_PDV.includes(r.subtipo), 1, 'ganho');
-  corpo += linha('dfc-bloco', '(−) TAXAS DE CANAIS (vendas − recebido; comissões iFood etc.)', taxasCanais, { kind: 'custo' });
-  corpo += linha('dfc-bloco', '(−) DEDUÇÕES (impostos s/ venda, devoluções)', deducoes, { chave: 'DEDUC', kind: 'custo' });
-  corpo += blocoSubtipos('DEDUC', r => r.natureza === 'DEDUÇOES DA RECEITA', -1, 'custo');
+  corpo += linha('dfc-bloco', '(−) DEDUÇÕES E ABATIMENTOS (ICMS, devoluções)', deducoes, { chave: 'DEDUC', kind: 'custo' });
+  corpo += blocoSubtipos('DEDUC', r => r.natureza === 'DEDUÇOES DA RECEITA' && r.subtipo !== 'IRPJ', -1, 'custo');
+  corpo += linha('dfc-bloco', '(−) TAXAS DE CANAIS (comissões iFood e cartões)', taxasCanais, { kind: 'custo' });
   corpo += linha('dfc-resultado', '(=) RECEITA LÍQUIDA', recLiq, { kind: 'ganho' });
 
   gruposVals.forEach(([chave, rotulo, tipos, vals], gi) => {
@@ -5726,6 +5732,10 @@ function renderModuloDRE() {
   }
   if (semClass.some(v => Math.abs(v) > 0.005)) {
     corpo += linha('dfc-bloco', '(±) SEM CLASSIFICAÇÃO (revisar)', semClass);
+  }
+  if (irpj.some(v => Math.abs(v) > 0.005)) {
+    corpo += linha('dfc-resultado', '(=) RESULTADO ANTES DO IMPOSTO DE RENDA', resultadoAntes, { kind: 'ganho' });
+    corpo += linha('dfc-linha', '(−) Imposto de renda (IRPJ)', irpj.map(v => -v), { kind: 'custo' });
   }
   corpo += linha('dfc-resultado', '(=) RESULTADO LÍQUIDO GERENCIAL', resultado, { kind: 'ganho', metaChave: 'RESULTADO' });
 
@@ -5902,6 +5912,25 @@ function renderModuloDRE() {
     <b>${rotuloMes(cols[cols.length - 1])} está em curso:</b> as despesas do mês entram quase todas de uma vez
     (competência já lançada), mas as vendas ainda estão acontecendo — <b>o mês fecha melhor do que aparece aqui</b>.
     Compromissos já lançados para os próximos meses não entram nesta tabela: estão no <b>Fluxo projetado</b>.</div>` : ''}
+  <details class="detalhes-extra" style="margin-top:12px;">
+    <summary>📖 O que significa cada linha (guia rápido)</summary>
+    <div style="font-size:12.5px; color:#c3c2b7; line-height:1.8; margin-top:10px;">
+      <b>Receita bruta de vendas</b> — tudo que os clientes pagaram nos canais (iFood, salão, balcão, site), antes de qualquer desconto.<br>
+      <b>(+) Outras receitas</b> — o que entra fora do balcão: revenda para as filiais, atacado e aluguéis.<br>
+      <b>(−) Deduções e abatimentos</b> — impostos sobre a venda (ICMS) e devoluções: dinheiro que passa pela mão mas nunca foi nosso.<br>
+      <b>(−) Taxas de canais</b> — comissões do iFood e das máquinas de cartão.<br>
+      <b>(=) Receita líquida</b> — o que sobrou de verdade para pagar a operação.<br>
+      <b>(−) CMV</b> — custo da mercadoria vendida: insumos, uso e consumo da cozinha.<br>
+      <b>(=) Lucro bruto</b> — receita líquida menos mercadoria; daqui saem todas as outras contas.<br>
+      <b>(−) Despesas com pessoal</b> — salários, encargos, benefícios e pró-labore.<br>
+      <b>(−) Despesas com vendas</b> — o que gastamos para vender: comercial, entrega (motoboys) e marketing.<br>
+      <b>(−) Despesas administrativas</b> — o que mantém a casa aberta: aluguel, energia, manutenção, taxas.<br>
+      <b>(=) Resultado operacional (EBITDA)</b> — o que a operação gera sozinha, antes de banco e imposto sobre o lucro.<br>
+      <b>(±) Resultado financeiro</b> — rendimentos das aplicações menos juros e tarifas de banco.<br>
+      <b>(−) Imposto de renda (IRPJ)</b> — imposto sobre o LUCRO (o imposto sobre a venda ficou lá em cima, nas deduções).<br>
+      <b>(=) Resultado líquido</b> — o que sobrou no fim do mês: lucro ou prejuízo.
+    </div>
+  </details>
   <div id="tabelaDRE">
     <table>
       <tr><th></th>${cols.map(m => `<th>${rotuloMes(m)}${m.slice(0, 7) === mesAtual ? '<div class="th-emcurso">em curso</div>' : ''}</th>`).join('')}<th>Total</th></tr>
