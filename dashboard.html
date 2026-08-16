@@ -280,6 +280,10 @@
   #tabelaDRE tr.clicavel { cursor:pointer; }
   #tabelaDRE tr.clicavel:hover td:first-child { color:#c8102e; }
   .dre-sub { font-size:10px; color:#8a897e; white-space:nowrap; margin-top:2px; font-weight:normal; }
+  /* selo do mes corrente no cabecalho (DFC/DRE): numeros ainda em formacao */
+  .th-emcurso { font-size:9px; color:#8a897e; font-weight:normal; text-transform:none; letter-spacing:0; }
+  .preset-sel { background:#232321; color:#c3c2b7; border:1px solid #34332f; border-radius:8px;
+                padding:6px 8px; font-family:inherit; font-size:12.5px; cursor:pointer; }
   .dre-sub b { font-weight:600; }
   .dre-farol { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:3px; vertical-align:middle; }
 
@@ -1247,6 +1251,12 @@ function selecionarTodasUnidades() {
 // Calculo das metricas (identico a logica ja validada)
 // ------------------------------------------------------------------
 function fmt(v) { return (Math.abs(v) < 0.005 ? 0 : v).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2}); }
+// Mes corrente no fuso da operacao (America/Sao_Paulo, nunca UTC) como 'AAAA-MM'.
+// O banco guarda competencias FUTURAS (contas a pagar ja lancadas: alugueis,
+// parcelamentos) — em set e out/26 havia R$ 199 mil e R$ 44 mil de despesa com
+// receita ZERO, e a coluna parecia catastrofe (16/08/2026). DFC/DRE cortam a
+// EXIBICAO no mes corrente; o futuro tem casa propria, o Fluxo Projetado.
+function mesCorrenteSP() { return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date()).slice(0, 7); }
 // Mesmo arredondamento de fmt(): evita o "-0,0%" que aparecia quando o valor era zero mas o
 // calculo devolvia um negativo microscopico.
 function pct(v) { return (Math.abs(v) < 0.05 ? 0 : v).toLocaleString('pt-BR', {minimumFractionDigits:1, maximumFractionDigits:1}); }
@@ -5108,15 +5118,17 @@ function renderModuloDFC() {
     alvo.innerHTML = `<div class="contexto" style="border-color:#c8102e;">Sem lançamentos financeiros ainda.</div>`;
     return;
   }
-  const meses = [...new Set(DFC_MENSAL.map(r => r.mes))].sort();
+  const mesAtual = mesCorrenteSP();
+  const meses = [...new Set(DFC_MENSAL.map(r => r.mes))].sort().filter(m => m.slice(0, 7) <= mesAtual);
   const nM = meses.length;
   const idxMes = Object.fromEntries(meses.map((m, i) => [m, i]));
   const rotuloMes = (m) => { const [a, mm] = m.split('-'); return `${MESES_ABREV[Number(mm) - 1]}/${a.slice(2)}`; };
 
   // soma (credito-debito)*sinal por mes para as linhas que passam no predicado
+  // (o guard de idxMes ignora lancamentos de meses futuros, cortados acima)
   const somar = (pred, sinal = 1) => {
     const v = Array(nM).fill(0);
-    DFC_MENSAL.forEach(r => { if (pred(r)) v[idxMes[r.mes]] += (r.credito - r.debito) * sinal; });
+    DFC_MENSAL.forEach(r => { if (pred(r) && idxMes[r.mes] !== undefined) v[idxMes[r.mes]] += (r.credito - r.debito) * sinal; });
     return v;
   };
   const somaArr = (arrs) => arrs.reduce((acc, a) => acc.map((x, i) => x + a[i]), Array(nM).fill(0));
@@ -5151,7 +5163,7 @@ function renderModuloDFC() {
   const contas = [...DFC_CONTAS].sort((a, b) => (a.ordem || 99) - (b.ordem || 99));
   const movPorConta = {};
   contas.forEach(c => { movPorConta[c.conta] = Array(nM).fill(0); });
-  DFC_MOV.forEach(r => { if (movPorConta[r.conta]) movPorConta[r.conta][idxMes[r.mes]] += r.movimento; });
+  DFC_MOV.forEach(r => { if (movPorConta[r.conta] && idxMes[r.mes] !== undefined) movPorConta[r.conta][idxMes[r.mes]] += r.movimento; });
   const saldoIniConta = {}, saldoFimConta = {};
   contas.forEach(c => {
     let acum = c.saldo_inicial;
@@ -5303,7 +5315,7 @@ function renderModuloDFC() {
   <div style="height:300px; margin:14px 0;"><canvas id="chartFluxoEvolucao"></canvas></div>
   <div id="tabelaDFC">
     <table>
-      <tr><th></th>${meses.map(m => `<th>${rotuloMes(m)}</th>`).join('')}<th>Total</th></tr>
+      <tr><th></th>${meses.map(m => `<th>${rotuloMes(m)}${m.slice(0, 7) === mesAtual ? '<div class="th-emcurso">em curso</div>' : ''}</th>`).join('')}<th>Total</th></tr>
       ${corpo}
     </table>
   </div>
@@ -5384,7 +5396,8 @@ function renderModuloDFC() {
 // horizontal (AH, variacao vs mes anterior). As linhas estruturais tem
 // farol contra as metas de fin_metas_dre (editavel no banco, sem deploy).
 // ------------------------------------------------------------------
-let drePeriodo = 'ano';  // 'ano' | '6m' | '3m'
+let drePeriodo = 'ano';  // 'ano' | '6m' | '3m' | 'custom' (De/Ate escolhidos na tela)
+let dreDe = null, dreAte = null;  // janela personalizada (mes 'AAAA-MM-DD' da view)
 const dreAberto = new Set();
 let DRE_METAS = null;    // fin_metas_dre: chave -> {sentido, meta}
 let DRE_FIN = null;      // vw_fin_dre_mensal: financeiro Saipos por COMPETENCIA (desde jan/26)
@@ -5507,7 +5520,13 @@ function dreToggle(chave) {
   if (dreAberto.has(chave)) dreAberto.delete(chave); else dreAberto.add(chave);
   renderModuloDRE();
 }
-function drePeriodoSet(p) { drePeriodo = p; renderModuloDRE(); }
+function drePeriodoSet(p) { drePeriodo = p; dreDe = dreAte = null; renderModuloDRE(); }
+function dreRangeSet() {
+  dreDe = document.getElementById('dreSelDe').value;
+  dreAte = document.getElementById('dreSelAte').value;
+  drePeriodo = 'custom';
+  renderModuloDRE();
+}
 
 function renderModuloDRE() {
   const alvo = document.getElementById('view-dre');
@@ -5515,14 +5534,16 @@ function renderModuloDRE() {
     alvo.innerHTML = `<div class="contexto" style="border-color:#c8102e;">Sem lançamentos financeiros ainda.</div>`;
     return;
   }
-  const meses = [...new Set([...DRE_FIN.map(r => r.mes), ...DRE_VENDAS.map(r => r.mes)])].sort();
+  const mesAtual = mesCorrenteSP();
+  const meses = [...new Set([...DRE_FIN.map(r => r.mes), ...DRE_VENDAS.map(r => r.mes)])].sort()
+    .filter(m => m.slice(0, 7) <= mesAtual);
   const nM = meses.length;
   const idxMes = Object.fromEntries(meses.map((m, i) => [m, i]));
   const rotuloMes = (m) => { const [a, mm] = m.split('-'); return `${MESES_ABREV[Number(mm) - 1]}/${a.slice(2)}`; };
 
   const somar = (pred, sinal = 1) => {
     const v = Array(nM).fill(0);
-    DRE_FIN.forEach(r => { if (pred(r)) v[idxMes[r.mes]] += (r.credito - r.debito) * sinal; });
+    DRE_FIN.forEach(r => { if (pred(r) && idxMes[r.mes] !== undefined) v[idxMes[r.mes]] += (r.credito - r.debito) * sinal; });
     return v;
   };
   const menos = (a, b) => a.map((x, i) => x - b[i]);
@@ -5576,11 +5597,20 @@ function renderModuloDRE() {
 
   // ---- janela de exibicao (o calculo usa sempre a serie completa; so a
   // exibicao e' recortada — assim a AH do 1o mes visivel ainda compara
-  // com o mes anterior, mesmo oculto) ----
-  const nExib = drePeriodo === '3m' ? 3 : drePeriodo === '6m' ? 6 : nM;
-  const ini0 = Math.max(0, nM - nExib);
-  const cols = meses.slice(ini0);
-  const totalJan = (v) => v.slice(ini0).reduce((s, x) => s + x, 0);
+  // com o mes anterior, mesmo oculto). Presets sempre terminam no mes
+  // corrente; De/Ate permite qualquer janela (pedido do dono, 16/08). ----
+  let ini0, fim0 = nM - 1;
+  if (drePeriodo === 'custom' && dreDe && dreAte) {
+    let a = meses.indexOf(dreDe), b = meses.indexOf(dreAte);
+    if (a < 0) a = 0;
+    if (b < 0) b = nM - 1;
+    ini0 = Math.min(a, b); fim0 = Math.max(a, b);
+  } else {
+    const nExib = drePeriodo === '3m' ? 3 : drePeriodo === '6m' ? 6 : nM;
+    ini0 = Math.max(0, nM - nExib);
+  }
+  const cols = meses.slice(ini0, fim0 + 1);
+  const totalJan = (v) => v.slice(ini0, fim0 + 1).reduce((s, x) => s + x, 0);
   const recLiqTotJan = totalJan(recLiq);
 
   // farol da analise vertical contra a meta (fin_metas_dre)
@@ -5619,7 +5649,7 @@ function renderModuloDRE() {
     const seta = chave ? (dreAberto.has(chave) ? '▼ ' : '▶ ') : '';
     const attrs = chave ? ` class="${classe} clicavel" onclick="dreToggle('${chave}')"` : ` class="${classe}"`;
     let tds = '';
-    for (let i = ini0; i < nM; i++) {
+    for (let i = ini0; i <= fim0; i++) {
       tds += celula(vals[i], recLiq[i], i > 0 ? vals[i - 1] : null, kind, metaChave);
     }
     tds += celula(totalJan(vals), recLiqTotJan, null, kind, metaChave);
@@ -5717,14 +5747,26 @@ function renderModuloDRE() {
     <div class="card ${totalJan(resultado) >= 0 ? 'pos' : 'neg'}"><div class="card-lbl">Resultado líquido</div><div class="card-val">R$ ${fmt(totalJan(resultado))}</div>
       <div class="card-pct">${margem(resultado)}% da receita líquida</div></div>
   </div>
-  <div class="periodo-presets" style="margin-top:14px;">
+  <div class="periodo-presets" style="margin-top:14px; display:flex; align-items:center; flex-wrap:wrap; gap:8px;">
     <button class="preset-btn ${drePeriodo === 'ano' ? 'active' : ''}" onclick="drePeriodoSet('ano')">Ano completo</button>
     <button class="preset-btn ${drePeriodo === '6m' ? 'active' : ''}" onclick="drePeriodoSet('6m')">Últimos 6 meses</button>
     <button class="preset-btn ${drePeriodo === '3m' ? 'active' : ''}" onclick="drePeriodoSet('3m')">Últimos 3 meses</button>
+    <span style="color:#8a897e; font-size:12px;">ou escolha:</span>
+    <select id="dreSelDe" class="preset-sel" onchange="dreRangeSet()">
+      ${meses.map(m => `<option value="${m}" ${m === cols[0] ? 'selected' : ''}>${rotuloMes(m)}</option>`).join('')}
+    </select>
+    <span style="color:#8a897e; font-size:12px;">até</span>
+    <select id="dreSelAte" class="preset-sel" onchange="dreRangeSet()">
+      ${meses.map(m => `<option value="${m}" ${m === cols[cols.length - 1] ? 'selected' : ''}>${rotuloMes(m)}</option>`).join('')}
+    </select>
   </div>
+  ${cols[cols.length - 1] && cols[cols.length - 1].slice(0, 7) === mesAtual ? `<div class="contexto" style="margin-top:12px;">
+    <b>${rotuloMes(cols[cols.length - 1])} está em curso:</b> as despesas do mês entram quase todas de uma vez
+    (competência já lançada), mas as vendas ainda estão acontecendo — <b>o mês fecha melhor do que aparece aqui</b>.
+    Compromissos já lançados para os próximos meses não entram nesta tabela: estão no <b>Fluxo projetado</b>.</div>` : ''}
   <div id="tabelaDRE">
     <table>
-      <tr><th></th>${cols.map(m => `<th>${rotuloMes(m)}</th>`).join('')}<th>Total</th></tr>
+      <tr><th></th>${cols.map(m => `<th>${rotuloMes(m)}${m.slice(0, 7) === mesAtual ? '<div class="th-emcurso">em curso</div>' : ''}</th>`).join('')}<th>Total</th></tr>
       ${corpo}
     </table>
   </div>
@@ -5733,7 +5775,8 @@ function renderModuloDRE() {
   A linha "Taxas de canais" é estimada pela diferença entre o vendido no PDV e o efetivamente recebido —
   como o repasse do iFood é semanal, ela oscila um pouco entre meses vizinhos (no acumulado do ano é precisa).
   A DRE inclui as contas a pagar já lançadas (competência), então o <b>mês corrente parece pior do que vai fechar</b>:
-  as despesas do mês já estão quase todas lá, mas as vendas ainda estão acontecendo.
+  as despesas do mês já estão quase todas lá, mas as vendas ainda estão acontecendo (por isso o selo "em curso").
+  Meses futuros com compromissos já lançados ficam fora desta tabela — o lugar deles é o Fluxo projetado.
   Investimentos, retiradas e aportes ficam fora do resultado (são o destino do lucro).
   Linhas com meta mostram a referência embaixo do nome ("meta: até X% da receita"); a bolinha âmbar aparece
   a até 10% de distância da meta e a vermelha além disso — dentro da meta, nada pisca. Metas editáveis na tabela <b>fin_metas_dre</b>.</div>`;
