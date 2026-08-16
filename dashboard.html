@@ -34,10 +34,10 @@
     font-family:inherit; display:flex; align-items:center; gap:9px;
   }
   /* Icones dos modulos (16/08/2026, ideia do dono, como no projeto do Fabio).
-     Dessaturados para ler como pictograma; acendem no item ativo. */
-  .mico { font-size:13px; width:18px; text-align:center; flex-shrink:0;
-          filter:grayscale(1) brightness(1.2); opacity:.8; }
-  .sidebar-btn.active .mico { filter:none; opacity:1; }
+     Sempre coloridos — em P&B pareciam DESATIVADOS (feedback do dono, 16/08 a
+     noite); o item ativo so ganha um respiro de brilho por cima. */
+  .mico { font-size:13px; width:18px; text-align:center; flex-shrink:0; opacity:.9; }
+  .sidebar-btn.active .mico { opacity:1; filter:brightness(1.08); }
   /* A CARA DA FACHADA (16/08/2026): amarelo/laranja do grafite com texto preto,
      como o letreiro da loja. Amarelo/laranja SO em area de marca (login, topo da
      sidebar, faixa do topo) — nunca em dado, para nao brigar com o ambar do farol. */
