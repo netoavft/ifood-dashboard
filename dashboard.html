@@ -5853,10 +5853,10 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
 // verdade: o codigo-fonte e' publico e os dados continuam acessiveis
 // direto pela API do Supabase com a chave anonima usada acima.
 // ------------------------------------------------------------------
-const SENHA_HASH = 'ffe1c50bbba807a6d3e871b590c293c54cd6a40600bdc874d025a856f149b2c8';
+const SENHA_HASH = 'a7a9a110f0f858060bfed42e6e79f72f18fbd466770811105e6f669254edb8eb';
 // Trocar o sufixo da chave invalida a liberacao salva em todos os aparelhos
 // (forca todo mundo a digitar a senha atual de novo).
-const CHAVE_ACESSO = 'painelIfoodAcessoOk_v2';
+const CHAVE_ACESSO = 'painelIfoodAcessoOk_v3';
 
 async function sha256Hex(texto) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(texto));
