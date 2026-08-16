@@ -42,11 +42,13 @@
   .sidebar-marca-nome { color:#111110; font-size:14px; font-weight:800; letter-spacing:.3px;
                         flex:1; text-align:center; }
 
-  .sidebar-secao { color:#8a897e; font-size:9.5px; font-weight:bold; text-transform:uppercase;
-                   letter-spacing:1px; padding:16px 24px 6px; cursor:pointer; user-select:none;
+  /* Tipografia da sidebar harmonizada (16/08/2026): os titulos de grupo em 9,5px
+     contra botoes de 13,5px pareciam duas fontes — agora e uma familia so. */
+  .sidebar-secao { color:#a5a49a; font-size:11px; font-weight:800; text-transform:uppercase;
+                   letter-spacing:.8px; padding:16px 24px 6px; cursor:pointer; user-select:none;
                    display:flex; align-items:center; justify-content:space-between;
                    background:none; border:none; width:100%; font-family:inherit; text-align:left; }
-  .sidebar-secao:hover { color:#a5a49a; }
+  .sidebar-secao:hover { color:#ffffff; }
   .sidebar-secao .seta { font-size:8px; transition:transform .15s; }
   .sidebar-secao.aberto .seta { transform:rotate(90deg); }
   .sidebar-grupo { display:none; flex-direction:column; gap:2px; }
@@ -56,9 +58,10 @@
   .sidebar-btn.breve::after { content:' · em breve'; font-size:9px; color:#45443f; }
 
   .sidebar-btn:hover { background:#232321; }
-  /* Ativos com CONTORNO em vez de fundo cheio (16/08/2026): o vermelho macico
-     somava 5-6 blocos no topo; o tom vinho + contorno mantem a identidade. */
-  .sidebar-btn.active { background:#250f13; color:#fff; box-shadow:inset 2px 0 0 #c8102e; }
+  /* Modulo ativo = letreiro aceso (16/08/2026): o mesmo gradiente da marca com
+     texto preto. Amarelo permitido aqui: sidebar e area de navegacao/marca,
+     o farol nunca aparece nela. */
+  .sidebar-btn.active { background:linear-gradient(135deg,#f6c63e,#ee8a3c); color:#111110; font-weight:800; }
   .main-content { flex:1; min-width:0; }
 
   .wrap { max-width: 1100px; margin: 0 auto; padding: 28px 32px 60px; }
