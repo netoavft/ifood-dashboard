@@ -170,7 +170,7 @@
   /* linhas de fechamento (mesmo padrao do extrato financeiro) */
   div[id^="tabela"] tr.sub td { background:#232321; border-top:2px solid #45443f; }
   div[id^="tabela"] tr.liq td { background:#250f13; border-top:2px solid #c8102e; }
-  div[id^="tabela"] tr.liq td:first-child { color:#c8102e; }
+  div[id^="tabela"] tr.liq td:first-child { color:#fff; }
 
   /* tabelas dos modulos Vendas/Cardapio/Clientes (mesmo visual das demais) */
   #tabelaVendasCanal, #tabelaVendasLojas, #tabelaFunil, #tabelaItens, #tabelaCompl, #tabelaClientesLojas { overflow-x:auto; max-width:100%; }
@@ -192,7 +192,7 @@
   #extratoFin th { background:#232321; color:#a5a49a; font-weight:bold; font-size:11px; text-transform:uppercase; }
   #extratoFin tr.sub td { background:#232321; border-top:2px solid #45443f; }
   #extratoFin tr.liq td { background:#250f13; border-top:2px solid #c8102e; font-size:14.5px; }
-  #extratoFin tr.liq td:first-child { color:#c8102e; }
+  #extratoFin tr.liq td:first-child { color:#fff; }
 
   details.detalhes-extra { margin-top:22px; border:1px solid #34332f; border-radius:10px; padding:14px 18px; background:#171716; }
   details.detalhes-extra summary { cursor:pointer; color:#a5a49a; font-size:12.5px; font-weight:bold; }
@@ -212,14 +212,25 @@
   #tabelaDFC th, #tabelaDFC td { border:1px solid #34332f; padding:5px 10px; text-align:right; white-space:nowrap; }
   #tabelaDFC th:first-child, #tabelaDFC td:first-child { text-align:left; }
   #tabelaDFC th { background:#232321; color:#a5a49a; font-weight:bold; font-size:11px; text-transform:uppercase; }
-  #tabelaDFC td.negativo { color:#ff6b6b; }
+  /* 1ª coluna FIXA: o nome da linha acompanha a rolagem horizontal (DFC e DRE).
+     O fundo precisa ser opaco para o numero nao passar por baixo; linhas que
+     pintam o proprio fundo (bloco/grupo/resultado/saldo) vencem por
+     especificidade e mantem a cor delas. */
+  #tabelaDFC td:first-child, #tabelaDRE td:first-child { position:sticky; left:0; z-index:2; background:#111110; box-shadow:6px 0 8px -6px rgba(0,0,0,.55); }
+  #tabelaDFC th:first-child, #tabelaDRE th:first-child { position:sticky; left:0; z-index:3; background:#232321; box-shadow:6px 0 8px -6px rgba(0,0,0,.55); }
+  /* leveza (16/08): numero negativo fica na cor da linha — o sinal de menos ja
+     diz tudo, e numa demonstracao quase toda de saidas o vermelho em cada
+     celula virava ruido. Vermelho e' EXCECAO: so prejuizo em linha de resultado. */
+  #tabelaDFC td.negativo, #tabelaDFC .negativo, #tabelaDRE td.negativo, #tabelaDRE .negativo { color:inherit; }
+  #tabelaDFC tr.dfc-resultado td.negativo, #tabelaDFC tr.dfc-resultado .negativo,
+  #tabelaDRE tr.dfc-resultado td.negativo, #tabelaDRE tr.dfc-resultado .negativo { color:#ff6b6b; }
   #tabelaDFC tr.dfc-bloco td { background:#232321; font-weight:bold; border-top:2px solid #45443f; color:#ffffff; }
   #tabelaDFC tr.dfc-grupo td { background:#1a1a19; font-weight:bold; color:#c3c2b7; }
   #tabelaDFC tr.dfc-grupo td:first-child { padding-left:22px; }
   #tabelaDFC tr.dfc-linha td { color:#a5a49a; }
   #tabelaDFC tr.dfc-linha td:first-child { padding-left:40px; }
   #tabelaDFC tr.dfc-resultado td { background:#250f13; font-weight:bold; border-top:2px solid #c8102e; }
-  #tabelaDFC tr.dfc-resultado td:first-child { color:#c8102e; }
+  #tabelaDFC tr.dfc-resultado td:first-child { color:#fff; }
   #tabelaDFC tr.dfc-saldo td { background:#0f1a2b; font-weight:bold; border-top:2px solid #58a6ff; }
   #tabelaDFC tr.dfc-saldo td:first-child { color:#58a6ff; }
   #tabelaDFC tr.dfc-conta td { color:#a5a49a; }
@@ -235,7 +246,7 @@
   #tabelaDRE tr.dfc-linha td { color:#a5a49a; }
   #tabelaDRE tr.dfc-linha td:first-child { padding-left:40px; }
   #tabelaDRE tr.dfc-resultado td { background:#250f13; font-weight:bold; border-top:2px solid #c8102e; border-bottom:2px solid #c8102e; }
-  #tabelaDRE tr.dfc-resultado td:first-child { color:#c8102e; }
+  #tabelaDRE tr.dfc-resultado td:first-child { color:#fff; }
   #tabelaDRE tr.dfc-saldo td { background:#0f1a2b; font-weight:bold; border-top:2px solid #58a6ff; }
   #tabelaDRE tr.dfc-saldo td:first-child { color:#58a6ff; }
   #tabelaDRE tr.clicavel { cursor:pointer; }
