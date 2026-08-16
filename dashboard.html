@@ -5583,6 +5583,11 @@ function renderModuloDRE() {
   const ehInvest = (r) => r.tipo === 'INVESTIMENTOS';
   const deducoes = somar(r => r.natureza === 'DEDUÇOES DA RECEITA', -1);
   const recLiq   = meses.map((_, i) => recBruta[i] + outrasRec[i] - taxasCanais[i] - deducoes[i]);
+  // base dos percentuais (AV, metas, fechamento) = receita BRUTA (vendas + outras
+  // receitas), decisao do dono em 16/08: e' o numero que o operador conhece, o que
+  // os benchmarks de restaurante usam, e nao oscila com a defasagem dos repasses
+  // (em jul/26 a liquida ficou MAIOR que a bruta por causa da linha estimada).
+  const baseAV = meses.map((_, i) => recBruta[i] + outrasRec[i]);
 
   const predGrupo = (tipos) => (r) => r.natureza === 'DESPESAS' && !ehInvest(r) && tipos.includes(r.tipo);
   const gruposVals = DRE_GRUPOS.map(([chave, rotulo, tipos]) => [chave, rotulo, tipos, somar(predGrupo(tipos), -1)]);
@@ -5620,7 +5625,7 @@ function renderModuloDRE() {
   }
   const cols = meses.slice(ini0, fim0 + 1);
   const totalJan = (v) => v.slice(ini0, fim0 + 1).reduce((s, x) => s + x, 0);
-  const recLiqTotJan = totalJan(recLiq);
+  const baseAVTot = totalJan(baseAV);
 
   // farol da analise vertical contra a meta (fin_metas_dre)
   const corFarol = (metaChave, av) => {
@@ -5659,9 +5664,9 @@ function renderModuloDRE() {
     const attrs = chave ? ` class="${classe} clicavel" onclick="dreToggle('${chave}')"` : ` class="${classe}"`;
     let tds = '';
     for (let i = ini0; i <= fim0; i++) {
-      tds += celula(vals[i], recLiq[i], i > 0 ? vals[i - 1] : null, kind, metaChave);
+      tds += celula(vals[i], baseAV[i], i > 0 ? vals[i - 1] : null, kind, metaChave);
     }
-    tds += celula(totalJan(vals), recLiqTotJan, null, kind, metaChave);
+    tds += celula(totalJan(vals), baseAVTot, null, kind, metaChave);
     // a meta de referencia mora no rotulo da linha (fica visivel mesmo rolando
     // os meses) — nas celulas so aparece o farol quando ela e' estourada
     const m = metaChave && DRE_METAS ? DRE_METAS[metaChave] : null;
@@ -5804,9 +5809,8 @@ function renderModuloDRE() {
       // custos fixos = o que sustenta a casa fora mercadoria e gente (venda+adm+outras);
       // estrutura do PE = custos fixos + pessoal (tudo que nao varia com o prato vendido)
       const cfArr = meses.map((_, i) => venda[i] + admin[i] + outrasDesp[i]);
-      const recBrutaArr = meses.map((_, i) => recBruta[i] + outrasRec[i]);
       const estrutura = pessoal[iF] + cfArr[iF];
-      const sobre = (arr, i) => recLiq[i] > 0.005 ? arr[i] / recLiq[i] * 100 : null;
+      const sobre = (arr, i) => baseAV[i] > 0.005 ? arr[i] / baseAV[i] * 100 : null;
       const mcArr = lucroBruto, mcPct = sobre(lucroBruto, iF);
       const primeArr = meses.map((_, i) => custo[i] + pessoal[i]);
       const primePct = sobre(primeArr, iF);
@@ -5814,7 +5818,7 @@ function renderModuloDRE() {
       const ebitdaPct = sobre(ebitda, iF);
       const resPct = sobre(resultado, iF);
       const pe = mcPct > 0.5 ? estrutura / (mcPct / 100) : null;
-      const folga = pe ? (recLiq[iF] / pe - 1) * 100 : null;
+      const folga = pe ? (baseAV[iF] / pe - 1) * 100 : null;
       // status em palavra: mesma regra do farol da tabela (ate 10% da meta = perto)
       const statusDe = (valPct, meta) => {
         if (!meta || valPct === null) return '';
@@ -5837,7 +5841,7 @@ function renderModuloDRE() {
       fechHtml = `
       <div class="section-label">Fechamento de ${rotuloMes(meses[iF])} — último mês completo</div>
       <div class="cards cards-3">
-        <div class="card"><div class="card-lbl">Receita bruta</div><div class="card-val">R$ ${fmt(recBrutaArr[iF])}</div>${varRS(recBrutaArr)}</div>
+        <div class="card"><div class="card-lbl">Receita bruta</div><div class="card-val">R$ ${fmt(baseAV[iF])}</div>${varRS(baseAV)}</div>
         <div class="card blue"><div class="card-lbl">Receita líquida</div><div class="card-val">R$ ${fmt(recLiq[iF])}</div>${varRS(recLiq)}</div>
         <div class="card"><div class="card-lbl">Margem de contribuição (R$)</div><div class="card-val">R$ ${fmt(lucroBruto[iF])}</div>${varRS(lucroBruto)}</div>
         <div class="card"><div class="card-lbl">Margem de contribuição (%)</div><div class="card-val">${pct(mcPct)}%</div>
@@ -5859,7 +5863,8 @@ function renderModuloDRE() {
           ${statusDe(resPct, DRE_METAS && DRE_METAS.RESULTADO)}</div>
       </div>
       <div class="caption-label" style="text-align:center;">
-        Percentuais sempre sobre a <b>receita líquida</b>. Margem de contribuição = receita líquida − mercadoria.
+        Percentuais sempre sobre a <b>receita bruta</b> (vendas + outras receitas — a mesma régua dos benchmarks
+        de restaurante). Margem de contribuição = receita líquida − mercadoria.
         Prime Cost = mercadoria + pessoal (os dois maiores custos da casa). Custos fixos = despesas de venda +
         administrativas + outras (meta = soma das metas dos dois grupos). Ponto de equilíbrio = (pessoal + custos fixos)
         ÷ margem de contribuição — quanto precisava faturar para empatar. Empréstimos e aplicações ficam fora do
@@ -5876,7 +5881,7 @@ function renderModuloDRE() {
   <div class="caption-label" style="text-align:center;">
     Resultado mês a mês da empresa inteira, direto do Saipos desde jan/2026 — <b>não segue os filtros do topo</b>.
     Receitas = vendas do PDV por canal (bruto); despesas por <b>competência</b> (data de emissão da NF).
-    Em cada célula: valor, <b>AV</b> (% da receita líquida) e <b>▲▼</b> (variação vs mês anterior).
+    Em cada célula: valor, <b>%</b> da receita bruta e <b>▲▼</b> (variação vs mês anterior).
     Marcação colorida só aparece quando a linha está <b>fora da meta</b> (âmbar = perto, vermelho = longe) —
     sem marcação, está tudo dentro. Clique nas linhas com ▶ para abrir o detalhe.
   </div>
