@@ -86,7 +86,9 @@
   .navbtn:hover { border-color:#c8102e; color:#fff; }
   .navbtn.active { background:#c8102e; color:#fff; border-color:#c8102e; }
 
-  .section-label { color:#c8102e; font-size:17px; font-weight:800; margin-top:24px; margin-bottom:12px; padding-top:20px; border-top:1px solid #34332f; text-align:center; text-transform:uppercase; letter-spacing:1.2px; }
+  /* Titulos em BRANCO desde 16/08/2026 (pedido do dono: o vermelho pesava a
+     leitura). O vermelho segue como acento em botoes ativos e no farol. */
+  .section-label { color:#ffffff; font-size:17px; font-weight:800; margin-top:24px; margin-bottom:12px; padding-top:20px; border-top:1px solid #34332f; text-align:center; text-transform:uppercase; letter-spacing:1.2px; }
   .caption-label { color:#a5a49a; font-size:11px; margin:14px 0 12px 0; }
 
   .cards { display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:14px; margin-bottom:8px; }
@@ -106,7 +108,7 @@
               margin:16px 0 4px; text-align:center; color:#a5a49a; font-size:12.5px; line-height:1.7; }
   .contexto b { color:#ffffff; }
 
-  .hero { background:#1a1a19; border:1px solid #34332f; border-left:4px solid #3fb950; border-radius:16px;
+  .hero { background:#1a1a19; border:1px solid #3fb950; border-radius:16px;
           padding:22px 26px; margin-bottom:16px; }
   .hero-lbl { color:#8a897e; font-size:11px; text-transform:uppercase; letter-spacing:.6px; }
   .hero-val { color:#ffffff; font-size:46px; font-weight:bold; line-height:1.1; margin:6px 0 4px; }
@@ -114,11 +116,13 @@
   .hero-frase { color:#a5a49a; font-size:13px; line-height:1.6; margin-top:12px;
                 border-top:1px solid #34332f; padding-top:12px; }
   @media (max-width: 640px) { .hero-val { font-size:34px; } }
-  .card.neutral { border-left:3px solid #34332f; }
-  .card.neg { border-left:3px solid #ff6b6b; }
-  .card.pos { border-left:3px solid #3fb950; }
-  .card.blue { border-left:3px solid #58a6ff; }
-  .card.highlight { border-left:3px solid #c8102e; background:#250f13; }
+  /* Borda COMPLETA de 1px, igual ao cardFarol — a borda so de um lado era da
+     primeira versao e sobrou nestas classes (achado do dono em 16/08/2026). */
+  .card.neutral { border:1px solid #34332f; }
+  .card.neg { border:1px solid #ff6b6b; }
+  .card.pos { border:1px solid #3fb950; }
+  .card.blue { border:1px solid #58a6ff; }
+  .card.highlight { border:1px solid #c8102e; background:#250f13; }
 
   .equation-row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:14px; }
   .equation-row .card { flex:1 1 180px; margin-bottom:0; }
@@ -1606,7 +1610,7 @@ function blocoAbertura(m, a, ant) {
     <b>${pct(m.custoIfoodPct)}%</b> de tudo que foi vendido. O que sobrou ainda
     não desconta os custos próprios (insumos, equipe, aluguel), então não é a margem final do negócio.`;
 
-  return `<div class="hero" style="border-left-color:${cor};">
+  return `<div class="hero" style="border-color:${cor};">
     <div class="hero-lbl">O que sobrou para a loja no período</div>
     <div class="hero-val">R$ ${fmt(m.liquido)}</div>
     <div class="hero-delta" style="color:${cor};">${deltaTexto}</div>
