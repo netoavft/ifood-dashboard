@@ -154,7 +154,7 @@
     </div>
   </div>
 
-  <h2><span class="risco"></span>O teste de promoções: a resposta</h2>
+  <h2><span class="risco"></span>Promoções: a resposta que faltava</h2>
   <p class="sub">Na atualização passada esta parte terminava com uma pergunta em aberto. Ela foi respondida — e vale contar o caminho inteiro, porque é assim que o projeto trabalha.</p>
 
   <p>Relembrando: cada desconto que o cliente vê é dividido entre a loja e o iFood, e a medida é a <b>alavancagem</b> — quanto o iFood coloca para cada R$ 1,00 nosso. Antes do teste a rede estava em 0,78x. Nos primeiros dias despencou, o que não fazia sentido nenhum: tínhamos acabado de ligar justamente as promoções em que o iFood paga junto.</p>
@@ -172,18 +172,50 @@
     </table>
   </div>
 
-  <p style="margin-top:14px;">Voltamos ao patamar de antes. <b>Ainda não é a meta</b> — o objetivo continua sendo passar de 1,00x, com o iFood pagando mais que a gente. Mas o problema foi identificado, confirmado na fonte e corrigido em três dias, e agora dá para medir o efeito de cada mudança em vez de discutir por impressão.</p>
+  <p style="margin-top:14px;">Voltamos ao patamar de antes. <b>Ainda não é a meta</b> — o objetivo continua sendo passar de 1,00x, com o iFood pagando mais que a gente. Mas o problema foi identificado, confirmado na fonte e corrigido em três dias.</p>
 
   <div class="entregas">
     <div class="entrega">
       <div class="topo"><span class="nome">Duas outras correções que vieram junto</span><span class="chip ar">Aplicado</span></div>
-      <p><b>Os anúncios voltaram.</b> Tínhamos desligado para economizar, e a conta não fechava na Burger Água Verde: o corte custava centenas de pedidos por mês para economizar bem menos que isso. Nas outras lojas o corte era economia sem prejuízo — nelas os anúncios ficam só de sexta a domingo. <b>E o frete grátis virou calendário:</b> teto menor de segunda a quinta, maior no fim de semana, quando o cliente aceita pagar pela entrega.</p>
+      <p><b>Os anúncios voltaram.</b> Tínhamos desligado para economizar, e a conta não fechava na Burger Água Verde: o corte custava centenas de pedidos por mês para economizar bem menos que isso. Nas outras lojas o corte era economia sem prejuízo — nelas os anúncios ficam só de sexta a domingo. <b>E o frete grátis virou calendário</b>, com teto diferente nos dias de semana e no fim de semana.</p>
     </div>
     <div class="entrega">
       <div class="topo"><span class="nome">Página de controle das promoções</span><span class="chip novo">Nova</span></div>
       <p>Como a estratégia agora muda dois dias por semana, virou uma página só de operação: a semana padrão dia a dia, o <b>checklist de segunda e de sexta</b> (o que ligar, o que desligar) e a verba de cada loja. Está no menu do painel, em Arquivo &amp; Sistema.</p>
     </div>
   </div>
+
+  <h2><span class="risco"></span>E o teste de verdade começa em 24/08</h2>
+  <p class="sub">Aqui vem uma decisão que parece um recuo e não é: <b>o que rodou desde 10/08 foi descartado como teste</b>. Vale explicar por quê, porque é essa régua que dá confiança em tudo o que o painel afirma.</p>
+
+  <p>Um teste só serve se, no fim, der para dizer "isso aconteceu por causa do que mudamos". Aquele não dá: o iFood cortou o subsídio no mesmo dia em que começamos, mexemos na configuração duas vezes no meio do caminho, todas as lojas receberam a mudança (então não havia com quem comparar) e o relatório semanal de promoções ficou quatro dias sem carregar. Quatro problemas, cada um suficiente para invalidar sozinho.</p>
+
+  <p>O que sobra daquilo continua valendo e não foi jogado fora: a descoberta do subsídio, o ajuste da taxa e a leitura de julho sobre para onde a verba está indo.</p>
+
+  <div class="entregas">
+    <div class="entrega">
+      <div class="topo"><span class="nome">A pergunta do teste novo</span><span class="chip novo">Desenhado</span></div>
+      <p>O frete grátis bancado pela loja está <b>comprando pedido</b>, ou só substituindo um desconto que o iFood daria de graça? Em julho, o frete grátis que sai de dentro do Hits teve o iFood pagando mais que a loja; o mesmo benefício dado por fora, sozinho ou empilhado em outro desconto, consumiu quase dois terços da verba com o iFood pagando pouco. A hipótese é que dá para tirar o frete grátis avulso sem perder venda.</p>
+    </div>
+    <div class="entrega">
+      <div class="topo"><span class="nome">Como vai ser medido</span><span class="chip novo">Desenhado</span></div>
+      <p><b>Ahú faz a mudança, São Braz fica como está.</b> As duas são quase gêmeas — nas cinco semanas antes do teste anterior fizeram 1.360 e 1.276 pedidos, com ticket e mistura de promoção muito parecidos. Comparando a variação de uma contra a variação da outra, o que for do mercado (feriado, clima, mexida do iFood) atinge as duas e se cancela. <b>Água Verde fica fora</b>: é mais da metade do volume da rede, risco alto demais para experimento.</p>
+    </div>
+  </div>
+
+  <div class="tabela-wrap" style="margin-top:12px;">
+    <table>
+      <tr><th>Quando</th><th>O quê</th></tr>
+      <tr><td class="hora">17 a 23/08</td><td class="oque">Semana de referência — <b>nada muda em nenhuma das duas</b>, só medimos como estão hoje</td></tr>
+      <tr><td class="hora">24/08</td><td class="oque">Ahú desliga o frete grátis da loja (o do Hits continua)</td></tr>
+      <tr><td class="hora">24/08 a 06/09</td><td class="oque">Duas semanas rodando sem mexer em nada</td></tr>
+      <tr><td class="hora">07/09</td><td class="oque">Leitura e decisão: replica na rede, mantém como está, ou refaz a pergunta</td></tr>
+    </table>
+  </div>
+
+  <p style="margin-top:14px;">Tem regra de parada: se os pedidos da Ahú caírem mais de 20% na primeira semana e São Braz não cair junto, religamos e o teste acaba ali — com resposta, porque "o frete grátis sustenta volume" também é resultado. A exposição máxima que aceitamos nesse cenário é da ordem de duas semanas de queda numa unidade, boa parte devolvida na verba economizada.</p>
+
+  <p class="nota"><b>O que muda para o Fabio — e é o pedido mais importante deste documento:</b> entre 17/08 e 06/09, <b>nada pode ser alterado em Ahú nem em São Braz</b> — promoção, preço, raio, horário, anúncio. Se alguém perceber que a Ahú está sem frete grátis e "consertar", o teste morre e perdemos três semanas. Se algum gestor perguntar, a resposta é: é proposital, tem data para acabar, e existe para descobrir se aquele dinheiro está comprando pedido de verdade. Fora dessas duas unidades, a operação segue normal.</p>
 
   <h2><span class="risco"></span>O que saiu desde 13/08</h2>
   <p class="sub">Três dias, na ordem em que as coisas entraram no ar.</p>
@@ -285,11 +317,12 @@
   <div class="fase">
     <div class="quando">16 – 22/08<small>esta semana</small></div>
     <div>
-      <h3>Esvaziar a fila e ligar o que falta <span class="chip obra">Em andamento</span></h3>
+      <h3>Esvaziar a fila e preparar o teste <span class="chip obra">Em andamento</span></h3>
       <ul>
         <li>Colocar no painel os <b>seis módulos prontos</b> que estão esperando.</li>
         <li>Agendar as rotinas que ainda rodam à mão: <b>entregas</b> e <b>clientes do site</b>.</li>
-        <li>Primeira semana fechada do <b>novo calendário de promoções</b> — a leitura sai no resumo de segunda.</li>
+        <li><b>Semana de referência do teste</b> (17 a 23/08): Ahú e São Braz sem nenhuma alteração.</li>
+        <li>Destravar o portão do teste: extração diária rodando limpa três dias seguidos e o relatório semanal de promoções entrando por rotina, não à mão.</li>
       </ul>
     </div>
   </div>
@@ -297,7 +330,8 @@
   <div class="fase">
     <div class="quando">23 – 31/08</div>
     <div>
-      <h3>Margem por item e preço por canal <span class="chip plano">Planejado</span></h3>
+      <h3>Margem por item, preço por canal — e o teste no ar <span class="chip plano">Planejado</span></h3>
+      <p><b>Em 24/08 começa o teste do frete grátis</b>, que roda sozinho por duas semanas enquanto o resto do trabalho segue.</p>
       <p>Com os 123 itens decididos, entra o módulo de <b>margem por item</b>: quanto custa e quanto sobra em cada prato, por canal. Junto, o rateio das despesas entre salão, iFood, site e atacado, que fecha a conta do <b>preço-alvo</b> — o preço que cobre custo, taxa da plataforma e a margem que queremos.</p>
       <p class="nota"><b>O que muda para o Fabio:</b> passa a existir resposta para "esse prato dá lucro no iFood?". Hoje só sabemos o resultado do conjunto.</p>
     </div>
