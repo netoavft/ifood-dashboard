@@ -72,6 +72,8 @@
        background:#161615; }
   td.hora { white-space:nowrap; font-weight:800; color:#ffffff; }
   td.oque { color:#a5a49a; }
+  td.num { text-align:right; font-weight:800; }
+  .sobe { color:#3fb950; } .desce { color:#ff6b6b; }
 
   /* cinco passos */
   .passos { display:grid; grid-template-columns:repeat(5,1fr); gap:10px; counter-reset:passo; }
@@ -120,7 +122,7 @@
     <img src="logo.png" alt="Cidadão do Mundo">
     <div>
       <div class="nome">CIDADÃO DO MUNDO</div>
-      <div class="data">Projeto de automação · atualizado em 13/08/2026</div>
+      <div class="data">Projeto de automação · atualizado em 16/08/2026</div>
     </div>
   </div>
 
@@ -144,7 +146,7 @@
       <p class="quem">Neto — Administrativo e gerencial</p>
       <p class="papel">Painel gerencial · decisões de dinheiro, metas e rumo — compartilhadas com o Fabio</p>
       <ul>
-        <li><b>20 módulos</b> organizados por pergunta: como está o negócio → o canal iFood → a operação → o caixa</li>
+        <li><b>21 módulos</b> organizados por pergunta: como está o negócio → o canal iFood → a operação → o caixa</li>
         <li><b>Financeiro completo</b>: fluxo de caixa, DRE com metas, fluxo projetado e análise de despesas</li>
         <li><b>Indicadores</b>: 9 metas oficiais com farol verde/amarelo/vermelho em todo o painel</li>
         <li><b>Rotinas automáticas</b> rodando sozinhas num computador dedicado</li>
@@ -152,79 +154,105 @@
     </div>
   </div>
 
-  <h2><span class="risco"></span>O que saiu desde a última atualização</h2>
-  <p class="sub">Três dias de trabalho, na ordem em que as coisas entraram no ar. É bastante coisa — por isso vale a leitura por data.</p>
+  <h2><span class="risco"></span>O teste de promoções: a resposta</h2>
+  <p class="sub">Na atualização passada esta parte terminava com uma pergunta em aberto. Ela foi respondida — e vale contar o caminho inteiro, porque é assim que o projeto trabalha.</p>
 
-  <div class="fase">
-    <div class="quando">11/08<small>segunda</small></div>
-    <div>
-      <h3>O computador dedicado assumiu <span class="chip ar">Entregue</span></h3>
-      <p>Era a meta da semana e saiu no primeiro dia. As rotinas saíram do computador principal e passaram a rodar num micro dedicado, ligado o tempo todo. O painel ganhou o módulo <b>Rotinas</b>, que mostra ao vivo o que rodou, a que horas e se deu certo — se uma rotina falhar, aparece na tela em vez de passar batido.</p>
-      <p class="nota"><b>O que muda para o Fabio:</b> os dados se atualizam sozinhos todo dia, sem depender do computador de ninguém estar ligado. E dá para conferir na hora se a atualização de hoje rodou.</p>
-    </div>
+  <p>Relembrando: cada desconto que o cliente vê é dividido entre a loja e o iFood, e a medida é a <b>alavancagem</b> — quanto o iFood coloca para cada R$ 1,00 nosso. Antes do teste a rede estava em 0,78x. Nos primeiros dias despencou, o que não fazia sentido nenhum: tínhamos acabado de ligar justamente as promoções em que o iFood paga junto.</p>
+
+  <p><b>A suspeita se confirmou no mesmo dia, com a consultora do iFood:</b> eles reduziram o subsídio da entrega de R$ 10,00 para <b>R$ 6,99</b>. Ou seja, a queda não era efeito do que mudamos — era o iFood pagando menos. Como nossa taxa de entrega estava em R$ 9,99, cada pedido tinha uma diferença que sobrava para a loja bancar.</p>
+
+  <p>O ajuste foi feito em 13/08: <b>taxa de entrega de R$ 9,99 para R$ 6,99 até 3 km</b>, encaixando exatamente no novo teto do subsídio. E o resultado apareceu no dia seguinte:</p>
+
+  <div class="tabela-wrap">
+    <table>
+      <tr><th>Período</th><th>Alavancagem</th><th>O que estava acontecendo</th></tr>
+      <tr><td>03 a 09/08</td><td class="num">0,78x</td><td class="oque">Antes do teste</td></tr>
+      <tr><td>10 a 12/08</td><td class="num desce">0,47x → 0,40x</td><td class="oque">Subsídio já tinha caído, nossa taxa ainda em R$ 9,99</td></tr>
+      <tr><td>13 e 14/08</td><td class="num sobe">0,71x → 0,76x</td><td class="oque">Depois do ajuste da taxa para R$ 6,99</td></tr>
+    </table>
   </div>
 
-  <div class="fase">
-    <div class="quando">12/08<small>terça</small></div>
-    <div>
-      <h3>O painel virou painel de decisão <span class="chip ar">Entregue</span></h3>
-      <p>Reorganização grande, com uma regra por trás: <b>nenhum número sem comparação, sem farol ou sem ação</b>. O que mudou:</p>
-      <ul>
-        <li><b>Abre em "Esta semana"</b>: o que precisa de atenção agora, a semana em curso contra os mesmos dias da semana anterior e o placar do que não está verde.</li>
-        <li><b>Menu por camada</b>: resultado do negócio → canal iFood → operação → financeiro. Antes era uma lista solta de módulos.</li>
-        <li><b>Farol das metas dentro dos módulos</b>, saindo todo da mesma fonte — acabou o risco de cada tela usar um limite diferente.</li>
-        <li><b>Filtro de período por módulo</b>: cada tela abre no recorte que faz sentido para ela (semana fechada, últimas 4 semanas, mês). O filtro geral saiu porque um recorte esquecido distorcia tudo em silêncio.</li>
-      </ul>
-    </div>
-  </div>
+  <p style="margin-top:14px;">Voltamos ao patamar de antes. <b>Ainda não é a meta</b> — o objetivo continua sendo passar de 1,00x, com o iFood pagando mais que a gente. Mas o problema foi identificado, confirmado na fonte e corrigido em três dias, e agora dá para medir o efeito de cada mudança em vez de discutir por impressão.</p>
 
-  <div class="fase">
-    <div class="quando">12/08<small>terça</small></div>
-    <div>
-      <h3>Todos os canais na mesma tela <span class="chip novo">Módulo novo</span></h3>
-      <p>O módulo <b>Visão consolidada</b> põe o iFood ao lado de salão, balcão e site, com participação de cada um, ticket e comparação com o período anterior. A fonte é o Saipos (o PDV), então é a venda de verdade, do jeito que passa no caixa. O totem de autoatendimento em teste na Água Verde já aparece sozinho como canal.</p>
-      <p>Junto entrou o módulo <b>Qualidade &amp; Super</b>: os níveis do programa do iFood, quem subiu, quem caiu, piores primeiro.</p>
-      <p class="nota"><b>Limite honesto, dito na própria tela:</b> o Saipos hoje cobre só a Água Verde. As outras unidades entram quando contratarmos o acesso de cada uma — decisão de custo, tomada depois de validar tudo numa loja só.</p>
-    </div>
-  </div>
-
-  <div class="fase">
-    <div class="quando">13/08<small>quarta</small></div>
-    <div>
-      <h3>As entregas próprias entraram no painel <span class="chip novo">Módulo novo</span></h3>
-      <p>Este é o que mais toca o seu lado, Fabio. Ligamos o painel direto no sistema de entregas (Foody), sem planilha no meio, e nasceu o módulo <b>Atrasos e turnos</b>: entregas dentro e fora do prazo, por turno, por dia da semana e por entregador, com o tempo de cozinha, de bancada e de rua separados.</p>
-      <p>Duas descobertas que valem para a operação:</p>
-      <ul>
-        <li><b>O relógio do sistema de entrega engana.</b> Ele conta contra um prazo fixo de 60 minutos, e não contra o horário que o cliente realmente recebeu como promessa. O painel passou a medir contra a promessa real do pedido — mais rígida, e é a que o cliente cobra.</li>
-        <li><b>O apontamento de status é o ponto fraco.</b> Marcar "pronto" e "coletado" é ação humana, e às vezes o pedido vai para a estufa sem ser marcado. Hoje cerca de 3 em cada 10 entregas chegam com apontamento incompleto — e isso contamina qualquer medição de tempo. Virou candidato a meta da equipe, porque é 100% controlável por ela.</li>
-      </ul>
-      <p class="nota"><b>O que muda para o Fabio:</b> a Central do Delivery continua sendo a ferramenta do dia a dia, para tocar o turno. O painel gerencial entra por cima, com a régua da promessa real e o histórico longo, para responder "onde perdemos tempo e quanto isso custa". Vale combinarmos as duas réguas para os dois lados falarem o mesmo número.</p>
-    </div>
-  </div>
-
-  <div class="fase">
-    <div class="quando">10 – 13/08<small>nos bastidores</small></div>
-    <div>
-      <h3>Base para a margem por produto <span class="chip obra">Em construção</span></h3>
-      <p>Trabalho que ainda não aparece na tela, mas é a fundação do próximo grande módulo: as <b>fichas técnicas</b> entraram no banco (insumos, fichas e custos), e a venda passou a ser gravada <b>item a item, por canal</b>. Falta a peça central: ligar o nome que o cliente vê no cardápio ao nome da ficha técnica — são línguas diferentes, e combos contam como um item só.</p>
-      <p>Também entraram os módulos <b>Análise de despesas</b> e <b>Conferência da base</b> (checagens automáticas que garantem que o financeiro do painel fecha no centavo), e a contestação automática de cancelamentos passou a cobrir <b>4 motivos</b>, incluindo a unidade Boqueirão.</p>
-    </div>
-  </div>
-
-  <h2><span class="risco"></span>Teste de promoções — como está</h2>
-  <p class="sub">Lembrando a lógica: cada desconto que o cliente vê é dividido entre a loja e o iFood, e o objetivo do teste é fazer o iFood bancar mais que a gente. A medida é a <b>alavancagem</b>: quanto o iFood coloca para cada R$ 1,00 nosso. Meta: acima de 1,00x.</p>
-  <p>Na semana antes do teste (03 a 09/08) a rede estava em <b>0,78x</b> — nós pagando mais. Os dois primeiros dias do teste (10 e 11/08) vieram em <b>0,47x e 0,44x</b>, ou seja, <b>caiu em vez de subir</b>.</p>
   <div class="entregas">
     <div class="entrega">
-      <div class="topo"><span class="nome">Por que ainda não é conclusão</span><span class="chip obra">Verificando</span></div>
-      <p>São dois dias, e os valores do iFood ainda se ajustam por até dois dias depois do pedido — o número de ontem não está fechado. <b>A leitura que vale é a da semana inteira</b>, que sai no resumo de segunda-feira.</p>
+      <div class="topo"><span class="nome">Duas outras correções que vieram junto</span><span class="chip ar">Aplicado</span></div>
+      <p><b>Os anúncios voltaram.</b> Tínhamos desligado para economizar, e a conta não fechava na Burger Água Verde: o corte custava centenas de pedidos por mês para economizar bem menos que isso. Nas outras lojas o corte era economia sem prejuízo — nelas os anúncios ficam só de sexta a domingo. <b>E o frete grátis virou calendário:</b> teto menor de segunda a quinta, maior no fim de semana, quando o cliente aceita pagar pela entrega.</p>
     </div>
     <div class="entrega">
-      <div class="topo"><span class="nome">A pista que estamos apurando</span><span class="chip obra">Em apuração</span></div>
-      <p>O iFood sinalizou que ia reduzir o subsídio de entrega, e o valor médio que eles pagaram por pedido caiu junto com a virada do teste. Se for isso, a queda não é efeito do que mudamos — é o iFood pagando menos. <b>Estamos conferindo no portal antes de afirmar qualquer coisa</b>, e a decisão sobre as verbas espera essa resposta.</p>
+      <div class="topo"><span class="nome">Página de controle das promoções</span><span class="chip novo">Nova</span></div>
+      <p>Como a estratégia agora muda dois dias por semana, virou uma página só de operação: a semana padrão dia a dia, o <b>checklist de segunda e de sexta</b> (o que ligar, o que desligar) e a verba de cada loja. Está no menu do painel, em Arquivo &amp; Sistema.</p>
     </div>
   </div>
-  <p class="nota"><b>O que muda para o Fabio:</b> nenhuma ação operacional. Se algum gestor comentar movimento diferente, é o teste rodando. Se o resultado for "não funcionou", isso também é resultado — o teste existe justamente para descobrir isso com número, e não com impressão.</p>
+
+  <h2><span class="risco"></span>O que saiu desde 13/08</h2>
+  <p class="sub">Três dias, na ordem em que as coisas entraram no ar.</p>
+
+  <div class="fase">
+    <div class="quando">14/08<small>sexta</small></div>
+    <div>
+      <h3>Financeiro da logística <span class="chip novo">Módulo novo</span></h3>
+      <p>O custo da entrega própria ganhou módulo: quanto custa por turno, por entregador e por semana, com o frete que o cliente paga acima de 3 km abatendo esse custo. Descoberta que mudou a leitura: <b>corrida longa dá lucro</b> — o frete cobrado nela cobre com folga o que se paga ao motoboy.</p>
+      <p>Tem também um simulador: dá para testar na tela um modelo de diária mais taxa por corrida e ver, faixa a faixa, se fecha melhor que o modelo de hoje.</p>
+      <p class="nota"><b>O que muda para o Fabio:</b> a conversa sobre pagamento de entregador passa a ter número em cima da mesa — quanto cada modelo custa, quanto o motoboy ganha por turno e onde há espaço para melhorar os dois lados.</p>
+    </div>
+  </div>
+
+  <div class="fase">
+    <div class="quando">15/08<small>sábado</small></div>
+    <div>
+      <h3>Entregas nas quatro unidades <span class="chip ar">Entregue</span></h3>
+      <p>Os módulos de entrega saíram de "só Água Verde" e passaram a cobrir <b>as quatro unidades</b>, cada uma com seu acesso próprio, com seis meses de histórico carregado. O filtro por loja está na tela, e o Boqueirão aparece separado por ser de outra gestão.</p>
+      <p class="nota"><b>O que muda para o Fabio:</b> atraso, tempo de rua e desempenho por entregador agora existem para toda a rede, não só para uma unidade — dá para comparar unidade com unidade.</p>
+    </div>
+  </div>
+
+  <div class="fase">
+    <div class="quando">15/08<small>sábado</small></div>
+    <div>
+      <h3>Auditoria dos números <span class="chip ar">Concluída</span></h3>
+      <p>Era uma dúvida honesta: será que as rotinas estão deixando dado passar? Conferimos módulo por módulo contra a tabela original — pedidos, vendas por canal, avaliações, fluxo de caixa, cardápio, contestações. <b>Nenhuma divergência real de valor.</b> A única diferença aparente tinha regra documentada e proposital.</p>
+      <p>No mesmo dia começou a conexão oficial com o iFood (a via de programação, não a de exportar planilha): o ambiente de teste foi aprovado e o pedido de liberação para produção está em andamento.</p>
+    </div>
+  </div>
+
+  <div class="fase">
+    <div class="quando">16/08<small>domingo</small></div>
+    <div>
+      <h3>O painel ganhou a cara da fachada <span class="chip ar">Entregue</span></h3>
+      <p>O visual foi refeito com as cores do grafite da loja — amarelo e laranja nas áreas de marca, ícone em cada módulo, tipografia do letreiro. Ficou parecido com o portal que você montou, de propósito: quem abre os dois sente que é o mesmo sistema.</p>
+    </div>
+  </div>
+
+  <div class="fase">
+    <div class="quando">16/08<small>domingo</small></div>
+    <div>
+      <h3>Quatro frentes novas no banco <span class="chip obra">Base pronta, tela na fila</span></h3>
+      <ul>
+        <li><b>Benefício do iFood</b>: o desconto de comissão que a rede recebe tem prazo para acabar. O painel vai mostrar quanto já foi usado, o ritmo e a data prevista — para o dia não chegar de surpresa e para o preço não ser formado sobre uma condição temporária.</li>
+        <li><b>Base de clientes do site</b>: primeiro passo da frente de trazer cliente do iFood para o site próprio, onde o ticket é bem maior e não há comissão.</li>
+        <li><b>Listas de transferência</b>: o que a Água Verde produz e manda para as filiais, hoje controlado por WhatsApp e planilha.</li>
+        <li><b>Reembolsos e vales</b>: o que a equipe adianta do próprio bolso e os descontos em folha, hoje espalhados em anotações.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2><span class="risco"></span>O que não saiu redondo</h2>
+  <p class="sub">A parte que normalmente não se conta — e que aqui a gente conta.</p>
+  <div class="entregas">
+    <div class="entrega">
+      <div class="topo"><span class="nome">As rotinas tropeçaram</span><span class="chip ar">Resolvido</span></div>
+      <p>A extração automática <b>falhou na quinta e atrasou na sexta</b>. Rodamos à mão e os dados estão em dia — o painel tem tudo até ontem. Foi o próprio módulo de Rotinas que mostrou a falha, que é exatamente para isso que ele existe. A causa está sendo tratada para não repetir.</p>
+    </div>
+    <div class="entrega">
+      <div class="topo"><span class="nome">A margem por item não andou</span><span class="chip obra">Parada, esperando decisão</span></div>
+      <p>Continua parada no mesmo ponto: para saber o custo de cada prato, é preciso ligar o nome que o cliente vê no cardápio ao nome da ficha técnica. Sobraram <b>123 itens</b> que o computador não consegue casar sozinho — são combos e nomes de marca. Essa lista precisa da decisão do Neto, item a item. Ninguém classifica por conta própria: um item errado contamina o custo de todos os pedidos que o contêm.</p>
+    </div>
+    <div class="entrega">
+      <div class="topo"><span class="nome">Seis módulos prontos esperando a vez</span><span class="chip plano">Na fila</span></div>
+      <p>Benefício do iFood, transferências, reembolsos, vales, frete por faixa e a linha do benefício na DRE já existem no banco, com o código pronto. Falta encaixar no painel — é a primeira tarefa da semana.</p>
+    </div>
+  </div>
 
   <h2><span class="risco"></span>As rotinas automáticas</h2>
   <p class="sub">É a "linha de produção" que abastece os dois painéis sem ninguém precisar exportar planilha na mão. Rodam num computador dedicado, em ordem fixa — nunca duas ao mesmo tempo, porque disputariam o mesmo portal.</p>
@@ -236,7 +264,8 @@
       <tr><td class="hora">Diário 09:00</td><td>Extração de pedidos</td><td class="oque">Baixa os pedidos de todas as lojas do Portal do Parceiro</td></tr>
       <tr><td class="hora">Diário 10:30</td><td>Contestação de cancelamentos</td><td class="oque">Contesta no portal os cancelamentos do dia anterior — só roda se a extração tiver completado</td></tr>
       <tr><td class="hora">Seg 12:00</td><td>Resumo semanal</td><td class="oque">Fecha a semana: placar de metas, análise e ações recomendadas</td></tr>
-      <tr><td class="hora">A entrar</td><td>Entregas (Foody)</td><td class="oque">Importação diária das entregas próprias — hoje ainda é rodada à mão</td></tr>
+      <tr><td class="hora">A agendar</td><td>Entregas (Foody)</td><td class="oque">Importação das entregas próprias das 4 unidades — funciona, mas ainda rodada à mão</td></tr>
+      <tr><td class="hora">A agendar</td><td>Clientes do site</td><td class="oque">Base de clientes e pedidos do site próprio, para construir o histórico de recompra</td></tr>
     </table>
   </div>
 
@@ -251,44 +280,36 @@
   </div>
 
   <h2><span class="risco"></span>Cronograma daqui para a frente</h2>
-  <p class="sub">Datas estimadas — automação tem imprevisto (o portal muda, uma integração cai), mas a ordem não muda. O tema dos próximos 15 dias é um só: <b>saber quanto sobra em cada prato e em cada canal</b>.</p>
+  <p class="sub">Uma correção de rota, dita com todas as letras: no plano anterior, a margem por item estava marcada para esta semana que passou. Não saiu — a queda do subsídio, o custo da logística e o controle do benefício do iFood entraram na frente porque envolviam dinheiro saindo agora. A margem por item continua sendo a prioridade seguinte.</p>
 
   <div class="fase">
-    <div class="quando">13 – 17/08<small>esta semana</small></div>
+    <div class="quando">16 – 22/08<small>esta semana</small></div>
     <div>
-      <h3>Fechar as pontas soltas <span class="chip obra">Em andamento</span></h3>
+      <h3>Esvaziar a fila e ligar o que falta <span class="chip obra">Em andamento</span></h3>
       <ul>
-        <li><b>De/para dos itens</b>: ligar cada nome do cardápio à sua ficha técnica. A maior parte já foi resolvida sozinha; o que sobrou vai lista a lista para o Neto decidir — ninguém classifica item por conta própria.</li>
-        <li><b>Primeira leitura fechada do teste de promoções</b> e a apuração do subsídio de entrega.</li>
-        <li><b>Conferência dos relatórios do iFood</b>: extrair o mesmo período duas vezes, com dois dias de intervalo, para saber se o passado ainda muda. Sem isso, definir a frequência das rotinas é chute.</li>
+        <li>Colocar no painel os <b>seis módulos prontos</b> que estão esperando.</li>
+        <li>Agendar as rotinas que ainda rodam à mão: <b>entregas</b> e <b>clientes do site</b>.</li>
+        <li>Primeira semana fechada do <b>novo calendário de promoções</b> — a leitura sai no resumo de segunda.</li>
       </ul>
     </div>
   </div>
 
   <div class="fase">
-    <div class="quando">18 – 24/08</div>
+    <div class="quando">23 – 31/08</div>
     <div>
-      <h3>Margem por item e rateio de despesas <span class="chip plano">Planejado</span></h3>
-      <p>Com o de/para pronto, entra o módulo <b>Margem por item</b>: quanto custa e quanto sobra em cada prato, por canal. Em paralelo, as despesas passam a ser divididas entre salão, iFood, site e atacado — cada canal com o seu custo real, sem chute e sem contar matéria-prima duas vezes.</p>
+      <h3>Margem por item e preço por canal <span class="chip plano">Planejado</span></h3>
+      <p>Com os 123 itens decididos, entra o módulo de <b>margem por item</b>: quanto custa e quanto sobra em cada prato, por canal. Junto, o rateio das despesas entre salão, iFood, site e atacado, que fecha a conta do <b>preço-alvo</b> — o preço que cobre custo, taxa da plataforma e a margem que queremos.</p>
       <p class="nota"><b>O que muda para o Fabio:</b> passa a existir resposta para "esse prato dá lucro no iFood?". Hoje só sabemos o resultado do conjunto.</p>
-    </div>
-  </div>
-
-  <div class="fase">
-    <div class="quando">25 – 31/08</div>
-    <div>
-      <h3>Preço por canal e entregas nas outras lojas <span class="chip plano">Planejado</span></h3>
-      <p>Juntando as duas peças acima, o painel calcula o <b>preço-alvo por canal</b> — o preço que cobre custo, taxa da plataforma e a margem que queremos. E as entregas próprias, hoje só da Água Verde, passam a ser importadas todo dia e replicadas nas demais unidades.</p>
-      <p class="nota"><b>O que muda para o Fabio:</b> os números de atraso e de tempo de rua passam a existir para todas as unidades, não só Água Verde.</p>
     </div>
   </div>
 
   <div class="fase">
     <div class="quando">Setembro<small>1ª quinzena</small></div>
     <div>
-      <h3>Operação com meta própria <span class="chip plano">Planejado</span></h3>
-      <p>Duas frentes: transformar o <b>apontamento de status</b> em meta da equipe (com alerta de "pronto há X minutos e ainda não saiu", que ataca o problema da estufa), e fazer a <b>auditoria das rotinas</b> — conferir uma a uma se estão trazendo tudo o que a fonte oferece, batendo valor com o portal.</p>
-      <p class="nota"><b>O que muda para o Fabio:</b> a equipe ganha um indicador que depende só dela e melhora o resultado de todo mundo — hoje o apontamento incompleto esconde onde o tempo se perde.</p>
+      <h3>Conexão oficial com o iFood e meta de operação <span class="chip plano">Planejado</span></h3>
+      <p>Hoje o painel depende de pedir relatório no portal e esperar chegar por e-mail. Com a liberação da via oficial de programação, pedidos, avaliações e financeiro passam a chegar direto, nas 17 lojas — menos peça para quebrar e dado mais fresco.</p>
+      <p>Na operação, o <b>apontamento de status</b> vira meta da equipe, com alerta de "pronto há X minutos e ainda não saiu", que ataca o problema da estufa.</p>
+      <p class="nota"><b>O que muda para o Fabio:</b> a equipe ganha um indicador que depende só dela — hoje o apontamento incompleto esconde onde o tempo se perde, e isso atrapalha qualquer conversa sobre atraso.</p>
     </div>
   </div>
 
@@ -310,7 +331,7 @@
   </div>
 
   <div class="aviso">
-    <p><b>Combinado de transparência:</b> tudo vai sair — mas automação boa precisa de tempo de construção e de alguns dias rodando em observação antes de confiarmos nela. Quando uma fase atrasar, o motivo aparece aqui neste documento, com a nova data. E quando um teste der errado, também aparece: número torto a gente conserta, número escondido vira decisão errada.</p>
+    <p><b>Combinado de transparência:</b> tudo vai sair — mas automação boa precisa de tempo de construção e de alguns dias rodando em observação antes de confiarmos nela. Quando uma fase atrasar, o motivo aparece aqui neste documento, com a nova data. E quando algo der errado, também aparece: nesta atualização são três coisas — as rotinas que falharam, a margem que não andou e a fila de módulos esperando. Número torto a gente conserta; número escondido vira decisão errada.</p>
   </div>
 
   <p class="rodape">Documento vivo do projeto — atualizado a cada fase concluída. Dúvidas ou prioridades diferentes? É só falar que a gente reordena o cronograma juntos.</p>
