@@ -5408,6 +5408,7 @@ const dreAberto = new Set();
 let DRE_METAS = null;    // fin_metas_dre: chave -> {sentido, meta}
 let DRE_FIN = null;      // vw_fin_dre_mensal: financeiro Saipos por COMPETENCIA (desde jan/26)
 let DRE_VENDAS = null;   // vw_vendas_canal_mensal: receita bruta por canal (PDV Saipos)
+let DRE_TAXAS = null;    // mv_conciliacao_agregado (Agua Verde): extrato oficial do iFood por grupo
 
 // Agrupamento das funcoes da DRE -> tipos do plano de contas
 // Nomes e ordem da DRE classica (Lei 11.638), pedido do dono em 16/08/2026 —
@@ -5512,12 +5513,13 @@ async function entrarDre() {
   if (DRE_FIN === null) {
     alvo.innerHTML = '<div class="contexto">Carregando DRE...</div>';
     let metas, benefMes;
-    [DRE_FIN, DRE_VENDAS, metas, BENEF_FAROL, benefMes] = await Promise.all([
+    [DRE_FIN, DRE_VENDAS, metas, BENEF_FAROL, benefMes, DRE_TAXAS] = await Promise.all([
       consultarTudo('vw_fin_dre_mensal?select=mes,natureza,tipo,subtipo,ordem,credito,debito&order=mes,ordem'),
       consultarTudo('vw_vendas_canal_mensal?select=mes,canal,vendas,receita&order=mes'),
       consultarTudo('fin_metas_dre?select=chave,sentido,pct_meta&order=ordem'),
       carregarBeneficioIfood(),
       consultarTudo('vw_fin_dre_beneficio?select=mes,beneficio_ifood&order=mes'),
+      consultarTudo('mv_conciliacao_agregado?select=data,grupo,valor&unidade=eq.AGUA%20VERDE'),
       garantirDadosFin(),   // DFC (caixa) para a ponte DRE x DFC do mes fechado
     ]);
     DRE_FIN.forEach(r => { r.credito = Number(r.credito); r.debito = Number(r.debito); });
@@ -5701,7 +5703,34 @@ function renderModuloDRE() {
   corpo += blocoSubtipos('OUTREC', r => r.natureza === 'RECEITAS' && !SUBT_PDV.includes(r.subtipo), 1, 'ganho');
   corpo += linha('dfc-bloco', '(−) DEDUÇÕES E ABATIMENTOS (ICMS, devoluções)', deducoes, { chave: 'DEDUC', kind: 'custo' });
   corpo += blocoSubtipos('DEDUC', r => r.natureza === 'DEDUÇOES DA RECEITA' && r.subtipo !== 'IRPJ', -1, 'custo');
-  corpo += linha('dfc-bloco', '(−) TAXAS DE CANAIS (comissões iFood e cartões)', taxasCanais, { kind: 'custo' });
+  // a linha de taxas ABRE no extrato oficial do iFood (conciliacao, por data de
+  // repasse) — o que sobra e' cartoes/vouchers + a defasagem semanal do repasse.
+  // Taxas exatas de Rede/Alelo/Pluxee/VR/Ticket/Tuna dependem de fonte nova
+  // (extratos das adquirentes) — pedido do dono em 16/08, ainda sem fonte.
+  corpo += linha('dfc-bloco', '(−) TAXAS DE CANAIS (comissões iFood e cartões)', taxasCanais, { chave: 'TAXASCAN', kind: 'custo' });
+  if (dreAberto.has('TAXASCAN')) {
+    const TAXA_ROTULOS = {
+      COMISSAO_VENDAS: 'iFood — comissão sobre vendas',
+      TAXA_CARTAO: 'iFood — taxa de pagamento online',
+      ANUNCIOS: 'iFood — anúncios e marketing',
+      RESSARCIMENTO_CANCELAMENTO: 'iFood — ressarcimentos de cancelamento (crédito)',
+      OUTROS_AJUSTES: 'iFood — outros ajustes',
+    };
+    const porGrupo = {};
+    (DRE_TAXAS || []).forEach(r => {
+      const i = idxMes[r.data.slice(0, 7) + '-01'];
+      if (i === undefined) return;
+      if (!porGrupo[r.grupo]) porGrupo[r.grupo] = Array(nM).fill(0);
+      porGrupo[r.grupo][i] -= Number(r.valor);   // cobranca (negativa no extrato) vira custo
+    });
+    let somaIf = Array(nM).fill(0);
+    Object.keys(porGrupo).forEach(g => {
+      if (!porGrupo[g].some(v => Math.abs(v) > 0.005)) return;
+      corpo += linha('dfc-linha', TAXA_ROTULOS[g] || ('iFood — ' + g.toLowerCase().replace(/_/g, ' ')), porGrupo[g], { kind: 'custo' });
+      somaIf = somaIf.map((v, i) => v + porGrupo[g][i]);
+    });
+    corpo += linha('dfc-linha', 'Cartões, vouchers e defasagem de repasse (estimado)', taxasCanais.map((v, i) => v - somaIf[i]), { kind: 'custo' });
+  }
   corpo += linha('dfc-resultado', '(=) RECEITA LÍQUIDA', recLiq, { kind: 'ganho' });
 
   gruposVals.forEach(([chave, rotulo, tipos, vals], gi) => {
@@ -5854,23 +5883,27 @@ function renderModuloDRE() {
       const antDe = (arr) => iA >= 0 ? sobre(arr, iA) : null;
       // sequencia dos indicadores = fechamento do Matheus (pedido do dono, 16/08);
       // valores e definicoes 100% nossos, % sempre sobre a receita liquida
+      // cards com o MESMO nome das linhas de meta da tabela (pedido do dono,
+      // 16/08: um vocabulario so entre card e linha controlada)
+      const vendaPct = sobre(venda, iF), adminPct = sobre(admin, iF);
       fechHtml = `
       <div class="section-label">Fechamento de ${rotuloMes(meses[iF])} — último mês completo</div>
       <div class="cards cards-3">
         <div class="card"><div class="card-lbl">Receita bruta</div><div class="card-val">R$ ${fmt(baseAV[iF])}</div>${varRS(baseAV)}</div>
         <div class="card blue"><div class="card-lbl">Receita líquida</div><div class="card-val">R$ ${fmt(recLiq[iF])}</div>${varRS(recLiq)}</div>
-        <div class="card"><div class="card-lbl">Margem de contribuição (R$)</div><div class="card-val">R$ ${fmt(lucroBruto[iF])}</div>${varRS(lucroBruto)}</div>
-        <div class="card"><div class="card-lbl">Margem de contribuição (%)</div><div class="card-val">${pct(mcPct)}%</div>
+        <div class="card"><div class="card-lbl">Lucro bruto (R$)</div><div class="card-val">R$ ${fmt(lucroBruto[iF])}</div>${varRS(lucroBruto)}</div>
+        <div class="card"><div class="card-lbl">Lucro bruto (%)</div><div class="card-val">${pct(mcPct)}%</div>
           ${statusDe(mcPct, DRE_METAS && DRE_METAS.LUCRO_BRUTO)}${varPP(mcPct, antDe(mcArr))}</div>
-        <div class="card"><div class="card-lbl">Prime Cost (mercadoria + pessoal)</div><div class="card-val">${pct(primePct)}%</div>
-          ${statusDe(primePct, mPrime)}${varPP(primePct, antDe(primeArr))}</div>
-        <div class="card"><div class="card-lbl">CMV — mercadoria (%)</div><div class="card-val">${pct(cmvPct)}%</div>
+        <div class="card"><div class="card-lbl">CMV — custo da mercadoria (%)</div><div class="card-val">${pct(cmvPct)}%</div>
           ${statusDe(cmvPct, DRE_METAS && DRE_METAS.CUSTO)}${varPP(cmvPct, antDe(custo))}</div>
-        <div class="card"><div class="card-lbl">Folha — pessoal + pró-labore (%)</div><div class="card-val">${pct(folhaPct)}%</div>
+        <div class="card"><div class="card-lbl">Despesas com pessoal (%)</div><div class="card-val">${pct(folhaPct)}%</div>
           ${statusDe(folhaPct, DRE_METAS && DRE_METAS.PESSOAL)}${varPP(folhaPct, antDe(pessoal))}</div>
-        <div class="card"><div class="card-lbl">Custos fixos (%)</div><div class="card-val">${pct(cfPct)}%</div>
-          ${statusDe(cfPct, mCf)}${varPP(cfPct, antDe(cfArr))}</div>
-        <div class="card"><div class="card-lbl">Custos fixos (R$)</div><div class="card-val">R$ ${fmt(cfArr[iF])}</div>${varRS(cfArr)}</div>
+        <div class="card"><div class="card-lbl">Despesas com vendas (%)</div><div class="card-val">${pct(vendaPct)}%</div>
+          ${statusDe(vendaPct, DRE_METAS && DRE_METAS.VENDA)}${varPP(vendaPct, antDe(venda))}</div>
+        <div class="card"><div class="card-lbl">Despesas administrativas (%)</div><div class="card-val">${pct(adminPct)}%</div>
+          ${statusDe(adminPct, DRE_METAS && DRE_METAS.ADMIN)}${varPP(adminPct, antDe(admin))}</div>
+        <div class="card"><div class="card-lbl">Prime Cost (CMV + pessoal)</div><div class="card-val">${pct(primePct)}%</div>
+          ${statusDe(primePct, mPrime)}${varPP(primePct, antDe(primeArr))}</div>
         ${pe ? `<div class="card"><div class="card-lbl">Ponto de equilíbrio</div><div class="card-val">R$ ${fmt(pe)}</div>
           <div class="card-pct" style="color:${folga >= 0 ? '#3fb950' : '#ff6b6b'};">vendeu ${pct(Math.abs(folga))}% ${folga >= 0 ? 'acima' : 'ABAIXO'} do ponto</div></div>` : ''}
         <div class="card ${ebitda[iF] >= 0 ? 'pos' : 'neg'}"><div class="card-lbl">Resultado operacional (EBITDA)</div><div class="card-val">R$ ${fmt(ebitda[iF])}</div>
@@ -5879,13 +5912,12 @@ function renderModuloDRE() {
           ${statusDe(resPct, DRE_METAS && DRE_METAS.RESULTADO)}</div>
       </div>
       <div class="caption-label" style="text-align:center;">
-        Percentuais sempre sobre a <b>receita bruta</b> (vendas + outras receitas — a mesma régua dos benchmarks
-        de restaurante). Margem de contribuição = receita líquida − mercadoria.
-        Prime Cost = mercadoria + pessoal (os dois maiores custos da casa). Custos fixos = despesas de venda +
-        administrativas + outras (meta = soma das metas dos dois grupos). Ponto de equilíbrio = (pessoal + custos fixos)
-        ÷ margem de contribuição — quanto precisava faturar para empatar. Empréstimos e aplicações ficam fora do
-        resultado (não há empréstimo bancário — confirmado 16/08/2026), por isso não há "total" separado do operacional.
-        Metas na tabela <b>fin_metas_dre</b>.
+        Percentuais sempre sobre a <b>receita bruta</b> (vendas + outras receitas — a régua dos benchmarks de
+        restaurante). Cada card usa o nome da linha correspondente da tabela abaixo; o lucro bruto é o que as
+        consultorias chamam de "margem de contribuição". Prime Cost = CMV + pessoal (os dois maiores custos da casa).
+        Ponto de equilíbrio = (pessoal + despesas com vendas + administrativas + outras) ÷ lucro bruto % — quanto
+        precisava faturar para empatar. Empréstimos e aplicações ficam fora do resultado (não há empréstimo
+        bancário — confirmado 16/08/2026). Metas na tabela <b>fin_metas_dre</b>.
       </div>`;
     }
   }
@@ -5948,6 +5980,8 @@ function renderModuloDRE() {
   Canais: iFood, Salão (comandas Abrahão + mesas), Balcão (retirada, telefone e fichas) e Site próprio (Accon).
   A linha "Taxas de canais" é estimada pela diferença entre o vendido no PDV e o efetivamente recebido —
   como o repasse do iFood é semanal, ela oscila um pouco entre meses vizinhos (no acumulado do ano é precisa).
+  <b>Clique nela</b> para abrir o extrato oficial do iFood (comissão, taxa online, anúncios, ressarcimentos,
+  por data de repasse); o que sobra é cartões/vouchers e a defasagem semanal.
   A DRE inclui as contas a pagar já lançadas (competência), então o <b>mês corrente parece pior do que vai fechar</b>:
   as despesas do mês já estão quase todas lá, mas as vendas ainda estão acontecendo (por isso o selo "em curso").
   Meses futuros com compromissos já lançados ficam fora desta tabela — o lugar deles é o Fluxo projetado.
