@@ -357,6 +357,8 @@
            Delivery (logistica propria, 97% das entregas). -->
       <button class="sidebar-btn" id="navBtnAtrasos" onclick="mostrarModulo('atrasos')"><span class="mico">⏱️</span>Atrasos e turnos</button>
       <button class="sidebar-btn" id="navBtnLogfin" onclick="mostrarModulo('logfin')"><span class="mico">🛵</span>Financeiro da logística</button>
+      <button class="sidebar-btn" id="navBtnFrete" onclick="mostrarModulo('frete')"><span class="mico">📍</span>Frete por distância</button>
+      <button class="sidebar-btn" id="navBtnListas" onclick="mostrarModulo('listas')"><span class="mico">📦</span>Transferências AV → filiais</button>
       <span class="sidebar-btn breve"><span class="mico">🚚</span>Tempo de entrega</span>
       <span class="sidebar-btn breve"><span class="mico">🧑‍🍳</span>Pessoas (Flash)</span>
     </div>
@@ -366,6 +368,8 @@
       <button class="sidebar-btn" id="navBtnFluxo" onclick="mostrarModulo('fluxo')"><span class="mico">💵</span>Fluxo de caixa</button>
       <button class="sidebar-btn" id="navBtnProjecao" onclick="mostrarModulo('projecao')"><span class="mico">🔮</span>Fluxo projetado</button>
       <button class="sidebar-btn" id="navBtnDespesas" onclick="mostrarModulo('despesas')"><span class="mico">🧾</span>Análise de despesas</button>
+      <button class="sidebar-btn" id="navBtnReembolsos" onclick="mostrarModulo('reembolsos')"><span class="mico">💸</span>Reembolsos</button>
+      <button class="sidebar-btn" id="navBtnRh" onclick="mostrarModulo('rh')"><span class="mico">💳</span>Descontos em folha</button>
     </div>
 
     <button class="sidebar-secao" onclick="toggleGrupo('gPlanejamento')">Planejamento <span class="seta">▶</span></button>
@@ -479,6 +483,22 @@
 
     <div id="modulo-atrasos" class="modulo" style="display:none;">
       <div id="view-atrasos"></div>
+    </div>
+
+    <div id="modulo-frete" class="modulo" style="display:none;">
+      <div id="view-frete"></div>
+    </div>
+
+    <div id="modulo-rh" class="modulo" style="display:none;">
+      <div id="view-rh"></div>
+    </div>
+
+    <div id="modulo-reembolsos" class="modulo" style="display:none;">
+      <div id="view-reembolsos"></div>
+    </div>
+
+    <div id="modulo-listas" class="modulo" style="display:none;">
+      <div id="view-listas"></div>
     </div>
 
     <div id="modulo-logfin" class="modulo" style="display:none;">
@@ -1027,6 +1047,8 @@ function abrirGrupoDoModulo(nome) {
   const grupoDe = { fluxo: 'gFinanceiro', projecao: 'gFinanceiro', despesas: 'gFinanceiro',
                     dre: 'gResultado', indicadores: 'gResultado', estasemana: 'gResultado',
                     consolidada: 'gResultado', atrasos: 'gOperacao',
+                    frete: 'gOperacao', listas: 'gOperacao',
+                    reembolsos: 'gFinanceiro', rh: 'gFinanceiro',
                     qualidade: 'gIfood',
                     relatorios: 'gArquivo', conciliacao: 'gArquivo', rotinas: 'gArquivo' };
   const id = grupoDe[nome] || 'gIfood';
@@ -1062,6 +1084,10 @@ function mostrarModulo(nome) {
     consolidada: ['modulo-consolidada', 'navBtnConsolidada'],
     atrasos: ['modulo-atrasos', 'navBtnAtrasos'],
     logfin: ['modulo-logfin', 'navBtnLogfin'],
+    frete: ['modulo-frete', 'navBtnFrete'],
+    listas: ['modulo-listas', 'navBtnListas'],
+    reembolsos: ['modulo-reembolsos', 'navBtnReembolsos'],
+    rh: ['modulo-rh', 'navBtnRh'],
   };
   Object.entries(modulos).forEach(([chave, [idDiv, idBtn]]) => {
     // Tolerante a botao/div ausente: o menu e mexido com frequencia e um id
@@ -1099,6 +1125,10 @@ function mostrarModulo(nome) {
   if (nome === 'consolidada') entrarConsolidada();
   if (nome === 'atrasos') entrarAtrasos();
   if (nome === 'logfin') entrarLogfin();
+  if (nome === 'frete') entrarFrete();
+  if (nome === 'listas') entrarListas();
+  if (nome === 'reembolsos') entrarReembolsos();
+  if (nome === 'rh') entrarRh();
   if (nome === 'rotinas') entrarRotinas();
   if (nome === 'fluxo') entrarFluxo();
   if (nome === 'dre') entrarDre();
@@ -1121,6 +1151,11 @@ function moduloAtivo() {
   if (cons && cons.style.display !== 'none') return 'consolidada';
   const atr = document.getElementById('modulo-atrasos');
   if (atr && atr.style.display !== 'none') return 'atrasos';
+  for (const [idm, nomem] of [['modulo-frete','frete'], ['modulo-listas','listas'],
+                              ['modulo-reembolsos','reembolsos'], ['modulo-rh','rh']]) {
+    const el = document.getElementById(idm);
+    if (el && el.style.display !== 'none') return nomem;
+  }
   const lgf = document.getElementById('modulo-logfin');
   if (lgf && lgf.style.display !== 'none') return 'logfin';
   if (document.getElementById('modulo-cancelamentos').style.display !== 'none') return 'cancelamentos';
@@ -3336,6 +3371,684 @@ function fmtMeta(meta) {
 }
 
 // ------------------------------------------------------------------
+// MODULO REEMBOLSOS (aplicado da fila em 16/08/2026). O pagamento ja
+// vinha do Saipos; o que nao existia era a FILA — quanto a empresa deve
+// agora e ha quantos dias. Fonte: vw_rmb_*. A ESCRITA (lancar gasto,
+// foto da nota, aprovar) usa login individual do Supabase: policies no
+// banco decidem quem pode o que (o status de nascimento e do gatilho,
+// nao do navegador). anon segue so leitura. Pre-requisito: os 4 usuarios
+// criados no Supabase e rmb_pessoas.email preenchido (REEMBOLSOS-PAINEL.md).
+let REEMBOLSOS = null;
+const RMB_SUBTIPOS = ['TAXAS COZINHA', 'MOTOBOY', 'TAXAS SALAO', 'SISTEMA DE GESTAO',
+                      'USO E CONSUMO', 'MANUTENCAO', 'DESPESAS ADMINISTRATIVAS'];
+const RMB_EMAIL_DONO = 'netoavft@gmail.com';
+
+function rmbSessao() {
+  try { return JSON.parse(localStorage.getItem('rmbSessao') || 'null'); } catch (e) { return null; }
+}
+function rmbHeaders(extra = {}) {
+  const s = rmbSessao();
+  return { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${s.access_token}`,
+           'Content-Type': 'application/json', ...extra };
+}
+
+async function rmbFazerLogin() {
+  const email = document.getElementById('rmbEmail').value.trim();
+  const senha = document.getElementById('rmbSenha').value;
+  const erroEl = document.getElementById('rmbLoginErro');
+  const r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+    method: 'POST',
+    headers: { apikey: SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password: senha }),
+  });
+  const s = await r.json();
+  if (!r.ok || !s.access_token) {
+    erroEl.textContent = 'Não deu: ' + (s.error_description || s.msg || 'e-mail ou senha errados, ou usuário ainda não criado no Supabase (ver rotinas/REEMBOLSOS-PAINEL.md).');
+    erroEl.style.display = 'block';
+    return;
+  }
+  localStorage.setItem('rmbSessao', JSON.stringify({
+    access_token: s.access_token, refresh_token: s.refresh_token,
+    email: (s.user && s.user.email) || email,
+  }));
+  renderModuloReembolsos(REEMBOLSOS);
+}
+
+function rmbSair() { localStorage.removeItem('rmbSessao'); renderModuloReembolsos(REEMBOLSOS); }
+
+async function rmbRenovarSeExpirado(resp) {
+  // 401 = token venceu; tenta renovar UMA vez com o refresh_token
+  if (resp.status !== 401) return false;
+  const s = rmbSessao();
+  if (!s || !s.refresh_token) return false;
+  const r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+    method: 'POST',
+    headers: { apikey: SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ refresh_token: s.refresh_token }),
+  });
+  const novo = await r.json();
+  if (!r.ok || !novo.access_token) { localStorage.removeItem('rmbSessao'); return false; }
+  localStorage.setItem('rmbSessao', JSON.stringify({
+    access_token: novo.access_token, refresh_token: novo.refresh_token, email: s.email,
+  }));
+  return true;
+}
+
+async function rmbEnviarGasto() {
+  const msg = document.getElementById('rmbFormMsg');
+  const pessoa = document.getElementById('rmbPessoa').value;
+  const data = document.getElementById('rmbData').value;
+  const valor = Number(String(document.getElementById('rmbValor').value).replace(',', '.'));
+  const descricao = document.getElementById('rmbDesc').value.trim();
+  const subtipo = document.getElementById('rmbSubtipo').value || null;
+  const arquivo = document.getElementById('rmbNota').files[0] || null;
+  if (!pessoa || !data || !valor || !descricao) {
+    msg.textContent = 'Preencha quem, quando, quanto e o que foi.'; msg.style.display = 'block'; return;
+  }
+  msg.textContent = 'Enviando...'; msg.style.display = 'block';
+  try {
+    let caminho = null;
+    if (arquivo) {
+      caminho = `${pessoa}/${Date.now()}-${arquivo.name.replace(/[^a-zA-Z0-9_.-]/g, '_')}`;
+      let up = await fetch(`${SUPABASE_URL}/storage/v1/object/comprovantes/${caminho}`, {
+        method: 'POST',
+        headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${rmbSessao().access_token}` },
+        body: arquivo,
+      });
+      if (await rmbRenovarSeExpirado(up)) {
+        up = await fetch(`${SUPABASE_URL}/storage/v1/object/comprovantes/${caminho}`, {
+          method: 'POST',
+          headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${rmbSessao().access_token}` },
+          body: arquivo,
+        });
+      }
+      if (!up.ok) throw new Error('a foto da nota não subiu (' + up.status + ')');
+    }
+    let r = await fetch(`${SUPABASE_URL}/rest/v1/rmb_gastos`, {
+      method: 'POST',
+      headers: rmbHeaders({ Prefer: 'return=minimal' }),
+      body: JSON.stringify({ pessoa, data_gasto: data, valor, descricao, subtipo,
+                             unidade: 'AGUA VERDE', comprovante_url: caminho, origem: 'PAINEL' }),
+    });
+    if (await rmbRenovarSeExpirado(r)) {
+      r = await fetch(`${SUPABASE_URL}/rest/v1/rmb_gastos`, {
+        method: 'POST', headers: rmbHeaders({ Prefer: 'return=minimal' }),
+        body: JSON.stringify({ pessoa, data_gasto: data, valor, descricao, subtipo,
+                               unidade: 'AGUA VERDE', comprovante_url: caminho, origem: 'PAINEL' }),
+      });
+    }
+    if (!r.ok) throw new Error((await r.text()).slice(0, 160));
+    REEMBOLSOS = null;
+    await entrarReembolsos();
+  } catch (e) {
+    msg.textContent = 'Não gravou: ' + e.message + ' — o banco recusa gasto lançado em nome de outra pessoa (só o Neto pode).';
+    msg.style.display = 'block';
+  }
+}
+
+async function rmbDecidir(id, status) {
+  let r = await fetch(`${SUPABASE_URL}/rest/v1/rmb_gastos?id=eq.${id}`, {
+    method: 'PATCH',
+    headers: rmbHeaders({ Prefer: 'return=minimal' }),
+    body: JSON.stringify({ status, aprovado_por: 'NETO', aprovado_em: new Date().toISOString() }),
+  });
+  if (await rmbRenovarSeExpirado(r)) {
+    r = await fetch(`${SUPABASE_URL}/rest/v1/rmb_gastos?id=eq.${id}`, {
+      method: 'PATCH', headers: rmbHeaders({ Prefer: 'return=minimal' }),
+      body: JSON.stringify({ status, aprovado_por: 'NETO', aprovado_em: new Date().toISOString() }),
+    });
+  }
+  if (!r.ok) { alert('Não gravou a decisão — só o dono aprova (policy do banco).'); return; }
+  REEMBOLSOS = null;
+  await entrarReembolsos();
+}
+
+async function rmbVerNota(caminho) {
+  const s = await fetch(`${SUPABASE_URL}/storage/v1/object/sign/comprovantes/${caminho}`, {
+    method: 'POST', headers: rmbHeaders(), body: JSON.stringify({ expiresIn: 3600 }),
+  });
+  const d = await s.json();
+  if (d.signedURL) window.open(`${SUPABASE_URL}/storage/v1${d.signedURL}`, '_blank');
+  else alert('Não consegui abrir a nota (o bucket é privado — precisa estar logado).');
+}
+
+async function carregarReembolsos() {
+  const [saldo, fila, orfaos] = await Promise.all([
+    consultarTudo('vw_rmb_saldo_pessoa?select=*&order=a_receber.desc'),
+    consultarTudo('vw_rmb_fila?select=*&order=data_gasto.asc'),
+    consultarTudo('vw_rmb_sem_registro?select=debito'),
+  ]);
+  return { saldo, fila, orfaos };
+}
+
+async function entrarReembolsos() {
+  const alvo = document.getElementById('view-reembolsos');
+  if (!alvo) return;
+  if (REEMBOLSOS === null) {
+    alvo.innerHTML = '<div class="contexto">Carregando os reembolsos...</div>';
+    REEMBOLSOS = await carregarReembolsos();
+  }
+  renderModuloReembolsos(REEMBOLSOS);
+}
+
+function renderModuloReembolsos({ saldo, fila, orfaos }) {
+  const alvo  = document.getElementById('view-reembolsos');
+  if (!alvo) return;
+  const reais = (v) => 'R$ ' + Number(v).toLocaleString('pt-BR', { minimumFractionDigits:2, maximumFractionDigits:2 });
+  const ddmm  = (d) => new Date(d + 'T12:00:00').toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit' });
+  const sessao = rmbSessao();
+  const souDono = sessao && sessao.email === RMB_EMAIL_DONO;
+
+  const totalAberto = saldo.reduce((a, p) => a + Number(p.a_receber), 0);
+  const orfaoValor  = orfaos.reduce((a, l) => a + Number(l.debito), 0);
+
+  // Um card por pessoa: quanto devemos e ha quantos dias espera.
+  const cards = saldo.map(p => {
+    const dias = p.espera_mais_antiga_dias;
+    // a cor e fato (esta esperando ha muito), nao julgamento
+    const cor = dias == null ? '#8a897e' : dias > 30 ? '#ff6b6b' : dias > 15 ? '#f5a623' : '#3fb950';
+    return `<div class="card" style="border:1px solid ${cor};">
+      <div style="font-size:12px; color:#a5a49a; text-transform:uppercase;">${p.pessoa}</div>
+      <div style="font-size:26px; font-weight:700;">${reais(p.a_receber)}</div>
+      <div style="font-size:12px; color:#a5a49a;">${
+        Number(p.a_receber) === 0 ? 'nada em aberto'
+        : `${p.gastos_em_aberto} gasto${p.gastos_em_aberto > 1 ? 's' : ''} · o mais antigo espera <b style="color:${cor};">${dias} dias</b>`
+      }</div>
+      <div style="font-size:11px; color:#8a897e; margin-top:4px;">já devolvido: ${reais(p.ja_reembolsado_total)}</div>
+    </div>`;
+  }).join('');
+
+  const linhas = fila.map(g => {
+    const badge  = { PENDENTE:'#f5a623', APROVADO:'#3fb950', REVISAR:'#ff6b6b' }[g.status] || '#8a897e';
+    const rotulo = { PENDENTE:'esperando você', APROVADO:'pode pagar', REVISAR:'revisar' }[g.status] || g.status;
+    const acoes = souDono && g.status === 'PENDENTE'
+      ? ` <button onclick="rmbDecidir(${g.id}, 'APROVADO')" style="background:#1a3d24; border:1px solid #3fb950; color:#3fb950; border-radius:8px; padding:2px 8px; cursor:pointer; font-size:11px;">aprovar</button>
+          <button onclick="rmbDecidir(${g.id}, 'REVISAR')" style="background:#3d1a1a; border:1px solid #ff6b6b; color:#ff6b6b; border-radius:8px; padding:2px 8px; cursor:pointer; font-size:11px;">recusar</button>`
+      : '';
+    return `<tr>
+      <td style="padding:5px 8px; color:#a5a49a;">${ddmm(g.data_gasto)}</td>
+      <td style="padding:5px 8px;">${g.pessoa}</td>
+      <td style="padding:5px 8px;">${g.descricao}</td>
+      <td style="padding:5px 8px; color:#a5a49a;">${g.subtipo || 'sem classificação'}</td>
+      <td style="padding:5px 8px; text-align:right; font-weight:600;">${reais(g.valor)}</td>
+      <td style="padding:5px 8px; text-align:right; color:#a5a49a;">${g.dias_esperando} d</td>
+      <td style="padding:5px 8px;"><span style="color:${badge}; border:1px solid ${badge}; border-radius:12px; padding:2px 8px; font-size:11px;">${rotulo}</span>${acoes}</td>
+      <td style="padding:5px 8px;">${g.comprovante_url
+        ? (sessao ? `<a href="javascript:void(0)" onclick="rmbVerNota('${g.comprovante_url}')" style="color:#a5a49a;">nota</a>`
+                  : '<span style="color:#8a897e;" title="entre para ver">nota 🔒</span>')
+        : '<span style="color:#8a897e;">sem nota</span>'}</td>
+    </tr>`;
+  }).join('');
+
+  const hoje = new Date().toISOString().slice(0, 10);
+  const blocoEntrar = sessao
+    ? `<div class="contexto" style="text-align:left;">
+        logado como <b>${sessao.email}</b> · <a href="javascript:void(0)" onclick="rmbSair()" style="color:#a5a49a;">sair</a>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:8px; margin-top:10px;">
+          <select id="rmbPessoa" style="background:#232321; border:1px solid #34332f; color:#fff; border-radius:8px; padding:8px;">
+            ${saldo.map(p => `<option>${p.pessoa}</option>`).join('')}
+          </select>
+          <input id="rmbData" type="date" value="${hoje}" style="background:#232321; border:1px solid #34332f; color:#fff; border-radius:8px; padding:8px;">
+          <input id="rmbValor" type="text" inputmode="decimal" placeholder="valor (R$)" style="background:#232321; border:1px solid #34332f; color:#fff; border-radius:8px; padding:8px;">
+          <select id="rmbSubtipo" style="background:#232321; border:1px solid #34332f; color:#fff; border-radius:8px; padding:8px;">
+            <option value="">não sei a categoria</option>
+            ${RMB_SUBTIPOS.map(s => `<option>${s}</option>`).join('')}
+          </select>
+        </div>
+        <input id="rmbDesc" type="text" placeholder="o que foi comprado / pago" style="width:100%; margin-top:8px; background:#232321; border:1px solid #34332f; color:#fff; border-radius:8px; padding:8px;">
+        <div style="display:flex; gap:10px; align-items:center; margin-top:8px;">
+          <input id="rmbNota" type="file" accept="image/*,.pdf" style="color:#a5a49a; font-size:12px; flex:1;">
+          <button onclick="rmbEnviarGasto()" style="background:#c8102e; border:none; color:#fff; font-weight:700; border-radius:8px; padding:8px 18px; cursor:pointer;">Lançar gasto</button>
+        </div>
+        <div id="rmbFormMsg" style="display:none; color:#f5a623; font-size:12px; margin-top:6px;"></div>
+        <div style="color:#8a897e; font-size:11px; margin-top:6px;">O banco só aceita gasto lançado no próprio nome (o Neto lança por qualquer um). Acima de R$ 300 nasce esperando aprovação — quem decide é o gatilho do banco, não esta tela.</div>
+      </div>`
+    : `<div class="contexto" style="text-align:left;">
+        <a href="javascript:void(0)" onclick="document.getElementById('rmbLoginBox').style.display='block'; this.style.display='none';" style="color:#a5a49a;">Entrar para lançar um gasto ou ver as notas →</a>
+        <div id="rmbLoginBox" style="display:none; margin-top:8px;">
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <input id="rmbEmail" type="email" placeholder="e-mail" style="flex:1; min-width:180px; background:#232321; border:1px solid #34332f; color:#fff; border-radius:8px; padding:8px;">
+            <input id="rmbSenha" type="password" placeholder="senha" style="flex:1; min-width:140px; background:#232321; border:1px solid #34332f; color:#fff; border-radius:8px; padding:8px;">
+            <button onclick="rmbFazerLogin()" style="background:#c8102e; border:none; color:#fff; font-weight:700; border-radius:8px; padding:8px 18px; cursor:pointer;">Entrar</button>
+          </div>
+          <div id="rmbLoginErro" style="display:none; color:#ff6b6b; font-size:12px; margin-top:6px;"></div>
+        </div>
+      </div>`;
+
+  alvo.innerHTML = `
+    <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Reembolsos</div>
+    <div class="caption-label" style="text-align:center;">
+      Quanto a empresa deve para quem gastou do próprio bolso, e há quanto tempo essa pessoa espera.
+      Acima de R$ 300 o gasto espera sua aprovação.
+    </div>
+    ${blocoEntrar}
+    <div class="cards">${cards}</div>
+    ${totalAberto > 0
+      ? `<div class="caption-label" style="text-align:center;">Em aberto agora: <b>${reais(totalAberto)}</b>.</div>`
+      : `<div class="caption-label" style="text-align:center;">Nada em aberto — todo reembolso registrado já foi devolvido.</div>`}
+    ${linhas ? `
+      <div class="section-label">A fila</div>
+      <table style="width:100%; font-size:13px;">
+        <tr style="color:#8a897e; font-size:11px; text-transform:uppercase;">
+          <td style="padding:5px 8px;">gasto em</td><td style="padding:5px 8px;">quem</td>
+          <td style="padding:5px 8px;">o que foi</td><td style="padding:5px 8px;">categoria</td>
+          <td style="padding:5px 8px; text-align:right;">valor</td>
+          <td style="padding:5px 8px; text-align:right;">esperando</td>
+          <td style="padding:5px 8px;">situação</td><td style="padding:5px 8px;">comprovante</td>
+        </tr>${linhas}
+      </table>` : ''}
+    ${orfaoValor > 0 ? `
+      <div class="contexto" style="border-color:#f5a623;">
+        <b>${orfaos.length} pagamentos de reembolso (${reais(orfaoValor)}) apareceram no financeiro sem passar pela fila.</b>
+        Ou é uma pessoa ainda não cadastrada, ou alguém foi pago por fora do combinado —
+        conferir antes de concluir. Cadastrar é um INSERT em <code>rmb_pessoas</code>.
+      </div>` : ''}
+    <div class="caption-label">A <b>Jane</b> também tem crédito no módulo <a href="javascript:void(0)" onclick="mostrarModulo('rh')" style="color:#a5a49a;">Descontos em folha</a>
+    (dinheiro que ela emprestou a funcionários) — são dívidas de origens diferentes e não estão somadas aqui.</div>`;
+}
+
+// ------------------------------------------------------------------
+// MODULO DESCONTOS EM FOLHA (aplicado da fila em 16/08/2026).
+// Vales e emprestimos que a empresa adianta ao funcionario e recupera
+// no contracheque. Fonte: tabelas rh_* (planilha GASTOS FUNCIONARIOS
+// DESCONTAR, aba Base). A tela responde tres perguntas, nesta ordem:
+// quanto sai da proxima folha, quanto devemos a quem emprestou do
+// bolso, e o que esta travado.
+// ------------------------------------------------------------------
+let RH = null;
+
+async function entrarRh() {
+  const alvo = document.getElementById('view-rh');
+  if (!alvo) return;
+  if (RH) { renderModuloRh(); return; }
+  alvo.innerHTML = '<div class="contexto">Carregando os descontos em folha...</div>';
+  try {
+    const [colab, aberto, credor, credorDet, diverg] = await Promise.all([
+      consultarTudo('vw_rh_colaboradores?select=*&order=a_descontar.desc'),
+      consultarTudo('vw_rh_a_descontar?select=*&order=data_desconto.asc'),
+      consultarTudo('vw_rh_credor?select=*&order=devolver_agora.desc'),
+      consultarTudo('vw_rh_credor_detalhe?select=*&order=data_concessao.asc'),
+      consultarTudo('vw_rh_divergencias?select=*&order=diferenca.desc'),
+    ]);
+    RH = { colab, aberto, credor, credorDet, diverg };
+  } catch (e) {
+    alvo.innerHTML = `<div class="contexto">Não consegui carregar os descontos em folha: ${e.message}</div>`;
+    return;
+  }
+  renderModuloRh();
+}
+
+function renderModuloRh() {
+  const alvo = document.getElementById('view-rh');
+  if (!alvo || RH === null) return;
+  const { colab, aberto, credor, credorDet, diverg } = RH;
+  const n = (v) => Number(v) || 0;   // PostgREST pode devolver numeric como texto
+  const soma = (arr, f) => arr.reduce((s, x) => s + n(f(x)), 0);
+  const ddmm = (d) => d ? d.slice(8, 10) + '/' + d.slice(5, 7) + '/' + d.slice(2, 4) : '—';
+  const mesTxt = (d) => new Date(d + 'T12:00:00')
+    .toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }).replace('.', '');
+
+  if (!aberto.length && !colab.length) {
+    alvo.innerHTML = '<div class="contexto">Sem descontos importados — rode <b>script/import_gastos_funcionarios.py</b>.</div>';
+    return;
+  }
+
+  const totalAberto = soma(aberto, r => r.valor);
+  const devolverAgora = soma(credor, c => c.devolver_agora);
+  const aReceberCredor = soma(credor, c => c.a_descontar_do_funcionario);
+
+  // Por dia de desconto. A planilha usa uma data unica como "estacionamento"
+  // de divida antiga sem plano — se um so dia concentra mais de um quarto do
+  // saldo, isso NAO e folha daquele mes e a tela precisa dizer.
+  const porDia = {};
+  aberto.forEach(r => { porDia[r.data_desconto] = (porDia[r.data_desconto] || 0) + n(r.valor); });
+  const maiorDia = Object.entries(porDia).sort((a, b) => b[1] - a[1])[0] || [null, 0];
+  const estacionado = totalAberto && maiorDia[1] / totalAberto > 0.25 ? maiorDia : null;
+
+  // A proxima folha e o proximo dia de desconto que ainda vai acontecer —
+  // tirando o dia estacionado, que nao e folha de verdade.
+  const hojeIso = new Date().toISOString().slice(0, 10);
+  const futuros = Object.keys(porDia)
+    .filter(d => d >= hojeIso && (!estacionado || d !== estacionado[0])).sort();
+  const proxDia = futuros[0] || null;
+  const proxValor = proxDia ? porDia[proxDia] : 0;
+  const proxN = proxDia ? aberto.filter(r => r.data_desconto === proxDia).length : 0;
+
+  const divSoma = soma(diverg, d => d.diferenca);
+  const faltaParcela = diverg.filter(d => d.tipo === 'FALTA PARCELA');
+
+  const cards = `<div class="cards">
+    <div class="card neutral"><div class="card-lbl">A descontar (saldo total)</div>
+      <div class="card-val">R$ ${fmt(totalAberto)}</div>
+      <div class="card-pct">${aberto.length} parcelas de ${new Set(aberto.map(r => r.colaborador)).size} pessoas</div></div>
+    <div class="card blue"><div class="card-lbl">Próxima folha</div>
+      <div class="card-val">R$ ${fmt(proxValor)}</div>
+      <div class="card-pct">${proxDia ? ddmm(proxDia) + ' · ' + proxN + ' parcelas' : 'nada agendado'}</div></div>
+    <div class="card neg highlight"><div class="card-lbl">Devolver a quem emprestou</div>
+      <div class="card-val">R$ ${fmt(devolverAgora)}</div>
+      <div class="card-pct">já saiu do funcionário e não voltou pra pessoa</div></div>
+    ${estacionado ? `<div class="card neg"><div class="card-lbl">Parado em ${ddmm(estacionado[0])}</div>
+      <div class="card-val">R$ ${fmt(estacionado[1])}</div>
+      <div class="card-pct">${pct(estacionado[1] / totalAberto * 100)}% do saldo num dia só — dívida sem plano</div></div>` : ''}
+    ${diverg.length ? `<div class="card neutral"><div class="card-lbl">Não fecha na planilha</div>
+      <div class="card-val">R$ ${fmt(divSoma)}</div>
+      <div class="card-pct">${diverg.length} empréstimos · ${faltaParcela.length} sem parcela lançada</div></div>` : ''}
+  </div>`;
+
+  const contexto = `<div class="contexto">
+    <b>${estacionado ? 'R$ ' + fmt(estacionado[1]) + ' dos R$ ' + fmt(totalAberto) + ' em aberto estão numa data só (' + ddmm(estacionado[0]) + ').</b> ' : ''}
+    A planilha usa essa data para guardar dívida antiga que não tem plano de desconto —
+    parte é de gente que já saiu. O cartão “Próxima folha” já ignora esse dia.
+    ${credor.length ? ' Quem emprestou do bolso ainda tem <b>R$ ' + fmt(aReceberCredor) + '</b> a receber via desconto, além do que já está no caixa.' : ''}
+  </div>`;
+
+  // ---- proximas folhas, mes a mes ----
+  const porMes = {};
+  aberto.forEach(r => {
+    const p = porMes[r.mes] || (porMes[r.mes] = { valor: 0, n: 0, pessoas: new Set(), parado: 0 });
+    p.valor += n(r.valor); p.n += 1; p.pessoas.add(r.colaborador);
+    if (estacionado && r.data_desconto === estacionado[0]) p.parado += n(r.valor);
+  });
+  const linhasMes = Object.keys(porMes).sort().map(m => {
+    const p = porMes[m];
+    return `<tr><td>${mesTxt(m)}</td><td>${p.pessoas.size}</td><td>${p.n}</td>
+      <td>R$ ${fmt(n(p.valor))}</td>
+      <td class="${p.parado ? 'negativo' : ''}">${p.parado ? 'R$ ' + fmt(n(p.parado)) : '—'}</td></tr>`;
+  }).join('');
+
+  // ---- quem deve ----
+  const linhasColab = colab.filter(c => n(c.a_descontar) > 0).map(c => `<tr>
+    <td>${c.colaborador}</td>
+    <td>R$ ${fmt(n(c.a_descontar))}</td>
+    <td>${c.parcelas_abertas}</td>
+    <td>${ddmm(c.proximo_desconto)}</td>
+    <td>${ddmm(c.quitacao_prevista)}</td>
+    <td class="${n(c.sem_previsao) > 0 ? 'negativo' : ''}">${n(c.sem_previsao) > 0 ? 'R$ ' + fmt(n(c.sem_previsao)) : '—'}</td>
+    <td>R$ ${fmt(n(c.ja_descontado))}</td></tr>`).join('');
+
+  // ---- conta com quem emprestou do bolso ----
+  const linhasCredor = credor.map(c => `<tr>
+    <td>${c.credor}</td><td>${c.emprestimos}</td><td>${c.funcionarios}</td>
+    <td>R$ ${fmt(n(c.emprestado))}</td>
+    <td>R$ ${fmt(n(c.ja_descontado_do_funcionario))}</td>
+    <td>R$ ${fmt(n(c.ja_reembolsado))}</td>
+    <td class="negativo">R$ ${fmt(n(c.devolver_agora))}</td>
+    <td>R$ ${fmt(n(c.a_descontar_do_funcionario))}</td></tr>`).join('');
+
+  const linhasCredorDet = credorDet
+    .filter(d => n(d.a_reembolsar) > 0)
+    .sort((a, b) => n(b.a_reembolsar) - n(a.a_reembolsar))
+    .map(d => `<tr>
+      <td>${d.credor} → ${d.colaborador}</td>
+      <td>${d.descricao}</td>
+      <td>${ddmm(d.data_concessao)}</td>
+      <td>R$ ${fmt(n(d.valor_total))}</td>
+      <td>R$ ${fmt(n(d.descontado))}</td>
+      <td>R$ ${fmt(n(d.a_descontar))}</td>
+      <td class="negativo">R$ ${fmt(n(d.a_reembolsar))}</td>
+      <td>${d.situacao}</td></tr>`).join('');
+
+  // ---- o que nao fecha ----
+  const linhasDiv = diverg.map(d => `<tr>
+    <td>${d.colaborador}</td><td>${d.descricao}</td><td>${ddmm(d.data_concessao)}</td>
+    <td>R$ ${fmt(n(d.valor_total))}</td><td>R$ ${fmt(n(d.soma_parcelas))}</td>
+    <td class="${n(d.diferenca) > 0 ? 'negativo' : ''}">R$ ${fmt(n(d.diferenca))}</td>
+    <td>${d.tipo}</td></tr>`).join('');
+
+  alvo.innerHTML = `
+    <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Descontos em folha</div>
+    <div class="caption-label" style="text-align:center;">
+      Vales e empréstimos que a empresa adiantou e recupera no contracheque. É saldo, não fluxo — sem janela de período.
+    </div>
+    ${cards}${contexto}
+    <div class="section-label">Quanto sai de cada folha</div>
+    <div id="tabelaRhMes"><table>
+      <tr><th>Mês</th><th>Pessoas</th><th>Parcelas</th><th>Valor</th><th>Do dia parado</th></tr>
+      ${linhasMes}
+    </table></div>
+
+    <div class="section-label">Quem ainda tem desconto a fazer</div>
+    <div id="tabelaRhColab"><table>
+      <tr><th>Funcionário</th><th>A descontar</th><th>Parcelas</th><th>Próximo</th>
+          <th>Quitação prevista</th><th>Sem parcela</th><th>Já descontado</th></tr>
+      ${linhasColab}
+    </table></div>
+
+    ${credor.length ? `
+    <div class="section-label">Quem emprestou do próprio bolso</div>
+    <div class="contexto">Aqui a empresa é a devedora. <b>Devolver agora</b> é o dinheiro que já
+      foi descontado do funcionário e ainda não voltou para a pessoa — devolver mais do que isso
+      é pôr dinheiro novo, porque o resto ainda nem saiu do contracheque.
+      A <b>Jane</b> também tem crédito no módulo <a href="javascript:void(0)" onclick="mostrarModulo('reembolsos')" style="color:#a5a49a;">Reembolsos</a>
+      (gastos do bolso pela empresa) — dívidas de origens diferentes, não somadas aqui.</div>
+    <div id="tabelaRhCredor"><table>
+      <tr><th>Quem emprestou</th><th>Empréstimos</th><th>Funcionários</th><th>Emprestado</th>
+          <th>Já descontado</th><th>Já devolvido</th><th>Devolver agora</th><th>Ainda a descontar</th></tr>
+      ${linhasCredor}
+    </table></div>
+    <div id="tabelaRhCredorDet" style="margin-top:10px;"><table>
+      <tr><th>Empréstimo</th><th>Descrição</th><th>Data</th><th>Valor</th>
+          <th>Descontado</th><th>A descontar</th><th>A devolver</th><th>Situação</th></tr>
+      ${linhasCredorDet}
+    </table></div>` : ''}
+
+    ${diverg.length ? `
+    <div class="section-label">Empréstimos que não fecham</div>
+    <div class="contexto">A soma das parcelas não bate com o valor concedido.
+      <b>FALTA PARCELA</b> = sobrou valor sem desconto lançado (ninguém está cobrando).
+      <b>PARCELA A MAIS</b> = quase sempre vale replanejado, com a parcela antiga ainda na base.
+      Corrigir na planilha e reimportar — o painel não conserta sozinho.</div>
+    <div id="tabelaRhDiverg"><table>
+      <tr><th>Funcionário</th><th>Descrição</th><th>Data</th><th>Concedido</th>
+          <th>Soma das parcelas</th><th>Diferença</th><th>Tipo</th></tr>
+      ${linhasDiv}
+    </table></div>` : ''}`;
+}
+
+// ------------------------------------------------------------------
+// MODULO FRETE POR DISTANCIA (aplicado da fila em 16/08/2026).
+// A media geral esconde o que decide: o cliente distante tem o MAIOR
+// ticket. Por isso a tabela mostra ticket ao lado de custo e cobrado.
+// Fonte: vw_frete_faixa_canal (so Agua Verde).
+let FRETE = null;
+
+async function entrarFrete() {
+  const alvo = document.getElementById('view-frete');
+  if (!alvo) return;
+  if (FRETE === null) {
+    alvo.innerHTML = '<div class="contexto">Carregando o frete por distância...</div>';
+    FRETE = await consultarTudo('vw_frete_faixa_canal?select=*&order=canal,faixa');
+  }
+  renderModuloFrete(FRETE);
+}
+
+function renderModuloFrete(linhas) {
+  const alvo = document.getElementById('view-frete');
+  if (!alvo || !linhas) return;
+  const reais = (v) => 'R$ ' + Number(v).toLocaleString('pt-BR', { minimumFractionDigits:2, maximumFractionDigits:2 });
+  const canais = [...new Set(linhas.map(l => l.canal))].sort();
+
+  const tabela = (canal) => {
+    const ls = linhas.filter(l => l.canal === canal);
+    const totalEntregas = ls.reduce((a, l) => a + Number(l.entregas), 0);
+    const resultado = ls.reduce((a, l) => a + Number(l.resultado_total), 0);
+    const corpo = ls.map(l => {
+      const r = Number(l.resultado_entrega);
+      // a cor diz se a loja banca (vermelho) ou o frete se paga (verde) —
+      // fato separado da interpretacao, regra da casa
+      const cor = r < 0 ? '#ff6b6b' : '#3fb950';
+      return `<tr>
+        <td style="padding:5px 8px;">${l.faixa}</td>
+        <td style="padding:5px 8px; text-align:right; color:#a5a49a;">${l.entregas}</td>
+        <td style="padding:5px 8px; text-align:right;">${reais(l.custo_entregador)}</td>
+        <td style="padding:5px 8px; text-align:right;">${reais(l.frete_cobrado)}</td>
+        <td style="padding:5px 8px; text-align:right; font-weight:600;">${reais(l.ticket)}</td>
+        <td style="padding:5px 8px; text-align:right; color:${cor}; font-weight:600;">${reais(r)}</td>
+      </tr>`;
+    }).join('');
+    return `
+      <div class="section-label">${canal}</div>
+      <div class="caption-label" style="text-align:center;">
+        ${totalEntregas} entregas · a loja ${resultado < 0 ? 'banca' : 'ganha'}
+        <b>${reais(Math.abs(resultado))}</b> de frete no período.
+      </div>
+      <table style="width:100%; font-size:13px;">
+        <tr style="color:#8a897e; font-size:11px; text-transform:uppercase;">
+          <td style="padding:5px 8px;">distância</td>
+          <td style="padding:5px 8px; text-align:right;">entregas</td>
+          <td style="padding:5px 8px; text-align:right;">custo do entregador</td>
+          <td style="padding:5px 8px; text-align:right;">frete cobrado</td>
+          <td style="padding:5px 8px; text-align:right;">ticket</td>
+          <td style="padding:5px 8px; text-align:right;">sobra / falta</td>
+        </tr>
+        ${corpo}
+      </table>`;
+  };
+
+  alvo.innerHTML = `
+    <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Frete por distância</div>
+    <div class="caption-label" style="text-align:center;">
+      Quanto cada entrega custa de verdade, quanto foi cobrado do cliente e qual o ticket daquela faixa.
+      <b>Vermelho = a loja está bancando; verde = o frete se paga.</b>
+      <span style="font-size:11.5px; color:#f5a623; border:1px solid #f5a623; border-radius:12px; padding:3px 10px; margin-left:6px;">só Água Verde</span>
+    </div>
+    ${canais.map(tabela).join('')}
+    <div class="caption-label">
+      A coluna do ticket é a que decide: no site, quem está acima de 3 km gasta de R$ 104 a R$ 135,
+      contra R$ 72 a R$ 78 de quem está perto. Quem mora longe já paga o frete e leva o carrinho maior —
+      o subsídio está indo para quem gasta menos.
+    </div>`;
+}
+
+// ------------------------------------------------------------------
+// MODULO TRANSFERENCIAS AV -> FILIAIS (aplicado da fila em 16/08/2026).
+// A Agua Verde e a central de producao; as filiais pedem por lista e a
+// conta fecha por mes. Fonte: views vw_tr_* (historico da planilha via
+// import_listas.py — fase 1, so leitura; pedido/separacao/conferencia
+// pela tela e fase 2, apos decisoes do dono).
+// Cuidados aplicados: valor_lista (congelado no mes fechado), frete so
+// Boqueirao, royalty derivado de regra, total_pago pelo mes de referencia.
+let LISTAS = null;
+
+async function entrarListas() {
+  const alvo = document.getElementById('view-listas');
+  if (!alvo) return;
+  if (LISTAS === null) {
+    alvo.innerHTML = '<div class="contexto">Carregando as transferências...</div>';
+    const [mensal, listas, abertura, fretePend] = await Promise.all([
+      consultarTudo('vw_tr_conta_listas_mensal?select=*&order=mes.desc'),
+      consultarTudo('vw_tr_listas?select=unidade,data_pedido,status,itens,valor_cobrado,frete,total_lista,itens_conferidos,itens_divergentes&order=data_pedido.desc&limit=40'),
+      consultarTudo('vw_tr_conta_abertura?select=*'),
+      consultarTudo('vw_tr_frete_pendente?select=*'),
+    ]);
+    LISTAS = { mensal, listas, abertura, fretePend };
+  }
+  renderModuloListas();
+}
+
+function renderModuloListas() {
+  const alvo = document.getElementById('view-listas');
+  if (!alvo || LISTAS === null) return;
+  const { mensal, listas, abertura, fretePend } = LISTAS;
+  const nu = (v) => Number(v) || 0;
+  const ddmm = (d) => d ? d.slice(8, 10) + '/' + d.slice(5, 7) + '/' + d.slice(2, 4) : '—';
+  const mesTxt = (m) => { const [a, mm] = m.split('-'); return MESES_ABREV[Number(mm) - 1] + '/' + a.slice(2); };
+
+  if (!mensal.length) {
+    alvo.innerHTML = '<div class="contexto">Sem listas importadas — rode <b>script/import_listas.py</b>.</div>';
+    return;
+  }
+
+  // farol do mes por filial: o mes mais recente de cada unidade
+  const unidades = [...new Set(mensal.map(r => r.unidade))].sort();
+  const cardsFarol = unidades.map(u => {
+    const meses = mensal.filter(r => r.unidade === u);
+    const semFechar = meses.filter(r => r.sem_fechar);
+    const m = meses[0];
+    const cor = semFechar.length ? '#ff6b6b' : '#3fb950';
+    return `<div class="card" style="border:1px solid ${cor};">
+      <div class="card-lbl">${u}</div>
+      <div class="card-val">R$ ${fmt(nu(m.total_devido))}</div>
+      <div class="card-pct">${mesTxt(m.mes)} · pago R$ ${fmt(nu(m.total_pago))}${
+        semFechar.length ? ` · <b style="color:${cor};">${semFechar.length} mês(es) sem fechar</b>` : ' · em dia'}</div>
+    </div>`;
+  }).join('');
+
+  // conferencia: o zero que doi
+  const totItens = listas.reduce((s, l) => s + nu(l.itens), 0);
+  const totConf = listas.reduce((s, l) => s + nu(l.itens_conferidos), 0);
+  const pctConf = totItens ? (totConf / totItens * 100) : 0;
+
+  // deriva: meses fechados que a planilha ja reescreveu
+  const derivas = mensal.filter(r => Math.abs(nu(r.deriva_custo)) > 0.005);
+  const derivaTotal = derivas.reduce((s, r) => s + nu(r.deriva_custo), 0);
+
+  const linhasMes = mensal.map(r => `<tr>
+    <td>${mesTxt(r.mes)}</td><td>${r.unidade}</td><td>${r.listas}</td>
+    <td>R$ ${fmt(nu(r.valor_lista))}</td>
+    <td>${nu(r.frete) ? 'R$ ' + fmt(nu(r.frete)) : '—'}</td>
+    <td>${nu(r.royalty) ? 'R$ ' + fmt(nu(r.royalty)) + ' <span style="color:#8a897e; font-size:10px;">(regra)</span>' : '—'}</td>
+    <td><b>R$ ${fmt(nu(r.total_devido))}</b></td>
+    <td>R$ ${fmt(nu(r.total_pago))}</td>
+    <td class="${r.sem_fechar ? 'negativo' : ''}">${r.sem_fechar ? 'SEM FECHAR' : 'fechado'}</td>
+    <td class="${Math.abs(nu(r.deriva_custo)) > 0.005 ? 'negativo' : ''}">${Math.abs(nu(r.deriva_custo)) > 0.005 ? 'R$ ' + fmt(nu(r.deriva_custo)) : '—'}</td>
+  </tr>`).join('');
+
+  const linhasListas = listas.map(l => `<tr>
+    <td>${ddmm(l.data_pedido)}</td><td>${l.unidade}</td><td>${l.itens}</td>
+    <td>R$ ${fmt(nu(l.total_lista))}</td>
+    <td>${l.status || '—'}</td>
+    <td class="${nu(l.itens_conferidos) ? '' : 'negativo'}">${nu(l.itens_conferidos) ? l.itens_conferidos + '/' + l.itens : 'não conferida'}</td>
+  </tr>`).join('');
+
+  const linhasAbertura = abertura.map(a => `<tr>
+    <td>${a.unidade}</td><td>R$ ${fmt(nu(a.total_bancado))}</td>
+    <td>R$ ${fmt(nu(a.total_devolvido))}</td>
+    <td class="${nu(a.ainda_em_aberto) > 0.005 ? 'negativo' : ''}">R$ ${fmt(nu(a.ainda_em_aberto))}</td>
+    <td>${nu(a.repasse_lucro) ? 'R$ ' + fmt(nu(a.repasse_lucro)) : '—'}</td>
+    <td>${ddmm(a.desde)}</td>
+  </tr>`).join('');
+
+  alvo.innerHTML = `
+    <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Transferências Água Verde → filiais</div>
+    <div class="caption-label" style="text-align:center;">
+      A conta do mês de cada filial: itens a custo (Boqueirão custo+10%), frete e royalty quando há.
+      Fonte: as planilhas de lista, via importador — a lista ainda nasce na planilha (fase 1, só leitura).
+      Mês fechado vale pelo valor congelado; a coluna "deriva" mostra o quanto a planilha já reescreveu depois.
+    </div>
+    <div class="cards">${cardsFarol}
+      <div class="card ${totConf ? 'neutral' : 'neg'}"><div class="card-lbl">Conferência na chegada</div>
+        <div class="card-val">${pctConf.toFixed(0)}%</div>
+        <div class="card-pct">${totConf ? totConf + ' de ' + totItens + ' itens conferidos' : 'ninguém confere o que chega — nas últimas ' + listas.length + ' listas, zero'}</div></div>
+      ${derivas.length ? `<div class="card neg"><div class="card-lbl">Meses fechados reescritos</div>
+        <div class="card-val">R$ ${fmt(Math.abs(derivaTotal))}</div>
+        <div class="card-pct">${derivas.length} mês(es) — deriva positiva = cobrou a menos</div></div>` : ''}
+    </div>
+    ${fretePend.length ? `<div class="contexto" style="border-color:#f5a623;">
+      <b>${fretePend.length} lista(s) do Boqueirão sem frete lançado</b> — a AV paga o entregador e recobra; sem o lançamento, a conta do mês fica menor do que deveria.</div>` : ''}
+
+    <div class="section-label">A conta, mês a mês</div>
+    <div id="tabelaTrMensal"><table>
+      <tr><th>Mês</th><th>Filial</th><th>Listas</th><th>Itens (R$)</th><th>Frete</th><th>Royalty</th><th>Devido</th><th>Pago</th><th>Situação</th><th>Deriva</th></tr>
+      ${linhasMes}
+    </table></div>
+
+    <div class="section-label">Últimas listas</div>
+    <div id="tabelaTrListas"><table>
+      <tr><th>Pedida em</th><th>Filial</th><th>Itens</th><th>Valor</th><th>Status</th><th>Conferida?</th></tr>
+      ${linhasListas}
+    </table></div>
+
+    <details style="margin-top:14px;">
+      <summary style="cursor:pointer; color:#a5a49a;">Conta de abertura das filiais (histórico)</summary>
+      <div id="tabelaTrAbertura" style="margin-top:8px;"><table>
+        <tr><th>Filial</th><th>Bancado pela AV</th><th>Devolvido</th><th>Em aberto</th><th>Lucro p/ Holding</th><th>Desde</th></tr>
+        ${linhasAbertura}
+      </table></div>
+    </details>`;
+}
+
+// ------------------------------------------------------------------
 // MODULO ATRASOS E TURNOS (13/08/2026). Fonte: API do Foody Delivery
 // (logistica propria, 97% das entregas), tabela foody_entregas via
 // vw_foody_entregas_min — busca SO a janela atual (a tabela cheia tem
@@ -4598,20 +5311,107 @@ const DRE_GRUPOS = [
   ['ADMIN',   '(−) DESPESAS ADMINISTRATIVAS (adm, manutenção, impostos)', ['DESPESAS ADMINISTRATIVAS', 'DESPESAS MANUTENÇÃO', 'IMPOSTOS E TAXAS']],
 ];
 
+// ---------------------------------------------------------------
+// Farol do beneficio de R$ 500 mil do iFood (aplicado da fila em 16/08/2026).
+// O iFood isentou a comissao de 9,5% em 13 lojas ate somar R$ 500 mil.
+// Quando acabar, os 9,5% voltam de uma vez — o painel avisa antes.
+// Fonte: vw_beneficio_ifood_farol (uma linha) e vw_beneficio_ifood_semana.
+let BENEF_FAROL = null;   // { f, semanas }
+let DRE_BENEF = null;     // vw_fin_dre_beneficio: mes -> beneficio_ifood
+
+async function carregarBeneficioIfood() {
+  const [farol, semanas] = await Promise.all([
+    consultarTudo('vw_beneficio_ifood_farol?select=*'),
+    consultarTudo('vw_beneficio_ifood_semana?select=semana,beneficio,acumulado,restante&order=semana.asc'),
+  ]);
+  return { f: farol[0] || null, semanas };
+}
+
+function blocoBeneficioIfood({ f, semanas }) {
+  if (!f) return '';
+  const cor = { VERDE:'#3fb950', AMBAR:'#f5a623', VERMELHO:'#ff6b6b' }[f.farol] || '#8a897e';
+  const reais = (v) => 'R$ ' + Number(v).toLocaleString('pt-BR', { minimumFractionDigits:2, maximumFractionDigits:2 });
+  const dia = (v) => v ? new Date(v + 'T12:00:00').toLocaleDateString('pt-BR', { day:'2-digit', month:'long', year:'numeric' }) : '—';
+  const pctB = Number(f.pct_consumido);
+
+  // barra de consumo: uma leitura so, sem precisar ler numero
+  const barra =
+    '<div style="background:#34332f; border-radius:8px; height:14px; overflow:hidden; margin:10px 0 6px 0;">' +
+      '<div style="width:' + Math.min(pctB,100) + '%; height:100%; background:' + cor + ';"></div>' +
+    '</div>' +
+    '<div style="display:flex; justify-content:space-between; font-size:11px; color:#a5a49a;">' +
+      '<span>consumido ' + reais(f.consumido) + '</span>' +
+      '<span>restam ' + reais(f.restante) + '</span>' +
+    '</div>';
+
+  // ultimas 8 semanas, para ver se o ritmo esta acelerando
+  const ult = semanas.slice(-8).map(s =>
+    '<tr><td style="padding:3px 8px; color:#a5a49a;">' +
+      new Date(s.semana + 'T12:00:00').toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit' }) +
+    '</td><td style="padding:3px 8px; text-align:right;">' + reais(s.beneficio) +
+    '</td><td style="padding:3px 8px; text-align:right; color:#a5a49a;">' + reais(s.restante) + '</td></tr>').join('');
+
+  return `
+  <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Benefício iFood</div>
+  <div class="caption-label" style="text-align:center;">
+    O iFood isentou a comissão de 9,5% em 13 lojas, até somar R$ 500 mil.
+    Boqueirão e Comida Brasileira AV seguem pagando cheio.
+    <b>Quando acabar, os 9,5% voltam de uma vez.</b>
+  </div>
+  <div class="cards">
+    <div class="card" style="border:1px solid ${cor};">
+      <div style="font-size:26px; font-weight:700; color:${cor};">${pctB.toLocaleString('pt-BR')}%</div>
+      <div style="font-size:12px; color:#a5a49a;">do benefício já usado</div>
+    </div>
+    <div class="card">
+      <div style="font-size:26px; font-weight:700;">${reais(f.restante)}</div>
+      <div style="font-size:12px; color:#a5a49a;">ainda disponível</div>
+    </div>
+    <div class="card">
+      <div style="font-size:26px; font-weight:700;">${reais(f.ritmo_semanal)}</div>
+      <div style="font-size:12px; color:#a5a49a;">consumo por semana<br>(média das 8 últimas)</div>
+    </div>
+    <div class="card" style="border:1px solid ${cor};">
+      <div style="font-size:20px; font-weight:700; color:${cor};">${dia(f.fim_previsto)}</div>
+      <div style="font-size:12px; color:#a5a49a;">acaba por volta de<br>(${Number(f.semanas_restantes).toLocaleString('pt-BR')} semanas)</div>
+    </div>
+  </div>
+  ${barra}
+  <div class="caption-label">
+    A data se move com o volume: <b>vender mais consome o benefício mais rápido</b>.
+    O cálculo é 9,5% sobre o valor líquido dos pedidos concluídos das lojas isentas —
+    conferido contra os depósitos reais do iFood (erra 1,9% para menos, então é piso).
+    O saldo oficial é do iFood: bater no Portal do Parceiro antes de decidir pela data.
+  </div>
+  <details style="margin-top:6px;">
+    <summary style="cursor:pointer; color:#a5a49a; font-size:12px;">últimas 8 semanas</summary>
+    <table style="width:100%; font-size:12px; margin-top:8px;">
+      <tr style="color:#8a897e;"><td style="padding:3px 8px;">semana</td>
+        <td style="padding:3px 8px; text-align:right;">consumiu</td>
+        <td style="padding:3px 8px; text-align:right;">restava</td></tr>
+      ${ult}
+    </table>
+  </details>`;
+}
+
 async function entrarDre() {
   const alvo = document.getElementById('view-dre');
   if (DRE_FIN === null) {
     alvo.innerHTML = '<div class="contexto">Carregando DRE...</div>';
-    let metas;
-    [DRE_FIN, DRE_VENDAS, metas] = await Promise.all([
+    let metas, benefMes;
+    [DRE_FIN, DRE_VENDAS, metas, BENEF_FAROL, benefMes] = await Promise.all([
       consultarTudo('vw_fin_dre_mensal?select=mes,natureza,tipo,subtipo,ordem,credito,debito&order=mes,ordem'),
       consultarTudo('vw_vendas_canal_mensal?select=mes,canal,vendas,receita&order=mes'),
       consultarTudo('fin_metas_dre?select=chave,sentido,pct_meta&order=ordem'),
+      carregarBeneficioIfood(),
+      consultarTudo('vw_fin_dre_beneficio?select=mes,beneficio_ifood&order=mes'),
     ]);
     DRE_FIN.forEach(r => { r.credito = Number(r.credito); r.debito = Number(r.debito); });
     DRE_VENDAS.forEach(r => { r.receita = Number(r.receita); });
     DRE_METAS = {};
     metas.forEach(m => { DRE_METAS[m.chave] = { sentido: m.sentido, meta: Number(m.pct_meta) }; });
+    DRE_BENEF = {};
+    benefMes.forEach(b => { DRE_BENEF[b.mes] = Number(b.beneficio_ifood) || 0; });
   }
   renderModuloDRE();
 }
@@ -4773,6 +5573,17 @@ function renderModuloDRE() {
   }
   corpo += linha('dfc-resultado', '(=) RESULTADO OPERACIONAL (EBITDA gerencial)', ebitda, { kind: 'ganho', metaChave: 'EBITDA' });
 
+  // Linha do beneficio iFood (aplicado da fila em 16/08/2026): o beneficio nao
+  // e receita nova — e comissao que o iFood deixou de cobrar, diluida em
+  // RECEITAS ONLINE. Lancar seria duplicar; por isso e linha DERIVADA de
+  // fato_pedidos (vw_fin_dre_beneficio), como ajuste de leitura. O recorrente
+  // e calculado aqui em cima do MESMO ebitda do painel, para nunca divergir.
+  const benefVals = meses.map(m => DRE_BENEF ? (DRE_BENEF[m] || 0) : 0);
+  if (benefVals.some(v => v > 0.005)) {
+    corpo += linha('dfc-linha', '(−) Benefício iFood embutido acima (comissão isenta)', benefVals.map(v => -v), { kind: 'custo' });
+    corpo += linha('dfc-resultado', '(=) RESULTADO RECORRENTE (pagando comissão cheia)', ebitda.map((v, i) => v - benefVals[i]), { kind: 'ganho' });
+  }
+
   corpo += linha('dfc-bloco', '(±) RESULTADO FINANCEIRO (rendimentos − juros/tarifas)', resFin, { chave: 'FIN', kind: 'ganho' });
   if (dreAberto.has('FIN')) {
     corpo += linha('dfc-grupo', 'RENDIMENTOS DE APLICAÇÕES', recFin, { kind: 'ganho' });
@@ -4797,7 +5608,8 @@ function renderModuloDRE() {
   const margem = (v) => recLiqTotJan ? pct(totalJan(v) / recLiqTotJan * 100) : '0';
   const rotuloPeriodo = drePeriodo === '3m' ? 'últimos 3 meses' : drePeriodo === '6m' ? 'últimos 6 meses' : 'ano';
   alvo.innerHTML = `
-  <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">DRE Gerencial — Água Verde</div>
+  ${blocoBeneficioIfood(BENEF_FAROL || { f: null, semanas: [] })}
+  <div class="section-label">DRE Gerencial — Água Verde</div>
   <div class="caption-label" style="text-align:center;">
     Resultado mês a mês da empresa inteira, direto do Saipos desde jan/2026 — <b>não segue os filtros do topo</b>.
     Receitas = vendas do PDV por canal (bruto); despesas por <b>competência</b> (data de emissão da NF).
@@ -5632,6 +6444,10 @@ function renderAll() {
   if (ativo === 'consolidada' && CONSOLIDADO !== null) renderModuloConsolidada();
   if (ativo === 'atrasos' && ATRASOS !== null) renderModuloAtrasos();
   if (ativo === 'logfin' && LOGFIN !== null) renderModuloLogfin();
+  if (ativo === 'frete' && FRETE !== null) renderModuloFrete(FRETE);
+  if (ativo === 'listas' && LISTAS !== null) renderModuloListas();
+  if (ativo === 'reembolsos' && REEMBOLSOS !== null) renderModuloReembolsos(REEMBOLSOS);
+  if (ativo === 'rh' && RH !== null) renderModuloRh();
   if (ativo === 'negociacoes' && NEGOCIACOES !== null) renderModuloNegociacoes();
   if (ativo === 'avaliacoes' && AVALIACOES !== null) renderModuloAvaliacoes();
   if (ativo === 'vendas' && VENDAS_REDE !== null) renderModuloVendas();
