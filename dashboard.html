@@ -5505,6 +5505,7 @@ async function entrarDre() {
       consultarTudo('fin_metas_dre?select=chave,sentido,pct_meta&order=ordem'),
       carregarBeneficioIfood(),
       consultarTudo('vw_fin_dre_beneficio?select=mes,beneficio_ifood&order=mes'),
+      garantirDadosFin(),   // DFC (caixa) para a ponte DRE x DFC do mes fechado
     ]);
     DRE_FIN.forEach(r => { r.credito = Number(r.credito); r.debito = Number(r.debito); });
     DRE_VENDAS.forEach(r => { r.receita = Number(r.receita); });
@@ -5730,10 +5731,66 @@ function renderModuloDRE() {
   // Matheus em 16/08/2026 — foto de UM mes fechado vs o anterior, status em
   // PALAVRA com a regua visivel, Prime Cost e ponto de equilibrio. Os numeros
   // sao 100% do Saipos: as fontes nunca se misturam, so a ideia veio de la.) ----
-  let fechHtml = '';
+  let fechHtml = '', ponteHtml = '';
   {
     let iF = -1; meses.forEach((m, i) => { if (m.slice(0, 7) < mesAtual) iF = i; });
     if (iF >= 0 && recLiq[iF] > 0.005) {
+      // ---- PONTE DRE x DFC (ultima ideia absorvida do fechamento do Matheus,
+      // 16/08/2026): o lucro do papel virou caixa? Mesmos predicados nas duas
+      // views (competencia = vw_fin_dre_mensal, caixa = vw_fin_dfc_mensal). ----
+      if (DFC_MENSAL && DFC_MENSAL.length) {
+        const mesF = meses[iF];
+        const somaMes = (rows, pred, sinal = 1) => rows.reduce((s, r) =>
+          s + (r.mes === mesF && pred(r) ? ((r.credito || 0) - (r.debito || 0)) * sinal : 0), 0);
+        const predG = (gi) => { const tipos = DRE_GRUPOS[gi][2]; return (r) => r.natureza === 'DESPESAS' && r.tipo !== 'INVESTIMENTOS' && tipos.includes(r.tipo); };
+        const tiposMap = DRE_GRUPOS.flatMap(g => g[2]).concat(['DESPESAS FINANCEIRAS']);
+        const linhasPonte = [
+          ['Recebimentos das vendas', r => r.natureza === 'RECEITAS', 1, 'rec'],
+          ['Impostos sobre venda (ICMS etc.)', r => r.natureza === 'DEDUÇOES DA RECEITA', -1, 'desp'],
+          ['Mercadoria + uso e consumo', predG(0), -1, 'desp'],
+          ['Pessoal (inclui pró-labore)', predG(1), -1, 'desp'],
+          ['Despesas de venda', predG(2), -1, 'desp'],
+          ['Administrativas', predG(3), -1, 'desp'],
+          ['Financeiras (juros e tarifas)', r => r.natureza === 'DESPESAS' && r.tipo === 'DESPESAS FINANCEIRAS', -1, 'desp'],
+          ['Outras despesas', r => r.natureza === 'DESPESAS' && r.tipo !== 'INVESTIMENTOS' && !tiposMap.includes(r.tipo), -1, 'desp'],
+        ];
+        let compTot = 0, caixaTot = 0;
+        const tr = linhasPonte.map(([rotulo, pred, sinal, natu]) => {
+          const comp = somaMes(DRE_FIN, pred, sinal);
+          const caixa = somaMes(DFC_MENSAL, pred, sinal);
+          if (Math.abs(comp) < 0.005 && Math.abs(caixa) < 0.005) return '';
+          const efeito = natu === 'rec' ? 1 : -1;   // sinal com que entra no resultado
+          compTot += comp * efeito; caixaTot += caixa * efeito;
+          const dif = caixa - comp;
+          const alinhado = Math.abs(dif) < Math.max(500, Math.abs(comp) * 0.02);
+          const leitura = alinhado ? 'alinhado'
+            : natu === 'rec'
+              ? (dif > 0 ? 'caiu na conta MAIS do que o mês gerou (repasses de semanas anteriores)' : 'parte da venda ainda não caiu na conta')
+              : (dif > 0 ? 'pagou também contas de meses anteriores' : 'parte ficou para pagar depois — vai pesar num próximo mês');
+          return `<tr><td>${rotulo}</td><td>${fmt(comp)}</td><td>${fmt(caixa)}</td>
+            <td class="${dif < -0.005 && natu === 'rec' || dif > 0.005 && natu === 'desp' ? 'negativo' : ''}">${dif >= 0 ? '+' : '−'} ${fmt(Math.abs(dif))}</td>
+            <td style="text-align:left; white-space:normal; color:${alinhado ? '#8a897e' : '#c3c2b7'};">${leitura}</td></tr>`;
+        }).join('');
+        const difTot = caixaTot - compTot;
+        ponteHtml = `
+        <div class="section-label" style="margin-top:26px;">O lucro virou caixa? — ponte de ${rotuloMes(mesF)}</div>
+        <div class="caption-label" style="text-align:center;">
+          "No papel" = contas do mês (competência, como na DRE acima). "No caixa" = o que de fato entrou e saiu no mês.
+          A diferença é capital de giro: o que o mês quitou de trás ou empurrou para frente.
+        </div>
+        <div id="tabelaPonte">
+          <table>
+            <tr><th>Linha</th><th>No papel (R$)</th><th>No caixa (R$)</th><th>Diferença</th><th>O que significa</th></tr>
+            ${tr}
+            <tr class="liq"><td>Resultado do mês</td><td>${fmt(compTot)}</td><td>${fmt(caixaTot)}</td>
+              <td>${difTot >= 0 ? '+' : '−'} ${fmt(Math.abs(difTot))}</td>
+              <td style="text-align:left; white-space:normal;">${
+                Math.abs(difTot) < Math.max(2000, Math.abs(compTot) * 0.05) ? 'papel e caixa andaram juntos — mês saudável'
+                : difTot > 0 ? 'o caixa rendeu mais que o papel: entrou dinheiro de meses anteriores ou ficou conta para depois'
+                : 'o caixa rendeu menos que o papel: o mês pagou contas antigas ou tem venda ainda por cair'}</td></tr>
+          </table>
+        </div>`;
+      }
       const iA = iF - 1;
       const custo = gruposVals[0][3], pessoal = gruposVals[1][3], venda = gruposVals[2][3], admin = gruposVals[3][3];
       const estrutura = pessoal[iF] + venda[iF] + admin[iF] + outrasDesp[iF];
@@ -5827,6 +5884,7 @@ function renderModuloDRE() {
       ${corpo}
     </table>
   </div>
+  ${ponteHtml}
   <div class="caption-label">Base: lançamentos e vendas do Saipos desde jan/2026 (o fluxo de caixa continua conferido com a planilha/banco).
   Canais: iFood, Salão (comandas Abrahão + mesas), Balcão (retirada, telefone e fichas) e Site próprio (Accon).
   A linha "Taxas de canais" é estimada pela diferença entre o vendido no PDV e o efetivamente recebido —
