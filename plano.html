@@ -283,6 +283,11 @@
       <p>Continua parada no mesmo ponto: para saber o custo de cada prato, é preciso ligar o nome que o cliente vê no cardápio ao nome da ficha técnica. Sobraram <b>123 itens</b> que o computador não consegue casar sozinho — são combos e nomes de marca. Essa lista precisa da decisão do Neto, item a item. Ninguém classifica por conta própria: um item errado contamina o custo de todos os pedidos que o contêm.</p>
     </div>
     <div class="entrega">
+      <div class="topo"><span class="nome">O painel abria com erro na primeira carga</span><span class="chip ar">Resolvido</span></div>
+      <p>Quem abrisse o painel às vezes via uma mensagem de erro no lugar dos números, e funcionava na segunda tentativa. A causa: duas telas pediam ao banco a soma do histórico inteiro toda vez que alguém entrava, e o banco desiste depois de três segundos. Com o sistema "frio", não dava tempo.</p>
+      <p>Consertado de dois jeitos. Uma tela ganhou um <b>índice</b> — o banco passou a ir direto nas 1.577 linhas de cancelamento que interessam, em vez de ler as 95 mil de pedidos. A outra passou a ter a <b>conta semanal pronta</b>, refeita a cada importação, em vez de refazer tudo a cada visita: caiu de 1,6 segundo para 5 milésimos. <b>Conferimos linha a linha que os números continuam idênticos</b> — velocidade que muda resultado não é conserto, é bug novo.</p>
+    </div>
+    <div class="entrega">
       <div class="topo"><span class="nome">O resumo semanal sai de circulação</span><span class="chip obra">Decidido hoje</span></div>
       <p>O relatório que roda toda segunda vai ser <b>pausado</b>. Dois motivos: ele será refeito (em versão diária e semanal, com ações e com o que está dando certo), e ele tem um defeito conhecido — a conciliação do iFood da semana que ele reporta só entra no portal dias depois, então <b>líquido e margem saíam errados toda segunda</b>. Melhor não publicar do que publicar torto.</p>
     </div>
@@ -368,7 +373,7 @@
   </div>
 
   <div class="aviso">
-    <p><b>Combinado de transparência:</b> tudo vai sair — mas automação boa precisa de tempo de construção e de alguns dias rodando em observação antes de confiarmos nela. Quando uma fase atrasar, o motivo aparece aqui neste documento, com a nova data. E quando algo der errado, também aparece: nesta atualização são as rotinas que falharam, a margem por item que não andou e o resumo semanal que sai de circulação por estar publicando número torto. Número torto a gente conserta; número escondido vira decisão errada.</p>
+    <p><b>Combinado de transparência:</b> tudo vai sair — mas automação boa precisa de tempo de construção e de alguns dias rodando em observação antes de confiarmos nela. Quando uma fase atrasar, o motivo aparece aqui neste documento, com a nova data. E quando algo der errado, também aparece: nesta atualização são quatro — as rotinas que falharam, a margem por item que não andou, o painel que abria com erro e o resumo semanal que sai de circulação por estar publicando número torto. Número torto a gente conserta; número escondido vira decisão errada.</p>
   </div>
 
   <p class="rodape">Documento vivo do projeto — atualizado a cada fase concluída. Dúvidas ou prioridades diferentes? É só falar que a gente reordena o cronograma juntos.</p>
