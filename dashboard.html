@@ -5726,9 +5726,66 @@ function renderModuloDRE() {
     corpo += blocoSubtipos('INFONOP', r => r.natureza === 'APORTE VALORES', 1);
   }
 
+  // ---- FECHAMENTO DO MES (estrutura absorvida do fechamento do consultor
+  // Matheus em 16/08/2026 — foto de UM mes fechado vs o anterior, status em
+  // PALAVRA com a regua visivel, Prime Cost e ponto de equilibrio. Os numeros
+  // sao 100% do Saipos: as fontes nunca se misturam, so a ideia veio de la.) ----
+  let fechHtml = '';
+  {
+    let iF = -1; meses.forEach((m, i) => { if (m.slice(0, 7) < mesAtual) iF = i; });
+    if (iF >= 0 && recLiq[iF] > 0.005) {
+      const iA = iF - 1;
+      const custo = gruposVals[0][3], pessoal = gruposVals[1][3], venda = gruposVals[2][3], admin = gruposVals[3][3];
+      const estrutura = pessoal[iF] + venda[iF] + admin[iF] + outrasDesp[iF];
+      const mcPct = lucroBruto[iF] / recLiq[iF] * 100;
+      const primePct = (custo[iF] + pessoal[iF]) / recLiq[iF] * 100;
+      const ebitdaPct = ebitda[iF] / recLiq[iF] * 100;
+      const resPct = resultado[iF] / recLiq[iF] * 100;
+      const pe = mcPct > 0.5 ? estrutura / (mcPct / 100) : null;
+      const folga = pe ? (recLiq[iF] / pe - 1) * 100 : null;
+      // status em palavra: mesma regra do farol da tabela (ate 10% da meta = perto)
+      const statusDe = (valPct, meta) => {
+        if (!meta || valPct === null) return '';
+        const dist = meta.sentido === 'abaixo' ? valPct - meta.meta : meta.meta - valPct;
+        const [cor, palavra] = dist <= 0 ? ['#3fb950', 'NA META'] : dist <= meta.meta * 0.10 ? ['#f5a623', 'PERTO DA META'] : ['#ff6b6b', 'FORA DA META'];
+        return `<div class="card-pct"><b style="color:${cor};">${palavra}</b> · meta ${meta.sentido === 'abaixo' ? '≤' : '≥'} ${pct(meta.meta)}%</div>`;
+      };
+      const mPrime = DRE_METAS && DRE_METAS.CUSTO && DRE_METAS.PESSOAL
+        ? { sentido: 'abaixo', meta: DRE_METAS.CUSTO.meta + DRE_METAS.PESSOAL.meta } : null;
+      // variacao vs mes anterior: palavra do fato, sem juizo (o status ja julga)
+      const varRS = (arr) => iA < 0 || Math.abs(arr[iA]) < 0.005 ? '' :
+        `<div class="card-pct">vs ${rotuloMes(meses[iA])}: ${arr[iF] > arr[iA] * 1.005 ? 'subiu' : arr[iF] < arr[iA] * 0.995 ? 'caiu' : 'estável'} ${pct(Math.abs((arr[iF] - arr[iA]) / Math.abs(arr[iA]) * 100))}%</div>`;
+      const varPP = (vAtu, vAnt) => iA < 0 || vAnt === null ? '' :
+        `<div class="card-pct">vs ${rotuloMes(meses[iA])}: ${vAtu > vAnt + 0.05 ? 'subiu' : vAtu < vAnt - 0.05 ? 'caiu' : 'estável'} ${pct(Math.abs(vAtu - vAnt))} ponto${Math.abs(vAtu - vAnt) >= 1.95 ? 's' : ''}</div>`;
+      const mcAnt = iA >= 0 && recLiq[iA] > 0.005 ? lucroBruto[iA] / recLiq[iA] * 100 : null;
+      const primeAnt = iA >= 0 && recLiq[iA] > 0.005 ? (custo[iA] + pessoal[iA]) / recLiq[iA] * 100 : null;
+      fechHtml = `
+      <div class="section-label">Fechamento de ${rotuloMes(meses[iF])} — último mês completo</div>
+      <div class="cards">
+        <div class="card blue"><div class="card-lbl">Receita líquida</div><div class="card-val">R$ ${fmt(recLiq[iF])}</div>${varRS(recLiq)}</div>
+        <div class="card"><div class="card-lbl">Margem de contribuição</div><div class="card-val">${pct(mcPct)}%</div>
+          ${statusDe(mcPct, DRE_METAS && DRE_METAS.LUCRO_BRUTO)}${varPP(mcPct, mcAnt)}</div>
+        <div class="card"><div class="card-lbl">Prime Cost (mercadoria + pessoal)</div><div class="card-val">${pct(primePct)}%</div>
+          ${statusDe(primePct, mPrime)}${varPP(primePct, primeAnt)}</div>
+        <div class="card ${ebitda[iF] >= 0 ? 'pos' : 'neg'}"><div class="card-lbl">EBITDA gerencial</div><div class="card-val">R$ ${fmt(ebitda[iF])}</div>
+          ${statusDe(ebitdaPct, DRE_METAS && DRE_METAS.EBITDA)}</div>
+        <div class="card ${resultado[iF] >= 0 ? 'pos' : 'neg'}"><div class="card-lbl">Resultado líquido</div><div class="card-val">R$ ${fmt(resultado[iF])}</div>
+          ${statusDe(resPct, DRE_METAS && DRE_METAS.RESULTADO)}</div>
+        ${pe ? `<div class="card"><div class="card-lbl">Ponto de equilíbrio</div><div class="card-val">R$ ${fmt(pe)}</div>
+          <div class="card-pct" style="color:${folga >= 0 ? '#3fb950' : '#ff6b6b'};">vendeu ${pct(Math.abs(folga))}% ${folga >= 0 ? 'acima' : 'ABAIXO'} do ponto</div></div>` : ''}
+      </div>
+      <div class="caption-label" style="text-align:center;">
+        Prime Cost = mercadoria + pessoal sobre a receita líquida (os dois maiores custos da casa).
+        Ponto de equilíbrio = estrutura do mês (pessoal + despesas de venda + administrativas) ÷ margem de contribuição —
+        quanto precisava faturar (líquido) para empatar. Definições ajustáveis; metas na tabela <b>fin_metas_dre</b>.
+      </div>`;
+    }
+  }
+
   const margem = (v) => recLiqTotJan ? pct(totalJan(v) / recLiqTotJan * 100) : '0';
   const rotuloPeriodo = drePeriodo === '3m' ? 'últimos 3 meses' : drePeriodo === '6m' ? 'últimos 6 meses' : 'ano';
   alvo.innerHTML = `
+  ${fechHtml}
   ${blocoBeneficioIfood(BENEF_FAROL || { f: null, semanas: [] })}
   <div class="section-label">DRE Gerencial — Água Verde</div>
   <div class="caption-label" style="text-align:center;">
