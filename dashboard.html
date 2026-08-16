@@ -5451,40 +5451,45 @@ function blocoBeneficioIfood({ f, semanas }) {
     '</td><td style="padding:3px 8px; text-align:right;">' + reais(s.beneficio) +
     '</td><td style="padding:3px 8px; text-align:right; color:#a5a49a;">' + reais(s.restante) + '</td></tr>').join('');
 
+  // Compacto por padrao (arrumacao de 16/08 a pedido do dono): barra + uma linha
+  // de leitura sempre visiveis; cards, explicacao e semanas dobram num <details>.
   return `
-  <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Benefício iFood</div>
-  <div class="caption-label" style="text-align:center;">
-    O iFood isentou a comissão de 9,5% em 13 lojas, até somar R$ 500 mil.
-    Boqueirão e Comida Brasileira AV seguem pagando cheio.
-    <b>Quando acabar, os 9,5% voltam de uma vez.</b>
-  </div>
-  <div class="cards">
-    <div class="card" style="border:1px solid ${cor};">
-      <div style="font-size:26px; font-weight:700; color:${cor};">${pctB.toLocaleString('pt-BR')}%</div>
-      <div style="font-size:12px; color:#a5a49a;">do benefício já usado</div>
-    </div>
-    <div class="card">
-      <div style="font-size:26px; font-weight:700;">${reais(f.restante)}</div>
-      <div style="font-size:12px; color:#a5a49a;">ainda disponível</div>
-    </div>
-    <div class="card">
-      <div style="font-size:26px; font-weight:700;">${reais(f.ritmo_semanal)}</div>
-      <div style="font-size:12px; color:#a5a49a;">consumo por semana<br>(média das 8 últimas)</div>
-    </div>
-    <div class="card" style="border:1px solid ${cor};">
-      <div style="font-size:20px; font-weight:700; color:${cor};">${dia(f.fim_previsto)}</div>
-      <div style="font-size:12px; color:#a5a49a;">acaba por volta de<br>(${Number(f.semanas_restantes).toLocaleString('pt-BR')} semanas)</div>
-    </div>
-  </div>
+  <div class="section-label">Benefício iFood</div>
   ${barra}
-  <div class="caption-label">
-    A data se move com o volume: <b>vender mais consome o benefício mais rápido</b>.
-    O cálculo é 9,5% sobre o valor líquido dos pedidos concluídos das lojas isentas —
-    conferido contra os depósitos reais do iFood (erra 1,9% para menos, então é piso).
-    O saldo oficial é do iFood: bater no Portal do Parceiro antes de decidir pela data.
+  <div class="caption-label" style="text-align:center;">
+    <b style="color:${cor};">${pctB.toLocaleString('pt-BR')}% usado</b> ·
+    acaba por volta de <b style="color:${cor};">${dia(f.fim_previsto)}</b>
+    (${Number(f.semanas_restantes).toLocaleString('pt-BR')} semanas no ritmo atual) —
+    quando acabar, os 9,5% de comissão voltam de uma vez.
   </div>
   <details style="margin-top:6px;">
-    <summary style="cursor:pointer; color:#a5a49a; font-size:12px;">últimas 8 semanas</summary>
+    <summary style="cursor:pointer; color:#a5a49a; font-size:12px;">detalhes do benefício</summary>
+    <div class="cards" style="margin-top:10px;">
+      <div class="card" style="border:1px solid ${cor};">
+        <div style="font-size:26px; font-weight:700; color:${cor};">${pctB.toLocaleString('pt-BR')}%</div>
+        <div style="font-size:12px; color:#a5a49a;">do benefício já usado</div>
+      </div>
+      <div class="card">
+        <div style="font-size:26px; font-weight:700;">${reais(f.restante)}</div>
+        <div style="font-size:12px; color:#a5a49a;">ainda disponível</div>
+      </div>
+      <div class="card">
+        <div style="font-size:26px; font-weight:700;">${reais(f.ritmo_semanal)}</div>
+        <div style="font-size:12px; color:#a5a49a;">consumo por semana<br>(média das 8 últimas)</div>
+      </div>
+      <div class="card" style="border:1px solid ${cor};">
+        <div style="font-size:20px; font-weight:700; color:${cor};">${dia(f.fim_previsto)}</div>
+        <div style="font-size:12px; color:#a5a49a;">acaba por volta de<br>(${Number(f.semanas_restantes).toLocaleString('pt-BR')} semanas)</div>
+      </div>
+    </div>
+    <div class="caption-label">
+      O iFood isentou a comissão de 9,5% em 13 lojas, até somar R$ 500 mil
+      (Boqueirão e Comida Brasileira AV seguem pagando cheio).
+      A data se move com o volume: <b>vender mais consome o benefício mais rápido</b>.
+      O cálculo é 9,5% sobre o valor líquido dos pedidos concluídos das lojas isentas —
+      conferido contra os depósitos reais do iFood (erra 1,9% para menos, então é piso).
+      O saldo oficial é do iFood: bater no Portal do Parceiro antes de decidir pela data.
+    </div>
     <table style="width:100%; font-size:12px; margin-top:8px;">
       <tr style="color:#8a897e;"><td style="padding:3px 8px;">semana</td>
         <td style="padding:3px 8px; text-align:right;">consumiu</td>
@@ -5839,8 +5844,6 @@ function renderModuloDRE() {
     }
   }
 
-  const margem = (v) => recLiqTotJan ? pct(totalJan(v) / recLiqTotJan * 100) : '0';
-  const rotuloPeriodo = drePeriodo === '3m' ? 'últimos 3 meses' : drePeriodo === '6m' ? 'últimos 6 meses' : 'ano';
   alvo.innerHTML = `
   ${fechHtml}
   ${blocoBeneficioIfood(BENEF_FAROL || { f: null, semanas: [] })}
@@ -5851,15 +5854,6 @@ function renderModuloDRE() {
     Em cada célula: valor, <b>AV</b> (% da receita líquida) e <b>▲▼</b> (variação vs mês anterior).
     Marcação colorida só aparece quando a linha está <b>fora da meta</b> (âmbar = perto, vermelho = longe) —
     sem marcação, está tudo dentro. Clique nas linhas com ▶ para abrir o detalhe.
-  </div>
-  <div class="cards">
-    <div class="card blue"><div class="card-lbl">Receita líquida (${rotuloPeriodo})</div><div class="card-val">R$ ${fmt(recLiqTotJan)}</div></div>
-    <div class="card ${totalJan(lucroBruto) >= 0 ? 'pos' : 'neg'}"><div class="card-lbl">Lucro bruto</div><div class="card-val">R$ ${fmt(totalJan(lucroBruto))}</div>
-      <div class="card-pct">${margem(lucroBruto)}% da receita líquida</div></div>
-    <div class="card ${totalJan(ebitda) >= 0 ? 'pos' : 'neg'}"><div class="card-lbl">EBITDA gerencial</div><div class="card-val">R$ ${fmt(totalJan(ebitda))}</div>
-      <div class="card-pct">${margem(ebitda)}% da receita líquida</div></div>
-    <div class="card ${totalJan(resultado) >= 0 ? 'pos' : 'neg'}"><div class="card-lbl">Resultado líquido</div><div class="card-val">R$ ${fmt(totalJan(resultado))}</div>
-      <div class="card-pct">${margem(resultado)}% da receita líquida</div></div>
   </div>
   <div class="periodo-presets" style="margin-top:14px; display:flex; align-items:center; flex-wrap:wrap; gap:8px;">
     <button class="preset-btn ${drePeriodo === 'ano' ? 'active' : ''}" onclick="drePeriodoSet('ano')">Ano completo</button>
