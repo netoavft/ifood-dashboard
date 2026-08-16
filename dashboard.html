@@ -31,8 +31,13 @@
   .sidebar-btn {
     background:none; border:none; color:#c3c2b7; font-size:13.5px; font-weight:700;
     text-align:left; padding:9px 12px; cursor:pointer; border-radius:10px;
-    font-family:inherit;
+    font-family:inherit; display:flex; align-items:center; gap:9px;
   }
+  /* Icones dos modulos (16/08/2026, ideia do dono, como no projeto do Fabio).
+     Dessaturados para ler como pictograma; acendem no item ativo. */
+  .mico { font-size:13px; width:18px; text-align:center; flex-shrink:0;
+          filter:grayscale(1) brightness(1.2); opacity:.8; }
+  .sidebar-btn.active .mico { filter:none; opacity:1; }
   /* A CARA DA FACHADA (16/08/2026): amarelo/laranja do grafite com texto preto,
      como o letreiro da loja. Amarelo/laranja SO em area de marca (login, topo da
      sidebar, faixa do topo) — nunca em dado, para nao brigar com o ambar do farol. */
@@ -319,29 +324,29 @@
          operação atravessando, base embaixo. -->
     <button class="sidebar-secao" onclick="toggleGrupo('gResultado')">Resultado <span class="seta">▶</span></button>
     <div class="sidebar-grupo" id="gResultado">
-      <button class="sidebar-btn active" id="navBtnEstaSemana" onclick="mostrarModulo('estasemana')">Esta semana</button>
-      <button class="sidebar-btn" id="navBtnIndicadores" onclick="mostrarModulo('indicadores')">Indicadores e metas</button>
-      <button class="sidebar-btn" id="navBtnConsolidada" onclick="mostrarModulo('consolidada')">Visão consolidada</button>
-      <button class="sidebar-btn" id="navBtnDre" onclick="mostrarModulo('dre')">DRE</button>
-      <span class="sidebar-btn breve">Margem por item</span>
+      <button class="sidebar-btn active" id="navBtnEstaSemana" onclick="mostrarModulo('estasemana')"><span class="mico">🏠</span>Esta semana</button>
+      <button class="sidebar-btn" id="navBtnIndicadores" onclick="mostrarModulo('indicadores')"><span class="mico">🎯</span>Indicadores e metas</button>
+      <button class="sidebar-btn" id="navBtnConsolidada" onclick="mostrarModulo('consolidada')"><span class="mico">📊</span>Visão consolidada</button>
+      <button class="sidebar-btn" id="navBtnDre" onclick="mostrarModulo('dre')"><span class="mico">📑</span>DRE</button>
+      <span class="sidebar-btn breve"><span class="mico">💰</span>Margem por item</span>
     </div>
 
     <button class="sidebar-secao" onclick="toggleGrupo('gIfood')">Canal · iFood <span class="seta">▶</span></button>
     <div class="sidebar-grupo" id="gIfood">
-      <button class="sidebar-btn" id="navBtnResumo" onclick="mostrarModulo('resumo')">Resumo do canal</button>
-      <button class="sidebar-btn" id="navBtnPromocoes" onclick="mostrarModulo('promocoes')">Promoções</button>
-      <button class="sidebar-btn" id="navBtnCancelamentos" onclick="mostrarModulo('cancelamentos')">Cancelamentos</button>
-      <button class="sidebar-btn" id="navBtnContestacoes" onclick="mostrarModulo('contestacoes')">Contestações</button>
-      <button class="sidebar-btn" id="navBtnNegociacoes" onclick="mostrarModulo('negociacoes')">Negociações</button>
-      <button class="sidebar-btn" id="navBtnAvaliacoes" onclick="mostrarModulo('avaliacoes')">Avaliações</button>
-      <button class="sidebar-btn" id="navBtnQualidade" onclick="mostrarModulo('qualidade')">Qualidade &amp; Super</button>
-      <button class="sidebar-btn" id="navBtnCardapio" onclick="mostrarModulo('cardapio')">Cardápio</button>
-      <button class="sidebar-btn" id="navBtnClientes" onclick="mostrarModulo('clientes')">Clientes</button>
+      <button class="sidebar-btn" id="navBtnResumo" onclick="mostrarModulo('resumo')"><span class="mico">📈</span>Resumo do canal</button>
+      <button class="sidebar-btn" id="navBtnPromocoes" onclick="mostrarModulo('promocoes')"><span class="mico">🏷️</span>Promoções</button>
+      <button class="sidebar-btn" id="navBtnCancelamentos" onclick="mostrarModulo('cancelamentos')"><span class="mico">🚫</span>Cancelamentos</button>
+      <button class="sidebar-btn" id="navBtnContestacoes" onclick="mostrarModulo('contestacoes')"><span class="mico">⚖️</span>Contestações</button>
+      <button class="sidebar-btn" id="navBtnNegociacoes" onclick="mostrarModulo('negociacoes')"><span class="mico">🤝</span>Negociações</button>
+      <button class="sidebar-btn" id="navBtnAvaliacoes" onclick="mostrarModulo('avaliacoes')"><span class="mico">⭐</span>Avaliações</button>
+      <button class="sidebar-btn" id="navBtnQualidade" onclick="mostrarModulo('qualidade')"><span class="mico">🏅</span>Qualidade &amp; Super</button>
+      <button class="sidebar-btn" id="navBtnCardapio" onclick="mostrarModulo('cardapio')"><span class="mico">🍔</span>Cardápio</button>
+      <button class="sidebar-btn" id="navBtnClientes" onclick="mostrarModulo('clientes')"><span class="mico">👥</span>Clientes</button>
     </div>
 
     <button class="sidebar-secao" onclick="toggleGrupo('gOutros')">Outros canais <span class="seta">▶</span></button>
     <div class="sidebar-grupo" id="gOutros">
-      <span class="sidebar-btn breve">Salão · Balcão · Site</span>
+      <span class="sidebar-btn breve"><span class="mico">🏪</span>Salão · Balcão · Site</span>
     </div>
 
     <button class="sidebar-secao" onclick="toggleGrupo('gOperacao')">Operação <span class="seta">▶</span></button>
@@ -350,37 +355,37 @@
            dono e com razao: e programa do iFood, medido pelo iFood. Operacao
            fica para o que atravessa canais — a base sera a API do Foody
            Delivery (logistica propria, 97% das entregas). -->
-      <button class="sidebar-btn" id="navBtnAtrasos" onclick="mostrarModulo('atrasos')">Atrasos e turnos</button>
-      <button class="sidebar-btn" id="navBtnLogfin" onclick="mostrarModulo('logfin')">Financeiro da logística</button>
-      <span class="sidebar-btn breve">Tempo de entrega</span>
-      <span class="sidebar-btn breve">Pessoas (Flash)</span>
+      <button class="sidebar-btn" id="navBtnAtrasos" onclick="mostrarModulo('atrasos')"><span class="mico">⏱️</span>Atrasos e turnos</button>
+      <button class="sidebar-btn" id="navBtnLogfin" onclick="mostrarModulo('logfin')"><span class="mico">🛵</span>Financeiro da logística</button>
+      <span class="sidebar-btn breve"><span class="mico">🚚</span>Tempo de entrega</span>
+      <span class="sidebar-btn breve"><span class="mico">🧑‍🍳</span>Pessoas (Flash)</span>
     </div>
 
     <button class="sidebar-secao" onclick="toggleGrupo('gFinanceiro')">Financeiro <span class="seta">▶</span></button>
     <div class="sidebar-grupo" id="gFinanceiro">
-      <button class="sidebar-btn" id="navBtnFluxo" onclick="mostrarModulo('fluxo')">Fluxo de caixa</button>
-      <button class="sidebar-btn" id="navBtnProjecao" onclick="mostrarModulo('projecao')">Fluxo projetado</button>
-      <button class="sidebar-btn" id="navBtnDespesas" onclick="mostrarModulo('despesas')">Análise de despesas</button>
+      <button class="sidebar-btn" id="navBtnFluxo" onclick="mostrarModulo('fluxo')"><span class="mico">💵</span>Fluxo de caixa</button>
+      <button class="sidebar-btn" id="navBtnProjecao" onclick="mostrarModulo('projecao')"><span class="mico">🔮</span>Fluxo projetado</button>
+      <button class="sidebar-btn" id="navBtnDespesas" onclick="mostrarModulo('despesas')"><span class="mico">🧾</span>Análise de despesas</button>
     </div>
 
     <button class="sidebar-secao" onclick="toggleGrupo('gPlanejamento')">Planejamento <span class="seta">▶</span></button>
     <div class="sidebar-grupo" id="gPlanejamento">
-      <span class="sidebar-btn breve">Formação de preço</span>
-      <span class="sidebar-btn breve">Ficha técnica</span>
-      <span class="sidebar-btn breve">Despesas e rateio</span>
+      <span class="sidebar-btn breve"><span class="mico">🧮</span>Formação de preço</span>
+      <span class="sidebar-btn breve"><span class="mico">📖</span>Ficha técnica</span>
+      <span class="sidebar-btn breve"><span class="mico">➗</span>Despesas e rateio</span>
     </div>
 
     <button class="sidebar-secao" onclick="toggleGrupo('gArquivo')">Arquivo &amp; Sistema <span class="seta">▶</span></button>
     <div class="sidebar-grupo" id="gArquivo">
-      <button class="sidebar-btn" id="navBtnRelatorios" onclick="mostrarModulo('relatorios')">Resumos semanais</button>
-      <button class="sidebar-btn" id="navBtnConciliacao" onclick="mostrarModulo('conciliacao')">Conferência da base</button>
-      <button class="sidebar-btn" id="navBtnRotinas" onclick="mostrarModulo('rotinas')">Rotinas</button>
+      <button class="sidebar-btn" id="navBtnRelatorios" onclick="mostrarModulo('relatorios')"><span class="mico">🗞️</span>Resumos semanais</button>
+      <button class="sidebar-btn" id="navBtnConciliacao" onclick="mostrarModulo('conciliacao')"><span class="mico">✅</span>Conferência da base</button>
+      <button class="sidebar-btn" id="navBtnRotinas" onclick="mostrarModulo('rotinas')"><span class="mico">🤖</span>Rotinas</button>
       <!-- Links, nao modulos (sem registro em mostrarModulo/moduloAtivo): paginas
            publicas do site, abertas em aba nova. Decisao do dono (13/08/2026):
            ficam sem a trava de senha do painel — sao a versao que o Fabio abre
            sem conta. promos.html TEM verbas em R$; aprovado assim mesmo. -->
-      <button class="sidebar-btn" onclick="window.open('plano.html','_blank')">Plano do projeto ↗</button>
-      <button class="sidebar-btn" onclick="window.open('promos.html','_blank')">Calendário de promos ↗</button>
+      <button class="sidebar-btn" onclick="window.open('plano.html','_blank')"><span class="mico">🗺️</span>Plano do projeto ↗</button>
+      <button class="sidebar-btn" onclick="window.open('promos.html','_blank')"><span class="mico">📅</span>Calendário de promos ↗</button>
     </div>
   </nav>
   <div class="main-content">
