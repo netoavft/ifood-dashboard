@@ -220,8 +220,11 @@
   #extratoFin th:first-child, #extratoFin td:first-child { text-align:left; white-space:normal; }
   #extratoFin th { background:#232321; color:#a5a49a; font-weight:bold; font-size:11px; text-transform:uppercase; }
   #extratoFin tr.sub td { background:#232321; border-top:2px solid #45443f; }
-  #extratoFin tr.liq td { background:#250f13; border-top:2px solid #c8102e; font-size:14.5px; }
-  #extratoFin tr.liq td:first-child { color:#fff; }
+  /* linha final no contorno dourado, mesmo padrao de DFC/DRE (16/08 a noite) */
+  #extratoFin tr.liq { --linha-fundo:#111110; }
+  #extratoFin tr.liq td { background:#111110; color:#fff; font-weight:bold; border-top:2px solid #f6c63e; border-bottom:2px solid #ee8a3c; font-size:14.5px; }
+  #extratoFin tr.liq td:first-child { color:#fff; border-left:2px solid #f6c63e; }
+  #extratoFin tr.liq td:last-child { border-right:2px solid #ee8a3c; }
 
   details.detalhes-extra { margin-top:22px; border:1px solid #34332f; border-radius:10px; padding:14px 18px; background:#171716; }
   details.detalhes-extra summary { cursor:pointer; color:#a5a49a; font-size:12.5px; font-weight:bold; }
@@ -1621,29 +1624,32 @@ function kpisRapidos(m, a) {
 // O EXTRATO: substitui os antigos blocos de cards com sinais de + e −. Uma tabela unica
 // contando a historia do dinheiro, do bruto ao liquido, com % do bruto e variacao por linha.
 function extratoFinanceiro(m, a) {
-  const linha = (rotulo, valor, pctBруto, varHtml, classe = '') =>
-    `<tr class="${classe}"><td>${rotulo}</td><td>R$ ${fmt(valor)}</td>
-     <td>${pctBруto === null ? '' : pct(pctBруto) + '%'}</td><td>${varHtml}</td></tr>`;
+  // mesmo padrao de DFC/DRE (16/08 a noite): saida com sinal de menos no numero
+  // (sinal=-1), % do bruto AO LADO do valor, comparacao na propria coluna
+  const linha = (rotulo, valor, pctBруto, varHtml, classe = '', sinal = 1) =>
+    `<tr class="${classe}"><td>${rotulo}</td>
+     <td>R$ ${fmt(valor * sinal)}${pctBруto === null ? '' : `<span class="dre-av">${pct(pctBруto)}%</span>`}</td>
+     <td>${varHtml}</td></tr>`;
 
   return `<div class="section-label">Para onde foi o dinheiro</div>
   <div class="caption-label" style="text-align:center;">
-    A conta inteira, do que o cliente pagou ao que sobrou. A coluna % é sempre sobre o faturamento bruto.
+    A conta inteira, do que o cliente pagou ao que sobrou. O % ao lado do valor é sempre sobre o faturamento bruto.
   </div>
   <div id="extratoFin">
     <table>
-      <tr><th>Item</th><th>Valor</th><th>% do bruto</th><th>vs período anterior</th></tr>
+      <tr><th>Item</th><th>Valor · % do bruto</th><th>vs período anterior</th></tr>
       ${linha('Venda dos produtos', m.itens, m.itensPct, variacaoSpan(m.itens, a && a.itens))}
       ${linha('Taxa de entrega paga pelo cliente', m.frete, m.fretePct, variacaoSpan(m.frete, a && a.frete))}
       ${linha('<b>= Faturamento bruto</b>', m.bruto, 100, variacaoSpan(m.bruto, a && a.bruto), 'sub')}
-      ${linha('− Taxa de pagamento online', m.taxaOnline, m.taxaOnlinePct, variacaoSpan(m.taxaOnline, a && a.taxaOnline, 'menorMelhor'))}
-      ${linha('− Comissão sobre vendas', m.comissaoVendas, m.comissaoVendasPct, variacaoSpan(m.comissaoVendas, a && a.comissaoVendas, 'menorMelhor'))}
-      ${linha('− Outros ajustes (inclui mensalidade)', m.outrosAjustes, m.outrosAjustesPct, variacaoSpan(m.outrosAjustes, a && a.outrosAjustes, 'menorMelhor'))}
-      ${linha('− Frete sob demanda', m.freteSobDemanda, m.freteSobDemandaPct, variacaoSpan(m.freteSobDemanda, a && a.freteSobDemanda, 'menorMelhor'))}
+      ${linha('− Taxa de pagamento online', m.taxaOnline, m.taxaOnlinePct, variacaoSpan(m.taxaOnline, a && a.taxaOnline, 'menorMelhor'), '', -1)}
+      ${linha('− Comissão sobre vendas', m.comissaoVendas, m.comissaoVendasPct, variacaoSpan(m.comissaoVendas, a && a.comissaoVendas, 'menorMelhor'), '', -1)}
+      ${linha('− Outros ajustes (inclui mensalidade)', m.outrosAjustes, m.outrosAjustesPct, variacaoSpan(m.outrosAjustes, a && a.outrosAjustes, 'menorMelhor'), '', -1)}
+      ${linha('− Frete sob demanda', m.freteSobDemanda, m.freteSobDemandaPct, variacaoSpan(m.freteSobDemanda, a && a.freteSobDemanda, 'menorMelhor'), '', -1)}
       ${linha('+ Ressarcimento por cancelamentos', m.ressarcimentoCancelamento, m.ressarcimentoCancelamentoPct, variacaoSpan(m.ressarcimentoCancelamento, a && a.ressarcimentoCancelamento))}
-      ${linha('<b>= Total cobrado pelo iFood</b>', m.totalDescontosComRessarcimento, m.totalDescontosComRessarcimentoPct, variacaoSpan(m.totalDescontosComRessarcimento, a && a.totalDescontosComRessarcimento, 'menorMelhor'), 'sub')}
-      ${linha('− Promoções bancadas pela loja', m.promoLoja, m.promoLojaPct, variacaoSpan(m.promoLoja, a && a.promoLoja, 'neutro'))}
-      ${linha('− Anúncios', m.anuncios, m.anunciosPct, variacaoSpan(m.anuncios, a && a.anuncios, 'neutro'))}
-      ${linha('<b>= Total investido em marketing</b>', m.totalMkt, m.totalMktPct, variacaoSpan(m.totalMkt, a && a.totalMkt, 'neutro'), 'sub')}
+      ${linha('<b>= Total cobrado pelo iFood</b>', m.totalDescontosComRessarcimento, m.totalDescontosComRessarcimentoPct, variacaoSpan(m.totalDescontosComRessarcimento, a && a.totalDescontosComRessarcimento, 'menorMelhor'), 'sub', -1)}
+      ${linha('− Promoções bancadas pela loja', m.promoLoja, m.promoLojaPct, variacaoSpan(m.promoLoja, a && a.promoLoja, 'neutro'), '', -1)}
+      ${linha('− Anúncios', m.anuncios, m.anunciosPct, variacaoSpan(m.anuncios, a && a.anuncios, 'neutro'), '', -1)}
+      ${linha('<b>= Total investido em marketing</b>', m.totalMkt, m.totalMktPct, variacaoSpan(m.totalMkt, a && a.totalMkt, 'neutro'), 'sub', -1)}
       ${linha('<b>= LÍQUIDO — o que sobra para a loja</b>', m.liquido, m.liquidoPct, variacaoSpan(m.liquido, a && a.liquido), 'liq')}
     </table>
   </div>
