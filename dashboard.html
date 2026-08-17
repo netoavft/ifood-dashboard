@@ -1591,6 +1591,9 @@ function tabelaLiquidoPorLoja(ant) {
       <tr><th>Loja</th><th>Pedidos</th><th>Bruto</th><th>Líquido</th><th>vs período anterior</th></tr>
       ${lista.map(x => `<tr><td>${x.nome}</td><td>${x.ped.toLocaleString('pt-BR')}</td>
         <td>R$ ${fmt(x.bruto)}</td><td><b>R$ ${fmt(x.liq)}</b></td><td>${x.varTxt}</td></tr>`).join('')}
+      ${(() => { const t = lista.reduce((a, x) => ({ ped: a.ped + x.ped, bruto: a.bruto + x.bruto, liq: a.liq + x.liq }), { ped: 0, bruto: 0, liq: 0 });
+        return `<tr class="liq"><td>TOTAL</td><td>${t.ped.toLocaleString('pt-BR')}</td>
+          <td>R$ ${fmt(t.bruto)}</td><td><b>R$ ${fmt(t.liq)}</b></td><td></td></tr>`; })()}
     </table>
   </div>`;
 }
@@ -1804,6 +1807,9 @@ function moduloCancelamentos(m, a) {
         ${motivos.slice().sort((a,b)=>b.valor-a.valor).map(x => `<tr>
           <td>${x.responsavel}</td><td>${x.n}</td><td>${pct(x.pct)}%</td>
           <td>R$ ${fmt(x.valor)}</td><td>R$ ${fmt(x.n ? x.valor/x.n : 0)}</td></tr>`).join('')}
+        ${(() => { const t = motivos.reduce((a, x) => ({ n: a.n + x.n, v: a.v + x.valor }), { n: 0, v: 0 });
+          return `<tr class="liq"><td>TOTAL</td><td>${t.n}</td><td>100%</td>
+            <td>R$ ${fmt(t.v)}</td><td>R$ ${fmt(t.n ? t.v / t.n : 0)}</td></tr>`; })()}
       </table>
     </div>` : '';
 
@@ -2494,6 +2500,8 @@ function renderModuloNegociacoes() {
       ${lojas.map(x => `<tr><td>${x.nome}</td><td>${x.n}</td>
         <td${x.sem ? ' style="color:#ff6b6b; font-weight:bold;"' : ''}>${x.sem}</td>
         <td>${pct(x.pctSem)}%</td><td>R$ ${fmt(x.valor)}</td></tr>`).join('')}
+      <tr class="liq"><td>TOTAL</td><td>${total.toLocaleString('pt-BR')}</td><td>${semResposta}</td>
+        <td>${pct(total ? semResposta / total * 100 : 0)}%</td><td>R$ ${fmt(valorEnvolvido)}</td></tr>
     </table>
   </div>`;
 
@@ -2599,6 +2607,8 @@ function renderModuloAvaliacoes() {
       ${lojas.map(x => `<tr><td>${x.nome}</td><td>${x.n}</td>
         <td${x.media < 4.5 ? ' style="color:#ff6b6b; font-weight:bold;"' : ''}>${x.media.toFixed(2).replace('.', ',')}</td>
         <td>${pct(x.pctRuins)}%</td></tr>`).join('')}
+      <tr class="liq"><td>TODAS</td><td>${total.toLocaleString('pt-BR')}</td>
+        <td>${media.toFixed(2).replace('.', ',')}</td><td>${pct(pctRuins)}%</td></tr>
     </table>
   </div>
   <div class="caption-label">Lojas com poucas avaliações oscilam muito — dê mais peso às que têm 30 ou mais.</div>
@@ -3147,6 +3157,7 @@ function renderModuloVendas(periodoSel) {
       <tr><th>Serviço · Logística</th><th>Pedidos</th><th>Vendas</th><th>Novos clientes</th></tr>
       ${[...porCanal.entries()].sort((a, b) => b[1].vendas - a[1].vendas).map(([k, o]) =>
         `<tr><td>${k}</td><td>${o.ped.toLocaleString('pt-BR')}</td><td>R$ ${fmt(o.vendas)}</td><td>${o.novos}</td></tr>`).join('')}
+      <tr class="liq"><td>TOTAL</td><td>${tot.ped.toLocaleString('pt-BR')}</td><td>R$ ${fmt(tot.vendas)}</td><td>${tot.novos.toLocaleString('pt-BR')}</td></tr>
     </table>
   </div>
 
@@ -3156,6 +3167,8 @@ function renderModuloVendas(periodoSel) {
       <tr><th>Loja</th><th>Pedidos</th><th>Vendas</th><th>Novos clientes</th><th>% de novos</th></tr>
       ${lojas.map(x => `<tr><td>${x.nome}</td><td>${x.ped.toLocaleString('pt-BR')}</td>
         <td>R$ ${fmt(x.vendas)}</td><td>${x.novos}</td><td>${pct(x.ped ? x.novos / x.ped * 100 : 0)}%</td></tr>`).join('')}
+      <tr class="liq"><td>TOTAL</td><td>${tot.ped.toLocaleString('pt-BR')}</td>
+        <td>R$ ${fmt(tot.vendas)}</td><td>${tot.novos.toLocaleString('pt-BR')}</td><td>${pct(tot.ped ? tot.novos / tot.ped * 100 : 0)}%</td></tr>
     </table>
   </div>
   <div class="caption-label">% de novos alta pode indicar loja em crescimento — ou loja que não segura os clientes que conquista. Cruze com o módulo Clientes.</div>`;
@@ -3234,6 +3247,9 @@ function renderModuloCardapio(periodoSel, lojaSel) {
       ${funil.map(r => `<tr><td>${r.nome_loja}</td><td>${(r.visitas || 0).toLocaleString('pt-BR')}</td>
         <td>${(r.sacola || 0).toLocaleString('pt-BR')}</td><td>${(r.concluidos || 0).toLocaleString('pt-BR')}</td>
         <td${Number(r.conversao_pct) < 15 ? ' style="color:#ff6b6b; font-weight:bold;"' : ''}>${pct(Number(r.conversao_pct || 0))}%</td></tr>`).join('')}
+      <tr class="liq"><td>TOTAL</td><td>${totV.toLocaleString('pt-BR')}</td>
+        <td>${funil.reduce((s, r) => s + (r.sacola || 0), 0).toLocaleString('pt-BR')}</td>
+        <td>${totC.toLocaleString('pt-BR')}</td><td>${pct(totV ? totC / totV * 100 : 0)}%</td></tr>
     </table>
   </div>
 
@@ -3329,6 +3345,10 @@ function renderModuloClientes(mesSel) {
       <tr><th>Loja</th><th>Novos</th><th>Frequentes</th><th>Recuperados</th><th>Total ativos</th></tr>
       ${lojas.map(x => `<tr><td>${x.nome}</td><td>${x.Novos || 0}</td><td>${x.Frequentes || 0}</td>
         <td>${x.Recuperados || 0}</td><td><b>${x.total}</b></td></tr>`).join('')}
+      ${(() => { const t = lojas.reduce((a, x) => ({ n: a.n + (x.Novos || 0), f: a.f + (x.Frequentes || 0),
+          r: a.r + (x.Recuperados || 0), tot: a.tot + (x.total || 0) }), { n: 0, f: 0, r: 0, tot: 0 });
+        return `<tr class="liq"><td>TOTAL</td><td>${t.n.toLocaleString('pt-BR')}</td><td>${t.f.toLocaleString('pt-BR')}</td>
+          <td>${t.r.toLocaleString('pt-BR')}</td><td><b>${t.tot.toLocaleString('pt-BR')}</b></td></tr>`; })()}
     </table>
   </div>
   <div class="caption-label">Loja com muitos novos e poucos frequentes conquista mas não retém — cardápio/experiência merecem olhar. O contrário indica base fiel mas pouca atração.</div>`;
@@ -3884,6 +3904,8 @@ function renderModuloRh() {
     <div id="tabelaRhMes"><table>
       <tr><th>Mês</th><th>Pessoas</th><th>Parcelas</th><th>Valor</th><th>Do dia parado</th></tr>
       ${linhasMes}
+      <tr class="liq"><td>TOTAL</td><td>${new Set(aberto.map(r => r.colaborador)).size}</td><td>${aberto.length}</td>
+        <td>R$ ${fmt(totalAberto)}</td><td>${estacionado ? 'R$ ' + fmt(estacionado[1]) : '—'}</td></tr>
     </table></div>
 
     <div class="section-label">Quem ainda tem desconto a fazer</div>
@@ -3891,6 +3913,11 @@ function renderModuloRh() {
       <tr><th>Funcionário</th><th>A descontar</th><th>Parcelas</th><th>Próximo</th>
           <th>Quitação prevista</th><th>Sem parcela</th><th>Já descontado</th></tr>
       ${linhasColab}
+      ${(() => { const cs = colab.filter(c => n(c.a_descontar) > 0);
+        const t = cs.reduce((a, c) => ({ v: a.v + n(c.a_descontar), p: a.p + Number(c.parcelas_abertas || 0),
+          sp: a.sp + n(c.sem_previsao), jd: a.jd + n(c.ja_descontado) }), { v: 0, p: 0, sp: 0, jd: 0 });
+        return `<tr class="liq"><td>TOTAL</td><td>R$ ${fmt(t.v)}</td><td>${t.p}</td><td>—</td><td>—</td>
+          <td>${t.sp > 0.005 ? 'R$ ' + fmt(t.sp) : '—'}</td><td>R$ ${fmt(t.jd)}</td></tr>`; })()}
     </table></div>
 
     ${credor.length ? `
@@ -3904,6 +3931,11 @@ function renderModuloRh() {
       <tr><th>Quem emprestou</th><th>Empréstimos</th><th>Funcionários</th><th>Emprestado</th>
           <th>Já descontado</th><th>Já devolvido</th><th>Devolver agora</th><th>Ainda a descontar</th></tr>
       ${linhasCredor}
+      ${(() => { const t = credor.reduce((a, c) => ({ e: a.e + Number(c.emprestimos || 0), f: a.f + Number(c.funcionarios || 0),
+          em: a.em + n(c.emprestado), jd: a.jd + n(c.ja_descontado_do_funcionario), jr: a.jr + n(c.ja_reembolsado),
+          da: a.da + n(c.devolver_agora), ad: a.ad + n(c.a_descontar_do_funcionario) }), { e: 0, f: 0, em: 0, jd: 0, jr: 0, da: 0, ad: 0 });
+        return `<tr class="liq"><td>TOTAL</td><td>${t.e}</td><td>${t.f}</td><td>R$ ${fmt(t.em)}</td>
+          <td>R$ ${fmt(t.jd)}</td><td>R$ ${fmt(t.jr)}</td><td>R$ ${fmt(t.da)}</td><td>R$ ${fmt(t.ad)}</td></tr>`; })()}
     </table></div>
     <div id="tabelaRhCredorDet" style="margin-top:10px;"><table>
       <tr><th>Empréstimo</th><th>Descrição</th><th>Data</th><th>Valor</th>
@@ -4110,6 +4142,12 @@ function renderModuloListas() {
     <div id="tabelaTrMensal"><table>
       <tr><th>Mês</th><th>Filial</th><th>Listas</th><th>Itens (R$)</th><th>Frete</th><th>Royalty</th><th>Devido</th><th>Pago</th><th>Situação</th><th>Deriva</th></tr>
       ${linhasMes}
+      ${(() => { const t = mensal.reduce((a, r) => ({ l: a.l + Number(r.listas || 0), v: a.v + nu(r.valor_lista),
+          f: a.f + nu(r.frete), ry: a.ry + nu(r.royalty), d: a.d + nu(r.total_devido), p: a.p + nu(r.total_pago) }),
+          { l: 0, v: 0, f: 0, ry: 0, d: 0, p: 0 });
+        return `<tr class="liq"><td>TOTAL</td><td>—</td><td>${t.l}</td><td>R$ ${fmt(t.v)}</td>
+          <td>R$ ${fmt(t.f)}</td><td>R$ ${fmt(t.ry)}</td><td><b>R$ ${fmt(t.d)}</b></td><td>R$ ${fmt(t.p)}</td>
+          <td></td><td>${Math.abs(derivaTotal) > 0.005 ? 'R$ ' + fmt(derivaTotal) : '—'}</td></tr>`; })()}
     </table></div>
 
     <div class="section-label">Últimas listas</div>
@@ -6649,6 +6687,8 @@ function renderModuloConciliacao() {
       ${CONF_SEMCLASS.slice(0, 30).map(r => `<tr><td>${fmtData(r.data)}</td><td>${r.conta}</td>
         <td>${(r.descricao || '').slice(0, 60)}</td>
         <td class="negativo">R$ ${fmt(Number(r.debito) - Number(r.credito))}</td></tr>`).join('')}
+      <tr class="liq"><td>TOTAL${CONF_SEMCLASS.length > 30 ? ' (' + CONF_SEMCLASS.length + ' lançamentos, 30 listados)' : ''}</td><td></td><td></td>
+        <td>R$ ${fmt(CONF_SEMCLASS.reduce((s, r) => s + Number(r.debito) - Number(r.credito), 0))}</td></tr>
     </table></div>`;
   }
 
@@ -6677,6 +6717,9 @@ function renderModuloConciliacao() {
       <td class="${c.saldo < -0.005 ? 'negativo' : ''}">R$ ${fmt(c.saldo)}</td>
       <td>${fmtData(c.ultimo_lancamento)}</td>
       <td>${c.lancamentos || '—'}</td></tr>`).join('')}
+    <tr class="liq"><td>TOTAL</td>
+      <td>R$ ${fmt(CONF_SALDOS.reduce((s, c) => s + Number(c.saldo || 0), 0))}</td>
+      <td></td><td>${CONF_SALDOS.reduce((s, c) => s + Number(c.lancamentos || 0), 0).toLocaleString('pt-BR')}</td></tr>
   </table></div>
   <div class="caption-label">Saldo = saldo inicial de 01/01 + todos os lançamentos de caixa (planilha até jul, Saipos depois).
   Cartões aparecem com saldo negativo enquanto a fatura não é paga — é o normal.
