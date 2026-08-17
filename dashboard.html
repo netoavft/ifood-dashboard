@@ -323,7 +323,8 @@
   #tabelaDespesas tr.dfc-resultado td { background:#111110; color:#fff; font-weight:bold; border-top:2px solid #f6c63e; border-bottom:2px solid #ee8a3c; }
   #tabelaDespesas tr.dfc-resultado td:first-child { color:#fff; border-left:2px solid #f6c63e; }
   #tabelaDespesas tr.dfc-resultado td:last-child { border-right:2px solid #ee8a3c; }
-  #tabelaDespesas td:first-child, #tabelaConsolidada td:first-child { text-transform:uppercase; }
+  #tabelaDespesas td:first-child, #tabelaConsolidada td:first-child,
+  #tabelaAtrasosTurno td:first-child, #tabelaAtrasosDow td:first-child, #tabelaAtrasosEntregador td:first-child { text-transform:uppercase; }
   #tabelaDespesas tr.clicavel { cursor:pointer; }
   #tabelaDespesas tr.clicavel:hover td:first-child { color:#ee8a3c; }
   #tabelaSaldos tr.dfc-linha td { color:#6e6d64; }
@@ -4247,7 +4248,7 @@ function renderModuloAtrasos() {
   });
   const DOW = { 1: 'segunda', 2: 'terça', 3: 'quarta', 4: 'quinta', 5: 'sexta', 6: 'sábado', 7: 'domingo' };
 
-  const linhaResumo = (rotulo, g) => `<tr><td>${rotulo}</td>
+  const linhaResumo = (rotulo, g, classe = '') => `<tr class="${classe}"><td>${rotulo}</td>
     <td>${g.n.toLocaleString('pt-BR')}</td>
     <td>${pctTxt(g.medidos - g.fora, g.medidos)}</td>
     <td>${g.fora.toLocaleString('pt-BR')}</td>
@@ -4291,6 +4292,7 @@ function renderModuloAtrasos() {
   <div id="tabelaAtrasosTurno"><table>
     ${cabecalho}
     ${turnos.map(t => linhaResumo(t === null ? '— (fora das faixas)' : t, resumo(rows.filter(r => r.turno === t)))).join('')}
+    ${linhaResumo('TOTAL', geral, 'liq')}
   </table></div>
 
   <div class="section-label">Por dia da semana</div>
@@ -4300,6 +4302,7 @@ function renderModuloAtrasos() {
       const g = rows.filter(r => r.dia_semana === d);
       return g.length ? linhaResumo(DOW[d], resumo(g)) : '';
     }).join('')}
+    ${linhaResumo('TOTAL', geral, 'liq')}
   </table></div>
 
   <div class="section-label">Por entregador — piores primeiro (mínimo 10 entregas no período)</div>
@@ -4307,6 +4310,10 @@ function renderModuloAtrasos() {
     <tr><th>Entregador</th><th>Tipo</th><th>Entregas</th><th>Dentro do prazo</th><th>Fora do prazo</th><th>Atraso médio</th><th>Rua</th><th>Distância média</th></tr>
     ${entregadores.map(e => `<tr><td>${e.nome}</td><td>${e.tipo === 'internal' ? 'próprio' : e.tipo === 'external' ? 'externo' : e.tipo}</td>
       <td>${e.g.n}</td><td>${pctTxt(e.g.medidos - e.g.fora, e.g.medidos)}</td><td>${e.g.fora}</td><td>${e.g.atrasoMedio === null ? '—' : n1(e.g.atrasoMedio) + ' min'}</td><td>${n1(e.g.rua)} min</td><td>${n1(e.dist)} km</td></tr>`).join('')}
+    <tr class="liq"><td>TODAS AS ENTREGAS</td><td>—</td>
+      <td>${geral.n.toLocaleString('pt-BR')}</td><td>${pctTxt(geral.medidos - geral.fora, geral.medidos)}</td><td>${geral.fora.toLocaleString('pt-BR')}</td>
+      <td>${geral.atrasoMedio === null ? '—' : n1(geral.atrasoMedio) + ' min'}</td><td>${n1(geral.rua)} min</td>
+      <td>${n1(mediaDe(rows.map(r => r.dist_km)))} km</td></tr>
   </table></div>
   ${foraRanking ? `<div class="caption-label" style="text-align:center;">${foraRanking} entregador(es) com menos de 10 entregas no período ficaram fora do ranking.</div>` : ''}
 
