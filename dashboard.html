@@ -2412,6 +2412,18 @@ function renderChartsPromocoes() {
 // ------------------------------------------------------------------
 // null = ainda nao buscado; array = pronto. Buscados so na primeira visita ao modulo.
 let NEGOCIACOES = null;
+
+// Correcao 17/08/2026: "sem resposta" NAO e quem_respondeu vazio.
+// Esse campo fica vazio quando a reclamacao e de um tipo que o iFood resolve direto com o
+// cliente (momento "APOS A ENTREGA": item faltando, pedido improprio, item errado) — a loja
+// nunca e chamada a responder. Prova: o vazio e determinado pelo MOTIVO, nao pela loja nem
+// pela semana (atraso 1,3% de vazio em 400 casos x parte do item nao enviado 62% em 129), e o
+// padrao se repete em 15 lojas. A Burger Agua Verde respondeu 187 de 187 negociacoes por atraso.
+// Tambem: quando quem_iniciou = PARCEIRO, o vazio significa que o CLIENTE nao respondeu.
+// Indices da linha: 4=momento, 5=quem_respondeu, 9=quem_iniciou.
+const negRespondivel = r => (r[4] || '') !== 'APOS A ENTREGA';
+const negSemResposta = r => negRespondivel(r) && (r[9] || '') === 'CLIENTE' && !r[5];
+const negPosEntrega  = r => (r[4] || '') === 'APOS A ENTREGA';
 let AVALIACOES = null;
 let RELATORIOS = null;
 
@@ -2449,7 +2461,9 @@ function renderModuloNegociacoes() {
   }
 
   const total = linhas.length;
-  const semResposta = linhas.filter(r => !r[5]).length;
+  const respondiveis = linhas.filter(negRespondivel).length;
+  const posEntrega = linhas.filter(negPosEntrega).length;
+  const semResposta = linhas.filter(negSemResposta).length;
   const porAtraso = linhas.filter(r => (r[3] || '').includes('ATRASO')).length;
   const valorEnvolvido = linhas.reduce((s, r) => s + r[7], 0);
   const comSuper = linhas.filter(r => (r[6] || '').toUpperCase() === 'SIM').length;
@@ -2466,23 +2480,25 @@ function renderModuloNegociacoes() {
   // por loja
   const porLoja = new Map();
   linhas.forEach(r => {
-    if (!porLoja.has(r[0])) porLoja.set(r[0], { n: 0, sem: 0, valor: 0 });
+    if (!porLoja.has(r[0])) porLoja.set(r[0], { n: 0, resp: 0, sem: 0, valor: 0 });
     const o = porLoja.get(r[0]);
-    o.n++; if (!r[5]) o.sem++; o.valor += r[7];
+    o.n++; if (negRespondivel(r)) o.resp++; if (negSemResposta(r)) o.sem++; o.valor += r[7];
   });
-  const lojas = [...porLoja.entries()].map(([i, o]) => ({ nome: LOJAS[i], ...o, pctSem: o.n ? o.sem / o.n * 100 : 0 }))
+  const lojas = [...porLoja.entries()].map(([i, o]) => ({ nome: LOJAS[i], ...o, pctSem: o.resp ? o.sem / o.resp * 100 : 0 }))
     .sort((a, b) => b.sem - a.sem || b.n - a.n);
 
   alvo.innerHTML = `
   <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Negociações pós-entrega</div>
   <div class="caption-label" style="text-align:center;">
-    Quando o cliente reclama de um pedido já entregue, o iFood abre uma <b>negociação</b>: a loja pode responder
-    (aceitar, recusar ou propor solução) ou deixar passar o prazo. <b>Negociação sem resposta vira cancelamento
-    automático</b> — dinheiro perdido por silêncio. Filtros de período, unidade, marca e turno se aplicam; dia da semana não.
+    Quando o cliente reclama, o iFood pode abrir uma <b>negociação</b> para a loja responder (aceitar, recusar ou
+    propor solução). <b>Nem toda reclamação vira negociação:</b> as de pós-entrega (item faltando, pedido impróprio,
+    item errado) o iFood resolve direto com o cliente, sem ouvir a loja — por isso elas aparecem separadas aqui e
+    <b>não contam</b> como "sem resposta". Filtros de período, unidade, marca e turno se aplicam; dia da semana não.
   </div>
   <div class="cards">
-    <div class="card neutral"><div class="card-lbl">Negociações</div><div class="card-val">${total.toLocaleString('pt-BR')}</div></div>
-    <div class="card neutral"${cardFarol('neg_sem_resposta_pct', total ? semResposta/total*100 : null)}><div class="card-lbl">Sem resposta da loja</div><div class="card-val">${semResposta}</div><div class="card-pct">${pct(semResposta/total*100)}% do total</div></div>
+    <div class="card neutral"><div class="card-lbl">Negociações</div><div class="card-val">${total.toLocaleString('pt-BR')}</div><div class="card-pct">${respondiveis} para a loja responder</div></div>
+    <div class="card neutral"${cardFarol('neg_sem_resposta_pct', respondiveis ? semResposta/respondiveis*100 : null)}><div class="card-lbl">Sem resposta da loja</div><div class="card-val">${semResposta}</div><div class="card-pct">${pct(respondiveis ? semResposta/respondiveis*100 : 0)}% das que dependem da loja</div></div>
+    <div class="card neutral"><div class="card-lbl">Pós-entrega (iFood decide)</div><div class="card-val">${posEntrega}</div><div class="card-pct">a loja não é ouvida</div></div>
     <div class="card neutral"${cardFarol('neg_atraso_pct', total ? porAtraso/total*100 : null)}><div class="card-lbl">Motivadas por atraso</div><div class="card-val">${pct(porAtraso/total*100)}%</div><div class="card-pct">${porAtraso} casos</div></div>
     <div class="card neg"><div class="card-lbl">Valor cancelado nas negociações</div><div class="card-val">R$ ${fmt(valorEnvolvido)}</div></div>
     <div class="card neutral"><div class="card-lbl">Com impacto no Super</div><div class="card-val">${comSuper}</div><div class="card-pct">afetam o selo da loja</div></div>
@@ -2494,15 +2510,15 @@ function renderModuloNegociacoes() {
   </div>
 
   <div class="section-label">Onde o silêncio custa caro</div>
-  <div class="caption-label" style="text-align:center;">Ordenado por negociações sem resposta — é o número que dá pra zerar só com disciplina de responder.</div>
+  <div class="caption-label" style="text-align:center;">A coluna "Para responder" exclui as reclamações de pós-entrega, que o iFood decide sozinho — o "% sem resposta" é sobre ela, não sobre o total.</div>
   <div id="tabelaNegLojas">
     <table>
-      <tr><th>Loja</th><th>Negociações</th><th>Sem resposta</th><th>% sem resposta</th><th>Valor cancelado</th></tr>
-      ${lojas.map(x => `<tr><td>${x.nome}</td><td>${x.n}</td>
+      <tr><th>Loja</th><th>Negociações</th><th>Para responder</th><th>Sem resposta</th><th>% sem resposta</th><th>Valor cancelado</th></tr>
+      ${lojas.map(x => `<tr><td>${x.nome}</td><td>${x.n}</td><td>${x.resp}</td>
         <td${x.sem ? ' style="color:#ff6b6b; font-weight:bold;"' : ''}>${x.sem}</td>
         <td>${pct(x.pctSem)}%</td><td>R$ ${fmt(x.valor)}</td></tr>`).join('')}
-      <tr class="liq"><td>TOTAL</td><td>${total.toLocaleString('pt-BR')}</td><td>${semResposta}</td>
-        <td>${pct(total ? semResposta / total * 100 : 0)}%</td><td>R$ ${fmt(valorEnvolvido)}</td></tr>
+      <tr class="liq"><td>TOTAL</td><td>${total.toLocaleString('pt-BR')}</td><td>${respondiveis}</td><td>${semResposta}</td>
+        <td>${pct(respondiveis ? semResposta / respondiveis * 100 : 0)}%</td><td>R$ ${fmt(valorEnvolvido)}</td></tr>
     </table>
   </div>`;
 
@@ -2766,7 +2782,8 @@ async function gerarRelatorioAdHoc() {
   const avs = AVALIACOES.filter(r => activeL.has(r[0]) && r[1] >= ini && r[1] <= fim);
   const motivos = resumoMotivosCancelamento(ini, fim).slice(0, 3);
 
-  const negSem = negs.filter(r => !r[5]).length;
+  const negSem = negs.filter(negSemResposta).length;
+  const negResp = negs.filter(negRespondivel).length;
   const negAtraso = negs.filter(r => (r[3] || '').includes('ATRASO')).length;
   const notaMedia = avs.length ? avs.reduce((s, r) => s + r[2], 0) / avs.length : null;
   const pctRuins = avs.length ? avs.filter(r => r[2] <= 2).length / avs.length * 100 : 0;
@@ -2788,7 +2805,7 @@ async function gerarRelatorioAdHoc() {
 
   // pontos de atencao por regra fixa
   const alertas = [];
-  if (negSem > 0) alertas.push(`<li><b style="color:#ff6b6b;">${negSem} negociações sem resposta</b> (${pct(negs.length ? negSem / negs.length * 100 : 0)}%) — resposta evita cancelamento automático.</li>`);
+  if (negSem > 0) alertas.push(`<li><b style="color:#ff6b6b;">${negSem} negociações sem resposta</b> (${pct(negResp ? negSem / negResp * 100 : 0)}% das ${negResp} que dependem da loja) — resposta evita cancelamento automático.</li>`);
   if (negs.length && negAtraso / negs.length > 0.4) alertas.push(`<li><b style="color:#ff6b6b;">${pct(negAtraso / negs.length * 100)}% das negociações por atraso</b> — olhar preparo/despacho no pico.</li>`);
   if (notaMedia !== null && notaMedia < 4.6) alertas.push(`<li><b style="color:#ff6b6b;">Nota média ${notaMedia.toFixed(2).replace('.', ',')}</b> abaixo do padrão da rede (4,6+).</li>`);
   if (pctRuins > 5) alertas.push(`<li><b style="color:#ff6b6b;">${pct(pctRuins)}% de notas 1-2</b> no período.</li>`);
@@ -3051,12 +3068,13 @@ function renderModuloRotinas(status, historico) {
 // Busca so os dados (sem renderizar o modulo) — usadas pelo gerador de relatorio.
 async function entrarNegociacoesSoDados() {
   const rows = await consultarTudo(
-    "vw_negociacoes?select=nome_loja,data,turno,motivo,momento,quem_respondeu,impactou_super,valor_cancelamento,valor_pedido&order=nome_loja,data"
+    "vw_negociacoes?select=nome_loja,data,turno,motivo,momento,quem_respondeu,impactou_super,valor_cancelamento,valor_pedido,quem_iniciou&order=nome_loja,data"
   );
   NEGOCIACOES = rows.map(r => [
     LOJAS.indexOf(r.nome_loja), r.data, r.turno, r.motivo, r.momento,
     r.quem_respondeu, r.impactou_super,
     Number(r.valor_cancelamento || 0), Number(r.valor_pedido || 0),
+    r.quem_iniciou,
   ]);
 }
 
@@ -3395,7 +3413,8 @@ function computeKpisSemana(ini, fim) {
   const activeL = activeLojas();
   const negs = NEGOCIACOES.filter(r => activeL.has(r[0]) && r[1] >= ini && r[1] <= fim);
   const avs = AVALIACOES.filter(r => activeL.has(r[0]) && r[1] >= ini && r[1] <= fim);
-  const negSem = negs.filter(r => !r[5]).length;
+  const negSem = negs.filter(negSemResposta).length;
+  const negResp = negs.filter(negRespondivel).length;
   const negAtraso = negs.filter(r => (r[4] || '').includes('ATRASO')).length;
   return {
     liquido_semana: m.liquido,
@@ -3404,7 +3423,7 @@ function computeKpisSemana(ini, fim) {
     nota_media: avs.length ? avs.reduce((s, r) => s + r[2], 0) / avs.length : null,
     pct_notas_ruins: avs.length ? avs.filter(r => r[2] <= 2).length / avs.length * 100 : null,
     taxa_cancelamento: m.nFullPct, // so cancelamentos TOTAIS (parciais ficam no modulo Cancelamentos)
-    neg_sem_resposta_pct: negs.length ? negSem / negs.length * 100 : null,
+    neg_sem_resposta_pct: negResp ? negSem / negResp * 100 : null,
     neg_atraso_pct: negs.length ? negAtraso / negs.length * 100 : null,
     mkt_por_pedido: m.custoMktPorPedido,
     // investPlataforma = incentivo do iFood; promoLoja = o que saiu do nosso bolso.
@@ -5435,7 +5454,7 @@ async function entrarIndicadores() {
     .filter(([, media, n]) => n >= 10 && media < 4.5)
     .sort((a, b) => a[1] - b[1]);
   const semRespPorLoja = {};
-  atual._negs.filter(r => !r[5]).forEach(r => { semRespPorLoja[r[0]] = (semRespPorLoja[r[0]] || 0) + 1; });
+  atual._negs.filter(negSemResposta).forEach(r => { semRespPorLoja[r[0]] = (semRespPorLoja[r[0]] || 0) + 1; });
   const topSemResp = Object.entries(semRespPorLoja).map(([i, n]) => [LOJAS[i], n])
     .sort((a, b) => b[1] - a[1]).slice(0, 4);
   const atrasoPorLoja = {};
