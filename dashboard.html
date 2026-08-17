@@ -3947,22 +3947,25 @@ function renderModuloFrete(linhas) {
   const reais = (v) => 'R$ ' + Number(v).toLocaleString('pt-BR', { minimumFractionDigits:2, maximumFractionDigits:2 });
   const canais = [...new Set(linhas.map(l => l.canal))].sort();
 
-  const tabela = (canal) => {
+  // padrao das tabelas do painel (16/08 a noite): id tabela* (grade, zebra e
+  // coluna fixa de graca), cabecalho th e TOTAL com o contorno dourado
+  const tabela = (canal, idx) => {
     const ls = linhas.filter(l => l.canal === canal);
     const totalEntregas = ls.reduce((a, l) => a + Number(l.entregas), 0);
     const resultado = ls.reduce((a, l) => a + Number(l.resultado_total), 0);
+    const pond = (campo) => totalEntregas ? ls.reduce((a, l) => a + Number(l[campo]) * Number(l.entregas), 0) / totalEntregas : 0;
     const corpo = ls.map(l => {
       const r = Number(l.resultado_entrega);
       // a cor diz se a loja banca (vermelho) ou o frete se paga (verde) —
       // fato separado da interpretacao, regra da casa
       const cor = r < 0 ? '#ff6b6b' : '#3fb950';
       return `<tr>
-        <td style="padding:5px 8px;">${l.faixa}</td>
-        <td style="padding:5px 8px; text-align:right; color:#a5a49a;">${l.entregas}</td>
-        <td style="padding:5px 8px; text-align:right;">${reais(l.custo_entregador)}</td>
-        <td style="padding:5px 8px; text-align:right;">${reais(l.frete_cobrado)}</td>
-        <td style="padding:5px 8px; text-align:right; font-weight:600;">${reais(l.ticket)}</td>
-        <td style="padding:5px 8px; text-align:right; color:${cor}; font-weight:600;">${reais(r)}</td>
+        <td>${l.faixa}</td>
+        <td>${l.entregas}</td>
+        <td>${reais(l.custo_entregador)}</td>
+        <td>${reais(l.frete_cobrado)}</td>
+        <td><b>${reais(l.ticket)}</b></td>
+        <td style="color:${cor}; font-weight:600;">${reais(r)}</td>
       </tr>`;
     }).join('');
     return `
@@ -3971,17 +3974,14 @@ function renderModuloFrete(linhas) {
         ${totalEntregas} entregas · a loja ${resultado < 0 ? 'banca' : 'ganha'}
         <b>${reais(Math.abs(resultado))}</b> de frete no período.
       </div>
-      <table style="width:100%; font-size:13px;">
-        <tr style="color:#8a897e; font-size:11px; text-transform:uppercase;">
-          <td style="padding:5px 8px;">distância</td>
-          <td style="padding:5px 8px; text-align:right;">entregas</td>
-          <td style="padding:5px 8px; text-align:right;">custo do entregador</td>
-          <td style="padding:5px 8px; text-align:right;">frete cobrado</td>
-          <td style="padding:5px 8px; text-align:right;">ticket</td>
-          <td style="padding:5px 8px; text-align:right;">sobra / falta</td>
-        </tr>
+      <div id="tabelaFreteCanal${idx}"><table>
+        <tr><th>Distância</th><th>Entregas</th><th>Custo do entregador</th><th>Frete cobrado</th><th>Ticket</th><th>Sobra / falta por entrega</th></tr>
         ${corpo}
-      </table>`;
+        <tr class="liq"><td>TOTAL</td><td>${totalEntregas.toLocaleString('pt-BR')}</td>
+          <td>${reais(pond('custo_entregador'))}</td><td>${reais(pond('frete_cobrado'))}</td>
+          <td>${reais(pond('ticket'))}</td>
+          <td style="color:${resultado < 0 ? '#ff6b6b' : '#3fb950'}; font-weight:700;">${reais(resultado)}<span class="dre-av">no período</span></td></tr>
+      </table></div>`;
   };
 
   alvo.innerHTML = `
@@ -3991,7 +3991,7 @@ function renderModuloFrete(linhas) {
       <b>Vermelho = a loja está bancando; verde = o frete se paga.</b>
       <span style="font-size:11.5px; color:#f5a623; border:1px solid #f5a623; border-radius:12px; padding:3px 10px; margin-left:6px;">só Água Verde</span>
     </div>
-    ${canais.map(tabela).join('')}
+    ${canais.map((c, i) => tabela(c, i)).join('')}
     <div class="caption-label">
       A coluna do ticket é a que decide: no site, quem está acima de 3 km gasta de R$ 104 a R$ 135,
       contra R$ 72 a R$ 78 de quem está perto. Quem mora longe já paga o frete e leva o carrinho maior —
