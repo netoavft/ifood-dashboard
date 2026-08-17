@@ -107,8 +107,8 @@
     background:#232321; border:1px solid #34332f; color:#c3c2b7; font-size:12.5px; font-weight:700;
     padding:8px 14px; border-radius:8px; cursor:pointer; transition: all .15s ease;
   }
-  .navbtn:hover { border-color:#c8102e; color:#fff; }
-  .navbtn.active { background:#250f13; color:#fff; border-color:#c8102e; }
+  .navbtn:hover { border-color:#ee8a3c; color:#fff; }
+  .navbtn.active { background:linear-gradient(135deg,#f6c63e,#ee8a3c); color:#111110; border-color:transparent; font-weight:800; }
 
   /* Titulos em BRANCO desde 16/08/2026 (pedido do dono: o vermelho pesava a
      leitura). O vermelho segue como acento em botoes ativos e no farol. */
@@ -128,8 +128,8 @@
   .periodo-presets { display:flex; flex-wrap:wrap; justify-content:center; gap:6px; margin-bottom:10px; }
   .preset-btn { background:#232321; border:1px solid #34332f; color:#c3c2b7; font-size:12px; font-weight:700;
                 padding:7px 12px; border-radius:8px; cursor:pointer; font-family:inherit; }
-  .preset-btn:hover { border-color:#c8102e; color:#fff; }
-  .preset-btn.active { background:#250f13; color:#fff; border-color:#c8102e; }
+  .preset-btn:hover { border-color:#ee8a3c; color:#fff; }
+  .preset-btn.active { background:linear-gradient(135deg,#f6c63e,#ee8a3c); color:#111110; border-color:transparent; }
 
   .contexto { background:#171716; border:1px solid #34332f; border-radius:10px; padding:10px 16px;
               margin:16px 0 4px; text-align:center; color:#a5a49a; font-size:12.5px; line-height:1.7; }
@@ -253,8 +253,9 @@
      diz tudo, e numa demonstracao quase toda de saidas o vermelho em cada
      celula virava ruido. Vermelho e' EXCECAO: so prejuizo em linha de resultado. */
   #tabelaDFC td.negativo, #tabelaDFC .negativo, #tabelaDRE td.negativo, #tabelaDRE .negativo { color:inherit; }
-  #tabelaDFC tr.dfc-resultado td.negativo, #tabelaDFC tr.dfc-resultado .negativo,
-  #tabelaDRE tr.dfc-resultado td.negativo, #tabelaDRE tr.dfc-resultado .negativo { color:#ff6b6b; }
+  #tabelaDFC tr.dfc-resultado td.negativo, #tabelaDFC tr.dfc-resultado .negativo { color:#ff6b6b; }
+  /* prejuizo em linha de soma da DRE: vermelho escuro, legivel sobre o gradiente */
+  #tabelaDRE tr.dfc-resultado td.negativo, #tabelaDRE tr.dfc-resultado .negativo { color:#8f0d20; }
   #tabelaDFC tr.dfc-bloco td { background:#232321; font-weight:bold; border-top:2px solid #45443f; color:#ffffff; }
   #tabelaDFC tr.dfc-grupo td { background:#1a1a19; font-weight:bold; color:#c3c2b7; }
   #tabelaDFC tr.dfc-grupo td:first-child { padding-left:22px; }
@@ -276,10 +277,14 @@
   #tabelaDRE tr.dfc-grupo td:first-child { padding-left:22px; }
   #tabelaDRE tr.dfc-linha td { color:#a5a49a; }
   #tabelaDRE tr.dfc-linha td:first-child { padding-left:40px; }
-  /* leveza 2 (16/08 a noite): o vinho+vermelho nas linhas "(=)" da DRE pesava —
-     agora e' faixa neutra elevada; o destaque vem do peso e do filete cinza */
-  #tabelaDRE tr.dfc-resultado td { background:#232321; font-weight:bold; border-top:2px solid #57564e; border-bottom:2px solid #57564e; }
-  #tabelaDRE tr.dfc-resultado td:first-child { color:#fff; }
+  /* linhas de SOMA "(=)" = letreiro aceso (pedido do dono, 16/08 a noite): o
+     mesmo gradiente da marca dos botoes ativos, com texto preto — a construcao
+     da conta salta aos olhos. Tudo que vive dentro delas troca para tom escuro. */
+  #tabelaDRE tr.dfc-resultado td { background:linear-gradient(135deg,#f6c63e,#ee8a3c); color:#111110; font-weight:bold; border-top:none; border-bottom:none; }
+  #tabelaDRE tr.dfc-resultado td:first-child { color:#111110; }
+  #tabelaDRE tr.dfc-resultado .dre-sub, #tabelaDRE tr.dfc-resultado .dre-sub span { color:rgba(17,17,16,.72) !important; }
+  #tabelaDRE tr.dfc-resultado .dre-farol { box-shadow:0 0 0 1.5px rgba(17,17,16,.55); }
+  #tabelaDRE tr.dfc-resultado .meta-pill { color:#111110; border-color:rgba(17,17,16,.4); background:rgba(255,255,255,.28); }
   /* categorias sempre em MAIUSCULO (so o rotulo; meta e subs ficam como estao) */
   #tabelaDRE td:first-child { text-transform:uppercase; }
   #tabelaDRE td:first-child .dre-sub, #tabelaDRE td:first-child .meta-pill { text-transform:none; }
