@@ -253,15 +253,17 @@
      diz tudo, e numa demonstracao quase toda de saidas o vermelho em cada
      celula virava ruido. Vermelho e' EXCECAO: so prejuizo em linha de resultado. */
   #tabelaDFC td.negativo, #tabelaDFC .negativo, #tabelaDRE td.negativo, #tabelaDRE .negativo { color:inherit; }
-  #tabelaDFC tr.dfc-resultado td.negativo, #tabelaDFC tr.dfc-resultado .negativo,
-  #tabelaDRE tr.dfc-resultado td.negativo, #tabelaDRE tr.dfc-resultado .negativo { color:#ff6b6b; }
+  /* negativo em soma tambem fica branco (pedido do dono, 16/08 a noite):
+     o sinal de menos ja informa — cor nenhuma no DFC/DRE e' semaforo */
   #tabelaDFC tr.dfc-bloco td { background:#232321; font-weight:bold; border-top:2px solid #45443f; color:#ffffff; }
   #tabelaDFC tr.dfc-grupo td { background:#1a1a19; font-weight:bold; color:#c3c2b7; }
   #tabelaDFC tr.dfc-grupo td:first-child { padding-left:22px; }
   #tabelaDFC tr.dfc-linha td { color:#a5a49a; }
   #tabelaDFC tr.dfc-linha td:first-child { padding-left:40px; }
-  #tabelaDFC tr.dfc-resultado td { background:#250f13; font-weight:bold; border-top:2px solid #c8102e; }
-  #tabelaDFC tr.dfc-resultado td:first-child { color:#fff; }
+  /* somas do DFC no mesmo contorno dourado da DRE (16/08 a noite) */
+  #tabelaDFC tr.dfc-resultado td { background:#111110; color:#fff; font-weight:bold; border-top:2px solid #f6c63e; border-bottom:2px solid #ee8a3c; }
+  #tabelaDFC tr.dfc-resultado td:first-child { color:#fff; border-left:2px solid #f6c63e; }
+  #tabelaDFC tr.dfc-resultado td:last-child { border-right:2px solid #ee8a3c; }
   #tabelaDFC tr.dfc-saldo td { background:#0f1a2b; font-weight:bold; border-top:2px solid #58a6ff; }
   #tabelaDFC tr.dfc-saldo td:first-child { color:#58a6ff; }
   #tabelaDFC tr.dfc-conta td { color:#a5a49a; }
@@ -5197,13 +5199,19 @@ function renderModuloDFC() {
   // % da receita junto do valor, so nas linhas de FLUXO (celRS, de saldo,
   // fica intacta: saldo e estoque, % da receita do mes nao significa nada).
   // mostra=-1: linha de SAIDA exibe o numero com sinal de menos (pedido do dono,
-  // 16/08) — o calculo e o % continuam positivos, so a exibicao inverte
-  const cel = (v, i, mostra = 1) => {
+  // 16/08) — o calculo e o % continuam positivos, so a exibicao inverte.
+  // Mesmo padrao de celula da DRE (16/08 a noite): % da receita ao lado do
+  // numero, variacao vs mes anterior embaixo.
+  const cel = (v, i, mostra = 1, vAnt = null) => {
     const base = i === 'tot' ? receitasTot : receitas[i];
     const p = base ? (v / base * 100) : null;
     const vM = v * mostra;
-    return `<td><div class="${vM < -0.005 ? 'negativo' : ''}">${fmt(vM)}</div>` +
-           (p === null ? '' : `<div class="dre-sub">${pct(p)}%</div>`) + `</td>`;
+    let sub = '';
+    if (vAnt !== null && Math.abs(vAnt) > 0.005) {
+      const d = (v - vAnt) / Math.abs(vAnt) * 100;
+      sub = `<div class="dre-sub">${d > 0.5 ? '▲' : d < -0.5 ? '▼' : '•'} ${pct(Math.abs(d))}% vs mês ant.</div>`;
+    }
+    return `<td><div class="${vM < -0.005 ? 'negativo' : ''}">${fmt(vM)}${p === null ? '' : `<span class="dre-av">${pct(p)}%</span>`}</div>${sub}</td>`;
   };
   const celRS = (v) => `<td class="${v < -0.005 ? 'negativo' : ''}">${fmt(v)}</td>`;
 
@@ -5211,7 +5219,7 @@ function renderModuloDFC() {
   const linha = (classe, label, vals, chave = null, mostra = 1) => {
     const seta = chave ? (dfcAberto.has(chave) ? '▼ ' : '▶ ') : '';
     const attrs = chave ? ` class="${classe} clicavel" onclick="dfcToggle('${chave}')"` : ` class="${classe}"`;
-    return `<tr${attrs}><td>${seta}${label}</td>${vals.map((v, i) => cel(v, i, mostra)).join('')}${cel(total(vals), 'tot', mostra)}</tr>`;
+    return `<tr${attrs}><td>${seta}${label}</td>${vals.map((v, i) => cel(v, i, mostra, i > 0 ? vals[i - 1] : null)).join('')}${cel(total(vals), 'tot', mostra)}</tr>`;
   };
   // linha de saldo: sempre em R$; coluna Total mostra o saldo na ponta do periodo
   const linhaSaldo = (classe, label, vals, chave = null, totalPonta = null) => {
