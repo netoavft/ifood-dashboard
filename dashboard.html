@@ -6458,6 +6458,8 @@ function renderModuloDRE() {
 // ------------------------------------------------------------------
 let PROJ_PAGAR = null;    // vw_fin_contas_pagar
 let PROJ_RECEB = null;    // vw_fin_receitas_diarias (ultimas semanas)
+let PROJ_ANCORA = null;   // vw_fin_saldo_banco_atual: saldo REAL do banco (OFX diario)
+let PROJ_VENC = null;     // vw_fin_vencidas_status: vencida ja saiu do banco ou nao
 
 // contas que nao sao caixa operacional (investimentos, pessoais e cartoes)
 const PROJ_FORA_CAIXA = ['XP INVESTIMENTOS', 'PARTICIPACOES', 'FABIO PESSOAL'];
@@ -6467,11 +6469,16 @@ async function entrarProjecao() {
   if (PROJ_PAGAR === null) alvo.innerHTML = '<div class="contexto">Carregando projeção...</div>';
   const corte = new Date(); corte.setDate(corte.getDate() - 35);
   const corteIso = corte.toISOString().slice(0, 10);
-  const [pagar, receb] = await Promise.all([
+  const [pagar, receb, ancora, vencStatus] = await Promise.all([
     consultarTudo('vw_fin_contas_pagar?select=vencimento,conta,subtipo,tipo,natureza,descricao,credito,debito&order=vencimento'),
     consultarTudo(`vw_fin_receitas_diarias?select=data,recebido&data=gte.${corteIso}&order=data`),
+    consultarTudo('vw_fin_saldo_banco_atual?select=conta,data_saldo,saldo_banco,idade_dias,saldo_saipos,diferenca'),
+    consultarTudo('vw_fin_vencidas_status?select=vencimento,conta,subtipo,tipo,descricao,debito,dias_vencida,data_debito_banco,achou_no_banco'),
     garantirDadosFin(),
   ]);
+  PROJ_ANCORA = ancora;
+  PROJ_VENC = vencStatus;
+  PROJ_VENC.forEach(r => { r.debito = Number(r.debito); });
   PROJ_PAGAR = pagar;
   PROJ_PAGAR.forEach(r => { r.credito = Number(r.credito); r.debito = Number(r.debito); });
   PROJ_RECEB = receb;
@@ -6486,16 +6493,30 @@ function renderModuloProjecao() {
   const hojeIso = iso(hoje);
   const HORIZONTE = 45;
 
-  // ---- saldo atual por conta (saldo inicial + todos os movimentos) ----
+  // ---- saldo atual por conta: ANCORADO NO BANCO quando ha extrato OFX
+  // (peca 1 do plano do dono, aplicada da fila em 17/08/2026). Conta sem
+  // OFX (ex.: COFRE AV) segue pelo Saipos, e a legenda diz isso. ----
+  const ancoraPorConta = {};
+  (PROJ_ANCORA || []).forEach(a => { ancoraPorConta[a.conta] = a; });
   const movTotal = {};
   DFC_MOV.forEach(r => { movTotal[r.conta] = (movTotal[r.conta] || 0) + r.movimento; });
   let caixaOper = 0, investido = 0, saldoCartoes = 0;
+  let atrasoSaipos = 0, idadeMax = 0, dataExtrato = null;
   DFC_CONTAS.forEach(c => {
-    const s = c.saldo_inicial + (movTotal[c.conta] || 0);
+    const a = ancoraPorConta[c.conta];
+    const s = a ? Number(a.saldo_banco) : c.saldo_inicial + (movTotal[c.conta] || 0);
     if (c.conta.startsWith('CREDITO')) saldoCartoes += s;
     else if (PROJ_FORA_CAIXA.includes(c.conta)) investido += s;
-    else caixaOper += s;
+    else {
+      caixaOper += s;
+      if (a) {
+        atrasoSaipos += Number(a.diferenca);
+        if (Number(a.idade_dias) > idadeMax) idadeMax = Number(a.idade_dias);
+        if (!dataExtrato || a.data_saldo > dataExtrato) dataExtrato = a.data_saldo;
+      }
+    }
   });
+  const temAncora = Object.keys(ancoraPorConta).length > 0;
 
   // ---- media de recebimento por dia da semana (ultimas 4 semanas) ----
   const porDow = {};
@@ -6511,9 +6532,19 @@ function renderModuloProjecao() {
   const mediaSemana = Object.values(mediaDow).reduce((s, x) => s + x, 0);
 
   // ---- contas a pagar/receber por dia (vencidas caem em hoje) ----
+  // Peca 2: vencida que JA SAIU do banco (achou_no_banco) sai da projecao —
+  // o debito ja esta dentro do saldo ancorado; subtrair de novo contaria
+  // duas vezes. So vale com ancora; sem OFX, volta ao comportamento antigo.
+  const jaSaiuBanco = new Set();
+  if (temAncora) (PROJ_VENC || []).filter(v => v.achou_no_banco)
+    .forEach(v => jaSaiuBanco.add(`${v.vencimento}|${v.debito}|${v.descricao || ''}`));
   const pagarDia = {}, receberDia = {}, itensDia = {};
-  let vencidas = 0;
+  let vencidas = 0, jaPagasSemBaixa = 0;
   PROJ_PAGAR.forEach(r => {
+    if (r.vencimento < hojeIso && jaSaiuBanco.has(`${r.vencimento}|${r.debito}|${r.descricao || ''}`)) {
+      jaPagasSemBaixa += r.debito - r.credito;
+      return;
+    }
     const dia = r.vencimento < hojeIso ? hojeIso : r.vencimento;
     if (r.vencimento < hojeIso) vencidas += r.debito - r.credito;
     pagarDia[dia] = (pagarDia[dia] || 0) + r.debito;
@@ -6641,11 +6672,16 @@ function renderModuloProjecao() {
     Próximos ${HORIZONTE} dias, dia a dia: contas a pagar lançadas no Saipos + receita projetada
     (média por dia da semana das últimas 4 semanas). <b>O que não está lançado no Saipos não aparece aqui.</b>
   </div>
+  ${temAncora && idadeMax > 1 ? `<div class="contexto" style="border-color:#f5a623;">
+    Extrato do banco com <b>${idadeMax} dia(s) de atraso</b> em pelo menos uma conta — baixar o OFX
+    para a âncora voltar a ser de hoje.</div>` : ''}
   <div class="cards">
     <div class="card blue"><div class="card-lbl">Caixa operacional hoje</div><div class="card-val">R$ ${fmt(caixaOper)}</div>
-      <div class="card-pct">bancos e cofre — é este que paga as contas</div></div>
+      <div class="card-pct">${temAncora
+        ? `saldo do BANCO (extrato de ${dataExtrato ? dataExtrato.slice(8,10) + '/' + dataExtrato.slice(5,7) : '—'})${Math.abs(atrasoSaipos) > 0.005 ? ` — o Saipos está R$ ${fmt(Math.abs(atrasoSaipos))} ${atrasoSaipos > 0 ? 'atrás' : 'à frente'}` : ' — Saipos em dia'}`
+        : 'bancos e cofre — é este que paga as contas'}</div></div>
     <div class="card ${vencidas > 0.005 ? 'neg' : ''}"><div class="card-lbl">A pagar (30 dias)</div><div class="card-val">R$ ${fmt(pagar30 + (faturaDia ? faturaValor : 0))}</div>
-      ${vencidas > 0.005 ? `<div class="card-pct" style="color:#ff6b6b;">R$ ${fmt(vencidas)} já vencidas!</div>` : '<div class="card-pct">inclui estimativa de fatura</div>'}</div>
+      ${vencidas > 0.005 ? `<div class="card-pct" style="color:#ff6b6b;">R$ ${fmt(vencidas)} vencidas de verdade!</div>` : '<div class="card-pct">inclui estimativa de fatura</div>'}</div>
     <div class="card"><div class="card-lbl">Receita projetada / semana</div><div class="card-val">R$ ${fmt(mediaSemana)}</div>
       <div class="card-pct">média das últimas 4 semanas</div></div>
     <div class="card" style="border-color:${corMenor};"><div class="card-lbl">Menor saldo projetado</div>
@@ -6657,11 +6693,35 @@ function renderModuloProjecao() {
   ${composicao}
   <div style="height:280px; margin:14px 0;"><canvas id="chartProjecao"></canvas></div>
   ${blocoPagar}
+  ${(() => {
+    if (!temAncora || !(PROJ_VENC || []).length) return '';
+    const saiu = PROJ_VENC.filter(v => v.achou_no_banco);
+    const reais = PROJ_VENC.filter(v => !v.achou_no_banco).sort((a, b) => b.debito - a.debito);
+    const linha = (v, extra) => `<div style="display:flex; justify-content:space-between; gap:10px; padding:3px 0; font-size:12.5px;">
+      <span style="color:#a5a49a;">${v.subtipo}${v.descricao ? ' — ' + v.descricao.slice(0, 55) : ''}</span>
+      <span style="white-space:nowrap;">R$ ${fmt(v.debito)}<span class="dre-av">${extra}</span></span></div>`;
+    return `
+    <div class="section-label">Vencidas — o que é dívida e o que é só falta de baixa</div>
+    ${saiu.length ? `<div class="contexto" style="text-align:left; border-color:#58a6ff;">
+      <b>Já saiu do banco, falta baixar no Saipos (R$ ${fmt(saiu.reduce((s, v) => s + v.debito, 0))})</b> —
+      fila de conciliação, não dinheiro devido; já está fora da projeção acima.
+      <div style="margin-top:6px;">${saiu.map(v => linha(v, 'saiu ' + (v.data_debito_banco ? v.data_debito_banco.slice(8,10) + '/' + v.data_debito_banco.slice(5,7) : ''))).join('')}</div>
+    </div>` : ''}
+    ${reais.length ? `<div class="contexto" style="text-align:left; border-color:#ff6b6b;">
+      <b>Vencidas de verdade (R$ ${fmt(reais.reduce((s, v) => s + v.debito, 0))})</b> — não apareceram no extrato.
+      <div style="margin-top:6px;">${reais.map(v => linha(v, v.dias_vencida + 'd')).join('')}</div>
+      <div style="font-size:11px; color:#8a897e; margin-top:6px;">Boleto que agrupa várias notas não casa por
+      valor exato e pode aparecer aqui mesmo pago — conferir antes de cobrar alguém.</div>
+    </div>` : '<div class="contexto" style="border-color:#3fb950;">Nenhuma vencida de verdade — tudo que venceu já saiu do banco. ✔</div>'}`;
+  })()}
   <div class="section-label">Agenda de vencimentos (30 dias)</div>
   ${agenda || '<div class="contexto">Nenhuma conta a pagar lançada para os próximos 30 dias.</div>'}
-  <div class="caption-label">Saldo projetado sobre o caixa operacional (bancos + cofre; XP/Participações e cartões fora).
-  Vencidas entram como pagáveis hoje. A fatura de cartão é estimada pelo saldo devedor atual dos cartões.
-  A base atualiza na importação diária das 07:30 — lançou no Saipos, aparece aqui no dia seguinte.</div>`;
+  <div class="caption-label">Saldo projetado sobre o caixa operacional (${temAncora
+    ? 'ancorado no extrato do banco; contas sem OFX, como o cofre, seguem pelo Saipos'
+    : 'bancos + cofre'}; XP/Participações e cartões fora).
+  Vencidas de verdade entram como pagáveis hoje; as que já saíram do banco ficam fora da projeção.
+  O casamento com o extrato é por valor exato e data próxima — aproximação honesta, não conciliação contábil.
+  A fatura de cartão é estimada pelo saldo devedor atual. A base atualiza na importação diária — lançou no Saipos, aparece aqui no dia seguinte.</div>`;
 
   destroyChart('chartProjecao');
   chartInstances['chartProjecao'] = new Chart(document.getElementById('chartProjecao').getContext('2d'), {
