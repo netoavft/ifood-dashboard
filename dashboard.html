@@ -5907,41 +5907,24 @@ function renderModuloDRE() {
       const antDe = (arr) => iA >= 0 ? sobre(arr, iA) : null;
       // sequencia dos indicadores = fechamento do Matheus (pedido do dono, 16/08);
       // valores e definicoes 100% nossos, % sempre sobre a receita liquida
-      // cards com o MESMO nome das linhas de meta da tabela (pedido do dono,
-      // 16/08: um vocabulario so entre card e linha controlada)
-      const vendaPct = sobre(venda, iF), adminPct = sobre(admin, iF);
+      // Corte de 16/08 a noite (decisao do dono): com o % colorido pela meta em
+      // CADA linha da tabela, os cards por grupo viraram eco. Ficam so os tres
+      // que a tabela NAO tem: Prime Cost, ponto de equilibrio e a manchete.
       fechHtml = `
       <div class="section-label">Fechamento de ${rotuloMes(meses[iF])} — último mês completo</div>
       <div class="cards cards-3">
-        <div class="card"><div class="card-lbl">Receita bruta</div><div class="card-val">R$ ${fmt(baseAV[iF])}</div>${varRS(baseAV)}</div>
-        <div class="card blue"><div class="card-lbl">Receita líquida</div><div class="card-val">R$ ${fmt(recLiq[iF])}</div>${varRS(recLiq)}</div>
-        <div class="card"><div class="card-lbl">Lucro bruto (R$)</div><div class="card-val">R$ ${fmt(lucroBruto[iF])}</div>${varRS(lucroBruto)}</div>
-        <div class="card"><div class="card-lbl">Lucro bruto (%)</div><div class="card-val">${pct(mcPct)}%</div>
-          ${statusDe(mcPct, DRE_METAS && DRE_METAS.LUCRO_BRUTO)}${varPP(mcPct, antDe(mcArr))}</div>
-        <div class="card"><div class="card-lbl">CMV — custo da mercadoria (%)</div><div class="card-val">${pct(cmvPct)}%</div>
-          ${statusDe(cmvPct, DRE_METAS && DRE_METAS.CUSTO)}${varPP(cmvPct, antDe(custo))}</div>
-        <div class="card"><div class="card-lbl">Despesas com pessoal (%)</div><div class="card-val">${pct(folhaPct)}%</div>
-          ${statusDe(folhaPct, DRE_METAS && DRE_METAS.PESSOAL)}${varPP(folhaPct, antDe(pessoal))}</div>
-        <div class="card"><div class="card-lbl">Despesas com vendas (%)</div><div class="card-val">${pct(vendaPct)}%</div>
-          ${statusDe(vendaPct, DRE_METAS && DRE_METAS.VENDA)}${varPP(vendaPct, antDe(venda))}</div>
-        <div class="card"><div class="card-lbl">Despesas administrativas (%)</div><div class="card-val">${pct(adminPct)}%</div>
-          ${statusDe(adminPct, DRE_METAS && DRE_METAS.ADMIN)}${varPP(adminPct, antDe(admin))}</div>
+        <div class="card ${resultado[iF] >= 0 ? 'pos' : 'neg'}"><div class="card-lbl">Resultado líquido do mês</div><div class="card-val">R$ ${fmt(resultado[iF])}</div>
+          ${statusDe(resPct, DRE_METAS && DRE_METAS.RESULTADO)}${varRS(resultado)}</div>
         <div class="card"><div class="card-lbl">Prime Cost (CMV + pessoal)</div><div class="card-val">${pct(primePct)}%</div>
           ${statusDe(primePct, mPrime)}${varPP(primePct, antDe(primeArr))}</div>
         ${pe ? `<div class="card"><div class="card-lbl">Ponto de equilíbrio</div><div class="card-val">R$ ${fmt(pe)}</div>
           <div class="card-pct" style="color:${folga >= 0 ? '#3fb950' : '#ff6b6b'};">vendeu ${pct(Math.abs(folga))}% ${folga >= 0 ? 'acima' : 'ABAIXO'} do ponto</div></div>` : ''}
-        <div class="card ${ebitda[iF] >= 0 ? 'pos' : 'neg'}"><div class="card-lbl">Resultado operacional (EBITDA)</div><div class="card-val">R$ ${fmt(ebitda[iF])}</div>
-          ${statusDe(ebitdaPct, DRE_METAS && DRE_METAS.EBITDA)}</div>
-        <div class="card ${resultado[iF] >= 0 ? 'pos' : 'neg'}"><div class="card-lbl">Resultado líquido</div><div class="card-val">R$ ${fmt(resultado[iF])}</div>
-          ${statusDe(resPct, DRE_METAS && DRE_METAS.RESULTADO)}</div>
       </div>
       <div class="caption-label" style="text-align:center;">
-        Percentuais sempre sobre a <b>receita bruta</b> (vendas + outras receitas — a régua dos benchmarks de
-        restaurante). Cada card usa o nome da linha correspondente da tabela abaixo; o lucro bruto é o que as
-        consultorias chamam de "margem de contribuição". Prime Cost = CMV + pessoal (os dois maiores custos da casa).
-        Ponto de equilíbrio = (pessoal + despesas com vendas + administrativas + outras) ÷ lucro bruto % — quanto
-        precisava faturar para empatar. Empréstimos e aplicações ficam fora do resultado (não há empréstimo
-        bancário — confirmado 16/08/2026). Metas na tabela <b>fin_metas_dre</b>.
+        Os demais indicadores estão na própria tabela: o % ao lado de cada número é a fatia da receita bruta,
+        colorido pela meta (verde dentro, âmbar perto, vermelho fora). Prime Cost = CMV + pessoal, os dois maiores
+        custos da casa. Ponto de equilíbrio = (pessoal + despesas com vendas + administrativas + outras) ÷ lucro
+        bruto % — quanto precisava faturar para empatar. Metas editáveis na tabela <b>fin_metas_dre</b>.
       </div>`;
     }
   }
