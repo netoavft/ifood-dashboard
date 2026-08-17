@@ -323,7 +323,7 @@
   #tabelaDespesas tr.dfc-resultado td { background:#111110; color:#fff; font-weight:bold; border-top:2px solid #f6c63e; border-bottom:2px solid #ee8a3c; }
   #tabelaDespesas tr.dfc-resultado td:first-child { color:#fff; border-left:2px solid #f6c63e; }
   #tabelaDespesas tr.dfc-resultado td:last-child { border-right:2px solid #ee8a3c; }
-  #tabelaDespesas td:first-child { text-transform:uppercase; }
+  #tabelaDespesas td:first-child, #tabelaConsolidada td:first-child { text-transform:uppercase; }
   #tabelaDespesas tr.clicavel { cursor:pointer; }
   #tabelaDespesas tr.clicavel:hover td:first-child { color:#ee8a3c; }
   #tabelaSaldos tr.dfc-linha td { color:#6e6d64; }
@@ -4705,18 +4705,24 @@ function renderModuloConsolidada() {
 
   <div class="section-label">Canal a canal — período atual vs anterior (${ddmm(antIni)} a ${ddmm(antFim)})</div>
   <div id="tabelaConsolidada"><table>
-    <tr><th>Canal</th><th>Vendas</th><th>Faturamento</th><th>Ticket médio</th><th>% do total</th><th>Anterior (R$)</th><th>Variação</th><th>Canceladas</th></tr>
+    <tr><th>Canal</th><th>Vendas</th><th>Faturamento · % do total</th><th>Ticket médio</th><th>Anterior (R$)</th><th>Variação</th><th>Canceladas</th></tr>
     ${canais.map(c => {
       const a = atual[c], ant = anterior[c];
       return `<tr><td>${nomeCanal(c)}</td>
         <td>${a.vendas.toLocaleString('pt-BR')}</td>
-        <td>R$ ${fmt(a.total)}</td>
+        <td>R$ ${fmt(a.total)}<span class="dre-av">${(totalGeral ? a.total / totalGeral * 100 : 0).toFixed(1).replace('.', ',')}%</span></td>
         <td>R$ ${fmt(a.vendas ? a.total / a.vendas : 0)}</td>
-        <td>${(totalGeral ? a.total / totalGeral * 100 : 0).toFixed(1).replace('.', ',')}%</td>
         <td>${ant ? 'R$ ' + fmt(ant.total) : '—'}</td>
         <td>${varTxt(a.total, ant && ant.total)}</td>
         <td>${a.canceladas ? a.canceladas + ' (R$ ' + fmt(a.cancelado) + ')' : '0'}</td></tr>`;
     }).join('')}
+    ${(() => { const ct = canais.reduce((s, c) => ({ n: s.n + (atual[c].canceladas || 0), v: s.v + (atual[c].cancelado || 0) }), { n: 0, v: 0 });
+      return `<tr class="liq"><td>TOTAL</td><td>${vendasGeral.toLocaleString('pt-BR')}</td>
+        <td>R$ ${fmt(totalGeral)}<span class="dre-av">100%</span></td>
+        <td>R$ ${fmt(vendasGeral ? totalGeral / vendasGeral : 0)}</td>
+        <td>${totalGeralAnt ? 'R$ ' + fmt(totalGeralAnt) : '—'}</td>
+        <td>${varTxt(totalGeral, totalGeralAnt)}</td>
+        <td>${ct.n ? ct.n.toLocaleString('pt-BR') + ' (R$ ' + fmt(ct.v) + ')' : '0'}</td></tr>`; })()}
   </table></div>
   <div class="caption-label" style="text-align:center;">O valor do iFood aqui é o registrado no PDV — não bate de propósito com o "bruto" do portal iFood (promoções, taxas e cancelamentos entram diferente em cada fonte). A conferência fonte a fonte está na fila da auditoria.</div>`;
 }
