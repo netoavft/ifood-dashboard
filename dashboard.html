@@ -188,7 +188,7 @@
   div[id^="tabela"] tr, #extratoFin tr { --linha-fundo:var(--fundo-tabela, #111110); }
   div[id^="tabela"] tr:nth-child(even) { --linha-fundo:#171716; }
   div[id^="tabela"] tr.sub, #extratoFin tr.sub { --linha-fundo:#232321; }
-  div[id^="tabela"] tr.liq, #extratoFin tr.liq { --linha-fundo:#250f13; }
+  div[id^="tabela"] tr.liq, #extratoFin tr.liq { --linha-fundo:#111110; }
   div[id^="tabela"] td:first-child, #extratoFin td:first-child { position:sticky; left:0; z-index:2; background:var(--linha-fundo, #111110); }
   div[id^="tabela"] th:first-child, #extratoFin th:first-child { position:sticky; left:0; z-index:3; background:#232321; }
   div[id^="tabela"].rolavel td:first-child, #extratoFin.rolavel td:first-child,
@@ -198,8 +198,11 @@
 
   /* linhas de fechamento (mesmo padrao do extrato financeiro) */
   div[id^="tabela"] tr.sub td { background:#232321; border-top:2px solid #45443f; }
-  div[id^="tabela"] tr.liq td { background:#250f13; border-top:2px solid #c8102e; }
-  div[id^="tabela"] tr.liq td:first-child { color:#fff; }
+  /* linha de fechamento PADRAO do painel (16/08 a noite): contorno dourado,
+     fundo escuro — a mesma moldura das somas de DFC/DRE, para toda tabela */
+  div[id^="tabela"] tr.liq td { background:#111110; color:#fff; font-weight:bold; border-top:2px solid #f6c63e; border-bottom:2px solid #ee8a3c; }
+  div[id^="tabela"] tr.liq td:first-child { color:#fff; border-left:2px solid #f6c63e; }
+  div[id^="tabela"] tr.liq td:last-child { border-right:2px solid #ee8a3c; }
 
   /* tabelas dos modulos Vendas/Cardapio/Clientes (mesmo visual das demais) */
   #tabelaVendasCanal, #tabelaVendasLojas, #tabelaFunil, #tabelaItens, #tabelaCompl, #tabelaClientesLojas { overflow-x:auto; max-width:100%; }
@@ -4443,10 +4446,10 @@ function renderModuloLogfin() {
   const turnos = [...new Set(lista.map(g => g.turno))]
     .sort((a, b) => ORDEM_TURNO.indexOf(a) - ORDEM_TURNO.indexOf(b));
 
-  const linhaTurno = (rotulo, gs) => {
+  const linhaTurno = (rotulo, gs, classe = '') => {
     const n = soma(gs, g => g.n), ganho = soma(gs, g => g.ganho), comp = soma(gs, g => g.complemento);
     const h = resumoHoras(gs);
-    return `<tr><td>${rotulo}</td><td>${n.toLocaleString('pt-BR')}</td>
+    return `<tr class="${classe}"><td>${rotulo}</td><td>${n.toLocaleString('pt-BR')}</td>
       <td>R$ ${fmt(ganho)}</td><td>R$ ${fmt(n ? ganho / n : 0)}</td>
       <td>${h.horas === null ? '—' : n1(h.horas) + ' h'}</td>
       <td>${h.entregasHora === null ? '—' : n1(h.entregasHora)}</td>
@@ -4543,6 +4546,7 @@ function renderModuloLogfin() {
   <div id="tabelaLogfinTurno"><table>
     <tr><th></th><th>Entregas</th><th>Corridas</th><th>R$ por entrega</th><th>Horas estimadas</th><th>Entregas por hora</th><th>R$ por hora</th><th>Complemento</th></tr>
     ${turnos.map(t => linhaTurno(t === '—' ? '— (fora das faixas)' : t, lista.filter(g => g.turno === t))).join('')}
+    ${linhaTurno('TOTAL', lista, 'liq')}
   </table></div>
 
   <div class="section-label">Por entregador — a conta de cada um (maior volume primeiro)</div>
@@ -4554,6 +4558,13 @@ function renderModuloLogfin() {
       <td>${e.h.horas === null ? '—' : n1(e.h.horas)}</td>
       <td>${e.h.entregasHora === null ? '—' : n1(e.h.entregasHora)}</td>
       <td>${e.h.reaisHora === null ? '—' : 'R$ ' + fmt(e.h.reaisHora)}</td></tr>`).join('')}
+    ${(() => { const t = entregadores.reduce((a, e) => ({ turnos: a.turnos + e.turnos, n: a.n + e.n,
+        ganho: a.ganho + e.ganho, comp: a.comp + e.comp, horas: a.horas + (e.h.horas || 0) }),
+        { turnos: 0, n: 0, ganho: 0, comp: 0, horas: 0 });
+      return `<tr class="liq"><td>TOTAL</td><td>—</td><td>—</td><td>${t.turnos}</td><td>${t.n.toLocaleString('pt-BR')}</td>
+        <td>R$ ${fmt(t.ganho)}</td><td>R$ ${fmt(t.comp)}</td><td><b>R$ ${fmt(t.ganho + t.comp)}</b></td>
+        <td>${t.horas ? n1(t.horas) : '—'}</td><td>${t.horas ? n1(t.n / t.horas) : '—'}</td>
+        <td>${t.horas ? 'R$ ' + fmt((t.ganho + t.comp) / t.horas) : '—'}</td></tr>`; })()}
   </table></div>
   <div class="caption-label" style="text-align:center;">R$/h perto de R$ ${fmt(LOGFIN_PISO_HORA)} = o piso é quem está pagando essa pessoa. Horas, entregas/h e R$/h contam só os turnos com horário confiável.</div>
 
@@ -4563,6 +4574,10 @@ function renderModuloLogfin() {
     ${chavesSemana.map(w => { const s = semanas[w]; const tot = s.ganho + s.comp;
       return `<tr><td>${ddmm(w)}</td><td>${s.n.toLocaleString('pt-BR')}</td><td>R$ ${fmt(s.ganho)}</td>
         <td>${s.comp > 0 ? 'R$ ' + fmt(s.comp) : '—'}</td><td>R$ ${fmt(tot)}</td><td>R$ ${fmt(s.n ? tot / s.n : 0)}</td></tr>`; }).join('')}
+    ${(() => { const t = chavesSemana.reduce((a, w) => { const s = semanas[w];
+        return { n: a.n + s.n, g: a.g + s.ganho, c: a.c + s.comp }; }, { n: 0, g: 0, c: 0 });
+      return `<tr class="liq"><td>TOTAL</td><td>${t.n.toLocaleString('pt-BR')}</td><td>R$ ${fmt(t.g)}</td>
+        <td>R$ ${fmt(t.c)}</td><td>R$ ${fmt(t.g + t.c)}</td><td>R$ ${fmt(t.n ? (t.g + t.c) / t.n : 0)}</td></tr>`; })()}
   </table></div>
 
   <div class="section-label">Simulação — diária por turno + taxa por corrida, tudo editável</div>
@@ -4579,7 +4594,7 @@ function renderModuloLogfin() {
     <tr><td><b>Diárias</b></td><td>${turnosReais.toLocaleString('pt-BR')} turnos</td>
       <td>R$ <input type="number" value="${LOGFIN_DIARIA.toFixed(2)}" min="0" step="5" style="width:75px; font-size:14px;" onchange="logfinDiaria(this.value)"></td>
       <td>R$ ${fmt(simDiarias)}</td><td>—</td><td>R$ ${fmt(simDiarias)}</td></tr>
-    <tr><td><b>Total simulado</b></td><td>${entregas.toLocaleString('pt-BR')}</td><td>diárias + corridas</td><td>R$ ${fmt(simCustoNovo)}</td><td>${abate > 0 ? '− R$ ' + fmt(abate) : '—'}</td><td><b>R$ ${fmt(simCustoNovo - abate)}</b></td></tr>
+    <tr class="liq"><td><b>Total simulado</b></td><td>${entregas.toLocaleString('pt-BR')}</td><td>diárias + corridas</td><td>R$ ${fmt(simCustoNovo)}</td><td>${abate > 0 ? '− R$ ' + fmt(abate) : '—'}</td><td><b>R$ ${fmt(simCustoNovo - abate)}</b></td></tr>
   </table></div>
   <div class="cards">
     <div class="card ${simDelta > 0 ? 'neg' : 'pos'}"><div class="card-lbl">Custo simulado vs atual</div><div class="card-val">${simDelta >= 0 ? '+' : '−'} R$ ${fmt(Math.abs(simDelta))}</div><div class="card-pct">no período (custo atual R$ ${fmt(custoTotal)} → simulado R$ ${fmt(simCustoNovo)})${dias ? ' · em 30 dias, ≈ R$ ' + fmt(Math.abs(simDelta) / dias * 30) + (simDelta >= 0 ? ' a mais' : ' a menos') : ''} · líquido do frete acima de 3 km: R$ ${fmt(custoLiquido)} → R$ ${fmt(simCustoNovo - abate)}</div></div>
