@@ -404,7 +404,6 @@
     <button class="sidebar-secao" onclick="toggleGrupo('gIfood')">Canal · iFood <span class="seta">▶</span></button>
     <div class="sidebar-grupo" id="gIfood">
       <button class="sidebar-btn" id="navBtnResumo" onclick="mostrarModulo('resumo')"><span class="mico">📈</span>Resumo do canal</button>
-      <button class="sidebar-btn" id="navBtnVendas" onclick="mostrarModulo('vendas')"><span class="mico">🛒</span>Vendas e novos clientes</button>
       <button class="sidebar-btn" id="navBtnPromocoes" onclick="mostrarModulo('promocoes')"><span class="mico">🏷️</span>Promoções</button>
       <button class="sidebar-btn" id="navBtnCancelamentos" onclick="mostrarModulo('cancelamentos')"><span class="mico">🚫</span>Cancelamentos</button>
       <button class="sidebar-btn" id="navBtnContestacoes" onclick="mostrarModulo('contestacoes')"><span class="mico">⚖️</span>Contestações</button>
@@ -1139,10 +1138,10 @@ function mostrarModulo(nome) {
     avaliacoes: ['modulo-avaliacoes', 'navBtnAvaliacoes'],
     relatorios: ['modulo-relatorios', 'navBtnRelatorios'],
     contestacoes: ['modulo-contestacoes', 'navBtnContestacoes'],
-    // 'vendas' foi aposentado em 12/08/2026 (relatorio da rede parado) e VOLTOU
-    // ao menu em 17/08 a pedido do dono: o relatorio voltou a chegar e o destaque
-    // de NOVOS CLIENTES por loja so existe aqui.
-    vendas: ['modulo-vendas', 'navBtnVendas'],
+    // 'vendas' aposentado DUAS vezes: 12/08 (relatorio da rede parado) e de novo
+    // em 17/08, minutos depois de voltar — o dono confirmou que ficou redundante
+    // com o Resumo. O modulo-vendas segue no HTML e mostrarModulo('vendas')
+    // funciona por codigo; so nao tem botao. Nao recolocar sem pedido explicito.
     cardapio: ['modulo-cardapio', 'navBtnCardapio'],
     clientes: ['modulo-clientes', 'navBtnClientes'],
     fluxo: ['modulo-fluxo', 'navBtnFluxo'],
