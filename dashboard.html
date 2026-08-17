@@ -6460,6 +6460,7 @@ let PROJ_PAGAR = null;    // vw_fin_contas_pagar
 let PROJ_RECEB = null;    // vw_fin_receitas_diarias (ultimas semanas)
 let PROJ_ANCORA = null;   // vw_fin_saldo_banco_atual: saldo REAL do banco (OFX diario)
 let PROJ_VENC = null;     // vw_fin_vencidas_status: vencida ja saiu do banco ou nao
+let PROJ_RECEB_SUB = null; // vw_fin_receitas_diarias_subtipo: a mesma media, aberta por tipo
 
 // contas que nao sao caixa operacional (investimentos, pessoais e cartoes)
 const PROJ_FORA_CAIXA = ['XP INVESTIMENTOS', 'PARTICIPACOES', 'FABIO PESSOAL'];
@@ -6469,13 +6470,16 @@ async function entrarProjecao() {
   if (PROJ_PAGAR === null) alvo.innerHTML = '<div class="contexto">Carregando projeção...</div>';
   const corte = new Date(); corte.setDate(corte.getDate() - 35);
   const corteIso = corte.toISOString().slice(0, 10);
-  const [pagar, receb, ancora, vencStatus] = await Promise.all([
+  const [pagar, receb, ancora, vencStatus, recebSub] = await Promise.all([
     consultarTudo('vw_fin_contas_pagar?select=vencimento,conta,subtipo,tipo,natureza,descricao,credito,debito&order=vencimento'),
     consultarTudo(`vw_fin_receitas_diarias?select=data,recebido&data=gte.${corteIso}&order=data`),
     consultarTudo('vw_fin_saldo_banco_atual?select=conta,data_saldo,saldo_banco,idade_dias,saldo_saipos,diferenca'),
     consultarTudo('vw_fin_vencidas_status?select=vencimento,conta,subtipo,tipo,descricao,debito,dias_vencida,data_debito_banco,achou_no_banco'),
+    consultarTudo(`vw_fin_receitas_diarias_subtipo?select=data,subtipo,recebido&data=gte.${corteIso}&order=data`),
     garantirDadosFin(),
   ]);
+  PROJ_RECEB_SUB = recebSub;
+  PROJ_RECEB_SUB.forEach(r => { r.recebido = Number(r.recebido); });
   PROJ_ANCORA = ancora;
   PROJ_VENC = vencStatus;
   PROJ_VENC.forEach(r => { r.debito = Number(r.debito); });
@@ -6519,8 +6523,9 @@ function renderModuloProjecao() {
   const temAncora = Object.keys(ancoraPorConta).length > 0;
 
   // ---- media de recebimento por dia da semana (ultimas 4 semanas) ----
+  const janelaReceb = PROJ_RECEB.filter(r => r.data < hojeIso).slice(-28);
   const porDow = {};
-  PROJ_RECEB.filter(r => r.data < hojeIso).slice(-28).forEach(r => {
+  janelaReceb.forEach(r => {
     const dow = new Date(r.data + 'T00:00:00').getDay();
     (porDow[dow] = porDow[dow] || []).push(r.recebido);
   });
@@ -6692,10 +6697,60 @@ function renderModuloProjecao() {
    </div>`;
 
   const DIAS_SEM = ['domingo','segunda','terça','quarta','quinta','sexta','sábado'];
+
+  // ---- a conta aberta da media, POR TIPO de receita (pedido do dono 17/08:
+  // conferir se as medias e as classificacoes estao coerentes). Usa EXATAMENTE
+  // a mesma janela de 28 dias da projecao — o TOTAL fecha com mediaSemana por
+  // construcao, e o console.assert e' o guarda disso. ----
+  const datasJanela = janelaReceb.map(r => r.data);
+  const setDatas = new Set(datasJanela);
+  const blocos = [0, 1, 2, 3].map(i => datasJanela.slice(i * 7, i * 7 + 7));
+  const rotuloBloco = (b) => b.length ? `${b[0].slice(8,10)}/${b[0].slice(5,7)}–${b[b.length-1].slice(8,10)}/${b[b.length-1].slice(5,7)}` : '—';
+  const porSub = {};
+  const porSubDia = {};
+  (PROJ_RECEB_SUB || []).filter(r => setDatas.has(r.data)).forEach(r => {
+    const p = porSub[r.subtipo] || (porSub[r.subtipo] = [0, 0, 0, 0]);
+    const i = blocos.findIndex(b => b.includes(r.data));
+    if (i >= 0) p[i] += r.recebido;
+    (porSubDia[r.subtipo] = porSubDia[r.subtipo] || {})[r.data] =
+      ((porSubDia[r.subtipo] || {})[r.data] || 0) + r.recebido;
+  });
+  // media semanal POR SUBTIPO calculada DO JEITO DO MOTOR: media por dia da
+  // semana (dia presente sem aquele subtipo conta como zero), somada nos 7
+  // dias — a soma dos subtipos fecha com mediaSemana EXATAMENTE.
+  const diasPorDow = {};
+  datasJanela.forEach(d => { const w = new Date(d + 'T00:00:00').getDay(); (diasPorDow[w] = diasPorDow[w] || []).push(d); });
+  const mediaMotorSub = (sub) => Object.values(diasPorDow).reduce((acc, ds) =>
+    acc + ds.reduce((s, d) => s + ((porSubDia[sub] || {})[d] || 0), 0) / ds.length, 0);
+  const subsOrdenados = Object.entries(porSub)
+    .map(([s, v]) => ({ s, v, total: v.reduce((a, x) => a + x, 0), media: mediaMotorSub(s) }))
+    .sort((a, b) => b.media - a.media);
+  const somaMedias = subsOrdenados.reduce((a, x) => a + x.media, 0);
+  console.assert(Math.abs(somaMedias - mediaSemana) < 0.05, 'media por subtipo nao fecha com a da projecao');
+  const composicaoSub = `
+    <div class="section-label">De onde vem a entrada projetada — por tipo de receita</div>
+    <div class="caption-label" style="text-align:center;">As mesmas 4 semanas que alimentam a média da projeção,
+      abertas tipo a tipo — para conferir se as médias e as classificações fazem sentido. Recebimentos
+      que <b>caíram na conta</b>, não vendas.</div>
+    <div id="tabelaProjReceitas"><table>
+      <tr><th>Tipo de receita</th>${blocos.map(b => `<th>${rotuloBloco(b)}</th>`).join('')}<th>Média / semana (a da projeção)</th><th>% da entrada</th></tr>
+      ${subsOrdenados.map(x => `<tr><td>${x.s}</td>
+        ${x.v.map(v => `<td>R$ ${fmt(v)}</td>`).join('')}
+        <td><b>R$ ${fmt(x.media)}</b></td>
+        <td>${somaMedias ? pct(x.media / somaMedias * 100) : 0}%</td></tr>`).join('')}
+      <tr class="liq"><td>TOTAL</td>${blocos.map((b, i) => `<td>R$ ${fmt(subsOrdenados.reduce((a, x) => a + x.v[i], 0))}</td>`).join('')}
+        <td><b>R$ ${fmt(mediaSemana)}</b></td><td>100%</td></tr>
+    </table></div>
+    <div class="caption-label">As 4 colunas de datas são os últimos 28 dias com recebimento, em blocos de 7 — por isso
+      um bloco pode atravessar mais de 7 dias de calendário. A média da direita é calculada como o motor da projeção
+      calcula: <b>média por dia da semana</b> — por isso ela não é a soma das colunas ÷ 4. O TOTAL fecha ao centavo
+      com a "Receita projetada / semana" do card lá em cima.</div>`;
+
   const composicao = `
-    <div class="section-label">De onde vem a entrada projetada</div>
-    <div class="contexto" style="text-align:left;">
-      <table style="width:100%; font-size:12.5px;">
+    ${composicaoSub}
+    <details class="detalhes-extra">
+      <summary>A mesma média, por dia da semana (é assim que ela entra na projeção)</summary>
+      <table style="width:100%; font-size:12.5px; margin-top:8px;">
         <tr><th style="text-align:left;">Dia da semana</th><th>Média das últimas 4 semanas</th></tr>
         ${[1,2,3,4,5,6,0].map(d => `<tr><td>${DIAS_SEM[d]}</td>
           <td>R$ ${fmt(mediaDow[d] || 0)}</td></tr>`).join('')}
@@ -6703,10 +6758,10 @@ function renderModuloProjecao() {
           <td><b>R$ ${fmt(mediaSemana)}</b></td></tr>
       </table>
       <div style="font-size:12px; color:#a5a49a; margin-top:6px;">
-        Recebimentos que <b>caíram na conta</b> (repasse iFood, adquirentes, dinheiro), não vendas.
-        Contas a receber já lançadas no Saipos entram por cima disso, na data do vencimento.
+        Contas a receber já lançadas no Saipos entram por cima disso, na data do vencimento
+        (hoje: quase nada — R$ 6,5 mil no total).
       </div>
-    </div>`;
+    </details>`;
 
   const porGrupo = {};
   PROJ_PAGAR.filter(r => r.debito > 0).forEach(r => {
