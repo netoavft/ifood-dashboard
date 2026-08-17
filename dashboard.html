@@ -404,6 +404,7 @@
     <button class="sidebar-secao" onclick="toggleGrupo('gIfood')">Canal · iFood <span class="seta">▶</span></button>
     <div class="sidebar-grupo" id="gIfood">
       <button class="sidebar-btn" id="navBtnResumo" onclick="mostrarModulo('resumo')"><span class="mico">📈</span>Resumo do canal</button>
+      <button class="sidebar-btn" id="navBtnVendas" onclick="mostrarModulo('vendas')"><span class="mico">🛒</span>Vendas e novos clientes</button>
       <button class="sidebar-btn" id="navBtnPromocoes" onclick="mostrarModulo('promocoes')"><span class="mico">🏷️</span>Promoções</button>
       <button class="sidebar-btn" id="navBtnCancelamentos" onclick="mostrarModulo('cancelamentos')"><span class="mico">🚫</span>Cancelamentos</button>
       <button class="sidebar-btn" id="navBtnContestacoes" onclick="mostrarModulo('contestacoes')"><span class="mico">⚖️</span>Contestações</button>
@@ -1138,9 +1139,10 @@ function mostrarModulo(nome) {
     avaliacoes: ['modulo-avaliacoes', 'navBtnAvaliacoes'],
     relatorios: ['modulo-relatorios', 'navBtnRelatorios'],
     contestacoes: ['modulo-contestacoes', 'navBtnContestacoes'],
-    // 'vendas' aposentado em 12/08/2026: usava o relatorio semanal da rede
-    // (parado ha 33 dias) e dizia menos que o Resumo, que sai de fato_pedidos
-    // sempre fresco. O modulo-vendas continua no HTML, so saiu do menu.
+    // 'vendas' foi aposentado em 12/08/2026 (relatorio da rede parado) e VOLTOU
+    // ao menu em 17/08 a pedido do dono: o relatorio voltou a chegar e o destaque
+    // de NOVOS CLIENTES por loja so existe aqui.
+    vendas: ['modulo-vendas', 'navBtnVendas'],
     cardapio: ['modulo-cardapio', 'navBtnCardapio'],
     clientes: ['modulo-clientes', 'navBtnClientes'],
     fluxo: ['modulo-fluxo', 'navBtnFluxo'],
