@@ -276,8 +276,16 @@
   #tabelaDRE tr.dfc-grupo td:first-child { padding-left:22px; }
   #tabelaDRE tr.dfc-linha td { color:#a5a49a; }
   #tabelaDRE tr.dfc-linha td:first-child { padding-left:40px; }
-  #tabelaDRE tr.dfc-resultado td { background:#250f13; font-weight:bold; border-top:2px solid #c8102e; border-bottom:2px solid #c8102e; }
+  /* leveza 2 (16/08 a noite): o vinho+vermelho nas linhas "(=)" da DRE pesava —
+     agora e' faixa neutra elevada; o destaque vem do peso e do filete cinza */
+  #tabelaDRE tr.dfc-resultado td { background:#232321; font-weight:bold; border-top:2px solid #57564e; border-bottom:2px solid #57564e; }
   #tabelaDRE tr.dfc-resultado td:first-child { color:#fff; }
+  /* categorias sempre em MAIUSCULO (so o rotulo; meta e subs ficam como estao) */
+  #tabelaDRE td:first-child { text-transform:uppercase; }
+  #tabelaDRE td:first-child .dre-sub, #tabelaDRE td:first-child .meta-pill { text-transform:none; }
+  /* linha COM meta ganha um selo visivel — sem ele, meta passava despercebida */
+  .meta-pill { display:inline-block; font-size:10px; font-weight:600; color:#c3c2b7; background:#111110;
+               border:1px solid #57564e; border-radius:20px; padding:1px 8px; margin-top:4px; white-space:nowrap; }
   #tabelaDRE tr.dfc-saldo td { background:#0f1a2b; font-weight:bold; border-top:2px solid #58a6ff; }
   #tabelaDRE tr.dfc-saldo td:first-child { color:#58a6ff; }
   #tabelaDRE tr.clicavel { cursor:pointer; }
@@ -5583,9 +5591,22 @@ function renderModuloDRE() {
   const SUBT_PDV = ['RECEITAS CARTAO', 'RECEITAS ONLINE', 'RECEITAS DINHEIRO', 'RECEITAS FIADO'];
   const recPdvFin = somar(r => r.natureza === 'RECEITAS' && SUBT_PDV.includes(r.subtipo));
   const outrasRec = somar(r => r.natureza === 'RECEITAS' && !SUBT_PDV.includes(r.subtipo));
+  // extrato oficial do iFood (conciliacao, por data de repasse) aberto por grupo
+  const taxasIfGrupo = {};
+  (DRE_TAXAS || []).forEach(r => {
+    const i = idxMes[r.data.slice(0, 7) + '-01'];
+    if (i === undefined) return;
+    if (!taxasIfGrupo[r.grupo]) taxasIfGrupo[r.grupo] = Array(nM).fill(0);
+    taxasIfGrupo[r.grupo][i] -= Number(r.valor);   // cobranca (negativa no extrato) vira custo
+  });
+  // ANUNCIOS saem das taxas e entram em MARKETING (decisao do dono, 16/08):
+  // anuncio e' alavanca que se decide, nao pedagio do canal. O EBITDA nao muda —
+  // o custo so troca de crachá. Conciliacao comeca em abril: jan-mar os anuncios
+  // seguem embutidos na taxa estimada (declarado na legenda).
+  const anunciosIf = taxasIfGrupo.ANUNCIOS || Array(nM).fill(0);
   // taxas de canais estimada: o que foi vendido no PDV menos o que efetivamente
-  // entrou (comissões iFood/adquirentes). Tem defasagem de repasse (~1 semana).
-  const taxasCanais = menos(recBruta, recPdvFin);
+  // entrou (comissões iFood/adquirentes), ja sem os anuncios realocados acima.
+  const taxasCanais = menos(recBruta, recPdvFin).map((v, i) => v - anunciosIf[i]);
 
   const ehInvest = (r) => r.tipo === 'INVESTIMENTOS';
   // classico: IRPJ e' imposto sobre o LUCRO, nao sobre a venda — sai das
@@ -5601,6 +5622,8 @@ function renderModuloDRE() {
 
   const predGrupo = (tipos) => (r) => r.natureza === 'DESPESAS' && !ehInvest(r) && tipos.includes(r.tipo);
   const gruposVals = DRE_GRUPOS.map(([chave, rotulo, tipos]) => [chave, rotulo, tipos, somar(predGrupo(tipos), -1)]);
+  // os anuncios do iFood realocados entram no grupo DESPESAS COM VENDAS
+  gruposVals[2][3] = gruposVals[2][3].map((v, i) => v + anunciosIf[i]);
   // tipos de despesa que nao entraram em nenhum grupo (menos financeiras, tratadas abaixo)
   const tiposMapeados = DRE_GRUPOS.flatMap(g => g[2]).concat(['DESPESAS FINANCEIRAS']);
   const outrasDesp = somar(r => r.natureza === 'DESPESAS' && !ehInvest(r) && !tiposMapeados.includes(r.tipo), -1);
@@ -5684,7 +5707,7 @@ function renderModuloDRE() {
     // a meta de referencia mora no rotulo da linha (fica visivel mesmo rolando
     // os meses) — nas celulas so aparece o farol quando ela e' estourada
     const m = metaChave && DRE_METAS ? DRE_METAS[metaChave] : null;
-    const metaTxt = m ? `<div class="dre-sub">meta: ${m.sentido === 'abaixo' ? 'até' : ''} ${pct(m.meta)}%${m.sentido === 'abaixo' ? '' : ' ou mais'} da receita</div>` : '';
+    const metaTxt = m ? `<div><span class="meta-pill">🎯 meta: ${m.sentido === 'abaixo' ? 'até' : ''} ${pct(m.meta)}%${m.sentido === 'abaixo' ? '' : ' ou mais'} da receita</span></div>` : '';
     return `<tr${attrs}><td>${seta}${label}${metaTxt}</td>${tds}</tr>`;
   };
   const blocoSubtipos = (chave, pred, sinal, kind = null) => {
@@ -5712,22 +5735,15 @@ function renderModuloDRE() {
     const TAXA_ROTULOS = {
       COMISSAO_VENDAS: 'iFood — comissão sobre vendas',
       TAXA_CARTAO: 'iFood — taxa de pagamento online',
-      ANUNCIOS: 'iFood — anúncios e marketing',
       RESSARCIMENTO_CANCELAMENTO: 'iFood — ressarcimentos de cancelamento (crédito)',
       OUTROS_AJUSTES: 'iFood — outros ajustes',
     };
-    const porGrupo = {};
-    (DRE_TAXAS || []).forEach(r => {
-      const i = idxMes[r.data.slice(0, 7) + '-01'];
-      if (i === undefined) return;
-      if (!porGrupo[r.grupo]) porGrupo[r.grupo] = Array(nM).fill(0);
-      porGrupo[r.grupo][i] -= Number(r.valor);   // cobranca (negativa no extrato) vira custo
-    });
     let somaIf = Array(nM).fill(0);
-    Object.keys(porGrupo).forEach(g => {
-      if (!porGrupo[g].some(v => Math.abs(v) > 0.005)) return;
-      corpo += linha('dfc-linha', TAXA_ROTULOS[g] || ('iFood — ' + g.toLowerCase().replace(/_/g, ' ')), porGrupo[g], { kind: 'custo' });
-      somaIf = somaIf.map((v, i) => v + porGrupo[g][i]);
+    Object.keys(taxasIfGrupo).forEach(g => {
+      if (g === 'ANUNCIOS') return;   // realocados para DESPESAS COM VENDAS
+      if (!taxasIfGrupo[g].some(v => Math.abs(v) > 0.005)) return;
+      corpo += linha('dfc-linha', TAXA_ROTULOS[g] || ('iFood — ' + g.toLowerCase().replace(/_/g, ' ')), taxasIfGrupo[g], { kind: 'custo' });
+      somaIf = somaIf.map((v, i) => v + taxasIfGrupo[g][i]);
     });
     corpo += linha('dfc-linha', 'Cartões, vouchers e defasagem de repasse (estimado)', taxasCanais.map((v, i) => v - somaIf[i]), { kind: 'custo' });
   }
@@ -5741,6 +5757,9 @@ function renderModuloDRE() {
         corpo += linha('dfc-grupo', t, somar(predT, -1), { chave: 'GT:' + t, kind: 'custo' });
         corpo += blocoSubtipos('GT:' + t, predT, -1, 'custo');
       });
+      if (chave === 'VENDA' && anunciosIf.some(v => v > 0.005)) {
+        corpo += linha('dfc-grupo', 'ANÚNCIOS IFOOD (do extrato da conciliação)', anunciosIf, { kind: 'custo' });
+      }
     }
     if (gi === 0) corpo += linha('dfc-resultado', '(=) LUCRO BRUTO', lucroBruto, { kind: 'ganho', metaChave: 'LUCRO_BRUTO' });
   });
@@ -5980,8 +5999,10 @@ function renderModuloDRE() {
   Canais: iFood, Salão (comandas Abrahão + mesas), Balcão (retirada, telefone e fichas) e Site próprio (Accon).
   A linha "Taxas de canais" é estimada pela diferença entre o vendido no PDV e o efetivamente recebido —
   como o repasse do iFood é semanal, ela oscila um pouco entre meses vizinhos (no acumulado do ano é precisa).
-  <b>Clique nela</b> para abrir o extrato oficial do iFood (comissão, taxa online, anúncios, ressarcimentos,
+  <b>Clique nela</b> para abrir o extrato oficial do iFood (comissão, taxa online, ressarcimentos,
   por data de repasse); o que sobra é cartões/vouchers e a defasagem semanal.
+  <b>Os anúncios do iFood não são taxa</b>: desde abr/2026 (início da conciliação) eles saem desta linha e
+  entram em Despesas com vendas, junto do marketing — de jan a mar seguem embutidos na taxa estimada.
   A DRE inclui as contas a pagar já lançadas (competência), então o <b>mês corrente parece pior do que vai fechar</b>:
   as despesas do mês já estão quase todas lá, mas as vendas ainda estão acontecendo (por isso o selo "em curso").
   Meses futuros com compromissos já lançados ficam fora desta tabela — o lugar deles é o Fluxo projetado.
