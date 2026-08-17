@@ -313,10 +313,13 @@
   #tabelaDespesas tr.dfc-grupo td:first-child { padding-left:22px; }
   #tabelaDespesas tr.dfc-linha td { color:#a5a49a; }
   #tabelaDespesas tr.dfc-linha td:first-child { padding-left:40px; }
-  #tabelaDespesas tr.dfc-resultado td { background:#250f13; font-weight:bold; border-top:2px solid #c8102e; }
-  #tabelaDespesas tr.dfc-resultado td:first-child { color:#fff; }
+  /* mesmo padrao de DFC/DRE (16/08 a noite): soma com contorno dourado */
+  #tabelaDespesas tr.dfc-resultado td { background:#111110; color:#fff; font-weight:bold; border-top:2px solid #f6c63e; border-bottom:2px solid #ee8a3c; }
+  #tabelaDespesas tr.dfc-resultado td:first-child { color:#fff; border-left:2px solid #f6c63e; }
+  #tabelaDespesas tr.dfc-resultado td:last-child { border-right:2px solid #ee8a3c; }
+  #tabelaDespesas td:first-child { text-transform:uppercase; }
   #tabelaDespesas tr.clicavel { cursor:pointer; }
-  #tabelaDespesas tr.clicavel:hover td:first-child { color:#c8102e; }
+  #tabelaDespesas tr.clicavel:hover td:first-child { color:#ee8a3c; }
   #tabelaSaldos tr.dfc-linha td { color:#6e6d64; }
 
   .relatorio-corpo { background:#1a1a19; border:1px solid #34332f; border-radius:14px; padding:24px 28px; line-height:1.7; font-size:13.5px; }
@@ -6320,8 +6323,7 @@ function renderModuloDespesas() {
     corpo += `
     <tr class="dfc-bloco clicavel" onclick="despToggle('T:${tipo}')">
       <td>${abertoT ? '▼ ' : '▶ '}${tipo}</td>
-      <td>${fmt(valor)}</td>
-      <td>${totalPeriodo ? pct(valor / totalPeriodo * 100) : 0}%</td>
+      <td>${fmt(-valor)}<span class="dre-av">${totalPeriodo ? pct(valor / totalPeriodo * 100) : 0}%</span></td>
       <td>${varia(valor, media)}</td>
     </tr>`;
     if (!abertoT) return;
@@ -6333,16 +6335,15 @@ function renderModuloDespesas() {
       corpo += `
       <tr class="dfc-grupo clicavel" onclick="despToggle('S:${sub.replace(/'/g, "\\'")}')">
         <td>${abertoS ? '▼ ' : '▶ '}${sub}</td>
-        <td>${fmt(v)}</td>
-        <td>${totalPeriodo ? pct(v / totalPeriodo * 100) : 0}%</td>
+        <td>${fmt(-v)}<span class="dre-av">${totalPeriodo ? pct(v / totalPeriodo * 100) : 0}%</span></td>
         <td>${varia(v, m)}</td>
       </tr>`;
       if (!abertoS) return;
       const forns = DESP_DET.filter(r => noPeriodo(r) && r.subtipo === sub)
         .reduce((acc, r) => { acc[r.fornecedor] = (acc[r.fornecedor] || 0) + r.valor; return acc; }, {});
       Object.entries(forns).sort((a, b) => b[1] - a[1]).forEach(([f, v2]) => {
-        corpo += `<tr class="dfc-linha"><td>${f}</td><td>${fmt(v2)}</td>
-                  <td>${v ? pct(v2 / v * 100) : 0}% do grupo</td>
+        corpo += `<tr class="dfc-linha"><td>${f}</td>
+                  <td>${fmt(-v2)}<span class="dre-av">${v ? pct(v2 / v * 100) : 0}% do grupo</span></td>
                   <td>${varia(v2, mediaAnt(r => r.subtipo === sub && r.fornecedor === f))}</td></tr>`;
       });
     });
@@ -6398,9 +6399,9 @@ function renderModuloDespesas() {
   <div class="section-label">Detalhe por grupo → categoria → fornecedor</div>
   <div id="tabelaDespesas">
     <table>
-      <tr><th></th><th>Valor</th><th>% do total</th><th>vs média dos meses anteriores</th></tr>
+      <tr><th></th><th>Valor · % do total</th><th>vs média dos meses anteriores</th></tr>
       ${corpo}
-      <tr class="dfc-resultado"><td>TOTAL</td><td>${fmt(totalPeriodo)}</td><td>100%</td><td>${totalMediaAnt !== null ? varia(totalPeriodo, totalMediaAnt) : ''}</td></tr>
+      <tr class="dfc-resultado"><td>TOTAL</td><td>${fmt(-totalPeriodo)}<span class="dre-av">100%</span></td><td>${totalMediaAnt !== null ? varia(totalPeriodo, totalMediaAnt) : ''}</td></tr>
     </table>
   </div>
   <div class="section-label">Top fornecedores ${despMes === 'ano' ? 'do ano' : 'de ' + rotuloMes(despMes)}</div>
