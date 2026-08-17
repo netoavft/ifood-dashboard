@@ -4163,7 +4163,371 @@ function renderModuloListas() {
         <tr><th>Filial</th><th>Bancado pela AV</th><th>Devolvido</th><th>Em aberto</th><th>Lucro p/ Holding</th><th>Desde</th></tr>
         ${linhasAbertura}
       </table></div>
-    </details>`;
+    </details>
+
+    <div class="section-label" style="margin-top:26px;">Operação — pedido, separação, conferência e contas</div>
+    <div id="trOperacao"><div class="contexto">Carregando a operação...</div></div>`;
+  entrarOperacaoListas();
+}
+
+// ------------------------------------------------------------------
+// OPERACAO DAS LISTAS pela tela (aplicado da fila em 17/08/2026).
+// Backend 100% no Supabase (schema tr_*, RLS por papel, RPCs — 19 casos
+// de teste do chat das listas). A UI so respeita: custo congelado por
+// trigger, transicoes de status por papel, fechar exige 100% conferido.
+// Login = MESMA sessao Supabase Auth do modulo Reembolsos (rmbSessao):
+// uma senha so para os dois modulos. O papel vem do proprio banco via
+// rpc tr_meu_papel()/tr_minha_unidade() — a UI nunca decide papel.
+// ------------------------------------------------------------------
+let TR_OP = null;        // { papel, unidade } do usuario logado
+let trTela = null;       // tela ativa da operacao
+let trListaAberta = null;
+
+function trHoje() { return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date()); }
+
+async function trFetch(url, opts = {}) {
+  const faz = () => fetch(`${SUPABASE_URL}/rest/v1/${url}`, { ...opts, headers: rmbHeaders(opts.headers || {}) });
+  let r = await faz();
+  if (await rmbRenovarSeExpirado(r)) r = await faz();
+  return r;
+}
+async function trRpc(fn, args) {
+  return trFetch(`rpc/${fn}`, { method: 'POST', body: JSON.stringify(args || {}) });
+}
+async function trErroDe(r) {
+  try { const j = await r.json(); return j.message || j.hint || j.error_description || JSON.stringify(j).slice(0, 160); }
+  catch (e) { return 'HTTP ' + r.status; }
+}
+
+async function trFazerLogin() {
+  const email = document.getElementById('trEmail').value.trim();
+  const senha = document.getElementById('trSenha').value;
+  const erroEl = document.getElementById('trLoginErro');
+  const r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+    method: 'POST',
+    headers: { apikey: SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password: senha }),
+  });
+  const s = await r.json();
+  if (!r.ok || !s.access_token) {
+    erroEl.textContent = 'Não deu: ' + (s.error_description || s.msg || 'e-mail ou senha errados, ou a conta ainda não foi criada no Supabase.');
+    erroEl.style.display = 'block';
+    return;
+  }
+  localStorage.setItem('rmbSessao', JSON.stringify({
+    access_token: s.access_token, refresh_token: s.refresh_token,
+    email: (s.user && s.user.email) || email,
+  }));
+  TR_OP = null;
+  entrarOperacaoListas();
+}
+function trSair() { localStorage.removeItem('rmbSessao'); TR_OP = null; trTela = null; renderModuloListas(); }
+
+async function entrarOperacaoListas() {
+  const alvo = document.getElementById('trOperacao');
+  if (!alvo) return;
+  const sessao = rmbSessao();
+  if (!sessao) {
+    alvo.innerHTML = `
+      <div class="contexto" style="max-width:460px;">
+        As filiais pedem, a Água Verde separa, quem recebe confere — tudo por aqui, com login individual
+        (o mesmo do módulo Reembolsos).
+        <div style="margin-top:10px;">
+          <input id="trEmail" type="email" placeholder="e-mail" style="width:100%; margin-bottom:6px; background:#232321; border:1px solid #34332f; border-radius:8px; color:#fff; padding:8px 10px;">
+          <input id="trSenha" type="password" placeholder="senha" style="width:100%; margin-bottom:8px; background:#232321; border:1px solid #34332f; border-radius:8px; color:#fff; padding:8px 10px;">
+          <button class="preset-btn" onclick="trFazerLogin()">Entrar</button>
+          <div id="trLoginErro" style="display:none; color:#ff6b6b; font-size:12px; margin-top:6px;"></div>
+        </div>
+      </div>`;
+    return;
+  }
+  if (!TR_OP) {
+    const [rp, ru] = await Promise.all([trRpc('tr_meu_papel'), trRpc('tr_minha_unidade')]);
+    if (!rp.ok) {
+      alvo.innerHTML = `<div class="contexto" style="border-color:#ff6b6b;">Logado como ${sessao.email}, mas o banco não reconheceu o papel (${await trErroDe(rp)}).
+        Confira o cadastro em tr_usuarios. <button class="preset-btn" onclick="trSair()">sair</button></div>`;
+      return;
+    }
+    TR_OP = { papel: await rp.json(), unidade: ru.ok ? await ru.json() : null };
+  }
+  if (!trTela) trTela = TR_OP.papel === 'SEPARACAO' ? 'separacao' : TR_OP.papel === 'FILIAL' ? 'pedido' : 'separacao';
+  trRenderOperacao();
+}
+
+function trRenderOperacao() {
+  const alvo = document.getElementById('trOperacao');
+  if (!alvo) return;
+  const { papel, unidade } = TR_OP;
+  const telas = [];
+  if (papel === 'FILIAL' || papel === 'DONO') telas.push(['pedido', '📝 Novo pedido']);
+  if (papel === 'SEPARACAO' || papel === 'DONO') telas.push(['separacao', '📦 Fila de separação']);
+  if (papel === 'FILIAL' || papel === 'DONO') telas.push(['conferencia', '✅ Conferência']);
+  telas.push(['contas', '💳 Contas a pagar']);
+  telas.push(['cmv', '📈 CMV semanal']);
+  alvo.innerHTML = `
+    <div class="caption-label">Logado: <b>${rmbSessao().email}</b> · papel <b>${papel}</b>${unidade ? ' · ' + unidade : ''}
+      <button class="preset-btn" style="margin-left:8px;" onclick="trSair()">sair</button></div>
+    <div class="periodo-presets" style="margin:8px 0;">
+      ${telas.map(([id, rotulo]) => `<button class="preset-btn ${trTela === id ? 'active' : ''}" onclick="trTelaSet('${id}')">${rotulo}</button>`).join('')}
+    </div>
+    <div id="trTelaConteudo"><div class="contexto">Carregando...</div></div>`;
+  ({ pedido: trTelaPedido, separacao: trTelaSeparacao, conferencia: trTelaConferencia,
+     contas: trTelaContas, cmv: trTelaCmv }[trTela])();
+}
+function trTelaSet(t) { trTela = t; trListaAberta = null; trRenderOperacao(); }
+
+// ---- tela: novo pedido (FILIAL; DONO escolhe a filial) ----
+async function trTelaPedido(unidadeEscolhida) {
+  const alvo = document.getElementById('trTelaConteudo');
+  let unidade = TR_OP.unidade || unidadeEscolhida;
+  if (!unidade) {
+    const r = await trFetch('vw_tr_itens_pedido?select=unidade');
+    const us = [...new Set((await r.json()).map(x => x.unidade))].sort();
+    alvo.innerHTML = `<div class="contexto">Pedido em nome de qual filial? ${us.map(u =>
+      `<button class="preset-btn" onclick="trTelaPedido('${u}')">${u}</button>`).join(' ')}</div>`;
+    return;
+  }
+  const r = await trFetch(`vw_tr_itens_pedido?unidade=eq.${encodeURIComponent(unidade)}&order=ordem`);
+  if (!r.ok) { alvo.innerHTML = `<div class="contexto" style="border-color:#ff6b6b;">${await trErroDe(r)}</div>`; return; }
+  const itens = await r.json();
+  const grupos = [...new Set(itens.map(i => i.grupo_separacao))];
+  const dataCusto = itens.find(i => i.custo_atualizado_em)?.custo_atualizado_em;
+  window._trItensPedido = itens; window._trPedidoUnidade = unidade;
+  alvo.innerHTML = `
+    <div class="caption-label">Pedido para <b>${unidade}</b> — preencha só o que precisa; itens em branco ficam fora.
+      O preço é congelado pelo sistema no ato (Formação de preços${dataCusto ? ' de ' + dataCusto.slice(8,10) + '/' + dataCusto.slice(5,7) : ''}).</div>
+    ${grupos.map(g => `
+      <div class="section-label" style="margin-top:14px;">${g || 'SEM GRUPO'}</div>
+      <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:6px 14px;">
+        ${itens.map((i, idx) => i.grupo_separacao !== g ? '' : `
+          <label style="display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:12.5px; color:#c3c2b7; padding:2px 0;">
+            <span>${i.item} <span style="color:#8a897e;">(${i.un_medida || 'un'})${i.sem_custo ? ' ⚠️ sem custo' : ''}</span></span>
+            <input type="number" min="0" step="any" id="trq_${idx}" placeholder="${i.minimo || i.maximo ? (i.minimo ?? '') + '–' + (i.maximo ?? '') : ''}"
+              style="width:72px; background:#232321; border:1px solid #34332f; border-radius:6px; color:#fff; padding:4px 6px; text-align:right;">
+          </label>`).join('')}
+      </div>`).join('')}
+    <div style="margin-top:14px;">
+      <button class="preset-btn" onclick="trCriarPedido()">Enviar pedido</button>
+      <span id="trPedidoMsg" style="font-size:12px; margin-left:8px;"></span>
+    </div>`;
+}
+
+async function trCriarPedido() {
+  const msg = document.getElementById('trPedidoMsg');
+  const itens = window._trItensPedido || [];
+  const escolhidos = itens.map((i, idx) => ({ i, q: Number(document.getElementById('trq_' + idx)?.value || 0) }))
+    .filter(x => x.q > 0);
+  if (!escolhidos.length) { msg.textContent = 'Nenhuma quantidade preenchida.'; msg.style.color = '#f5a623'; return; }
+  msg.textContent = 'Enviando...'; msg.style.color = '#8a897e';
+  const rl = await trFetch('tr_listas', {
+    method: 'POST', headers: { Prefer: 'return=representation' },
+    body: JSON.stringify({ unidade: window._trPedidoUnidade, fonte: 'PAINEL', data_pedido: trHoje() }),
+  });
+  if (!rl.ok) { msg.textContent = 'Não deu: ' + await trErroDe(rl); msg.style.color = '#ff6b6b'; return; }
+  const lista = (await rl.json())[0];
+  const ri = await trFetch('tr_lista_itens', {
+    method: 'POST',
+    body: JSON.stringify(escolhidos.map(x => ({ id_lista: lista.id, item: x.i.item, un_medida: x.i.un_medida, qtd_solicitada: x.q }))),
+  });
+  if (!ri.ok) { msg.textContent = 'Lista criada mas os itens falharam: ' + await trErroDe(ri); msg.style.color = '#ff6b6b'; return; }
+  msg.textContent = `Pedido enviado — lista #${lista.id} com ${escolhidos.length} itens. A separação já enxerga.`;
+  msg.style.color = '#3fb950';
+}
+
+// ---- tela: fila de separacao (SEPARACAO/DONO) ----
+async function trTelaSeparacao() {
+  const alvo = document.getElementById('trTelaConteudo');
+  if (trListaAberta) return trAbrirSeparacao(trListaAberta);
+  const r = await trFetch('vw_tr_fila_separacao?order=data_pedido');
+  if (!r.ok) { alvo.innerHTML = `<div class="contexto" style="border-color:#ff6b6b;">${await trErroDe(r)}</div>`; return; }
+  const fila = await r.json();
+  alvo.innerHTML = fila.length ? `
+    <div id="tabelaTrOpFila"><table>
+      <tr><th>Lista</th><th>Filial</th><th>Pedida em</th><th>Status</th><th>Itens</th><th>Separados</th><th>Valor estimado</th><th></th></tr>
+      ${fila.map(l => `<tr>
+        <td>#${l.id}</td><td>${l.unidade}</td><td>${l.data_pedido ? l.data_pedido.slice(8,10)+'/'+l.data_pedido.slice(5,7) : '—'}</td>
+        <td>${l.status}</td><td>${l.itens}</td><td>${l.itens_separados}</td>
+        <td>R$ ${fmt(Number(l.valor_estimado || 0))}</td>
+        <td><button class="preset-btn" onclick="trListaAberta=${l.id}; trTelaSeparacao();">abrir</button></td></tr>`).join('')}
+    </table></div>` : '<div class="contexto">Fila vazia — nenhum pedido aguardando separação. 🎉</div>';
+}
+
+async function trAbrirSeparacao(id) {
+  const alvo = document.getElementById('trTelaConteudo');
+  const [rl, ri] = await Promise.all([
+    trFetch(`tr_listas?id=eq.${id}&select=id,unidade,status,data_pedido`),
+    trFetch(`tr_lista_itens?id_lista=eq.${id}&order=item&select=id,item,un_medida,qtd_solicitada,qtd_separada`),
+  ]);
+  const lista = (await rl.json())[0];
+  const itens = await ri.json();
+  window._trItensSep = itens;
+  alvo.innerHTML = `
+    <div class="caption-label"><button class="preset-btn" onclick="trListaAberta=null; trTelaSeparacao();">← fila</button>
+      Lista <b>#${id}</b> · ${lista.unidade} · status <b>${lista.status}</b></div>
+    <div id="tabelaTrOpSep"><table>
+      <tr><th>Item</th><th>Solicitado</th><th>Separado</th></tr>
+      ${itens.map((i, idx) => `<tr><td>${i.item} <span class="dre-av">${i.un_medida || ''}</span></td>
+        <td>${Number(i.qtd_solicitada || 0)}</td>
+        <td><input type="number" min="0" step="any" id="trs_${idx}" value="${i.qtd_separada ?? i.qtd_solicitada ?? ''}"
+          style="width:80px; background:#232321; border:1px solid #34332f; border-radius:6px; color:#fff; padding:4px 6px; text-align:right;"></td></tr>`).join('')}
+    </table></div>
+    <div style="margin-top:12px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+      <button class="preset-btn" onclick="trSalvarSeparacao(${id})">Salvar separação</button>
+      <span>entrega: <input type="date" id="trDataEntrega" value="${trHoje()}" style="background:#232321; border:1px solid #34332f; border-radius:6px; color:#fff; padding:4px 6px;"></span>
+      <button class="preset-btn" onclick="trEnviarLista(${id})">Enviar para a filial</button>
+      <span id="trSepMsg" style="font-size:12px;"></span>
+    </div>
+    <div class="caption-label">Salvar grava as quantidades e marca a lista como SEPARADA. Enviar fecha a etapa
+      (no Boqueirão o frete de R$ 50 nasce sozinho) — a filial passa a ver a lista na Conferência.</div>`;
+}
+
+async function trSalvarSeparacao(id) {
+  const msg = document.getElementById('trSepMsg');
+  msg.textContent = 'Salvando...'; msg.style.color = '#8a897e';
+  for (const [idx, i] of (window._trItensSep || []).entries()) {
+    const v = document.getElementById('trs_' + idx).value;
+    if (v === '') continue;
+    const r = await trFetch(`tr_lista_itens?id=eq.${i.id}`, { method: 'PATCH', body: JSON.stringify({ qtd_separada: Number(v) }) });
+    if (!r.ok) { msg.textContent = `Item ${i.item}: ` + await trErroDe(r); msg.style.color = '#ff6b6b'; return; }
+  }
+  const rs = await trFetch(`tr_listas?id=eq.${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'SEPARADA' }) });
+  if (!rs.ok) { msg.textContent = 'Itens salvos, mas o status não mudou: ' + await trErroDe(rs); msg.style.color = '#ff6b6b'; return; }
+  msg.textContent = 'Separação salva (lista SEPARADA).'; msg.style.color = '#3fb950';
+}
+
+async function trEnviarLista(id) {
+  const msg = document.getElementById('trSepMsg');
+  const data = document.getElementById('trDataEntrega').value;
+  const r = await trRpc('tr_enviar_lista', { p_id: id, p_data_entrega: data });
+  if (!r.ok) { msg.textContent = 'Não deu: ' + await trErroDe(r); msg.style.color = '#ff6b6b'; return; }
+  msg.textContent = 'Enviada! A filial confere no recebimento.'; msg.style.color = '#3fb950';
+  trListaAberta = null;
+  setTimeout(trTelaSeparacao, 900);
+}
+
+// ---- tela: conferencia no recebimento (FILIAL/DONO) ----
+async function trTelaConferencia() {
+  const alvo = document.getElementById('trTelaConteudo');
+  if (trListaAberta) return trAbrirConferencia(trListaAberta);
+  const filtro = TR_OP.unidade ? `&unidade=eq.${encodeURIComponent(TR_OP.unidade)}` : '';
+  const r = await trFetch(`tr_listas?status=eq.ENVIADA${filtro}&order=data_entrega&select=id,unidade,data_pedido,data_entrega`);
+  if (!r.ok) { alvo.innerHTML = `<div class="contexto" style="border-color:#ff6b6b;">${await trErroDe(r)}</div>`; return; }
+  const listas = await r.json();
+  alvo.innerHTML = listas.length ? `
+    <div class="caption-label">Listas enviadas aguardando a conferência do recebimento — confira ITEM A ITEM, é o zero que dói.</div>
+    ${listas.map(l => `<div class="contexto" style="display:flex; justify-content:space-between; align-items:center;">
+      <span>Lista <b>#${l.id}</b> · ${l.unidade} · entrega ${l.data_entrega ? l.data_entrega.slice(8,10)+'/'+l.data_entrega.slice(5,7) : '—'}</span>
+      <button class="preset-btn" onclick="trListaAberta=${l.id}; trTelaConferencia();">conferir</button></div>`).join('')}` :
+    '<div class="contexto">Nenhuma lista aguardando conferência.</div>';
+}
+
+async function trAbrirConferencia(id) {
+  const alvo = document.getElementById('trTelaConteudo');
+  const ri = await trFetch(`tr_lista_itens?id_lista=eq.${id}&order=item&select=id,item,un_medida,qtd_separada,qtd_recebida`);
+  const itens = await ri.json();
+  window._trItensConf = itens;
+  alvo.innerHTML = `
+    <div class="caption-label"><button class="preset-btn" onclick="trListaAberta=null; trTelaConferencia();">← listas</button>
+      Conferência da lista <b>#${id}</b> — o campo vem preenchido com o separado; <b>corrija o que veio diferente</b>.</div>
+    <div id="tabelaTrOpConf"><table>
+      <tr><th>Item</th><th>Separado</th><th>Recebido</th></tr>
+      ${itens.map((i, idx) => `<tr><td>${i.item} <span class="dre-av">${i.un_medida || ''}</span></td>
+        <td>${Number(i.qtd_separada || 0)}</td>
+        <td><input type="number" min="0" step="any" id="trc_${idx}" value="${i.qtd_recebida ?? i.qtd_separada ?? 0}"
+          style="width:80px; background:#232321; border:1px solid #34332f; border-radius:6px; color:#fff; padding:4px 6px; text-align:right;"></td></tr>`).join('')}
+    </table></div>
+    <div style="margin-top:12px;">
+      <label style="font-size:12.5px; color:#c3c2b7;"><input type="checkbox" id="trConfOk"> Conferi item a item, quantidade por quantidade</label><br>
+      <button class="preset-btn" style="margin-top:8px;" onclick="trFecharConferencia(${id})">Registrar recebimento e fechar a lista</button>
+      <span id="trConfMsg" style="font-size:12px; margin-left:8px;"></span>
+    </div>`;
+}
+
+async function trFecharConferencia(id) {
+  const msg = document.getElementById('trConfMsg');
+  if (!document.getElementById('trConfOk').checked) {
+    msg.textContent = 'Marque a caixa de conferência — é o compromisso de que foi item a item.'; msg.style.color = '#f5a623'; return;
+  }
+  msg.textContent = 'Registrando...'; msg.style.color = '#8a897e';
+  const rs = await trFetch(`tr_listas?id=eq.${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'RECEBIDA' }) });
+  if (!rs.ok) { msg.textContent = 'Não deu: ' + await trErroDe(rs); msg.style.color = '#ff6b6b'; return; }
+  for (const [idx, i] of (window._trItensConf || []).entries()) {
+    const v = Number(document.getElementById('trc_' + idx).value || 0);
+    const r = await trFetch(`tr_lista_itens?id=eq.${i.id}`, { method: 'PATCH', body: JSON.stringify({ qtd_recebida: v }) });
+    if (!r.ok) { msg.textContent = `Item ${i.item}: ` + await trErroDe(r); msg.style.color = '#ff6b6b'; return; }
+  }
+  const rf = await trRpc('tr_fechar_lista', { p_id: id });
+  if (!rf.ok) { msg.textContent = 'Quantidades salvas, mas não fechou: ' + await trErroDe(rf); msg.style.color = '#ff6b6b'; return; }
+  const rd = await trFetch(`vw_tr_divergencias?id_lista=eq.${id}`);
+  const divs = rd.ok ? await rd.json() : [];
+  msg.style.color = '#3fb950';
+  msg.textContent = divs.length
+    ? `Fechada com ${divs.length} diferença(s): ` + divs.slice(0, 4).map(d => `${d.item} (${d.diferenca > 0 ? 'sobrou' : 'faltou'} ${Math.abs(d.diferenca)})`).join(' · ')
+    : 'Fechada — recebimento bateu 100% com a separação. ✔';
+  trListaAberta = null;
+  setTimeout(trTelaConferencia, 4000);
+}
+
+// ---- tela: contas a pagar (FILIAL ve as suas; DONO baixa) ----
+async function trTelaContas() {
+  const alvo = document.getElementById('trTelaConteudo');
+  const filtro = TR_OP.unidade ? `&unidade=eq.${encodeURIComponent(TR_OP.unidade)}` : '';
+  const r = await trFetch(`vw_tr_contas_pagar?order=vencimento${filtro}`);
+  if (!r.ok) { alvo.innerHTML = `<div class="contexto" style="border-color:#ff6b6b;">${await trErroDe(r)}</div>`; return; }
+  const contas = await r.json();
+  const dono = TR_OP.papel === 'DONO';
+  const abertas = contas.filter(c => c.status !== 'PAGA');
+  alvo.innerHTML = `
+    ${dono ? `<div class="caption-label">Fechar o mês do Boqueirão:
+      <input type="month" id="trMesBoq" style="background:#232321; border:1px solid #34332f; border-radius:6px; color:#fff; padding:4px 6px;">
+      <button class="preset-btn" onclick="trFecharMesBoq()">fechar mês</button>
+      <span id="trContasMsg" style="font-size:12px; margin-left:6px;"></span></div>` : '<span id="trContasMsg"></span>'}
+    <div id="tabelaTrOpContas"><table>
+      <tr><th>Filial</th><th>Tipo</th><th>Referência</th><th>Itens</th><th>Frete</th><th>Royalty</th><th>Total</th><th>Vencimento</th><th>Status</th>${dono ? '<th></th>' : ''}</tr>
+      ${contas.map(c => `<tr>
+        <td>${c.unidade}</td><td>${c.tipo}</td>
+        <td>${c.id_lista ? 'lista #' + c.id_lista : (c.mes_referencia || '').slice(0, 7)}</td>
+        <td>${fmt(-Number(c.valor_itens || 0))}</td><td>${Number(c.frete) ? fmt(-Number(c.frete)) : '—'}</td>
+        <td>${Number(c.royalty) ? fmt(-Number(c.royalty)) : '—'}</td><td><b>${fmt(-Number(c.valor_total || 0))}</b></td>
+        <td${c.vencida && c.status !== 'PAGA' ? ' style="color:#ff6b6b; font-weight:bold;"' : ''}>${c.vencimento ? c.vencimento.slice(8,10)+'/'+c.vencimento.slice(5,7) : '—'}${c.vencida && c.status !== 'PAGA' ? ' VENCIDA' : ''}</td>
+        <td>${c.status}${c.pago_em ? ' em ' + c.pago_em.slice(8,10)+'/'+c.pago_em.slice(5,7) : ''}</td>
+        ${dono ? `<td>${c.status !== 'PAGA' ? `<button class="preset-btn" onclick="trBaixar(${c.id})">baixar (pago hoje)</button>` : ''}</td>` : ''}</tr>`).join('')}
+      <tr class="liq"><td>TOTAL EM ABERTO</td><td></td><td>${abertas.length} cobrança(s)</td><td></td><td></td><td></td>
+        <td><b>${fmt(-abertas.reduce((s, c) => s + Number(c.valor_total || 0), 0))}</b></td><td></td><td></td>${dono ? '<td></td>' : ''}</tr>
+    </table></div>`;
+}
+async function trBaixar(id) {
+  const msg = document.getElementById('trContasMsg');
+  const r = await trRpc('tr_baixar_cobranca', { p_id: id, p_pago_em: trHoje() });
+  if (!r.ok) { msg.textContent = 'Não deu: ' + await trErroDe(r); msg.style.color = '#ff6b6b'; return; }
+  msg.textContent = 'Baixada.'; msg.style.color = '#3fb950';
+  trTelaContas();
+}
+async function trFecharMesBoq() {
+  const msg = document.getElementById('trContasMsg');
+  const m = document.getElementById('trMesBoq').value;
+  if (!m) { msg.textContent = 'Escolha o mês.'; msg.style.color = '#f5a623'; return; }
+  const r = await trRpc('tr_fechar_mes_boqueirao', { p_mes: m + '-01' });
+  if (!r.ok) { msg.textContent = 'Não deu: ' + await trErroDe(r); msg.style.color = '#ff6b6b'; return; }
+  msg.textContent = 'Mês fechado — a cobrança mensal nasceu.'; msg.style.color = '#3fb950';
+  trTelaContas();
+}
+
+// ---- tela: CMV semanal ----
+async function trTelaCmv() {
+  const alvo = document.getElementById('trTelaConteudo');
+  const filtro = TR_OP.unidade ? `&unidade=eq.${encodeURIComponent(TR_OP.unidade)}` : '';
+  const r = await trFetch(`vw_tr_cmv_semanal?order=semana.desc${filtro}&limit=24`);
+  if (!r.ok) { alvo.innerHTML = `<div class="contexto" style="border-color:#ff6b6b;">${await trErroDe(r)}</div>`; return; }
+  const cmv = await r.json();
+  alvo.innerHTML = `
+    <div class="caption-label">O que cada filial recebeu da central, semana a semana (é o motivo do prazo de 7 dias:
+      resultado sem esperar o mês fechar).</div>
+    <div id="tabelaTrOpCmv"><table>
+      <tr><th>Semana</th><th>Filial</th><th>Listas</th><th>Valor recebido</th></tr>
+      ${cmv.map(c => `<tr><td>${c.semana ? c.semana.slice(8,10)+'/'+c.semana.slice(5,7) : '—'}</td>
+        <td>${c.unidade}</td><td>${c.listas}</td><td>R$ ${fmt(Number(c.valor || 0))}</td></tr>`).join('')}
+    </table></div>`;
 }
 
 // ------------------------------------------------------------------
