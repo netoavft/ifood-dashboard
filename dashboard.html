@@ -253,9 +253,8 @@
      diz tudo, e numa demonstracao quase toda de saidas o vermelho em cada
      celula virava ruido. Vermelho e' EXCECAO: so prejuizo em linha de resultado. */
   #tabelaDFC td.negativo, #tabelaDFC .negativo, #tabelaDRE td.negativo, #tabelaDRE .negativo { color:inherit; }
-  #tabelaDFC tr.dfc-resultado td.negativo, #tabelaDFC tr.dfc-resultado .negativo { color:#ff6b6b; }
-  /* prejuizo em linha de soma da DRE: vermelho escuro, legivel sobre o gradiente */
-  #tabelaDRE tr.dfc-resultado td.negativo, #tabelaDRE tr.dfc-resultado .negativo { color:#8f0d20; }
+  #tabelaDFC tr.dfc-resultado td.negativo, #tabelaDFC tr.dfc-resultado .negativo,
+  #tabelaDRE tr.dfc-resultado td.negativo, #tabelaDRE tr.dfc-resultado .negativo { color:#ff6b6b; }
   #tabelaDFC tr.dfc-bloco td { background:#232321; font-weight:bold; border-top:2px solid #45443f; color:#ffffff; }
   #tabelaDFC tr.dfc-grupo td { background:#1a1a19; font-weight:bold; color:#c3c2b7; }
   #tabelaDFC tr.dfc-grupo td:first-child { padding-left:22px; }
@@ -277,14 +276,14 @@
   #tabelaDRE tr.dfc-grupo td:first-child { padding-left:22px; }
   #tabelaDRE tr.dfc-linha td { color:#a5a49a; }
   #tabelaDRE tr.dfc-linha td:first-child { padding-left:40px; }
-  /* linhas de SOMA "(=)" = letreiro aceso (pedido do dono, 16/08 a noite): o
-     mesmo gradiente da marca dos botoes ativos, com texto preto — a construcao
-     da conta salta aos olhos. Tudo que vive dentro delas troca para tom escuro. */
-  #tabelaDRE tr.dfc-resultado td { background:linear-gradient(135deg,#f6c63e,#ee8a3c); color:#111110; font-weight:bold; border-top:none; border-bottom:none; }
-  #tabelaDRE tr.dfc-resultado td:first-child { color:#111110; }
-  #tabelaDRE tr.dfc-resultado .dre-sub, #tabelaDRE tr.dfc-resultado .dre-sub span { color:rgba(17,17,16,.72) !important; }
-  #tabelaDRE tr.dfc-resultado .dre-farol { box-shadow:0 0 0 1.5px rgba(17,17,16,.55); }
-  #tabelaDRE tr.dfc-resultado .meta-pill { color:#111110; border-color:rgba(17,17,16,.4); background:rgba(255,255,255,.28); }
+  /* linhas de SOMA "(=)": CONTORNO na cor do letreiro (teste do dono, 16/08 a
+     noite — a versao preenchida pesava). Fundo escuro, texto claro, moldura
+     amarelo->laranja fechando a faixa. */
+  #tabelaDRE tr.dfc-resultado td { background:#111110; color:#fff; font-weight:bold; border-top:2px solid #f6c63e; border-bottom:2px solid #ee8a3c; }
+  #tabelaDRE tr.dfc-resultado td:first-child { color:#fff; border-left:2px solid #f6c63e; }
+  #tabelaDRE tr.dfc-resultado td:last-child { border-right:2px solid #ee8a3c; }
+  /* % da receita mora ao lado do numero; verde = dentro da meta (pedido 16/08) */
+  .dre-av { font-size:10px; font-weight:normal; color:#8a897e; margin-left:6px; white-space:nowrap; }
   /* categorias sempre em MAIUSCULO (so o rotulo; meta e subs ficam como estao) */
   #tabelaDRE td:first-child { text-transform:uppercase; }
   #tabelaDRE td:first-child .dre-sub, #tabelaDRE td:first-child .meta-pill { text-transform:none; }
@@ -5682,22 +5681,23 @@ function renderModuloDRE() {
   // usuario: a versao com verde/vermelho em toda celula ficou carnavalesca).
   const celula = (v, base, vAnt, kind, metaChave) => {
     // linha de saida mostra o numero com sinal de menos (pedido do dono, 16/08:
-    // "o olho le o numero, nao o titulo") — o % e o farol seguem positivos
+    // "o olho le o numero, nao o titulo") — o % segue positivo.
+    // Layout 16/08 a noite: % da receita AO LADO do numero, colorido pelo farol
+    // (verde = dentro da meta); embaixo, a variacao vs mes anterior.
     const vMostra = kind === 'custo' ? -v : v;
-    const valorHtml = `<div class="${vMostra < -0.005 ? 'negativo' : ''}">${fmt(vMostra)}</div>`;
-    const subs = [];
+    let avHtml = '';
     if (base) {
       const av = v / base * 100;
       const cor = metaChave ? corFarol(metaChave, av) : null;
-      const alerta = cor && cor !== '#3fb950';
-      subs.push(`${alerta ? `<span class="dre-farol" style="background:${cor}"></span>` : ''}` +
-                `<span${alerta ? ` style="color:${cor}"` : ''}>${pct(av)}% da receita</span>`);
+      avHtml = `<span class="dre-av"${cor ? ` style="color:${cor}; font-weight:700;"` : ''}>${pct(av)}%</span>`;
     }
+    const valorHtml = `<div class="${vMostra < -0.005 ? 'negativo' : ''}">${fmt(vMostra)}${avHtml}</div>`;
+    let sub = '';
     if (vAnt !== null && Math.abs(vAnt) > 0.005) {
       const d = (v - vAnt) / Math.abs(vAnt) * 100;
-      subs.push(`<span>${d > 0.5 ? '▲' : d < -0.5 ? '▼' : '•'} ${pct(Math.abs(d))}%</span>`);
+      sub = `<div class="dre-sub">${d > 0.5 ? '▲' : d < -0.5 ? '▼' : '•'} ${pct(Math.abs(d))}% vs mês ant.</div>`;
     }
-    return `<td>${valorHtml}${subs.length ? `<div class="dre-sub">${subs.join(' ')}</div>` : ''}</td>`;
+    return `<td>${valorHtml}${sub}</td>`;
   };
 
   const linha = (classe, label, vals, opts = {}) => {
