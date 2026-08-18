@@ -3792,7 +3792,11 @@ let RH = null;
 // olha dinheiro ve que esta em dia.
 // Escopo: Agua Verde, Ahu e Sao Braz. BOQUEIRAO fica fora (decisao do dono, 18/08).
 let CONCB = null;
-const CONCB_TOLERANCIA_DIAS = 3;   // abaixo disso e defasagem normal de lancamento
+// Regra da casa (dono, 18/08/2026): concilia-se HOJE tudo que movimentou a conta
+// ATE ONTEM. Logo um dia so esta atrasado depois de D+1. Como a rotina roda de
+// manha, antes de a conciliacao daquele dia acontecer, o corte justo e D-2: ate
+// anteontem ja deu tempo. Era 3 por chute meu, antes de a regra existir.
+const CONCB_TOLERANCIA_DIAS = 2;
 
 async function entrarConcbanco() {
   const alvo = document.getElementById('view-concbanco');
