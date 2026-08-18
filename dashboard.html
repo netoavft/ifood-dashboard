@@ -437,6 +437,7 @@
     <div class="sidebar-grupo" id="gFinanceiro">
       <button class="sidebar-btn" id="navBtnFluxo" onclick="mostrarModulo('fluxo')"><span class="mico">💵</span>Fluxo de caixa</button>
       <button class="sidebar-btn" id="navBtnProjecao" onclick="mostrarModulo('projecao')"><span class="mico">🔮</span>Fluxo projetado</button>
+      <button class="sidebar-btn" id="navBtnConcbanco" onclick="mostrarModulo('concbanco')"><span class="mico">🏦</span>Conciliação bancária</button>
       <button class="sidebar-btn" id="navBtnDespesas" onclick="mostrarModulo('despesas')"><span class="mico">🧾</span>Análise de despesas</button>
       <button class="sidebar-btn" id="navBtnReembolsos" onclick="mostrarModulo('reembolsos')"><span class="mico">💸</span>Reembolsos</button>
       <button class="sidebar-btn" id="navBtnRh" onclick="mostrarModulo('rh')"><span class="mico">💳</span>Descontos em folha</button>
@@ -561,6 +562,10 @@
 
     <div id="modulo-rh" class="modulo" style="display:none;">
       <div id="view-rh"></div>
+    </div>
+
+    <div id="modulo-concbanco" class="modulo" style="display:none;">
+      <div id="view-concbanco"></div>
     </div>
 
     <div id="modulo-reembolsos" class="modulo" style="display:none;">
@@ -1159,6 +1164,7 @@ function mostrarModulo(nome) {
     listas: ['modulo-listas', 'navBtnListas'],
     reembolsos: ['modulo-reembolsos', 'navBtnReembolsos'],
     rh: ['modulo-rh', 'navBtnRh'],
+    concbanco: ['modulo-concbanco', 'navBtnConcbanco'],
   };
   Object.entries(modulos).forEach(([chave, [idDiv, idBtn]]) => {
     // Tolerante a botao/div ausente: o menu e mexido com frequencia e um id
@@ -1198,6 +1204,7 @@ function mostrarModulo(nome) {
   if (nome === 'logfin') entrarLogfin();
   if (nome === 'frete') entrarFrete();
   if (nome === 'listas') entrarListas();
+  if (nome === 'concbanco') entrarConcbanco();
   if (nome === 'reembolsos') entrarReembolsos();
   if (nome === 'rh') entrarRh();
   if (nome === 'rotinas') entrarRotinas();
@@ -3775,6 +3782,183 @@ function renderModuloReembolsos({ saldo, fila, orfaos }) {
 // bolso, e o que esta travado.
 // ------------------------------------------------------------------
 let RH = null;
+
+// ===== Conciliacao bancaria (modulo aplicado 18/08/2026) =====
+// A regra que este modulo existe para impor: LER DINHEIRO ANTES DE LER LINHA.
+// Linha do extrato sem par quase sempre e agregacao diferente (o banco lista o
+// repasse por bandeira e o Saipos lanca o total; um boleto paga varias notas), nao
+// dinheiro sumido. Em 01-12/08/2026 a ITAU AV tinha 125 linhas sem par e R$ 2,5 mil
+// de diferenca sobre R$ 300 mil movimentados. Quem olha linha manda automatizar; quem
+// olha dinheiro ve que esta em dia.
+// Escopo: Agua Verde, Ahu e Sao Braz. BOQUEIRAO fica fora (decisao do dono, 18/08).
+let CONCB = null;
+const CONCB_TOLERANCIA_DIAS = 3;   // abaixo disso e defasagem normal de lancamento
+
+async function entrarConcbanco() {
+  const alvo = document.getElementById('view-concbanco');
+  if (!alvo) return;
+  if (CONCB) { renderConcbanco(); return; }
+  alvo.innerHTML = '<div class="contexto">Carregando a conciliação...</div>';
+  try {
+    const [placar, pend] = await Promise.all([
+      consultarTudo('vw_fin_conciliacao_placar?select=*&order=data.desc'),
+      consultarTudo('vw_fin_conciliacao_pendencias?select=*&order=dias.desc'),
+    ]);
+    CONCB = { placar, pend };
+  } catch (e) {
+    alvo.innerHTML = '<div class="contexto">Não consegui carregar a conciliação: ' + e.message + '</div>';
+    return;
+  }
+  renderConcbanco();
+}
+
+function renderConcbanco() {
+  const alvo = document.getElementById('view-concbanco');
+  if (!alvo || !CONCB) return;
+  const { placar, pend } = CONCB;
+  const n = (v) => Number(v) || 0;
+  const rs = (v) => n(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const ddmm = (d) => d ? d.slice(8, 10) + '/' + d.slice(5, 7) : '—';
+
+  if (!placar.length) {
+    alvo.innerHTML = '<div class="contexto">Nada conciliado ainda. A rotina <b>conciliação bancária</b> roda todo dia às 08:40 e alimenta esta tela.</div>';
+    return;
+  }
+
+  // --- por conta: dinheiro primeiro, linha depois ---
+  // O corte por dia liquidado e o que impede esta tela de mentir. Os ultimos
+  // dias SEMPRE parecem ruins (o Saipos ainda nao foi lancado), entao a conta so
+  // e julgada pelos dias que ja tiveram tempo de fechar.
+  const hoje = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  const corte = new Date(Date.now() - (new Date().getTimezoneOffset() + CONCB_TOLERANCIA_DIAS * 1440) * 60000)
+    .toISOString().slice(0, 10);
+  const contas = {};
+  placar.forEach(r => {
+    const c = contas[r.conta] || (contas[r.conta] = {
+      mov: 0, faltaEnt: 0, faltaSai: 0, linhas: 0, residuo: 0 });
+    c.mov += Math.abs(n(r.banco_entrou)) + Math.abs(n(r.banco_saiu));
+    c.linhas += n(r.linhas_banco);
+    c.residuo += n(r.linhas_residuo);
+    if (r.data <= corte) {           // so dia liquidado entra no julgamento
+      c.faltaEnt += n(r.falta_entrada);
+      c.faltaSai += n(r.falta_saida);
+    }
+  });
+  // Uma conta esta "em dia" quando o DINHEIRO fecha, mesmo com muitas linhas sem
+  // par. Sem isso a tela contradiz a propria tese: a ITAU SB chegou a aparecer com
+  // 37 linhas "paradas" e R$ 390 de diferenca de verdade.
+  // Regua igual a da rotina: so incomoda diferenca acima de 1% do que a conta
+  // movimentou, com piso de R$ 500. Conta que gira R$ 700 mil carrega mais ruido
+  // em valor absoluto que uma que gira R$ 20 mil — cobrar as duas pelo mesmo
+  // numero fixo faz a tela apontar problema onde nao ha.
+  const TOL_REAIS = 500, TOL_PCT = 0.01;
+  Object.values(contas).forEach(c => {
+    c.gap = Math.max(Math.abs(c.faltaEnt), Math.abs(c.faltaSai));
+    c.limite = Math.max(TOL_REAIS, c.mov * TOL_PCT);
+    c.emDia = c.gap < c.limite;
+  });
+
+  const abertas = pend.filter(p => p.classe === 'ABERTA' && n(p.dias) > CONCB_TOLERANCIA_DIAS);
+  const ruido = pend.filter(p => p.classe === 'AGREGACAO');
+  const novas = pend.filter(p => p.classe === 'ABERTA' && n(p.dias) <= CONCB_TOLERANCIA_DIAS);
+  const porConta = {};
+  abertas.forEach(p => {
+    const o = porConta[p.conta] || (porConta[p.conta] = { n: 0, valor: 0, maisVelha: 0 });
+    o.n++; o.valor += n(p.valor); o.maisVelha = Math.max(o.maisVelha, n(p.dias));
+  });
+
+  const contasComTrabalho = Object.values(contas).filter(c => !c.emDia).length;
+  const valorAberto = Object.values(contas).filter(c => !c.emDia).reduce((s, c) => s + c.gap, 0);
+  const maisVelha = abertas.reduce((m, p) => Math.max(m, n(p.dias)), 0);
+  const dias = [...new Set(placar.map(r => r.data))].sort();
+  const atualizado = placar.reduce((m, r) => (r.atualizado_em || '') > m ? r.atualizado_em : m, '');
+
+  const cards = '<div class="cards">' +
+    '<div class="card ' + (contasComTrabalho ? 'neg' : 'pos') + '">' +
+      '<div class="card-lbl">Contas com trabalho parado</div>' +
+      '<div class="card-val">' + contasComTrabalho + ' de ' + Object.keys(contas).length + '</div>' +
+      '<div class="card-sub">dinheiro que não fecha nos dias já liquidados</div></div>' +
+    '<div class="card neutral"><div class="card-lbl">Dinheiro que não fecha</div>' +
+      '<div class="card-val">R$ ' + rs(valorAberto) + '</div>' +
+      '<div class="card-sub">só das contas fora da régua (1% do movimento, mínimo R$ 500)</div></div>' +
+    '<div class="card ' + (maisVelha > 7 ? 'neg' : 'neutral') + '"><div class="card-lbl">Espera mais longa</div>' +
+      '<div class="card-val">' + maisVelha + ' dia' + (maisVelha === 1 ? '' : 's') + '</div>' +
+      '<div class="card-sub">passando de 7 dias, deixa de ser atraso e vira esquecimento</div></div>' +
+    '<div class="card neutral"><div class="card-lbl">Ruído separado sozinho</div>' +
+      '<div class="card-val">' + ruido.length + '</div>' +
+      '<div class="card-sub">linhas já lançadas, agrupadas de outro jeito</div></div>' +
+    '</div>';
+
+  const linhasContas = Object.entries(contas).sort((a, b) => b[1].mov - a[1].mov).map(([nome, c]) => {
+    const p = porConta[nome];
+    const situacao = c.emDia
+      ? '<span style="color:#2e7d32">em dia</span>' + (c.gap > 0 ? ' <span style="opacity:.6">(diferença de ' + rs(c.gap) + ', dentro da régua de ' + rs(c.limite) + ')</span>' : '')
+      : '<b>fora por R$ ' + rs(c.gap) + '</b>' + (p ? ', a linha mais velha tem <b>' + p.maisVelha + 'd</b>' : '');
+    return '<tr><td>' + nome + '</td>' +
+      '<td style="text-align:right">' + rs(c.mov) + '</td>' +
+      '<td style="text-align:right">' + rs(c.faltaEnt) + '</td>' +
+      '<td style="text-align:right">' + rs(c.faltaSai) + '</td>' +
+      '<td style="text-align:right">' + c.residuo + ' de ' + c.linhas + '</td>' +
+      '<td style="text-align:center">' + situacao + '</td></tr>';
+  }).join('');
+
+  const filaLinhas = abertas.slice(0, 60).map(p =>
+    '<tr><td>' + ddmm(p.data) + '</td><td>' + p.conta + '</td>' +
+    '<td style="text-align:right">' + rs(p.valor) + '</td>' +
+    '<td>' + (p.memo || '').slice(0, 58) + '</td>' +
+    '<td style="text-align:center"><b>' + n(p.dias) + 'd</b></td></tr>').join('');
+
+  const periodo = dias.length ? ' Período: ' + ddmm(dias[0]) + ' a ' + ddmm(dias[dias.length - 1]) + '.' : '';
+  const quando = atualizado ? ' Conferido em ' + ddmm(atualizado.slice(0, 10)) + '.' : '';
+
+  const blocoFila = abertas.length
+    ? '<table><thead><tr><th>Dia</th><th>Conta</th><th style="text-align:right">Valor</th>' +
+      '<th>O que o banco diz</th><th style="text-align:center">Esperando</th></tr></thead>' +
+      '<tbody>' + filaLinhas + '</tbody></table>' +
+      (abertas.length > 60 ? '<div class="contexto">Mostrando as 60 mais antigas de ' + abertas.length + '.</div>' : '')
+    : '';
+
+  const textoFila = abertas.length
+    ? abertas.length + ' linha' + (abertas.length === 1 ? '' : 's') + ' do extrato sem correspondência no Saipos há mais de ' +
+      CONCB_TOLERANCIA_DIAS + ' dias. É isso que precisa ser digitado, com a data, o valor e a descrição que o banco deu.'
+    : '<b>Nada a lançar.</b> Nenhuma linha do extrato está sem par há mais de ' + CONCB_TOLERANCIA_DIAS + ' dias.';
+  const textoNovas = novas.length
+    ? ' Outras ' + novas.length + ' são dos últimos dias e ainda estão no prazo normal de lançamento — não entram nesta lista.'
+    : '';
+
+  const blocoRuido = ruido.length
+    ? '<details style="margin-top:14px;"><summary style="cursor:pointer; font-weight:600;">' +
+      ruido.length + ' linhas que o sistema separou como ruído — por que não estão na lista acima</summary>' +
+      '<div class="contexto">Estas vêm de quem sempre fecha em bloco: repasse de maquininha, boleto que paga ' +
+      'várias notas, PIX enviado em lote. O dinheiro está lançado no Saipos, só que num lançamento único que não ' +
+      'bate linha a linha com o extrato. <b>Se alguém digitar isso de novo, o valor entra em dobro.</b></div>' +
+      '<table><thead><tr><th>Dia</th><th>Conta</th><th style="text-align:right">Valor</th><th>Quem está do outro lado</th></tr></thead><tbody>' +
+      ruido.slice(0, 40).map(p => '<tr><td>' + ddmm(p.data) + '</td><td>' + p.conta + '</td>' +
+        '<td style="text-align:right">' + rs(p.valor) + '</td><td>' + (p.contraparte || '') + '</td></tr>').join('') +
+      '</tbody></table></details>'
+    : '';
+
+  alvo.innerHTML =
+    '<div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Conciliação bancária — o banco contra o Saipos</div>' +
+    '<div class="contexto">Todo dia de manhã o extrato das contas é comparado com o que foi lançado no Saipos. ' +
+    '<b>Olhe o dinheiro antes de olhar a quantidade de linhas.</b> Muita linha sem par com pouca diferença em reais ' +
+    'quer dizer que os dois sistemas agrupam diferente — o banco lista o repasse do cartão por bandeira e o Saipos ' +
+    'lança o total do dia; um boleto paga várias notas. Isso não é trabalho parado.' + periodo + quando +
+    ' O Boqueirão fica fora desta conciliação.</div>' +
+    cards +
+    '<div class="section-label">Por conta</div>' +
+    '<div class="contexto">"Falta lançar" é o dinheiro que passou pelo banco e ainda não apareceu no Saipos no ' +
+    'período. Valor negativo quer dizer o contrário: o Saipos registrou mais do que o banco movimentou, quase ' +
+    'sempre porque alguém lançou adiantado.</div>' +
+    '<table><thead><tr><th>Conta</th><th style="text-align:right">Movimentou no banco</th>' +
+    '<th style="text-align:right">Falta lançar (entrada)</th><th style="text-align:right">Falta lançar (saída)</th>' +
+    '<th style="text-align:right">Linhas sem par</th><th style="text-align:center">Situação</th></tr></thead>' +
+    '<tbody>' + linhasContas + '</tbody></table>' +
+    '<div class="section-label">O que alguém precisa lançar</div>' +
+    '<div class="contexto">' + textoFila + textoNovas + '</div>' +
+    blocoFila +
+    blocoRuido;
+}
 
 async function entrarRh() {
   const alvo = document.getElementById('view-rh');
