@@ -3875,18 +3875,18 @@ function renderConcbanco() {
 
   const cards = '<div class="cards">' +
     '<div class="card ' + (contasComTrabalho ? 'neg' : 'pos') + '">' +
-      '<div class="card-lbl">Contas com trabalho parado</div>' +
+      '<div class="card-lbl">Contas que ainda não fecham</div>' +
       '<div class="card-val">' + contasComTrabalho + ' de ' + Object.keys(contas).length + '</div>' +
-      '<div class="card-sub">dinheiro que não fecha nos dias já liquidados</div></div>' +
+      '<div class="card-sub">olhando só os dias já liquidados</div></div>' +
     '<div class="card neutral"><div class="card-lbl">Dinheiro que não fecha</div>' +
       '<div class="card-val">R$ ' + rs(valorAberto) + '</div>' +
       '<div class="card-sub">só das contas fora da régua (1% do movimento, mínimo R$ 500)</div></div>' +
     '<div class="card ' + (maisVelha > 7 ? 'neg' : 'neutral') + '"><div class="card-lbl">Espera mais longa</div>' +
       '<div class="card-val">' + maisVelha + ' dia' + (maisVelha === 1 ? '' : 's') + '</div>' +
       '<div class="card-sub">passando de 7 dias, deixa de ser atraso e vira esquecimento</div></div>' +
-    '<div class="card neutral"><div class="card-lbl">Ruído separado sozinho</div>' +
+    '<div class="card neutral"><div class="card-lbl">Já explicado sozinho</div>' +
       '<div class="card-val">' + ruido.length + '</div>' +
-      '<div class="card-sub">linhas já lançadas, agrupadas de outro jeito</div></div>' +
+      '<div class="card-sub">linhas que o sistema reconheceu como repasse ou lote</div></div>' +
     '</div>';
 
   const linhasContas = Object.entries(contas).sort((a, b) => b[1].mov - a[1].mov).map(([nome, c]) => {
@@ -3913,25 +3913,34 @@ function renderConcbanco() {
 
   const blocoFila = abertas.length
     ? '<table><thead><tr><th>Dia</th><th>Conta</th><th style="text-align:right">Valor</th>' +
-      '<th>O que o banco diz</th><th style="text-align:center">Esperando</th></tr></thead>' +
+      '<th>O que o banco diz</th><th style="text-align:center">Há quanto tempo</th></tr></thead>' +
       '<tbody>' + filaLinhas + '</tbody></table>' +
       (abertas.length > 60 ? '<div class="contexto">Mostrando as 60 mais antigas de ' + abertas.length + '.</div>' : '')
     : '';
 
+  // ATENCAO ao mexer neste texto: a conciliacao JA E FEITA A MAO dentro do Saipos e
+  // fecha no centavo (dono, 18/08/2026). Entao esta lista NAO e trabalho a fazer —
+  // e o que este comparador ainda nao sabe parear. Chamar de "falta lancar" faria
+  // alguem digitar de novo o que ja esta la, que e a duplicidade que o modulo inteiro
+  // existe para evitar.
   const textoFila = abertas.length
-    ? abertas.length + ' linha' + (abertas.length === 1 ? '' : 's') + ' do extrato sem correspondência no Saipos há mais de ' +
-      CONCB_TOLERANCIA_DIAS + ' dias. É isso que precisa ser digitado, com a data, o valor e a descrição que o banco deu.'
-    : '<b>Nada a lançar.</b> Nenhuma linha do extrato está sem par há mais de ' + CONCB_TOLERANCIA_DIAS + ' dias.';
+    ? abertas.length + ' linha' + (abertas.length === 1 ? '' : 's') + ' do extrato que este painel ainda não '
+      + 'conseguiu casar com o Saipos, há mais de ' + CONCB_TOLERANCIA_DIAS + ' dias. <b>Não digite a partir '
+      + 'desta lista.</b> A conciliação é feita à mão dentro do Saipos e fecha no centavo — o mais provável é '
+      + 'que já esteja lançado num formato que o comparador não reconhece. Cada linha aqui é candidata a virar '
+      + 'uma regra nova.'
+    : '<b>Tudo explicado.</b> Nenhuma linha do extrato ficou sem explicação há mais de ' + CONCB_TOLERANCIA_DIAS + ' dias.';
   const textoNovas = novas.length
     ? ' Outras ' + novas.length + ' são dos últimos dias e ainda estão no prazo normal de lançamento — não entram nesta lista.'
     : '';
 
   const blocoRuido = ruido.length
     ? '<details style="margin-top:14px;"><summary style="cursor:pointer; font-weight:600;">' +
-      ruido.length + ' linhas que o sistema separou como ruído — por que não estão na lista acima</summary>' +
-      '<div class="contexto">Estas vêm de quem sempre fecha em bloco: repasse de maquininha, boleto que paga ' +
-      'várias notas, PIX enviado em lote. O dinheiro está lançado no Saipos, só que num lançamento único que não ' +
-      'bate linha a linha com o extrato. <b>Se alguém digitar isso de novo, o valor entra em dobro.</b></div>' +
+      ruido.length + ' linhas que o sistema já explicou — por que não estão na lista acima</summary>' +
+      '<div class="contexto">Toda venda entra numa conta de adquirente (Rede, Alelo, Ticket, Pluxee, VR, Tuna) e ' +
+      'só depois é transferida para a conta corrente, já sem a taxa. O Saipos registra <b>uma</b> transferência; ' +
+      'o banco registra <b>várias</b> entradas. Não existe par linha a linha para achar — o par é do bloco. ' +
+      'O mesmo vale para pagamento em lote (SISPAG) e boleto que quita várias notas.</div>' +
       '<table><thead><tr><th>Dia</th><th>Conta</th><th style="text-align:right">Valor</th><th>Quem está do outro lado</th></tr></thead><tbody>' +
       ruido.slice(0, 40).map(p => '<tr><td>' + ddmm(p.data) + '</td><td>' + p.conta + '</td>' +
         '<td style="text-align:right">' + rs(p.valor) + '</td><td>' + (p.contraparte || '') + '</td></tr>').join('') +
@@ -3941,10 +3950,11 @@ function renderConcbanco() {
   alvo.innerHTML =
     '<div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Conciliação bancária — o banco contra o Saipos</div>' +
     '<div class="contexto">Todo dia de manhã o extrato das contas é comparado com o que foi lançado no Saipos. ' +
-    '<b>Olhe o dinheiro antes de olhar a quantidade de linhas.</b> Muita linha sem par com pouca diferença em reais ' +
-    'quer dizer que os dois sistemas agrupam diferente — o banco lista o repasse do cartão por bandeira e o Saipos ' +
-    'lança o total do dia; um boleto paga várias notas. Isso não é trabalho parado.' + periodo + quando +
-    ' O Boqueirão fica fora desta conciliação.</div>' +
+    '<b>Esta tela confere, não cobra.</b> A conciliação em si é feita à mão dentro do Saipos e fecha no centavo; ' +
+    'o que aparece aqui como "sem explicação" é quase sempre um formato que o comparador ainda não aprendeu, ' +
+    'não dinheiro sumido. <b>Olhe o dinheiro antes de olhar a quantidade de linhas:</b> na Itaú Água Verde, de ' +
+    '01/07 a 14/08, entraram R$ 1.135.558 pelo banco em 872 linhas contra R$ 1.134.302 em 319 lançamentos — ' +
+    'falta 0,11%.' + periodo + quando + ' O Boqueirão fica fora desta conciliação, e Ahú e São Braz começam em agosto.</div>' +
     cards +
     '<div class="section-label">Por conta</div>' +
     '<div class="contexto">"Falta lançar" é o dinheiro que passou pelo banco e ainda não apareceu no Saipos no ' +
@@ -3954,7 +3964,7 @@ function renderConcbanco() {
     '<th style="text-align:right">Falta lançar (entrada)</th><th style="text-align:right">Falta lançar (saída)</th>' +
     '<th style="text-align:right">Linhas sem par</th><th style="text-align:center">Situação</th></tr></thead>' +
     '<tbody>' + linhasContas + '</tbody></table>' +
-    '<div class="section-label">O que alguém precisa lançar</div>' +
+    '<div class="section-label">O que eu ainda não sei explicar</div>' +
     '<div class="contexto">' + textoFila + textoNovas + '</div>' +
     blocoFila +
     blocoRuido;
