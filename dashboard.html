@@ -4079,6 +4079,38 @@ function concbQuem() {
 // atualizar, e o sistema importa o extrato, rele a janela curta do Saipos (para
 // pegar o que ela acabou de lancar) e roda o comparador. A fila encolhe na tela
 // sem ninguem ser chamado.
+// ENVIAR O EXTRATO PELA TELA. Lê o arquivo como texto, manda para
+// `fin_extrato_arquivo` e dispara o mesmo ciclo do botão atualizar — a rotina
+// grava na pasta do Drive, importa e roda o comparador. A tela não vê o
+// conteúdo de volta: a tabela só aceita escrita, de propósito.
+async function concbEnviarOfx(inp, bt) {
+  const arquivos = [...inp.files];
+  inp.value = '';
+  if (!arquivos.length) return;
+  const texto = bt.textContent;
+  bt.disabled = true;
+  try {
+    for (let i = 0; i < arquivos.length; i++) {
+      bt.textContent = 'enviando ' + (i + 1) + '/' + arquivos.length + '...';
+      const conteudo = await arquivos[i].text();
+      // OFX é texto puro; arquivo grande demais aqui é sinal de que não é OFX
+      if (conteudo.length > 8000000) throw new Error(arquivos[i].name + ' é grande demais');
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/fin_extrato_arquivo`, {
+        method: 'POST', headers: rmbHeaders({ Prefer: 'return=minimal' }),
+        body: JSON.stringify({ quem: concbQuem() || 'PAINEL',
+                               nome: arquivos[i].name, conteudo }) });
+      if (!r.ok) throw new Error((await r.text()).slice(0, 120));
+    }
+  } catch (e) {
+    bt.textContent = texto; bt.disabled = false;
+    alert('Não consegui enviar: ' + e.message);
+    return;
+  }
+  bt.textContent = texto; bt.disabled = false;
+  // enviar sem importar não serve para nada: dispara o ciclo na sequência
+  await concbRodarComparador(document.getElementById('concbAtualizar'));
+}
+
 async function concbRodarComparador(bt) {
   const texto = bt.textContent;
   bt.disabled = true;
@@ -4365,15 +4397,23 @@ function renderConcbanco() {
         saldoTxt = '<span style="color:#b8860b">extrato parado'
           + (semExtratoDe === 'nunca' ? '' : ' em ' + semExtratoDe) + '</span>';
       } else {
+        // O QUE VALE É O QUE SOBRA, não a diferença. Diferença explicada por data
+        // ou pela varredura do banco não é trabalho de ninguém — some sozinha. A
+        // tela dizia "diferença toda explicada" e o dono cortou: com tudo
+        // conciliado, aquilo era aviso de nada. Aviso que não pede ação treina a
+        // pessoa a ignorar a coluna inteira, e junto vai o aviso que importa.
         const bateu = Math.abs(dif) < TOL_SALDO;
         const sobra = n(sd.sem_explicacao);
+        // O SALDO BATER É A VERDADE FINAL. Se banco e Saipos dão o mesmo número,
+        // acabou — não importa que a decomposição em termos deixe um resto (ela
+        // é aproximada por natureza; a PARTICIPAÇÕES tinha saldo igual e R$ 0,55
+        // de resto, e a tela pintava de vermelho uma conta fechada).
         saldoTxt = '<b>' + rs(sd.saldo_banco) + '</b> · '
           + (bateu ? '<span style="color:#2e7d32">Saipos igual</span>'
              : Math.abs(sobra) >= TOL_SALDO
                ? '<span style="color:#c8102e">Saipos ' + rs(sd.saldo_saipos)
                  + ', R$ ' + rs(Math.abs(sobra)) + ' sem explicação</span>'
-               : '<span style="opacity:.7">Saipos ' + rs(sd.saldo_saipos)
-                 + ', diferença toda explicada</span>');
+               : '<span style="color:#2e7d32">conferido</span>');
       }
     }
     const td = 'style="text-align:left;font-size:12px"';
@@ -4556,7 +4596,14 @@ function renderConcbanco() {
       'font-weight:normal">atualizar</button>' +
       '<button id="concbRecado" style="font-size:11px;padding:3px 10px;cursor:pointer;' +
       'border:1px solid #8a887e;background:transparent;color:inherit;border-radius:4px;' +
-      'font-weight:normal">mandar uma regra</button></div>' +
+      'font-weight:normal">mandar uma regra</button>' +
+      // Enviar o OFX pela tela. O painel nao grava em disco: ele manda o TEXTO do
+      // arquivo para o banco e a rotina daqui o escreve na pasta do Drive, no
+      // mesmo lugar em que ela salvaria a mao. Um so caminho de importacao.
+      '<input type="file" id="concbArquivo" accept=".ofx" multiple style="display:none">' +
+      '<button id="concbEnviarOfx" style="font-size:11px;padding:3px 10px;cursor:pointer;' +
+      'border:1px solid #8a887e;background:transparent;color:inherit;border-radius:4px;' +
+      'font-weight:normal">enviar extrato (OFX)</button></div>' +
     '<div class="contexto">' + resumo + '</div>' +
     '<div id="tabelaConcbOntem"><table style="width:100%">' +
       '<colgroup><col style="width:34px"><col style="width:130px"><col style="width:110px">' +
@@ -4585,6 +4632,12 @@ function renderConcbanco() {
     concbEnsinar(b.dataset)));
   const btRec = document.getElementById('concbRecado');
   if (btRec) btRec.addEventListener('click', () => concbRecado());
+  const btOfx = document.getElementById('concbEnviarOfx');
+  const inpOfx = document.getElementById('concbArquivo');
+  if (btOfx && inpOfx) {
+    btOfx.addEventListener('click', () => inpOfx.click());
+    inpOfx.addEventListener('change', () => concbEnviarOfx(inpOfx, btOfx));
+  }
   alvo.querySelectorAll('.concb-todos').forEach(cb => cb.addEventListener('change', () => {
     const tab = document.getElementById(cb.dataset.alvo);
     if (tab) tab.querySelectorAll('.concb-check').forEach(x => { x.checked = cb.checked; });
