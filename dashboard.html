@@ -4320,6 +4320,9 @@ function renderConcbanco() {
       saldoTitulo = 'banco ' + rs(sd.saldo_banco) + ' · Saipos ' + rs(sd.saldo_saipos)
         + ' · diferença ' + rs(dif) + ' · na fila ' + rs(sd.explicado_pela_fila)
         + ' · outra data ' + rs(sd.lancado_em_outra_data)
+        // varredura = aplicacao/resgate automatico que a casa nao lanca (Contamax)
+        + (Math.abs(n(sd.varredura_do_banco)) >= TOL_SALDO
+            ? ' · varredura do banco ' + rs(sd.varredura_do_banco) : '')
         + ' · sem explicação ' + rs(sd.sem_explicacao);
       if (semExtratoDe) {
         // Extrato parado não é diferença: é falta de dado, e não se resolve
