@@ -205,13 +205,11 @@
   div[id^="tabela"] tr.liq td:last-child { border-right:2px solid #ee8a3c; }
 
   /* modulo Engenharia de cardapio (19/08/2026) */
-  #tabelaEngcard, #tabelaEngcardCombo, #tabelaEngcardVaza { overflow-x:auto; max-width:100%; }
-  #tabelaEngcardCombo table, #tabelaEngcardVaza table { border-collapse:collapse; width:100%; font-size:12.5px; }
-  #tabelaEngcardCombo th, #tabelaEngcardCombo td, #tabelaEngcardVaza th, #tabelaEngcardVaza td {
+  #tabelaEngcard, #tabelaEngcardCombo { overflow-x:auto; max-width:100%; }
+  #tabelaEngcardCombo table { border-collapse:collapse; width:100%; font-size:12.5px; }
+  #tabelaEngcardCombo th, #tabelaEngcardCombo td {
     border:1px solid #34332f; padding:6px 10px; text-align:right; white-space:nowrap; }
-  #tabelaEngcardCombo th:first-child, #tabelaEngcardCombo td:first-child,
-  #tabelaEngcardVaza th:first-child, #tabelaEngcardVaza td:first-child,
-  #tabelaEngcardVaza th:nth-child(2), #tabelaEngcardVaza td:nth-child(2) { text-align:left; white-space:normal; }
+  #tabelaEngcardCombo th:first-child, #tabelaEngcardCombo td:first-child { text-align:left; white-space:normal; }
   #tabelaEngcard table { border-collapse:collapse; width:100%; font-size:12.5px; }
   #tabelaEngcard th, #tabelaEngcard td { border:1px solid #34332f; padding:6px 10px; text-align:right; white-space:nowrap; }
   #tabelaEngcard th:first-child, #tabelaEngcard td:first-child { text-align:left; white-space:normal; }
@@ -4081,6 +4079,48 @@ async function concbDesmarcar(conta, fitid) {
   await entrarConcbanco();
 }
 
+// O MEMO do Itau empilha tres coisas: o tipo da operacao, o historico curto do
+// formato antigo (nome cortado em 13 letras colado na data) e o nome completo com
+// CPF. Ex.: "PIX RECEBIDO PIX TRANSF LEONARD16/08 LEONARDO ALMEIDA DE OLIVEIRA
+// 064.607.109-29". Ler fiel esta certo — guardamos assim —, mas na tela isso vira
+// ruido e o corte de 54 caracteres ainda cortava no meio do nome.
+// Aqui e SO exibicao: o memo cru continua intacto no banco.
+function memoLimpo(memo) {
+  let s = String(memo || '')
+    .replace(/\s*\d{3}\.\d{3}\.\d{3}-\d{2}\s*$/, '')          // CPF no fim
+    .replace(/\s*\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}\s*$/, '')  // CNPJ no fim
+    .replace(/\S*\d{2}\/\d{2}(?=\s|$)/g, ' ')                  // "LEONARD16/08"
+    .replace(/\s+/g, ' ').trim();
+  // Tira o trecho truncado quando ele e o comeco do que vem logo depois:
+  // "MARCOS AUGUS MARCOS AUGUSTO BOVING" -> "MARCOS AUGUSTO BOVING".
+  const w = s.split(' ');
+  for (let i = 0; i < w.length; i++) {
+    for (let k = Math.min(4, Math.floor((w.length - i) / 2)); k >= 1; k--) {
+      const a = w.slice(i, i + k), b = w.slice(i + k, i + 2 * k);
+      if (a.length === k && b.length === k && a.every((x, j) => b[j].startsWith(x))) {
+        w.splice(i, k);
+        i--;
+        break;
+      }
+    }
+  }
+  // O banco ainda empilha dois rotulos de operacao ("PIX RECEBIDO PIX TRANSF").
+  // Como a tela ja separa Entradas de Saidas, SAIDA/ENTRADA nao acrescentam nada;
+  // do resto do cabecalho ficam 2 palavras, e o que importa — QUEM — vem depois.
+  const OP = ['SAIDA', 'SAÍDA', 'ENTRADA', 'PIX', 'QR', 'QRS', 'CODE', 'TRANSF',
+              'RECEBIDO', 'ENVIADO', 'BOLETO', 'PAGO', 'RECEBIMENTO', 'RECEBIMENTOS',
+              'PAGAMENTO', 'PAGAMENTOS', 'TED', 'DOC', 'SISPAG', 'DA'];
+  let i = 0;
+  while (i < w.length && OP.includes(w[i].toUpperCase())) i++;
+  const tipo = w.slice(0, i).filter(x => !['SAIDA', 'SAÍDA', 'ENTRADA'].includes(x.toUpperCase()));
+  const quem = w.slice(i).join(' ');
+  if (!quem) return w.join(' ');
+  const rotulo = tipo.slice(0, 2).join(' ').toUpperCase()
+    .replace(/^DA$/, 'DÉBITO AUTOM.')          // sigla do extrato do Itaú
+    .replace(/^RECEBIMENTOS? SISPAG$/, 'SISPAG');
+  return (rotulo ? rotulo + ' — ' : '') + quem;
+}
+
 function renderConcbanco() {
   const alvo = document.getElementById('view-concbanco');
   if (!alvo || !CONCB) return;
@@ -4190,7 +4230,7 @@ function renderConcbanco() {
       lista.slice(0, 30).map(p =>
         '<tr><td>' + ddmm(p.data) + '</td>' +
         '<td style="text-align:right">' + rs(p.valor) + '</td>' +
-        '<td>' + (p.memo || '').slice(0, 54) + '</td>' +
+        '<td>' + memoLimpo(p.memo).slice(0, 52) + '</td>' +
         '<td style="text-align:center">' + n(p.dias) + 'd</td>' +
         '<td style="text-align:center">' + botoes(p) + '</td></tr>').join('') +
       '</tbody></table></div>' +
@@ -4561,7 +4601,6 @@ let ENGCARD = null;
 let ENGCARD_DIAS = 30;
 let ENGCARD_GRUPO = null;   // filtro por grupo ao clicar no card
 let ENGCARD_COMBO = null;   // custo medio por combo (para PRECIFICAR, nao para o CMV)
-let ENGCARD_VAR = null;     // a variacao cobrada cobre a diferenca de custo?
 
 async function entrarEngcard() {
   const alvo = document.getElementById('view-engcard');
@@ -4569,13 +4608,12 @@ async function entrarEngcard() {
   if (ENGCARD === null) {
     alvo.innerHTML = '<div class="contexto">Carregando a engenharia de cardápio...</div>';
     const de = new Date(Date.now() - 91 * 864e5).toISOString().slice(0, 10);
-    const [itens, combos, variacao] = await Promise.all([
+    const [itens, combos] = await Promise.all([
       consultarTudo('mv_engenharia_cardapio?select=shift_date,item,unidades,receita,custo,margem' +
                     '&unidade=eq.AGUA%20VERDE&shift_date=gte.' + de),
       consultarTudo('mv_combo_custo?select=*&unidade=eq.AGUA%20VERDE&shift_date=gte.' + de),
-      consultarTudo('mv_combo_variacao?select=*&unidade=eq.AGUA%20VERDE'),
     ]);
-    ENGCARD = itens; ENGCARD_COMBO = combos; ENGCARD_VAR = variacao;
+    ENGCARD = itens; ENGCARD_COMBO = combos;
   }
   renderModuloEngcard();
 }
@@ -4668,19 +4706,14 @@ function renderModuloEngcard() {
       }).join('');
     if (!linhas) return '';
 
-    // opcao que custa mais que a base e nao cobra a diferenca
-    const vaza = (ENGCARD_VAR || []).filter(r => nu(r.sobra) < -0.01)
-      .sort((a,b) => nu(b.perda_no_periodo) - nu(a.perda_no_periodo)).slice(0, 12);
-    const totalVaza = (ENGCARD_VAR || []).filter(r => nu(r.sobra) < -0.01)
-      .reduce((s,r) => s + nu(r.perda_no_periodo), 0);
-    const linhasVaza = vaza.map(r => `<tr>
-        <td>${esc(r.combo)}</td><td>${esc(r.escolha)}</td>
-        <td>${nu(r.vezes).toLocaleString('pt-BR')}</td>
-        <td>R$ ${fmt(nu(r.custa_a_mais))}</td>
-        <td>R$ ${fmt(nu(r.variacao))}</td>
-        <td style="color:#ff6b6b;">R$ ${fmt(-nu(r.sobra))}</td>
-        <td>R$ ${fmt(nu(r.perda_no_periodo))}</td></tr>`).join('');
-
+    // A tabela "a variação cobre a diferença de custo?" foi RETIRADA em 19/08,
+    // horas depois de entrar. Motivo (visto no cardápio do portal): o combo tem
+    // DOIS níveis — "Produtos do combo" (os lanches) e "Personalizações do
+    // pedido" (acompanhamento, molho, bebida, sobremesa). A API do Saipos manda
+    // o item escolhido mas NÃO o grupo a que ele responde, então a tabela
+    // comparava lanche com molho e apontava diferenças que não existem. Número
+    // que leva a mexer no preço errado é pior que número nenhum.
+    // Volta quando mapearmos os grupos de cada combo no portal.
     return `
       <div class="section-label">Combos — quanto custa em média</div>
       <div class="caption-label" style="text-align:center;">
@@ -4691,19 +4724,7 @@ function renderModuloEngcard() {
       <div id="tabelaEngcardCombo"><table>
         <thead><tr><th>Combo</th><th>Vendas</th><th>Preço médio</th><th>Custo médio</th>
           <th>Faixa de custo</th><th>Margem média</th><th>%</th></tr></thead>
-        <tbody>${linhas}</tbody></table></div>
-      ${linhasVaza ? `
-      <div class="section-label">A variação cobrada cobre a diferença de custo?</div>
-      <div class="caption-label" style="text-align:center;">
-        No iFood o preço cheio do combo é o da <b>combinação mais barata</b>, e o cliente paga uma
-        variação ao escolher item mais caro. Aqui estão as opções que <b>custam mais e não cobram
-        a diferença</b> — nos últimos 90 dias somam <b>R$ ${fmt(totalVaza)}</b> que o cardápio
-        deixou de cobrar. Não é prejuízo (a margem do combo segue positiva): é preço configurado
-        abaixo do que o item pede.</div>
-      <div id="tabelaEngcardVaza"><table>
-        <thead><tr><th>Combo</th><th>Opção</th><th>Vezes</th><th>Custa a mais</th>
-          <th>Cobra</th><th>Falta cobrar</th><th>Em 90 dias</th></tr></thead>
-        <tbody>${linhasVaza}</tbody></table></div>` : ''}`;
+        <tbody>${linhas}</tbody></table></div>`;
   }
 
   const custoCortesia = cortesia.reduce((s,a) => s + a.cus, 0);
