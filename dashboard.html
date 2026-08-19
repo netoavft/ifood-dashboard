@@ -4221,13 +4221,22 @@ function renderConcbanco() {
   // duas tarefas diferentes: entrada e conferir recebimento, saida e conferir
   // pagamento, e misturar as duas na mesma lista faz a pessoa trocar de contexto
   // a cada linha.
-  const tabela = (conta, lado, lista) => {
+  // Duas tarefas diferentes, nao uma (regra do dono, 19/08): quando a previsao ja
+  // existe no Saipos so falta CONCILIAR — ninguem escreve nada. Quando nao existe,
+  // e preciso LANCAR, que e decisao humana. Misturar as duas na mesma lista faz a
+  // pessoa trocar de raciocinio linha a linha; e a segunda lista, a de lancar, e
+  // onde mora a proxima automacao.
+  const tabela = (conta, lado, lista, temProv) => {
+    lista = lista.filter(p => Boolean(p.pista) === temProv);
     if (!lista.length) return '';
     const total = lista.reduce((s, x) => s + Math.abs(n(x.valor)), 0);
     return '<div class="section-label" style="font-size:12px;opacity:.9">'
-      + (lado === 'ent' ? '↓ Entradas' : '↑ Saídas') + ' — ' + lista.length
+      + (lado === 'ent' ? '↓ Entradas' : '↑ Saídas') + ' · '
+      + (temProv ? '<b>só conciliar</b> (a previsão já está no Saipos)'
+                 : '<b>precisa lançar</b> (não achei previsão)') + ' — ' + lista.length
       + ' linha' + (lista.length === 1 ? '' : 's') + ', R$ ' + rs(total) + '</div>' +
-      '<div id="tabelaConcbFila' + conta.replace(/[^A-Za-z]/g, '') + lado + '"><table><thead><tr>' +
+      '<div id="tabelaConcbFila' + conta.replace(/[^A-Za-z]/g, '') + lado + (temProv ? 'P' : 'S')
+      + '"><table><thead><tr>' +
       '<th>Dia</th><th>Valor</th><th>Quem</th><th>O que é</th><th>Espera</th><th>Confere</th>' +
       '</tr></thead><tbody>' +
       // Duas colunas em vez de uma. "Quem" e o nome ja limpo do verbo, do nome
@@ -4239,9 +4248,9 @@ function renderConcbanco() {
         '<tr><td>' + ddmm(p.data) + '</td>' +
         '<td style="text-align:right">' + rs(p.valor) + '</td>' +
         '<td>' + esc((p.nome || memoLimpo(p.memo)).slice(0, 40)) + '</td>' +
-        '<td style="opacity:.85">' + (p.pista
-            ? esc(String(p.pista).slice(0, 60))
-            : '<span style="opacity:.45">não achei no Saipos</span>') + '</td>' +
+        // sem pista a celula fica vazia de proposito: o titulo do bloco ja disse
+        // que ali ninguem achou previsao, e repetir em toda linha e ruido
+        '<td style="opacity:.85">' + (p.pista ? esc(String(p.pista).slice(0, 60)) : '—') + '</td>' +
         '<td style="text-align:center">' + n(p.dias) + 'd</td>' +
         '<td style="text-align:center">' + botoes(p) + '</td></tr>').join('') +
       '</tbody></table></div>' +
@@ -4252,7 +4261,8 @@ function renderConcbanco() {
     const ent = lista.filter(p => n(p.valor) > 0);
     const sai = lista.filter(p => n(p.valor) < 0);
     return '<div class="section-label" style="font-size:13px">' + conta + '</div>' +
-      tabela(conta, 'ent', ent) + tabela(conta, 'sai', sai);
+      tabela(conta, 'ent', ent, true) + tabela(conta, 'ent', ent, false) +
+      tabela(conta, 'sai', sai, true) + tabela(conta, 'sai', sai, false);
   }).join('');
 
   const trava = naoConf.length
