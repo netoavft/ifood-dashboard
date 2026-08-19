@@ -4139,6 +4139,8 @@ function renderConcbanco() {
   const n = (v) => Number(v) || 0;
   const rs = (v) => n(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const ddmm = (d) => d ? d.slice(8, 10) + '/' + d.slice(5, 7) : '—';
+  const esc = (s) => String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
 
   if (!placar.length) {
     alvo.innerHTML = seletorLojaFin() +
@@ -4226,12 +4228,20 @@ function renderConcbanco() {
       + (lado === 'ent' ? '↓ Entradas' : '↑ Saídas') + ' — ' + lista.length
       + ' linha' + (lista.length === 1 ? '' : 's') + ', R$ ' + rs(total) + '</div>' +
       '<div id="tabelaConcbFila' + conta.replace(/[^A-Za-z]/g, '') + lado + '"><table><thead><tr>' +
-      '<th>Dia</th><th>Valor</th><th>O que o banco diz</th><th>Espera</th><th>Confere</th>' +
+      '<th>Dia</th><th>Valor</th><th>Quem</th><th>O que é</th><th>Espera</th><th>Confere</th>' +
       '</tr></thead><tbody>' +
+      // Duas colunas em vez de uma. "Quem" e o nome ja limpo do verbo, do nome
+      // repetido e do CNPJ que o Itau enfia no memo. "O que e" e a conta a pagar
+      // do Saipos que corresponde aquela linha — quando ela existe, a pessoa nao
+      // precisa descobrir nada: e so conciliar. Em 17/08/2026, 13 das 30 linhas
+      // da ITAU AV ja vinham com a previsao identificada.
       lista.slice(0, 30).map(p =>
         '<tr><td>' + ddmm(p.data) + '</td>' +
         '<td style="text-align:right">' + rs(p.valor) + '</td>' +
-        '<td>' + memoLimpo(p.memo).slice(0, 52) + '</td>' +
+        '<td>' + esc((p.nome || memoLimpo(p.memo)).slice(0, 40)) + '</td>' +
+        '<td style="opacity:.85">' + (p.pista
+            ? esc(String(p.pista).slice(0, 60))
+            : '<span style="opacity:.45">não achei no Saipos</span>') + '</td>' +
         '<td style="text-align:center">' + n(p.dias) + 'd</td>' +
         '<td style="text-align:center">' + botoes(p) + '</td></tr>').join('') +
       '</tbody></table></div>' +
