@@ -4078,13 +4078,16 @@ async function concbDesmarcar(conta, fitid) {
 function renderConcbanco() {
   const alvo = document.getElementById('view-concbanco');
   if (!alvo || !CONCB) return;
+
+  // A tela responde UMA pergunta: ontem fechou? Tudo que nao serve para agir de
+  // manha foi para o fim, recolhido. A versao anterior expunha o raciocinio do
+  // comparador (linhas casadas, agregacao, ancora de saldo) e o dono devolveu:
+  // "tem que ser muito facil de entender, sem explicacao tecnica, pratico para
+  // o dia a dia". Quem concilia precisa saber o que fazer, nao como eu penso.
   const cru = CONCB;
-  // A conciliacao e feita LOJA POR LOJA e CONTA A CONTA (dono, 19/08). Juntar as
-  // 6 contas das 3 lojas numa grade so deixou a tela ilegivel. Usa o mesmo
-  // seletor da DRE e do Fluxo, entao a navegacao do financeiro e uma so.
   const daLoja = (arr) => (arr || []).filter(r => LOJA_FIN === 'REDE' || r.unidade === LOJA_FIN);
   const placar = daLoja(cru.placar), pend = daLoja(cru.pend), saldoDia = daLoja(cru.saldoDia);
-  const marcadas = cru.marcadas, naoConf = cru.naoConf;
+  const naoConf = daLoja(cru.naoConf);
   const quem = concbQuem();
   const n = (v) => Number(v) || 0;
   const rs = (v) => n(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -4092,273 +4095,131 @@ function renderConcbanco() {
 
   if (!placar.length) {
     alvo.innerHTML = seletorLojaFin() +
-      '<div class="contexto">Nada conciliado para <b>' + nomeLojaFin() + '</b> no período. ' +
-      'A rotina <b>conciliação bancária</b> roda todo dia às 08:40 e alimenta esta tela.</div>';
+      '<div class="contexto">Sem conciliação para <b>' + nomeLojaFin() + '</b> ainda. ' +
+      'A rotina roda todo dia às 08:40 e alimenta esta tela.</div>';
     return;
   }
 
-  // --- por conta: dinheiro primeiro, linha depois ---
-  // O corte por dia liquidado e o que impede esta tela de mentir. Os ultimos
-  // dias SEMPRE parecem ruins (o Saipos ainda nao foi lancado), entao a conta so
-  // e julgada pelos dias que ja tiveram tempo de fechar.
-  const hoje = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
-  const corte = new Date(Date.now() - (new Date().getTimezoneOffset() + CONCB_TOLERANCIA_DIAS * 1440) * 60000)
+  // ---- ONTEM, conta por conta ----
+  const ontem = new Date(Date.now() - (new Date().getTimezoneOffset() + 1440) * 60000)
     .toISOString().slice(0, 10);
   const contas = {};
   placar.forEach(r => {
-    const c = contas[r.conta] || (contas[r.conta] = {
-      mov: 0, faltaEnt: 0, faltaSai: 0, linhas: 0, residuo: 0 });
-    c.mov += Math.abs(n(r.banco_entrou)) + Math.abs(n(r.banco_saiu));
-    c.linhas += n(r.linhas_banco);
-    c.residuo += n(r.linhas_residuo);
-    if (r.data <= corte) {           // so dia liquidado entra no julgamento
-      c.faltaEnt += n(r.falta_entrada);
-      c.faltaSai += n(r.falta_saida);
+    const c = contas[r.conta] || (contas[r.conta] = { ontemMov: 0, ontemGap: 0, temOntem: false });
+    if (r.data === ontem) {
+      c.temOntem = true;
+      c.ontemMov += Math.abs(n(r.banco_entrou)) + Math.abs(n(r.banco_saiu));
+      c.ontemGap = Math.max(c.ontemGap, Math.abs(n(r.falta_entrada)), Math.abs(n(r.falta_saida)));
     }
-  });
-  // Uma conta esta "em dia" quando o DINHEIRO fecha, mesmo com muitas linhas sem
-  // par. Sem isso a tela contradiz a propria tese: a ITAU SB chegou a aparecer com
-  // 37 linhas "paradas" e R$ 390 de diferenca de verdade.
-  // Zero e zero. A conta so esta em dia se o dinheiro fecha no centavo nos dias
-  // ja vencidos pela regra D-1.
-  Object.values(contas).forEach(c => {
-    c.gap = Math.max(Math.abs(c.faltaEnt), Math.abs(c.faltaSai));
-    c.emDia = c.gap < CONCB_TOL_CENTAVOS;
   });
 
   const abertas = pend.filter(p => p.classe === 'ABERTA' && n(p.dias) > CONCB_TOLERANCIA_DIAS);
   const ruido = pend.filter(p => p.classe === 'AGREGACAO');
-  const novas = pend.filter(p => p.classe === 'ABERTA' && n(p.dias) <= CONCB_TOLERANCIA_DIAS);
   const porConta = {};
-  abertas.forEach(p => {
-    const o = porConta[p.conta] || (porConta[p.conta] = { n: 0, valor: 0, maisVelha: 0 });
-    o.n++; o.valor += n(p.valor); o.maisVelha = Math.max(o.maisVelha, n(p.dias));
-  });
+  abertas.forEach(p => (porConta[p.conta] || (porConta[p.conta] = [])).push(p));
 
-  // O dia de ONTEM em separado: e nele que a regra manda bater no zero.
-  const ontem = new Date(Date.now() - (new Date().getTimezoneOffset() + 1440) * 60000)
-    .toISOString().slice(0, 10);
-  const dOntem = {};
-  placar.filter(r => r.data === ontem).forEach(r => {
-    const o = dOntem[r.conta] || (dOntem[r.conta] = { ent: 0, sai: 0, mov: 0 });
-    o.ent += n(r.falta_entrada); o.sai += n(r.falta_saida);
-    o.mov += Math.abs(n(r.banco_entrou)) + Math.abs(n(r.banco_saiu));
-  });
-  Object.values(dOntem).forEach(o => { o.gap = Math.max(Math.abs(o.ent), Math.abs(o.sai)); });
-  const contasOntem = Object.entries(dOntem).filter(([, o]) => o.mov > 0);
-  const fecharamOntem = contasOntem.filter(([, o]) => o.gap < CONCB_TOL_CENTAVOS).length;
-  const difOntem = contasOntem.reduce((s, [, o]) => s + o.gap, 0);
+  const nomes = Object.keys(contas).sort();
+  const fecharam = nomes.filter(c => contas[c].temOntem && contas[c].ontemGap < CONCB_TOL_CENTAVOS);
+  const naoFecharam = nomes.filter(c => contas[c].temOntem && contas[c].ontemGap >= CONCB_TOL_CENTAVOS);
+  const semMov = nomes.filter(c => !contas[c].temOntem);
 
-  const contasComTrabalho = Object.values(contas).filter(c => !c.emDia).length;
-  const valorAberto = Object.values(contas).filter(c => !c.emDia).reduce((s, c) => s + c.gap, 0);
-  const maisVelha = abertas.reduce((m, p) => Math.max(m, n(p.dias)), 0);
-  const dias = [...new Set(placar.map(r => r.data))].sort();
-  const atualizado = placar.reduce((m, r) => (r.atualizado_em || '') > m ? r.atualizado_em : m, '');
+  const cartao = (conta) => {
+    const c = contas[conta];
+    const fechou = c.temOntem && c.ontemGap < CONCB_TOL_CENTAVOS;
+    const cor = !c.temOntem ? '#a5a49a' : fechou ? '#2e7d32' : '#c8102e';
+    const marca = !c.temOntem ? '—' : fechou ? '✓' : '✗';
+    const txt = !c.temOntem ? 'não movimentou'
+      : fechou ? 'fechou certinho'
+      : 'faltam R$ ' + rs(c.ontemGap);
+    return '<tr><td style="font-size:20px;color:' + cor + ';text-align:center;width:40px">' + marca + '</td>'
+      + '<td><b>' + conta + '</b></td>'
+      + '<td style="color:' + cor + '">' + txt + '</td>'
+      + '<td style="text-align:right;opacity:.7">' + (c.temOntem ? rs(c.ontemMov) + ' movimentados' : '') + '</td></tr>';
+  };
 
-  const cards = '<div class="cards">' +
-    '<div class="card ' + (contasOntem.length && fecharamOntem === contasOntem.length ? 'pos' : 'neg') + '">' +
-      '<div class="card-lbl">Ontem fechou no zero?</div>' +
-      '<div class="card-val">' + fecharamOntem + ' de ' + contasOntem.length + '</div>' +
-      '<div class="card-sub">' + (contasOntem.length
-        ? (difOntem < CONCB_TOL_CENTAVOS ? 'todas as contas que movimentaram bateram'
-           : 'faltam R$ ' + rs(difOntem) + ' para fechar ' + ddmm(ontem))
-        : 'nenhuma conta movimentou ontem') + '</div></div>' +
-    '<div class="card ' + (contasComTrabalho ? 'neg' : 'pos') + '">' +
-      '<div class="card-lbl">Contas que ainda não fecham</div>' +
-      '<div class="card-val">' + contasComTrabalho + ' de ' + Object.keys(contas).length + '</div>' +
-      '<div class="card-sub">acumulado, R$ ' + rs(valorAberto) + ' fora do zero</div></div>' +
-    '<div class="card ' + (maisVelha > 7 ? 'neg' : 'neutral') + '"><div class="card-lbl">Espera mais longa</div>' +
-      '<div class="card-val">' + maisVelha + ' dia' + (maisVelha === 1 ? '' : 's') + '</div>' +
-      '<div class="card-sub">passando de 7 dias, deixa de ser atraso e vira esquecimento</div></div>' +
-    '<div class="card neutral"><div class="card-lbl">Já explicado sozinho</div>' +
-      '<div class="card-val">' + ruido.length + '</div>' +
-      '<div class="card-sub">linhas que o sistema reconheceu como repasse ou lote</div></div>' +
-    '</div>';
+  const resumo = naoFecharam.length
+    ? '<b style="color:#c8102e">' + naoFecharam.length
+      + (naoFecharam.length === 1 ? ' conta não fechou' : ' contas não fecharam')
+      + ' ontem.</b> Confira as linhas abaixo.'
+    : '<b style="color:#2e7d32">Tudo certo ontem.</b> Nada a fazer nesta loja.';
 
-  const linhasContas = Object.entries(contas).sort((a, b) => b[1].mov - a[1].mov).map(([nome, c]) => {
-    const p = porConta[nome];
-    const o = dOntem[nome];
-    const ontemTxt = !o || !o.mov ? '<span style="opacity:.5">sem movimento</span>'
-      : o.gap < CONCB_TOL_CENTAVOS ? '<span style="color:#2e7d32">fechou</span>'
-      : '<b style="color:#c8102e">R$ ' + rs(o.gap) + '</b>';
-    const situacao = c.emDia
-      ? '<span style="color:#2e7d32">zerada</span>'
-      : '<b>fora por R$ ' + rs(c.gap) + '</b>' + (p ? ', a mais velha tem <b>' + p.maisVelha + 'd</b>' : '');
-    return '<tr><td>' + nome + '</td>' +
-      '<td style="text-align:right">' + rs(c.mov) + '</td>' +
-      '<td style="text-align:right">' + rs(c.faltaEnt) + '</td>' +
-      '<td style="text-align:right">' + rs(c.faltaSai) + '</td>' +
-      '<td style="text-align:right">' + c.residuo + ' de ' + c.linhas + '</td>' +
-      '<td style="text-align:center">' + ontemTxt + '</td>' +
-      '<td style="text-align:center">' + situacao + '</td></tr>';
-  }).join('');
+  // ---- o que conferir, uma conta de cada vez ----
+  const botoes = (p) => '<button class="concb-marca" data-conta="' + String(p.conta).replace(/"/g, '&quot;')
+    + '" data-fitid="' + String(p.fitid).replace(/"/g, '&quot;')
+    + '" data-tipo="LANCEI" style="font-size:11px;padding:3px 8px;margin-right:4px;cursor:pointer">lancei</button>'
+    + '<button class="concb-marca" data-conta="' + String(p.conta).replace(/"/g, '&quot;')
+    + '" data-fitid="' + String(p.fitid).replace(/"/g, '&quot;')
+    + '" data-tipo="JA_ESTAVA" style="font-size:11px;padding:3px 8px;cursor:pointer">já estava</button>';
 
-  // Sem onclick inline de proposito: conta e memo vem do banco e podem trazer
-  // aspas, que quebram o atributo. Os dados vao em data-* e um unico listener
-  // delegado cuida do clique (ver o final desta funcao).
-  const ATR = (p) => 'data-conta="' + String(p.conta).replace(/"/g, '&quot;')
-    + '" data-fitid="' + String(p.fitid).replace(/"/g, '&quot;') + '"';
-  const BTN = 'font-size:11px;padding:3px 7px;cursor:pointer';
-  const botoes = (p) => quem
-    ? '<button class="concb-marca" ' + ATR(p) + ' data-tipo="LANCEI" style="' + BTN + ';margin-right:4px">lancei agora</button>'
-      + '<button class="concb-marca" ' + ATR(p) + ' data-tipo="JA_ESTAVA" style="' + BTN + '">já estava lá</button>'
-    : '<span style="opacity:.5;font-size:11px">entre para marcar</span>';
-
-  // Uma tabela POR CONTA, nao uma lista com tudo junto: quem concilia trabalha
-  // uma conta de cada vez, e misturar obriga a pessoa a filtrar com o olho.
-  const filaPorConta = {};
-  abertas.forEach(p => (filaPorConta[p.conta] || (filaPorConta[p.conta] = [])).push(p));
-  const filaLinhas = (lista) => lista.slice(0, 40).map(p =>
-    '<tr><td>' + ddmm(p.data) + '</td>' +
-    '<td style="text-align:right">' + rs(p.valor) + '</td>' +
-    '<td>' + (p.memo || '').slice(0, 54) + '</td>' +
-    '<td style="text-align:center"><b>' + n(p.dias) + 'd</b></td>' +
-    '<td style="text-align:center">' + botoes(p) + '</td></tr>').join('');
-
-  const periodo = dias.length ? ' Período: ' + ddmm(dias[0]) + ' a ' + ddmm(dias[dias.length - 1]) + '.' : '';
-  const quando = atualizado ? ' Conferido em ' + ddmm(atualizado.slice(0, 10)) + '.' : '';
-
-  const blocoFila = Object.entries(filaPorConta).sort().map(([conta, lista]) =>
-    '<div class="section-label" style="font-size:12px;opacity:.85">' + conta + ' — ' +
-      lista.length + ' linha' + (lista.length === 1 ? '' : 's') +
-      ', ' + rs(lista.reduce((s, x) => s + Math.abs(n(x.valor)), 0)) + '</div>' +
+  const blocosConferir = Object.entries(porConta).sort().map(([conta, lista]) =>
+    '<div class="section-label" style="font-size:13px">' + conta + ' — ' + lista.length
+      + ' linha' + (lista.length === 1 ? '' : 's') + ' para conferir</div>' +
     '<div id="tabelaConcbFila' + conta.replace(/[^A-Za-z]/g, '') + '"><table><thead><tr>' +
-    '<th>Dia</th><th>Valor</th><th>O que o banco diz</th><th>Há quanto tempo</th>' +
-    '<th>Conferi</th></tr></thead><tbody>' + filaLinhas(lista) + '</tbody></table></div>' +
-    (lista.length > 40 ? '<div class="contexto">Mostrando as 40 mais antigas de ' + lista.length + '.</div>' : '')
+    '<th>Dia</th><th>Valor</th><th>O que o banco diz</th><th>Espera</th><th>Confere</th>' +
+    '</tr></thead><tbody>' +
+    lista.slice(0, 40).map(p =>
+      '<tr><td>' + ddmm(p.data) + '</td>' +
+      '<td style="text-align:right">' + rs(p.valor) + '</td>' +
+      '<td>' + (p.memo || '').slice(0, 54) + '</td>' +
+      '<td style="text-align:center">' + n(p.dias) + 'd</td>' +
+      '<td style="text-align:center">' + botoes(p) + '</td></tr>').join('') +
+    '</tbody></table></div>' +
+    (lista.length > 40 ? '<div class="contexto">Mostrando 40 de ' + lista.length + '.</div>' : '')
   ).join('');
 
-  // ATENCAO ao mexer neste texto: a conciliacao JA E FEITA A MAO dentro do Saipos e
-  // fecha no centavo (dono, 18/08/2026). Entao esta lista NAO e trabalho a fazer —
-  // e o que este comparador ainda nao sabe parear. Chamar de "falta lancar" faria
-  // alguem digitar de novo o que ja esta la, que e a duplicidade que o modulo inteiro
-  // existe para evitar.
-  const textoFila = abertas.length
-    ? abertas.length + ' linha' + (abertas.length === 1 ? '' : 's') + ' do extrato que este painel ainda não '
-      + 'conseguiu casar com o Saipos, há mais de ' + CONCB_TOLERANCIA_DIAS + ' dias. <b>Não digite a partir '
-      + 'desta lista.</b> A conciliação é feita à mão dentro do Saipos e fecha no centavo — o mais provável é '
-      + 'que já esteja lançado num formato que o comparador não reconhece. Cada linha aqui é candidata a virar '
-      + 'uma regra nova.'
-    : '<b>Tudo explicado.</b> Nenhuma linha do extrato ficou sem explicação há mais de ' + CONCB_TOLERANCIA_DIAS + ' dias.';
-  const textoNovas = novas.length
-    ? ' Outras ' + novas.length + ' são dos últimos dias e ainda estão no prazo normal de lançamento — não entram nesta lista.'
-    : '';
-
-  const blocoRuido = ruido.length
-    ? '<details style="margin-top:14px;"><summary style="cursor:pointer; font-weight:600;">' +
-      ruido.length + ' linhas que o sistema já explicou — por que não estão na lista acima</summary>' +
-      '<div class="contexto">Toda venda entra numa conta de adquirente (Rede, Alelo, Ticket, Pluxee, VR, Tuna) e ' +
-      'só depois é transferida para a conta corrente, já sem a taxa. O Saipos registra <b>uma</b> transferência; ' +
-      'o banco registra <b>várias</b> entradas. Não existe par linha a linha para achar — o par é do bloco. ' +
-      'O mesmo vale para pagamento em lote (SISPAG) e boleto que quita várias notas.</div>' +
-      Object.entries(ruido.reduce((m, p) => ((m[p.conta] = m[p.conta] || []).push(p), m), {}))
-        .sort().map(([conta, lista]) =>
-          '<div class="section-label" style="font-size:12px;opacity:.85">' + conta + ' — ' + lista.length + '</div>' +
-          '<div id="tabelaConcbRuido' + conta.replace(/[^A-Za-z]/g, '') + '"><table><thead><tr>' +
-          '<th>Dia</th><th>Valor</th><th>Quem está do outro lado</th></tr></thead><tbody>' +
-          lista.slice(0, 20).map(p => '<tr><td>' + ddmm(p.data) + '</td>' +
-            '<td style="text-align:right">' + rs(p.valor) + '</td><td>' + (p.contraparte || '') + '</td></tr>').join('') +
-          '</tbody></table></div>').join('') + '</details>'
-    : '';
-
-  // A trava: marcou "lancei" e o comparador continuou sem achar. Ou lancou com
-  // valor/data diferente, ou nao lancou. Aparece no topo porque e o unico item
-  // desta tela que exige alguem hoje.
-  const blocoTrava = (naoConf || []).length
-    ? '<div class="section-label">Confira: marcado como lançado, mas ainda não aparece</div>' +
-      '<div class="contexto">Alguém marcou estas linhas como lançadas e o comparador continuou sem ' +
-      'achar par depois disso. Provavelmente foi lançado com valor ou data diferente do extrato.</div>' +
+  const trava = naoConf.length
+    ? '<div class="section-label" style="color:#c8102e">Marcado como lançado, mas ainda não apareceu</div>' +
+      '<div class="contexto">Provavelmente foi lançado com valor ou data diferente do extrato.</div>' +
       '<div id="tabelaConcbTrava"><table><thead><tr><th>Dia</th><th>Conta</th><th>Valor</th>' +
-      '<th>O que o banco diz</th><th>Quem marcou</th><th>Há</th></tr></thead><tbody>' +
+      '<th>O que o banco diz</th><th>Quem marcou</th></tr></thead><tbody>' +
       naoConf.map(x => '<tr><td>' + ddmm(x.data) + '</td><td>' + x.conta + '</td>' +
-        '<td style="text-align:right">' + rs(x.valor) + '</td><td>' + (x.memo || '').slice(0, 46) + '</td>' +
-        '<td>' + (x.quem || '') + '</td><td style="text-align:center">' + n(x.dias_desde) + 'd</td></tr>').join('') +
-      '</tbody></table></div>'
+        '<td style="text-align:right">' + rs(x.valor) + '</td><td>' + (x.memo || '').slice(0, 44) + '</td>' +
+        '<td>' + (x.quem || '') + '</td></tr>').join('') + '</tbody></table></div>'
     : '';
 
-  // O achado que vale mais que o lancamento: linha que ja estava no Saipos e o
-  // comparador nao soube reconhecer. Cada uma e uma regra faltando.
-  const aprender = (marcadas || []).filter(m => m.tipo === 'JA_ESTAVA' && !m.observacao);
-  const blocoAprender = aprender.length
-    ? '<div class="section-label">Regras que faltam ao sistema</div>' +
-      '<div class="contexto">Estas linhas já estavam lançadas no Saipos e este comparador não soube ' +
-      'reconhecer. <b>Cada uma é uma regra que falta.</b> Quando alguém explicar o que são, elas viram ' +
-      'código e o mesmo caso deixa de aparecer.</div>' +
-      '<div id="tabelaConcbAprender"><table><thead><tr><th>Conta</th><th>Marcou</th><th>Quem</th>' +
-      (quem ? '<th></th>' : '') + '</tr></thead><tbody>' +
-      aprender.slice(0, 25).map(m => '<tr><td>' + m.conta + '</td>' +
-        '<td>' + ddmm((m.criado_em || '').slice(0, 10)) + '</td><td>' + (m.quem || '') + '</td>' +
-        (quem ? '<td><button class="concb-desmarca" ' + ATR(m) +
-          ' style="font-size:11px;padding:2px 6px;cursor:pointer">desfazer</button></td>' : '') +
-        '</tr>').join('') + '</tbody></table></div>'
-    : '';
-
-  const avisoLogin = quem
-    ? '<div class="contexto">Você está como <b>' + quem + '</b>. O que você marcar fica registrado no seu nome.</div>'
-    : '<div class="contexto">Para marcar as linhas, entre com seu login no módulo <b>Reembolsos</b> — ' +
-      'é o mesmo acesso. Sem entrar, esta tela é só leitura.</div>';
-
-  // O TESTE DEFINITIVO: o banco carimba o saldo ao fim de cada dia no extrato, e
-  // a gente compara com o saldo que o Saipos diz. Diferenca zero = aquele dia
-  // fechou de verdade. Isso responde "em que dia parou de fechar" em vez de
-  // entregar um desvio acumulado sem origem.
-  const porContaSaldo = {};
-  (saldoDia || []).forEach(r => {
-    const o = porContaSaldo[r.conta] || (porContaSaldo[r.conta] = { dias: 0, ok: 0, ultima: null, primeiroFora: null });
+  // ---- o resto, recolhido: quem quiser auditar abre ----
+  const histSaldo = {};
+  saldoDia.forEach(r => {
+    const o = histSaldo[r.conta] || (histSaldo[r.conta] = { dias: 0, ok: 0, ultima: null });
     o.dias++;
     if (Math.abs(n(r.diferenca)) < CONCB_TOL_CENTAVOS) o.ok++;
-    else if (!o.primeiroFora || r.data < o.primeiroFora.data) o.primeiroFora = r;
     if (!o.ultima || r.data > o.ultima.data) o.ultima = r;
   });
-  const linhasSaldo = Object.entries(porContaSaldo).sort().map(([nome, o]) => {
-    const u = o.ultima || {};
-    const fechou = Math.abs(n(u.diferenca)) < CONCB_TOL_CENTAVOS;
-    return '<tr><td>' + nome + '</td>' +
-      '<td>' + o.ok + ' de ' + o.dias + '</td>' +
-      '<td>' + (o.primeiroFora ? ddmm(o.primeiroFora.data) : '<span style="color:#2e7d32">nunca</span>') + '</td>' +
-      '<td>' + ddmm(u.data) + '</td>' +
-      '<td>' + rs(u.saldo_banco) + '</td>' +
-      '<td>' + rs(u.saldo_saipos) + '</td>' +
-      '<td>' + (fechou ? '<span style="color:#2e7d32">0,00</span>' : '<b style="color:#c8102e">' + rs(u.diferenca) + '</b>') + '</td></tr>';
-  }).join('');
-  const blocoSaldo = linhasSaldo
-    ? '<div class="section-label">O saldo bate? (o teste que vale)</div>' +
-      '<div class="contexto">O extrato do banco carimba o saldo ao fim de cada dia. Aqui ele é comparado ' +
-      'com o saldo que o Saipos diz ter. <b>Diferença zero quer dizer que aquele dia fechou de verdade</b> — ' +
-      'é isso que garante que nada ficou por pagar e que o Fluxo Projetado parte de um número real. ' +
-      'A coluna "1º dia fora" diz onde a conta parou de fechar, em vez de mostrar um desvio acumulado ' +
-      'sem origem conhecida.</div>' +
-      '<div id="tabelaConcbSaldo"><table><thead><tr><th>Conta</th><th>Dias que fecharam</th>' +
-      '<th>1º dia fora</th><th>Último dia</th><th>Saldo do banco</th><th>Saldo pelo Saipos</th>' +
-      '<th>Diferença</th></tr></thead><tbody>' + linhasSaldo + '</tbody></table></div>'
-    : '';
+  const detalhe =
+    (Object.keys(histSaldo).length
+      ? '<details style="margin-top:16px"><summary style="cursor:pointer;font-weight:600">Histórico: quantos dias cada conta fechou</summary>' +
+        '<div id="tabelaConcbSaldo"><table><thead><tr><th>Conta</th><th>Dias que fecharam</th>' +
+        '<th>Último dia</th><th>Saldo do banco</th><th>Saldo pelo Saipos</th></tr></thead><tbody>' +
+        Object.entries(histSaldo).sort().map(([c, o]) =>
+          '<tr><td>' + c + '</td><td>' + o.ok + ' de ' + o.dias + '</td>' +
+          '<td>' + ddmm(o.ultima.data) + '</td>' +
+          '<td style="text-align:right">' + rs(o.ultima.saldo_banco) + '</td>' +
+          '<td style="text-align:right">' + rs(o.ultima.saldo_saipos) + '</td></tr>').join('') +
+        '</tbody></table></div></details>'
+      : '') +
+    (ruido.length
+      ? '<details style="margin-top:8px"><summary style="cursor:pointer;font-weight:600">' +
+        ruido.length + ' linhas que o sistema já explicou sozinho</summary>' +
+        '<div class="contexto">Repasse de maquininha e pagamento em lote: o banco lista várias linhas ' +
+        'e o Saipos lança uma só. Não é trabalho.</div></details>'
+      : '');
 
   alvo.innerHTML = seletorLojaFin() +
-    '<div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Conciliação bancária — ' + nomeLojaFin() + '</div>' +
-    '<div class="contexto"><b>Esta tela confere, não cobra.</b> A conciliação é feita à mão dentro do ' +
-    'Saipos; aqui só se verifica se bateu. <b>Olhe o dinheiro antes da quantidade de linhas</b> — muita ' +
-    'linha sem par com pouca diferença em reais é formato diferente, não dinheiro sumido.' +
-    periodo + quando + ' O Boqueirão fica fora.</div>' +
-    cards +
-    '<div class="section-label">Por conta</div>' +
-    '<div class="contexto">"Falta lançar" é o dinheiro que passou pelo banco e ainda não apareceu no Saipos no ' +
-    'período. Valor negativo quer dizer o contrário: o Saipos registrou mais do que o banco movimentou, quase ' +
-    'sempre porque alguém lançou adiantado.</div>' +
-    '<div id="tabelaConcbContas"><table><thead><tr><th>Conta</th><th>Movimentou no banco</th>' +
-    '<th>Falta lançar (entrada)</th><th>Falta lançar (saída)</th>' +
-    '<th>Linhas sem par</th><th>Ontem</th><th>Acumulado</th></tr></thead>' +
-    '<tbody>' + linhasContas + '</tbody></table></div>' +
-    blocoSaldo +
-    blocoTrava +
-    '<div class="section-label">O que eu ainda não sei explicar</div>' +
-    '<div class="contexto">' + textoFila + textoNovas + '</div>' +
-    avisoLogin +
-    blocoFila +
-    blocoAprender +
-    blocoRuido;
+    '<div class="section-label" style="border-top:none;margin-top:0;padding-top:0">' +
+      'Conciliação de ontem (' + ddmm(ontem) + ') — ' + nomeLojaFin() + '</div>' +
+    '<div class="contexto">' + resumo + '</div>' +
+    '<div id="tabelaConcbOntem"><table><tbody>' +
+      naoFecharam.map(cartao).join('') + fecharam.map(cartao).join('') + semMov.map(cartao).join('') +
+    '</tbody></table></div>' +
+    trava +
+    (blocosConferir
+      ? '<div class="section-label">O que conferir no Saipos</div>' +
+        '<div class="contexto">' + (quem ? 'Você está como <b>' + quem + '</b>. ' : '') +
+        'Ache a linha no Saipos. Se já estiver lá, clique <b>já estava</b> — isso ensina o sistema. ' +
+        'Se faltar mesmo, lance e clique <b>lancei</b>.</div>' + blocosConferir
+      : '') +
+    detalhe;
 
-  // Um listener so para todos os botoes desta tela. Registrado DEPOIS do
-  // innerHTML, a cada render, entao sobrevive a tela ser reescrita.
   alvo.querySelectorAll('.concb-marca').forEach(b => b.addEventListener('click', () =>
     concbMarcar(b.dataset.conta, b.dataset.fitid, b.dataset.tipo)));
   alvo.querySelectorAll('.concb-desmarca').forEach(b => b.addEventListener('click', () =>
