@@ -205,7 +205,13 @@
   div[id^="tabela"] tr.liq td:last-child { border-right:2px solid #ee8a3c; }
 
   /* modulo Engenharia de cardapio (19/08/2026) */
-  #tabelaEngcard { overflow-x:auto; max-width:100%; }
+  #tabelaEngcard, #tabelaEngcardCombo, #tabelaEngcardVaza { overflow-x:auto; max-width:100%; }
+  #tabelaEngcardCombo table, #tabelaEngcardVaza table { border-collapse:collapse; width:100%; font-size:12.5px; }
+  #tabelaEngcardCombo th, #tabelaEngcardCombo td, #tabelaEngcardVaza th, #tabelaEngcardVaza td {
+    border:1px solid #34332f; padding:6px 10px; text-align:right; white-space:nowrap; }
+  #tabelaEngcardCombo th:first-child, #tabelaEngcardCombo td:first-child,
+  #tabelaEngcardVaza th:first-child, #tabelaEngcardVaza td:first-child,
+  #tabelaEngcardVaza th:nth-child(2), #tabelaEngcardVaza td:nth-child(2) { text-align:left; white-space:normal; }
   #tabelaEngcard table { border-collapse:collapse; width:100%; font-size:12.5px; }
   #tabelaEngcard th, #tabelaEngcard td { border:1px solid #34332f; padding:6px 10px; text-align:right; white-space:nowrap; }
   #tabelaEngcard th:first-child, #tabelaEngcard td:first-child { text-align:left; white-space:normal; }
@@ -4522,6 +4528,8 @@ let LISTAS = null;
 let ENGCARD = null;
 let ENGCARD_DIAS = 30;
 let ENGCARD_GRUPO = null;   // filtro por grupo ao clicar no card
+let ENGCARD_COMBO = null;   // custo medio por combo (para PRECIFICAR, nao para o CMV)
+let ENGCARD_VAR = null;     // a variacao cobrada cobre a diferenca de custo?
 
 async function entrarEngcard() {
   const alvo = document.getElementById('view-engcard');
@@ -4529,9 +4537,13 @@ async function entrarEngcard() {
   if (ENGCARD === null) {
     alvo.innerHTML = '<div class="contexto">Carregando a engenharia de cardápio...</div>';
     const de = new Date(Date.now() - 91 * 864e5).toISOString().slice(0, 10);
-    ENGCARD = await consultarTudo(
-      'mv_engenharia_cardapio?select=shift_date,item,unidades,receita,custo,margem' +
-      '&unidade=eq.AGUA%20VERDE&shift_date=gte.' + de);
+    const [itens, combos, variacao] = await Promise.all([
+      consultarTudo('mv_engenharia_cardapio?select=shift_date,item,unidades,receita,custo,margem' +
+                    '&unidade=eq.AGUA%20VERDE&shift_date=gte.' + de),
+      consultarTudo('mv_combo_custo?select=*&unidade=eq.AGUA%20VERDE&shift_date=gte.' + de),
+      consultarTudo('mv_combo_variacao?select=*&unidade=eq.AGUA%20VERDE'),
+    ]);
+    ENGCARD = itens; ENGCARD_COMBO = combos; ENGCARD_VAR = variacao;
   }
   renderModuloEngcard();
 }
@@ -4602,6 +4614,66 @@ function renderModuloEngcard() {
       <td>${a.pct.toFixed(0)}%</td>
     </tr>`).join('');
 
+  // ---- COMBOS: custo medio para PRECIFICAR (o CMV segue usando o custo real) ----
+  function blocoCombos() {
+    if (!ENGCARD_COMBO || !ENGCARD_COMBO.length) return '';
+    const ac = {};
+    ENGCARD_COMBO.filter(r => r.shift_date >= corte).forEach(r => {
+      const a = ac[r.combo] || (ac[r.combo] = { combo: r.combo, n: 0, rec: 0, cus: 0,
+                                                min: Infinity, max: 0 });
+      const n = nu(r.vendas);
+      a.n += n; a.rec += nu(r.preco_medio) * n; a.cus += nu(r.custo_medio) * n;
+      a.min = Math.min(a.min, nu(r.custo_min)); a.max = Math.max(a.max, nu(r.custo_max));
+    });
+    const linhas = Object.values(ac).filter(a => a.n >= 10)
+      .sort((a,b) => b.n - a.n).slice(0, 15).map(a => {
+        const preco = a.rec / a.n, custo = a.cus / a.n;
+        return `<tr><td>${esc(a.combo)}</td><td>${a.n.toLocaleString('pt-BR')}</td>
+          <td>R$ ${fmt(preco)}</td><td><b>R$ ${fmt(custo)}</b></td>
+          <td>R$ ${fmt(a.min)} a R$ ${fmt(a.max)}</td>
+          <td>R$ ${fmt(preco - custo)}</td>
+          <td>${preco ? ((preco - custo) / preco * 100).toFixed(0) : 0}%</td></tr>`;
+      }).join('');
+    if (!linhas) return '';
+
+    // opcao que custa mais que a base e nao cobra a diferenca
+    const vaza = (ENGCARD_VAR || []).filter(r => nu(r.sobra) < -0.01)
+      .sort((a,b) => nu(b.perda_no_periodo) - nu(a.perda_no_periodo)).slice(0, 12);
+    const totalVaza = (ENGCARD_VAR || []).filter(r => nu(r.sobra) < -0.01)
+      .reduce((s,r) => s + nu(r.perda_no_periodo), 0);
+    const linhasVaza = vaza.map(r => `<tr>
+        <td>${esc(r.combo)}</td><td>${esc(r.escolha)}</td>
+        <td>${nu(r.vezes).toLocaleString('pt-BR')}</td>
+        <td>R$ ${fmt(nu(r.custa_a_mais))}</td>
+        <td>R$ ${fmt(nu(r.variacao))}</td>
+        <td style="color:#ff6b6b;">R$ ${fmt(-nu(r.sobra))}</td>
+        <td>R$ ${fmt(nu(r.perda_no_periodo))}</td></tr>`).join('');
+
+    return `
+      <div class="section-label">Combos — quanto custa em média</div>
+      <div class="caption-label" style="text-align:center;">
+        Este é o número para <b>decidir o preço</b> do combo. O CMV do painel não usa média:
+        o Saipos guarda o que saiu em cada venda, então lá o custo é o real, um a um.
+        Repare na <b>faixa</b> — o mesmo combo custa bem diferente conforme a escolha do cliente,
+        e média sem faixa esconde isso.</div>
+      <div id="tabelaEngcardCombo"><table>
+        <thead><tr><th>Combo</th><th>Vendas</th><th>Preço médio</th><th>Custo médio</th>
+          <th>Faixa de custo</th><th>Margem média</th><th>%</th></tr></thead>
+        <tbody>${linhas}</tbody></table></div>
+      ${linhasVaza ? `
+      <div class="section-label">A variação cobrada cobre a diferença de custo?</div>
+      <div class="caption-label" style="text-align:center;">
+        No iFood o preço cheio do combo é o da <b>combinação mais barata</b>, e o cliente paga uma
+        variação ao escolher item mais caro. Aqui estão as opções que <b>custam mais e não cobram
+        a diferença</b> — nos últimos 90 dias somam <b>R$ ${fmt(totalVaza)}</b> que o cardápio
+        deixou de cobrar. Não é prejuízo (a margem do combo segue positiva): é preço configurado
+        abaixo do que o item pede.</div>
+      <div id="tabelaEngcardVaza"><table>
+        <thead><tr><th>Combo</th><th>Opção</th><th>Vezes</th><th>Custa a mais</th>
+          <th>Cobra</th><th>Falta cobrar</th><th>Em 90 dias</th></tr></thead>
+        <tbody>${linhasVaza}</tbody></table></div>` : ''}`;
+  }
+
   const custoCortesia = cortesia.reduce((s,a) => s + a.cus, 0);
   const unCortesia = cortesia.reduce((s,a) => s + a.un, 0);
 
@@ -4628,6 +4700,7 @@ function renderModuloEngcard() {
         <th>Receita</th><th>Margem por unidade</th><th>Margem total</th><th>% da receita</th></tr></thead>
       <tbody>${linhas}</tbody></table></div>
     ${lista.length > 200 ? '<div class="caption-label">Mostrando os 200 maiores de ' + lista.length + '.</div>' : ''}
+    ${blocoCombos()}
     ${cortesia.length ? `<div class="contexto" style="text-align:left; margin-top:14px;">
       <b>Fora da conta:</b> ${cortesia.length} itens saíram com preço zero
       (${unCortesia.toLocaleString('pt-BR')} unidades, <b>R$ ${fmt(custoCortesia)}</b> de ingrediente) — cortesia,
