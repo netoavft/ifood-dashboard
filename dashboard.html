@@ -211,6 +211,13 @@
   #tabelaEngcard th:first-child, #tabelaEngcard td:first-child { text-align:left; white-space:normal; }
 
   /* modulo Fichas tecnicas (19/08/2026) */
+  #tabelaFichaNova { overflow-x:auto; max-width:100%; }
+  #tabelaFichaNova table { border-collapse:collapse; width:100%; font-size:12.5px; }
+  #tabelaFichaNova th, #tabelaFichaNova td { border:1px solid #34332f; padding:5px 8px; text-align:right; white-space:nowrap; }
+  #tabelaFichaNova th:first-child, #tabelaFichaNova td:first-child { text-align:left; }
+  .ficha-inp { width:100%; padding:5px 8px; font-size:12.5px; background:#171716; color:#f2f0e9;
+    border:1px solid #45443f; border-radius:6px; }
+  .ficha-inp:focus { outline:none; border-color:#f6c63e; }
   #tabelaFichas, #tabelaFichaGrade { overflow-x:auto; max-width:100%; }
   #tabelaFichas table, #tabelaFichaGrade table { border-collapse:collapse; width:100%; font-size:12.5px; }
   #tabelaFichas th, #tabelaFichas td, #tabelaFichaGrade th, #tabelaFichaGrade td {
@@ -4787,6 +4794,173 @@ function fichasFiltro(termo) {
   document.getElementById('fichaBusca').value = termo || '';
   renderModuloFichas();
 }
+
+// ---- criar / editar ficha no painel (decisão do dono 19/08, "opção 1") ----
+// Grava em ft_fichas_manual, tabela própria: import_fichas.py substitui
+// ft_fichas inteira a cada carga e apagaria o que fosse criado aqui. A planilha
+// continua mandando — se o nome existir nos dois lugares, vale o dela.
+let FICHA_EDIT = null;   // { nome, linhas:[{mp,qtd}], original }
+let FICHA_MSG = null;    // confirmacao que sobrevive ao fechamento do formulario
+
+function fichaNova() {
+  FICHA_EDIT = { nome: '', linhas: [{ mp: '', qtd: '' }, { mp: '', qtd: '' }], original: null };
+  renderModuloFichas();
+}
+function fichaEditar(nome) {
+  const linhas = (FICHAS.porFicha[nome] || []).map(l => ({ mp: l.materia_prima, qtd: String(l.qtd_ft) }));
+  FICHA_EDIT = { nome, linhas: linhas.length ? linhas : [{ mp: '', qtd: '' }], original: nome };
+  renderModuloFichas();
+}
+function fichaCancelar() { FICHA_EDIT = null; renderModuloFichas(); }
+function fichaAddLinha() { fichaLerForm(); FICHA_EDIT.linhas.push({ mp: '', qtd: '' }); renderModuloFichas(); }
+function fichaTirarLinha(i) { fichaLerForm(); FICHA_EDIT.linhas.splice(i, 1); renderModuloFichas(); }
+
+// Lê o que está na tela para o estado — chamado antes de qualquer re-render,
+// senão o que o usuário digitou some ao adicionar/remover linha.
+function fichaLerForm() {
+  if (!FICHA_EDIT) return;
+  const nome = document.getElementById('fichaNomeNovo');
+  if (nome) FICHA_EDIT.nome = nome.value;
+  FICHA_EDIT.linhas.forEach((l, i) => {
+    const mp = document.getElementById('fichaMp' + i);
+    const qt = document.getElementById('fichaQtd' + i);
+    if (mp) l.mp = mp.value;
+    if (qt) l.qtd = qt.value;
+  });
+}
+
+async function fichaSalvar() {
+  fichaLerForm();
+  const aviso = document.getElementById('fichaAviso');
+  const diz = (txt, cor) => { aviso.style.display = 'block'; aviso.style.borderColor = cor; aviso.innerHTML = txt; };
+  const nome = (FICHA_EDIT.nome || '').trim().toUpperCase();
+  if (!nome) return diz('Dê um nome à ficha.', '#ff6b6b');
+
+  const { porItem } = FICHAS;
+  const linhas = [];
+  for (const l of FICHA_EDIT.linhas) {
+    const mp = (l.mp || '').trim();
+    const qtd = Number(String(l.qtd).replace(',', '.'));
+    if (!mp && !l.qtd) continue;                       // linha em branco: ignora
+    const o = porItem[mp];
+    if (!o) return diz(`<b>${mp || '(sem nome)'}</b> não existe no cadastro de insumos nem como ficha.
+      Só dá para usar matéria-prima que já tem preço — senão a ficha nasce sem custo.`, '#ff6b6b');
+    if (!qtd || qtd <= 0) return diz(`Falta a quantidade de <b>${mp}</b>.`, '#ff6b6b');
+    const preco = Number(o.preco_un_uso) || 0;
+    linhas.push({ nome, materia_prima: mp, un_uso: o.un_uso || (o.tipo === 'FICHA' ? 'KG' : null),
+                  qtd_ft: qtd, rendimento: 1, preco_custo: preco,
+                  valor_total: Math.round(qtd * preco * 10000) / 10000 });
+  }
+  if (!linhas.length) return diz('Coloque pelo menos um ingrediente.', '#ff6b6b');
+
+  // Nome que já existe na planilha não pode: ela manda, e a manual seria ignorada.
+  const naPlanilha = FICHAS.lista.find(f => f.ficha === nome && f.fonte === 'PLANILHA');
+  if (naPlanilha && nome !== FICHA_EDIT.original) {
+    return diz(`Já existe <b>${nome}</b> na planilha. A planilha manda, então esta ficha
+      seria ignorada. Use outro nome, ou corrija direto na planilha.`, '#ff6b6b');
+  }
+
+  diz('Salvando...', '#f6c63e');
+  try {
+    // troca por completo: apaga o que havia com esse nome e regrava
+    const alvo = FICHA_EDIT.original || nome;
+    const del = await fetch(`${SUPABASE_URL}/rest/v1/ft_fichas_manual?nome=eq.${encodeURIComponent(alvo)}`,
+                            { method: 'DELETE', headers: rmbHeaders({ Prefer: 'return=minimal' }) });
+    if (!del.ok && del.status !== 404) throw new Error('não consegui limpar a versão anterior (' + del.status + ')');
+    const sess = rmbSessao();
+    linhas.forEach(l => { l.criado_por = (sess && sess.email) || 'painel'; });
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/ft_fichas_manual`,
+                          { method: 'POST', headers: rmbHeaders({ Prefer: 'return=minimal' }),
+                            body: JSON.stringify(linhas) });
+    if (!r.ok) throw new Error(await r.text());
+    FICHA_EDIT = null; FICHAS = null; FICHA_ABERTA = nome;
+    FICHA_MSG = `<b>${nome}</b> salva com ${linhas.length} ingredientes — R$ ${
+      fmt(linhas.reduce((t, l) => t + l.valor_total, 0))}. Ela já vale para o CMV.`;
+    await entrarFichas();
+  } catch (e) {
+    diz('Não deu para salvar: ' + e.message, '#ff6b6b');
+  }
+}
+
+async function fichaExcluir(nome) {
+  if (!confirm(`Apagar a ficha "${nome}"? Isso não mexe na planilha — só na ficha criada aqui.`)) return;
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/ft_fichas_manual?nome=eq.${encodeURIComponent(nome)}`,
+                        { method: 'DELETE', headers: rmbHeaders({ Prefer: 'return=minimal' }) });
+  if (!r.ok) { alert('Não deu para apagar (' + r.status + ').'); return; }
+  FICHAS = null; FICHA_ABERTA = null; FICHA_EDIT = null;
+  FICHA_MSG = `<b>${nome}</b> apagada. A planilha não foi tocada.`;
+  await entrarFichas();
+}
+
+function fichaFormulario() {
+  const { porItem } = FICHAS;
+  const esc = (s) => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+  const nomes = Object.keys(porItem).sort();
+  const linhas = FICHA_EDIT.linhas.map((l, i) => {
+    const o = porItem[(l.mp || '').trim()];
+    const preco = o ? Number(o.preco_un_uso) || 0 : null;
+    const qtd = Number(String(l.qtd).replace(',', '.')) || 0;
+    return `<tr>
+      <td><input id="fichaMp${i}" list="fichaInsumos" value="${esc(l.mp)}" placeholder="digite para procurar"
+                 oninput="fichaLerForm(); fichaAtualizarPrevia()" class="ficha-inp"></td>
+      <td><input id="fichaQtd${i}" value="${esc(l.qtd)}" placeholder="0,000" inputmode="decimal"
+                 oninput="fichaLerForm(); fichaAtualizarPrevia()" class="ficha-inp" style="width:90px; text-align:right;"></td>
+      <td>${o ? esc(o.un_uso || (o.tipo === 'FICHA' ? 'KG' : '—')) : '—'}</td>
+      <td>${preco === null ? '<span style="color:#ff6b6b;">sem cadastro</span>' : 'R$ ' + fmt(preco)}</td>
+      <td>${preco === null ? '—' : '<b>R$ ' + fmt(qtd * preco) + '</b>'}</td>
+      <td><button class="preset-btn" onclick="fichaTirarLinha(${i})">tirar</button></td>
+    </tr>`;
+  }).join('');
+  const total = FICHA_EDIT.linhas.reduce((s, l) => {
+    const o = porItem[(l.mp || '').trim()];
+    return s + (o ? (Number(String(l.qtd).replace(',', '.')) || 0) * (Number(o.preco_un_uso) || 0) : 0);
+  }, 0);
+  return `
+    <div class="section-label">${FICHA_EDIT.original ? 'Editando ' + esc(FICHA_EDIT.original) : 'Nova ficha'}</div>
+    <div class="caption-label" style="text-align:center;">
+      Só entra matéria-prima que já tem preço — insumo comprado ou outra ficha. O preço vem do
+      cadastro; você põe a quantidade. Fica gravada aqui no painel, separada da planilha:
+      <b>a planilha continua mandando</b> e reimportá-la não apaga o que você criar.</div>
+    <datalist id="fichaInsumos">${nomes.map(n => `<option value="${esc(n)}">`).join('')}</datalist>
+    <div class="ficha-busca-linha">
+      <input id="fichaNomeNovo" value="${esc(FICHA_EDIT.nome)}" placeholder="Nome da ficha (ex.: NOVO BURGER DA CASA)"
+             oninput="fichaLerForm()" style="text-transform:uppercase;">
+    </div>
+    <div id="tabelaFichaNova"><table>
+      <thead><tr><th>Matéria-prima</th><th>Qtd</th><th>Un</th><th>Preço</th><th>Valor</th><th></th></tr></thead>
+      <tbody>${linhas}
+        <tr class="liq"><td><b>Custo da ficha</b></td><td colspan="3"></td>
+          <td id="fichaTotalPrevia"><b>R$ ${fmt(total)}</b></td><td></td></tr>
+      </tbody></table></div>
+    <div id="fichaAviso" class="contexto" style="display:none; text-align:left; margin-top:10px;"></div>
+    <div style="margin-top:12px;">
+      <button class="preset-btn" onclick="fichaAddLinha()">＋ ingrediente</button>
+      <button class="preset-btn active" onclick="fichaSalvar()" style="margin-left:8px;">Salvar ficha</button>
+      <button class="preset-btn" onclick="fichaCancelar()" style="margin-left:8px;">Cancelar</button>
+    </div>`;
+}
+
+// Recalcula só os números da prévia, sem redesenhar (redesenhar tira o foco do campo).
+function fichaAtualizarPrevia() {
+  if (!FICHA_EDIT || !FICHAS) return;
+  const { porItem } = FICHAS;
+  let total = 0;
+  FICHA_EDIT.linhas.forEach((l, i) => {
+    const o = porItem[(l.mp || '').trim()];
+    const qtd = Number(String(l.qtd).replace(',', '.')) || 0;
+    const preco = o ? Number(o.preco_un_uso) || 0 : 0;
+    total += qtd * preco;
+    const tr = document.getElementById('fichaMp' + i);
+    if (tr && tr.closest('tr')) {
+      const c = tr.closest('tr').cells;
+      c[2].textContent = o ? (o.un_uso || (o.tipo === 'FICHA' ? 'KG' : '—')) : '—';
+      c[3].innerHTML = o ? 'R$ ' + fmt(preco) : '<span style="color:#ff6b6b;">sem cadastro</span>';
+      c[4].innerHTML = o ? '<b>R$ ' + fmt(qtd * preco) + '</b>' : '—';
+    }
+  });
+  const t = document.getElementById('fichaTotalPrevia');
+  if (t) t.innerHTML = '<b>R$ ' + fmt(total) + '</b>';
+}
 function abrirFicha(nome) {
   FICHA_ABERTA = (FICHA_ABERTA === nome) ? null : nome;
   FICHA_LINHA_ABERTA = null;
@@ -4819,8 +4993,9 @@ function renderModuloFichas() {
   const linhasLista = visiveis.map(f => {
     const aberta = FICHA_ABERTA === f.ficha;
     const alerta = !nu(f.custo) ? ' <span style="color:#ff6b6b;">sem custo</span>' : '';
+    const manual = f.fonte === 'MANUAL' ? ' <span class="ficha-tag" style="background:#58a6ff;">criada no painel</span>' : '';
     return `<tr class="ficha-linha${aberta ? ' liq' : ''}" onclick="abrirFicha('${esc(f.ficha)}')">
-      <td>${aberta ? '▾' : '▸'} ${esc(f.ficha)}${f.e_preparacao ? ' <span class="ficha-tag">preparação</span>' : ''}${alerta}</td>
+      <td>${aberta ? '▾' : '▸'} ${esc(f.ficha)}${f.e_preparacao ? ' <span class="ficha-tag">preparação</span>' : ''}${manual}${alerta}</td>
       <td>R$ ${fmt(nu(f.custo))}</td>
       <td>${f.ingredientes}</td>
       <td>${nu(f.nomes_de_venda) || '—'}</td>
@@ -4861,7 +5036,14 @@ function renderModuloFichas() {
           <tr class="liq"><td><b>Custo da ficha</b></td>
             <td colspan="4"></td><td><b>R$ ${fmt(total)}</b></td></tr>
         </tbody></table></div>
-      ${origem}`;
+      ${origem}
+      ${(lista.find(f => f.ficha === nome) || {}).fonte === 'MANUAL' ? `
+        <div style="margin-top:10px;">
+          <button class="preset-btn" onclick="fichaEditar('${esc(nome)}')">Editar esta ficha</button>
+          <button class="preset-btn" onclick="fichaExcluir('${esc(nome)}')" style="margin-left:8px;">Apagar</button>
+        </div>` : `
+        <div class="caption-label" style="text-align:center; margin-top:8px;">
+          Ficha da planilha — para mudar, corrija na planilha e reimporte.</div>`}`;
   }
 
   function origemDoCusto(item) {
@@ -4896,11 +5078,13 @@ function renderModuloFichas() {
       ${lista.filter(f=>f.e_preparacao).length} de preparação (base que outra ficha consome).
       ${semCusto ? '<b style="color:#ff6b6b;">' + semCusto + ' sem custo calculado.</b>' : ''}
       Consulta apenas: quem manda é a planilha, e reimportá-la reescreve tudo.</div>
+    ${FICHA_MSG ? '<div class="contexto" style="border-color:#3fb950; text-align:left;">' + FICHA_MSG + '</div>' : ''}
     <div class="ficha-busca-linha">
       <input id="fichaBusca" type="search" placeholder="Procurar ficha... (ex.: ayrton, feijoada, chopp)"
              oninput="renderModuloFichas()" value="${esc(campo ? campo.value : '')}" autocomplete="off">
       <label class="ficha-check"><input type="checkbox" id="fichaSoVendaveis" ${esconderPrep ? 'checked' : ''}
              onchange="renderModuloFichas()"> esconder preparações</label>
+      <button class="preset-btn active" onclick="fichaNova()">＋ Nova ficha</button>
     </div>
     <div id="tabelaFichas"><table>
       <thead><tr><th>Ficha</th><th>Custo</th>
@@ -4909,7 +5093,9 @@ function renderModuloFichas() {
     </table></div>
     ${visiveis.length >= 400 ? '<div class="caption-label">Mostrando as 400 primeiras — refine a busca.</div>' : ''}
     ${FICHA_ABERTA ? gradeDaFicha(FICHA_ABERTA) : ''}`;
+  if (FICHA_EDIT) alvo.insertAdjacentHTML('afterbegin', fichaFormulario());
 
+  FICHA_MSG = null;
   // devolve o cursor ao campo (o render troca o innerHTML a cada tecla)
   const c = document.getElementById('fichaBusca');
   if (campo && c) { c.focus(); c.setSelectionRange(c.value.length, c.value.length); }
