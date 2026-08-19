@@ -4153,6 +4153,35 @@ async function concbGravarLicao(corpo) {
     : 'Guardado. Vai ser lido e aplicado — não é automático.');
 }
 
+// CONCILIAR EM LOTE: uma chamada com todas as linhas marcadas, e um recarregar
+// da tela no fim. Antes era um POST e um recarregar por linha — com 30 linhas a
+// pessoa passava mais tempo esperando a tela do que conciliando.
+async function concbConciliarMarcadas(bt) {
+  const tab = document.getElementById(bt.dataset.alvo);
+  if (!tab) return;
+  const marcadas = [...tab.querySelectorAll('.concb-check')].filter(x => x.checked);
+  if (!marcadas.length) { alert('Marque as linhas que você já conciliou no Saipos.'); return; }
+  const quem = concbQuem();
+  if (!quem) return;
+  const s = rmbSessao();
+  const corpo = marcadas.map(x => ({ conta: x.dataset.conta, fitid: x.dataset.fitid,
+    tipo: 'CONCILIADO', quem, email: (s && s.email) || null }));
+  const texto = bt.textContent;
+  bt.disabled = true; bt.textContent = 'gravando...';
+  let r = await fetch(`${SUPABASE_URL}/rest/v1/fin_conciliacao_marcacao`, {
+    method: 'POST', headers: rmbHeaders({ Prefer: 'return=minimal' }),
+    body: JSON.stringify(corpo) });
+  if (await rmbRenovarSeExpirado(r)) {
+    r = await fetch(`${SUPABASE_URL}/rest/v1/fin_conciliacao_marcacao`, {
+      method: 'POST', headers: rmbHeaders({ Prefer: 'return=minimal' }),
+      body: JSON.stringify(corpo) });
+  }
+  bt.disabled = false; bt.textContent = texto;
+  if (!r.ok) { alert('Não gravou: ' + (await r.text()).slice(0, 140)); return; }
+  CONCB = null;
+  await entrarConcbanco();
+}
+
 async function concbMarcar(conta, fitid, tipo) {
   const quem = concbQuem();
   if (!quem) return;
@@ -4366,11 +4395,13 @@ function renderConcbanco() {
   // que separavam a INTENCAO de quem clica: informacao util para mim e trabalho
   // a mais para quem concilia. O dono trocou por um estado so (19/08/2026) — a
   // linha esta A CONCILIAR ate alguem dizer que conciliou.
-  const botoes = (p) => '<button class="concb-marca" data-conta="' + String(p.conta).replace(/"/g, '&quot;')
+  // Caixa de marcar, nao botao (dono, 19/08/2026): ela marca varias linhas e
+  // manda conciliar de uma vez. Um botao por linha obriga a esperar o recarregar
+  // da tela a cada clique — com 30 linhas isso e meia hora de espera somada.
+  const botoes = (p) => '<input type="checkbox" class="concb-check"'
+    + ' data-conta="' + String(p.conta).replace(/"/g, '&quot;')
     + '" data-fitid="' + String(p.fitid).replace(/"/g, '&quot;')
-    + '" data-tipo="CONCILIADO" style="font-size:11px;padding:4px 10px;cursor:pointer;'
-    + 'border:1px solid #c8102e;background:transparent;color:#c8102e;border-radius:4px;'
-    + 'white-space:nowrap">A CONCILIAR</button>'
+    + '" style="width:16px;height:16px;cursor:pointer">'
     // ENSINAR: quando a linha nao tem descricao, e porque eu nao sei quem e.
     // Quem sabe esta olhando para a tela. Antes isso virava mensagem no chat e
     // dependia de alguem traduzir em cadastro; agora vira cadastro na hora.
@@ -4409,6 +4440,8 @@ function renderConcbanco() {
     // quando a lista e longa e a pessoa rolou a tela.
     const ent = lado === 'ent';
     const cor = ent ? '#2e7d32' : '#c8102e';
+    const idTabela = 'tabelaConcbFila' + conta.replace(/[^A-Za-z]/g, '') + lado
+      + (temProv ? 'P' : 'S');
     return '<div style="margin:14px 0 6px;padding:6px 10px;border-left:4px solid ' + cor + ';'
       + 'background:' + (ent ? 'rgba(46,125,50,.07)' : 'rgba(200,16,46,.07)') + '">'
       + '<b style="color:' + cor + ';font-size:13px">'
@@ -4421,8 +4454,7 @@ function renderConcbanco() {
       // table-layout fixo com larguras declaradas: sem isso a coluna "Descrição"
       // estica com o texto mais longo e joga o botao para fora do quadro. Se
       // ainda nao couber, a barra horizontal aparece so nesta div.
-      '<div style="overflow-x:auto" id="tabelaConcbFila'
-      + conta.replace(/[^A-Za-z]/g, '') + lado + (temProv ? 'P' : 'S')
+      '<div style="overflow-x:auto" id="' + idTabela
       + '"><table style="table-layout:fixed;width:100%;min-width:560px">'
       + '<colgroup><col style="width:48px"><col style="width:86px"><col>'
       + '<col style="width:150px"><col style="width:118px"><col style="width:96px"></colgroup>'
@@ -4433,7 +4465,10 @@ function renderConcbanco() {
       '<th style="text-align:left">Data</th><th style="text-align:right">Valor</th>'
       + '<th style="text-align:left">Descrição</th>'
       + '<th style="text-align:left">O que é</th>'
-      + '<th style="text-align:left">Categoria</th><th></th>' +
+      + '<th style="text-align:left">Categoria</th>'
+      + '<th style="text-align:center"><input type="checkbox" class="concb-todos"'
+      + ' data-alvo="' + idTabela + '" title="marcar todas"'
+      + ' style="width:16px;height:16px;cursor:pointer"></th>' +
       '</tr></thead><tbody>' +
       // DESCRICAO e o historico a digitar, quando eu sei qual e; sem isso, mostro
       // quem esta do outro lado no banco — nunca um palpite escrito como se fosse
@@ -4451,6 +4486,11 @@ function renderConcbanco() {
           + (p.categoria ? esc(p.categoria) : '—') + '</td>' +
         '<td style="text-align:center">' + botoes(p) + '</td></tr>').join('') +
       '</tbody></table></div>' +
+      '<div style="margin:4px 0 2px;text-align:right">'
+      + '<button class="concb-conciliar" data-alvo="' + idTabela + '"'
+      + ' style="font-size:11px;padding:4px 12px;cursor:pointer;border:1px solid ' + cor + ';'
+      + 'background:transparent;color:' + cor + ';border-radius:4px">'
+      + 'conciliar marcadas</button></div>' +
       (lista.length > 30 ? '<div class="contexto">Mostrando 30 de ' + lista.length + '.</div>' : '');
   };
 
@@ -4531,8 +4571,10 @@ function renderConcbanco() {
     (blocosConferir
       ? '<div class="section-label">O que conferir no Saipos</div>' +
         '<div class="contexto">' + (quem ? 'Você está como <b>' + quem + '</b>. ' : '') +
-        '<b>Comece pelas entradas, depois as saídas.</b> Terminou a linha no Saipos? ' +
-        'Clique <b>A CONCILIAR</b> e ela vira <b>✓ conciliado</b>.</div>' +
+        '<b>Comece pelas entradas, depois as saídas.</b> Marque as linhas que você já ' +
+        'lançou ou achou no Saipos e clique <b>conciliar marcadas</b> no fim do quadro. ' +
+        'Linha sem descrição tem um <b>ensinar</b>: escreva como ela se chama no Saipos ' +
+        'e da próxima vez ela vem pronta.</div>' +
         blocosConferir
       : '') +
     detalhe;
@@ -4543,8 +4585,12 @@ function renderConcbanco() {
     concbEnsinar(b.dataset)));
   const btRec = document.getElementById('concbRecado');
   if (btRec) btRec.addEventListener('click', () => concbRecado());
-  alvo.querySelectorAll('.concb-marca').forEach(b => b.addEventListener('click', () =>
-    concbMarcar(b.dataset.conta, b.dataset.fitid, b.dataset.tipo)));
+  alvo.querySelectorAll('.concb-todos').forEach(cb => cb.addEventListener('change', () => {
+    const tab = document.getElementById(cb.dataset.alvo);
+    if (tab) tab.querySelectorAll('.concb-check').forEach(x => { x.checked = cb.checked; });
+  }));
+  alvo.querySelectorAll('.concb-conciliar').forEach(b => b.addEventListener('click', () =>
+    concbConciliarMarcadas(b)));
   alvo.querySelectorAll('.concb-desmarca').forEach(b => b.addEventListener('click', () =>
     concbDesmarcar(b.dataset.conta, b.dataset.fitid)));
 }
