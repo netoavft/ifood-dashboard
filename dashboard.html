@@ -205,11 +205,12 @@
   div[id^="tabela"] tr.liq td:last-child { border-right:2px solid #ee8a3c; }
 
   /* modulo Engenharia de cardapio (19/08/2026) */
-  #tabelaEngcard, #tabelaEngcardCombo { overflow-x:auto; max-width:100%; }
-  #tabelaEngcardCombo table { border-collapse:collapse; width:100%; font-size:12.5px; }
-  #tabelaEngcardCombo th, #tabelaEngcardCombo td {
+  #tabelaEngcard, #tabelaEngcardCombo, #tabelaEngcardAdic { overflow-x:auto; max-width:100%; }
+  #tabelaEngcardCombo table, #tabelaEngcardAdic table { border-collapse:collapse; width:100%; font-size:12.5px; }
+  #tabelaEngcardCombo th, #tabelaEngcardCombo td, #tabelaEngcardAdic th, #tabelaEngcardAdic td {
     border:1px solid #34332f; padding:6px 10px; text-align:right; white-space:nowrap; }
-  #tabelaEngcardCombo th:first-child, #tabelaEngcardCombo td:first-child { text-align:left; white-space:normal; }
+  #tabelaEngcardCombo th:first-child, #tabelaEngcardCombo td:first-child,
+  #tabelaEngcardAdic th:first-child, #tabelaEngcardAdic td:first-child { text-align:left; white-space:normal; }
   #tabelaEngcard table { border-collapse:collapse; width:100%; font-size:12.5px; }
   #tabelaEngcard th, #tabelaEngcard td { border:1px solid #34332f; padding:6px 10px; text-align:right; white-space:nowrap; }
   #tabelaEngcard th:first-child, #tabelaEngcard td:first-child { text-align:left; white-space:normal; }
@@ -4600,7 +4601,8 @@ let LISTAS = null;
 let ENGCARD = null;
 let ENGCARD_DIAS = 30;
 let ENGCARD_GRUPO = null;   // filtro por grupo ao clicar no card
-let ENGCARD_COMBO = null;   // custo medio por combo (para PRECIFICAR, nao para o CMV)
+let ENGCARD_COMBO = null;   // custo do combo SO com os itens obrigatorios (regra do dono 19/08)
+let ENGCARD_ADIC = null;    // venda de adicional: a segunda linha de negocio
 
 async function entrarEngcard() {
   const alvo = document.getElementById('view-engcard');
@@ -4608,12 +4610,13 @@ async function entrarEngcard() {
   if (ENGCARD === null) {
     alvo.innerHTML = '<div class="contexto">Carregando a engenharia de cardápio...</div>';
     const de = new Date(Date.now() - 91 * 864e5).toISOString().slice(0, 10);
-    const [itens, combos] = await Promise.all([
+    const [itens, combos, adicionais] = await Promise.all([
       consultarTudo('mv_engenharia_cardapio?select=shift_date,item,unidades,receita,custo,margem' +
                     '&unidade=eq.AGUA%20VERDE&shift_date=gte.' + de),
-      consultarTudo('mv_combo_custo?select=*&unidade=eq.AGUA%20VERDE&shift_date=gte.' + de),
+      consultarTudo('mv_combo_obrigatorio?select=*&unidade=eq.AGUA%20VERDE&shift_date=gte.' + de),
+      consultarTudo('mv_adicional_venda?select=*&unidade=eq.AGUA%20VERDE&shift_date=gte.' + de),
     ]);
-    ENGCARD = itens; ENGCARD_COMBO = combos;
+    ENGCARD = itens; ENGCARD_COMBO = combos; ENGCARD_ADIC = adicionais;
   }
   renderModuloEngcard();
 }
@@ -4692,10 +4695,10 @@ function renderModuloEngcard() {
       const a = ac[r.combo] || (ac[r.combo] = { combo: r.combo, n: 0, rec: 0, cus: 0,
                                                 min: Infinity, max: 0 });
       const n = nu(r.vendas);
-      a.n += n; a.rec += nu(r.preco_medio) * n; a.cus += nu(r.custo_medio) * n;
+      a.n += n; a.rec += nu(r.preco_combo) * n; a.cus += nu(r.custo_combo) * n;
       a.min = Math.min(a.min, nu(r.custo_min)); a.max = Math.max(a.max, nu(r.custo_max));
     });
-    const linhas = Object.values(ac).filter(a => a.n >= 10)
+    const linhas = Object.values(ac).filter(a => a.n >= 5)
       .sort((a,b) => b.n - a.n).slice(0, 15).map(a => {
         const preco = a.rec / a.n, custo = a.cus / a.n;
         return `<tr><td>${esc(a.combo)}</td><td>${a.n.toLocaleString('pt-BR')}</td>
@@ -4715,15 +4718,58 @@ function renderModuloEngcard() {
     // que leva a mexer no preço errado é pior que número nenhum.
     // Volta quando mapearmos os grupos de cada combo no portal.
     return `
-      <div class="section-label">Combos — quanto custa em média</div>
+      <div class="section-label">Combos — quanto custa, só o que é obrigatório</div>
       <div class="caption-label" style="text-align:center;">
-        Este é o número para <b>decidir o preço</b> do combo. O CMV do painel não usa média:
-        o Saipos guarda o que saiu em cada venda, então lá o custo é o real, um a um.
-        Repare na <b>faixa</b> — o mesmo combo custa bem diferente conforme a escolha do cliente,
-        e média sem faixa esconde isso.</div>
+        O combo aqui é <b>só o que o cliente é obrigado a escolher</b>. O que ele acrescenta por
+        vontade sai desta conta e vira venda de adicional, logo abaixo — são duas coisas
+        diferentes e misturá-las estraga as duas. O preço é o pago <b>menos</b> o que veio de
+        adicional, e este é o número para <b>decidir o preço do combo</b>.
+        <br>Só entram combos cuja composição obrigatória está completa: um combo de dois lanches
+        tem que dar dois obrigatórios por venda, e é essa conta que autoriza a linha a aparecer.</div>
       <div id="tabelaEngcardCombo"><table>
         <thead><tr><th>Combo</th><th>Vendas</th><th>Preço médio</th><th>Custo médio</th>
           <th>Faixa de custo</th><th>Margem média</th><th>%</th></tr></thead>
+        <tbody>${linhas}</tbody></table></div>
+      ${blocoAdicionais()}`;
+  }
+
+  // ---- VENDA DE ADICIONAL: a segunda linha de negocio (regra do dono 19/08) ----
+  function blocoAdicionais() {
+    if (!ENGCARD_ADIC || !ENGCARD_ADIC.length) return '';
+    const aa = {};
+    ENGCARD_ADIC.filter(r => r.shift_date >= corte).forEach(r => {
+      const a = aa[r.adicional] || (aa[r.adicional] = { nome: r.adicional, n: 0, rec: 0, cus: 0,
+                                                        prod: 0, ok: true });
+      a.n += nu(r.vezes); a.rec += nu(r.receita); a.cus += nu(r.custo);
+      a.prod = Math.max(a.prod, nu(r.em_produtos));
+      if (r.tem_custo === false) a.ok = false;
+    });
+    const lista = Object.values(aa).sort((a,b) => b.rec - a.rec);
+    if (!lista.length) return '';
+    const totRec = lista.reduce((s,a) => s + a.rec, 0);
+    const comCusto = lista.filter(a => a.ok);
+    const recOk = comCusto.reduce((s,a) => s + a.rec, 0);
+    const cusOk = comCusto.reduce((s,a) => s + a.cus, 0);
+    const linhas = lista.slice(0, 15).map(a => `<tr>
+        <td>${esc(a.nome)}</td>
+        <td>${a.n.toLocaleString('pt-BR')}</td>
+        <td>R$ ${fmt(a.rec)}</td>
+        <td>R$ ${fmt(a.rec / (a.n || 1))}</td>
+        <td>${a.ok ? 'R$ ' + fmt(a.cus) : '—'}</td>
+        <td>${a.ok && a.rec ? ((1 - a.cus / a.rec) * 100).toFixed(0) + '%' : '—'}</td>
+        <td>${a.prod}</td></tr>`).join('');
+    return `
+      <div class="section-label">Venda de adicional</div>
+      <div class="caption-label" style="text-align:center;">
+        O que o cliente acrescenta por vontade — <b>faturamento que se soma ao combo</b>, não
+        parte dele. Em ${ENGCARD_DIAS} dias foram <b>R$ ${fmt(totRec)}</b>, com margem de
+        <b>${recOk ? ((1 - cusOk / recOk) * 100).toFixed(0) : 0}%</b> na parte que tem custo apurado
+        (R$ ${fmt(recOk)} de R$ ${fmt(totRec)}).
+        A coluna <b>produtos</b> diz em quantos itens do cardápio cada adicional é oferecido —
+        adicional que vende bem e está em poucos produtos é oferta a ampliar.</div>
+      <div id="tabelaEngcardAdic"><table>
+        <thead><tr><th>Adicional</th><th>Vezes</th><th>Receita</th><th>Preço médio</th>
+          <th>Custo</th><th>Margem</th><th>Produtos</th></tr></thead>
         <tbody>${linhas}</tbody></table></div>`;
   }
 
