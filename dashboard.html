@@ -4413,26 +4413,31 @@ function renderConcbanco() {
       // ainda nao couber, a barra horizontal aparece so nesta div.
       '<div style="overflow-x:auto" id="tabelaConcbFila'
       + conta.replace(/[^A-Za-z]/g, '') + lado + (temProv ? 'P' : 'S')
-      + '"><table style="table-layout:fixed;width:100%;min-width:640px">'
+      + '"><table style="table-layout:fixed;width:100%;min-width:560px">'
       + '<colgroup><col style="width:48px"><col style="width:86px"><col>'
       + '<col style="width:150px"><col style="width:118px"><col style="width:96px"></colgroup>'
+      // O CSS do painel alinha celula de tabela a direita por padrao (serve para
+      // as tabelas de numero). Aqui a maioria e texto, e texto colado na direita
+      // com vao no meio fica ilegivel — so Data e Valor continuam alinhados.
       + '<thead><tr>' +
-      '<th>Data</th><th style="text-align:right">Valor</th><th>Descrição</th>'
-      + '<th>O que é</th><th>Categoria</th><th></th>' +
+      '<th style="text-align:left">Data</th><th style="text-align:right">Valor</th>'
+      + '<th style="text-align:left">Descrição</th>'
+      + '<th style="text-align:left">O que é</th>'
+      + '<th style="text-align:left">Categoria</th><th></th>' +
       '</tr></thead><tbody>' +
       // DESCRICAO e o historico a digitar, quando eu sei qual e; sem isso, mostro
       // quem esta do outro lado no banco — nunca um palpite escrito como se fosse
       // certeza. O QUE E diz de onde a linha veio; CATEGORIA e a do Saipos.
       lista.slice(0, 30).map(p =>
-        '<tr><td style="font-size:12px">' + ddmm(p.data) + '</td>' +
+        '<tr><td style="font-size:12px;text-align:left">' + ddmm(p.data) + '</td>' +
         '<td style="text-align:right;color:' + cor + ';font-weight:600;white-space:nowrap">'
           + rs(p.valor) + '</td>' +
-        '<td style="overflow:hidden;text-overflow:ellipsis">' + (p.descricao_lancar
+        '<td style="text-align:left;overflow:hidden;text-overflow:ellipsis">' + (p.descricao_lancar
             ? '<b>' + esc(p.descricao_lancar) + '</b>'
             : esc(p.nome || memoLimpo(p.memo))) + '</td>' +
-        '<td style="opacity:.75;font-size:11px;overflow:hidden;text-overflow:ellipsis">'
+        '<td style="text-align:left;opacity:.75;font-size:11px;overflow:hidden;text-overflow:ellipsis">'
           + (p.pista ? esc(p.pista) : '—') + '</td>' +
-        '<td style="font-size:11px;overflow:hidden;text-overflow:ellipsis">'
+        '<td style="text-align:left;font-size:11px;overflow:hidden;text-overflow:ellipsis">'
           + (p.categoria ? esc(p.categoria) : '—') + '</td>' +
         '<td style="text-align:center">' + botoes(p) + '</td></tr>').join('') +
       '</tbody></table></div>' +
