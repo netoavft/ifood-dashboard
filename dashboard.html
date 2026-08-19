@@ -4269,16 +4269,31 @@ function renderConcbanco() {
     // exatamente o que sobrou na fila. Quando da, zerar a fila zera o saldo.
     // Quando NAO da, o que sobra e dinheiro que nenhum dos dois lados explica —
     // e e o unico numero desta tela que nao se resolve conciliando.
+    // O ALARME CERTO E A FILA VAZIA COM SALDO DIFERENTE. Enquanto ha linha por
+    // lancar, a diferenca de saldo E a fila — nao ha o que noticiar. Medido em
+    // 19/08/2026: a ITAU AV fecha no centavo em TODOS os fechamentos de mes de
+    // dezembro a julho, e a diferenca so existe dentro do mes que esta sendo
+    // conciliado.
+    //
+    // Nao uso `sem_explicacao` como alarme porque ele tem ruido: compara saldo
+    // acumulado com residuo casado em datas de outro mes, e acusa R$ 960 em
+    // 31/03 e R$ 120 em 31/07, dias que fecham em zero. Alarme que dispara
+    // sozinho e alarme que todo mundo aprende a ignorar.
     const sd = saldoConf.find(x => x.conta === conta);
-    const sobra = sd ? n(sd.sem_explicacao) : 0;
+    const naFila = abertas.filter(x => x.conta === conta)
+                          .reduce((s, x) => s + n(x.valor), 0);
+    const fechado = sd && Math.abs(n(sd.diferenca)) < CONCB_TOL_CENTAVOS;
+    const alarme = sd && !fechado && Math.abs(naFila) < CONCB_TOL_CENTAVOS;
     const linhaSaldo = !sd ? '' :
       '<tr><td></td><td colspan="3" style="font-size:12px;opacity:.85;padding-bottom:8px">'
       + 'saldo em ' + ddmm(sd.data_saldo) + ': banco <b>' + rs(sd.saldo_banco) + '</b>'
-      + ' · Saipos <b>' + rs(sd.saldo_saipos) + '</b> · diferença ' + rs(sd.diferenca)
-      + (Math.abs(sobra) < CONCB_TOL_CENTAVOS
-          ? ' — <span style="color:#2e7d32">toda explicada pela fila</span>'
-          : ' — <span style="color:#c8102e"><b>R$ ' + rs(Math.abs(sobra))
-            + ' que a fila não explica</b></span>')
+      + ' · Saipos <b>' + rs(sd.saldo_saipos) + '</b>'
+      + (fechado
+          ? ' — <span style="color:#2e7d32"><b>bateu</b></span>'
+          : ' · diferença <b>' + rs(sd.diferenca) + '</b>'
+            + (alarme
+                ? ' — <span style="color:#c8102e"><b>e não há mais nada na fila para lançar</b></span>'
+                : ' <span style="opacity:.7">(a fila tem ' + rs(naFila) + ' por lançar)</span>'))
       + '</td></tr>';
     return '<tr><td style="font-size:20px;color:' + cor + ';text-align:center;width:40px">' + marca + '</td>'
       + '<td><b>' + conta + '</b></td>'
