@@ -4257,10 +4257,16 @@ function renderConcbanco() {
   // de que lado obriga a pessoa a procurar nos dois.
   const contas = {};
   placar.forEach(r => {
-    const c = contas[r.conta] || (contas[r.conta] = { ontemMov: 0, gapEnt: 0, gapSai: 0, temOntem: false, temOfx: false });
+    const c = contas[r.conta] || (contas[r.conta] = { ontemMov: 0, gapEnt: 0, gapSai: 0,
+      entrou: 0, saiu: 0, temOntem: false, temOfx: false });
     if (r.data === ontem) {
       c.temOntem = true;
       if (r.tem_ofx) c.temOfx = true;
+      // O TOTAL QUE O BANCO MOVIMENTOU no dia — regra do dono, 19/08/2026: e o
+      // numero que ela usa para bater cada conta contra o Saipos. A diferenca
+      // nao mora aqui; mora nos quadros de baixo, linha a linha.
+      c.entrou += n(r.banco_entrou);
+      c.saiu += n(r.banco_saiu);
       c.ontemMov += Math.abs(n(r.banco_entrou)) + Math.abs(n(r.banco_saiu));
       c.gapEnt += n(r.falta_entrada);
       c.gapSai += n(r.falta_saida);
@@ -4295,9 +4301,9 @@ function renderConcbanco() {
     const semExtrato = c.temOntem && !c.temOfx && !fechou;
     const cor = !c.temOntem ? '#a5a49a' : fechou ? '#2e7d32' : semExtrato ? '#b8860b' : '#c8102e';
     const marca = !c.temOntem ? '—' : fechou ? '✓' : semExtrato ? '?' : '✗';
-    const lado = (v) => !c.temOntem ? '<span style="opacity:.4">—</span>'
-      : Math.abs(v) < CONCB_TOL_CENTAVOS ? '<span style="color:#2e7d32">ok</span>'
-      : '<span style="color:#c8102e">falta ' + rs(Math.abs(v)) + '</span>';
+    const lado = (v, cor) => !c.temOntem || Math.abs(v) < CONCB_TOL_CENTAVOS
+      ? '<span style="opacity:.4">—</span>'
+      : '<span style="color:' + cor + '">' + rs(Math.abs(v)) + '</span>';
 
     // A COLUNA SALDO MOSTRA O SALDO DO BANCO NO DIA — regra do dono, 19/08/2026:
     // "o objetivo é ela ter tudo o que precisa do banco na tela do painel, sem
@@ -4344,8 +4350,8 @@ function renderConcbanco() {
     const td = 'style="text-align:left;font-size:12px"';
     return '<tr><td style="text-align:left;font-size:18px;color:' + cor + '">' + marca + '</td>'
       + '<td style="text-align:left"><b>' + esc(conta) + '</b></td>'
-      + '<td ' + td + '>' + lado(c.gapEnt) + '</td>'
-      + '<td ' + td + '>' + lado(c.gapSai) + '</td>'
+      + '<td ' + td + '>' + lado(c.entrou, '#2e7d32') + '</td>'
+      + '<td ' + td + '>' + lado(c.saiu, '#c8102e') + '</td>'
       + '<td ' + td + ' title="' + esc(saldoTitulo) + '">' + saldoTxt + '</td></tr>';
   };
 
