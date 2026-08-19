@@ -3804,11 +3804,14 @@ async function entrarConcbanco() {
   if (CONCB) { renderConcbanco(); return; }
   alvo.innerHTML = '<div class="contexto">Carregando a conciliação...</div>';
   try {
-    const [placar, pend] = await Promise.all([
+    const [placar, pend, pessoas, marcadas, naoConf] = await Promise.all([
       consultarTudo('vw_fin_conciliacao_placar?select=*&order=data.desc'),
       consultarTudo('vw_fin_conciliacao_pendencias?select=*&order=dias.desc'),
+      consultarTudo('rmb_pessoas?select=pessoa,email&ativo=is.true'),
+      consultarTudo('fin_conciliacao_marcacao?select=*&order=criado_em.desc'),
+      consultarTudo('vw_fin_conciliacao_nao_confirmou?select=*'),
     ]);
-    CONCB = { placar, pend };
+    CONCB = { placar, pend, pessoas, marcadas, naoConf };
   } catch (e) {
     alvo.innerHTML = '<div class="contexto">Não consegui carregar a conciliação: ' + e.message + '</div>';
     return;
@@ -3816,10 +3819,56 @@ async function entrarConcbanco() {
   renderConcbanco();
 }
 
+// --- Marcacao da conciliacao (18/08/2026) ---
+// A Hellen opera a partir desta tela, entao ela nao digita no escuro: DECLARA.
+// "Lancei agora" = digitou no Saipos. "Ja estava lancado" = achou la em outro
+// formato, e isso e uma REGRA que o comparador nao sabe — vale mais que o
+// lancamento em si, porque ensina o sistema. O login e o mesmo dos reembolsos.
+function concbQuem() {
+  const s = rmbSessao();
+  if (!s) return null;
+  const lista = (CONCB && CONCB.pessoas) || [];
+  const login = (s.email || '').toLowerCase();
+  const local = login.split('@')[0];
+  // 1) e-mail cadastrado bate; 2) o cadastro de rmb_pessoas.email esta vazio hoje,
+  // entao aceita o nome que comeca o e-mail (hellen.algo -> HELLEN); 3) desiste e
+  // mostra o proprio e-mail, que sempre identifica.
+  const p = lista.find(x => (x.email || '').toLowerCase() === login)
+         || lista.find(x => local.startsWith(String(x.pessoa).toLowerCase()));
+  return p ? p.pessoa : (s.email || '');
+}
+
+async function concbMarcar(conta, fitid, tipo) {
+  const quem = concbQuem();
+  if (!quem) return;
+  const s = rmbSessao();
+  const corpo = JSON.stringify({ conta, fitid, tipo, quem, email: s && s.email });
+  let r = await fetch(`${SUPABASE_URL}/rest/v1/fin_conciliacao_marcacao`, {
+    method: 'POST', headers: rmbHeaders({ Prefer: 'return=minimal' }), body: corpo });
+  if (await rmbRenovarSeExpirado(r)) {
+    r = await fetch(`${SUPABASE_URL}/rest/v1/fin_conciliacao_marcacao`, {
+      method: 'POST', headers: rmbHeaders({ Prefer: 'return=minimal' }), body: corpo });
+  }
+  if (!r.ok) { alert('Não gravou: ' + (await r.text()).slice(0, 140)); return; }
+  CONCB = null;
+  await entrarConcbanco();
+}
+
+async function concbDesmarcar(conta, fitid) {
+  const url = `${SUPABASE_URL}/rest/v1/fin_conciliacao_marcacao`
+    + `?conta=eq.${encodeURIComponent(conta)}&fitid=eq.${encodeURIComponent(fitid)}`;
+  let r = await fetch(url, { method: 'DELETE', headers: rmbHeaders() });
+  if (await rmbRenovarSeExpirado(r)) r = await fetch(url, { method: 'DELETE', headers: rmbHeaders() });
+  if (!r.ok) { alert('Não desfez: ' + (await r.text()).slice(0, 140)); return; }
+  CONCB = null;
+  await entrarConcbanco();
+}
+
 function renderConcbanco() {
   const alvo = document.getElementById('view-concbanco');
   if (!alvo || !CONCB) return;
-  const { placar, pend } = CONCB;
+  const { placar, pend, marcadas, naoConf } = CONCB;
+  const quem = concbQuem();
   const n = (v) => Number(v) || 0;
   const rs = (v) => n(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const ddmm = (d) => d ? d.slice(8, 10) + '/' + d.slice(5, 7) : '—';
@@ -3906,18 +3955,31 @@ function renderConcbanco() {
       '<td style="text-align:center">' + situacao + '</td></tr>';
   }).join('');
 
+  // Sem onclick inline de proposito: conta e memo vem do banco e podem trazer
+  // aspas, que quebram o atributo. Os dados vao em data-* e um unico listener
+  // delegado cuida do clique (ver o final desta funcao).
+  const ATR = (p) => 'data-conta="' + String(p.conta).replace(/"/g, '&quot;')
+    + '" data-fitid="' + String(p.fitid).replace(/"/g, '&quot;') + '"';
+  const BTN = 'font-size:11px;padding:3px 7px;cursor:pointer';
+  const botoes = (p) => quem
+    ? '<button class="concb-marca" ' + ATR(p) + ' data-tipo="LANCEI" style="' + BTN + ';margin-right:4px">lancei agora</button>'
+      + '<button class="concb-marca" ' + ATR(p) + ' data-tipo="JA_ESTAVA" style="' + BTN + '">já estava lá</button>'
+    : '<span style="opacity:.5;font-size:11px">entre para marcar</span>';
+
   const filaLinhas = abertas.slice(0, 60).map(p =>
     '<tr><td>' + ddmm(p.data) + '</td><td>' + p.conta + '</td>' +
     '<td style="text-align:right">' + rs(p.valor) + '</td>' +
-    '<td>' + (p.memo || '').slice(0, 58) + '</td>' +
-    '<td style="text-align:center"><b>' + n(p.dias) + 'd</b></td></tr>').join('');
+    '<td>' + (p.memo || '').slice(0, 52) + '</td>' +
+    '<td style="text-align:center"><b>' + n(p.dias) + 'd</b></td>' +
+    '<td style="text-align:center">' + botoes(p) + '</td></tr>').join('');
 
   const periodo = dias.length ? ' Período: ' + ddmm(dias[0]) + ' a ' + ddmm(dias[dias.length - 1]) + '.' : '';
   const quando = atualizado ? ' Conferido em ' + ddmm(atualizado.slice(0, 10)) + '.' : '';
 
   const blocoFila = abertas.length
     ? '<table><thead><tr><th>Dia</th><th>Conta</th><th style="text-align:right">Valor</th>' +
-      '<th>O que o banco diz</th><th style="text-align:center">Há quanto tempo</th></tr></thead>' +
+      '<th>O que o banco diz</th><th style="text-align:center">Há quanto tempo</th>' +
+      '<th style="text-align:center">Conferi</th></tr></thead>' +
       '<tbody>' + filaLinhas + '</tbody></table>' +
       (abertas.length > 60 ? '<div class="contexto">Mostrando as 60 mais antigas de ' + abertas.length + '.</div>' : '')
     : '';
@@ -3951,6 +4013,43 @@ function renderConcbanco() {
       '</tbody></table></details>'
     : '';
 
+  // A trava: marcou "lancei" e o comparador continuou sem achar. Ou lancou com
+  // valor/data diferente, ou nao lancou. Aparece no topo porque e o unico item
+  // desta tela que exige alguem hoje.
+  const blocoTrava = (naoConf || []).length
+    ? '<div class="section-label">Confira: marcado como lançado, mas ainda não aparece</div>' +
+      '<div class="contexto">Alguém marcou estas linhas como lançadas e o comparador continuou sem ' +
+      'achar par depois disso. Provavelmente foi lançado com valor ou data diferente do extrato.</div>' +
+      '<table><thead><tr><th>Dia</th><th>Conta</th><th style="text-align:right">Valor</th>' +
+      '<th>O que o banco diz</th><th>Quem marcou</th><th style="text-align:center">Há</th></tr></thead><tbody>' +
+      naoConf.map(x => '<tr><td>' + ddmm(x.data) + '</td><td>' + x.conta + '</td>' +
+        '<td style="text-align:right">' + rs(x.valor) + '</td><td>' + (x.memo || '').slice(0, 46) + '</td>' +
+        '<td>' + (x.quem || '') + '</td><td style="text-align:center">' + n(x.dias_desde) + 'd</td></tr>').join('') +
+      '</tbody></table>'
+    : '';
+
+  // O achado que vale mais que o lancamento: linha que ja estava no Saipos e o
+  // comparador nao soube reconhecer. Cada uma e uma regra faltando.
+  const aprender = (marcadas || []).filter(m => m.tipo === 'JA_ESTAVA' && !m.observacao);
+  const blocoAprender = aprender.length
+    ? '<div class="section-label">Regras que faltam ao sistema</div>' +
+      '<div class="contexto">Estas linhas já estavam lançadas no Saipos e este comparador não soube ' +
+      'reconhecer. <b>Cada uma é uma regra que falta.</b> Quando alguém explicar o que são, elas viram ' +
+      'código e o mesmo caso deixa de aparecer.</div>' +
+      '<table><thead><tr><th>Conta</th><th>Marcou</th><th>Quem</th>' +
+      (quem ? '<th></th>' : '') + '</tr></thead><tbody>' +
+      aprender.slice(0, 25).map(m => '<tr><td>' + m.conta + '</td>' +
+        '<td>' + ddmm((m.criado_em || '').slice(0, 10)) + '</td><td>' + (m.quem || '') + '</td>' +
+        (quem ? '<td><button class="concb-desmarca" ' + ATR(m) +
+          ' style="font-size:11px;padding:2px 6px;cursor:pointer">desfazer</button></td>' : '') +
+        '</tr>').join('') + '</tbody></table>'
+    : '';
+
+  const avisoLogin = quem
+    ? '<div class="contexto">Você está como <b>' + quem + '</b>. O que você marcar fica registrado no seu nome.</div>'
+    : '<div class="contexto">Para marcar as linhas, entre com seu login no módulo <b>Reembolsos</b> — ' +
+      'é o mesmo acesso. Sem entrar, esta tela é só leitura.</div>';
+
   alvo.innerHTML =
     '<div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Conciliação bancária — o banco contra o Saipos</div>' +
     '<div class="contexto">Todo dia de manhã o extrato das contas é comparado com o que foi lançado no Saipos. ' +
@@ -3968,10 +4067,20 @@ function renderConcbanco() {
     '<th style="text-align:right">Falta lançar (entrada)</th><th style="text-align:right">Falta lançar (saída)</th>' +
     '<th style="text-align:right">Linhas sem par</th><th style="text-align:center">Situação</th></tr></thead>' +
     '<tbody>' + linhasContas + '</tbody></table>' +
+    blocoTrava +
     '<div class="section-label">O que eu ainda não sei explicar</div>' +
     '<div class="contexto">' + textoFila + textoNovas + '</div>' +
+    avisoLogin +
     blocoFila +
+    blocoAprender +
     blocoRuido;
+
+  // Um listener so para todos os botoes desta tela. Registrado DEPOIS do
+  // innerHTML, a cada render, entao sobrevive a tela ser reescrita.
+  alvo.querySelectorAll('.concb-marca').forEach(b => b.addEventListener('click', () =>
+    concbMarcar(b.dataset.conta, b.dataset.fitid, b.dataset.tipo)));
+  alvo.querySelectorAll('.concb-desmarca').forEach(b => b.addEventListener('click', () =>
+    concbDesmarcar(b.dataset.conta, b.dataset.fitid)));
 }
 
 async function entrarRh() {
