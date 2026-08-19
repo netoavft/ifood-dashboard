@@ -4124,12 +4124,8 @@ async function concbRodarComparador(bt) {
 // (`aplicar_licoes.py`). Nao interpreto texto livre aqui — so o par de nomes,
 // que e mecanico e reversivel.
 async function concbEnsinar(d) {
-  const texto = prompt('Como essa linha aparece no Saipos?
-
-'
-    + 'No banco: ' + (d.nome || d.memo || '') + '
-
-'
+  const texto = prompt('Como essa linha aparece no Saipos?\n\n'
+    + 'No banco: ' + (d.nome || d.memo || '') + '\n\n'
     + 'Escreva o nome ou o histórico do Saipos:');
   if (!texto || !texto.trim()) return;
   await concbGravarLicao({ tipo: 'NOME', conta: d.conta, fitid: d.fitid,
