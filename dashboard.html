@@ -4299,40 +4299,44 @@ function renderConcbanco() {
       : Math.abs(v) < CONCB_TOL_CENTAVOS ? '<span style="color:#2e7d32">ok</span>'
       : '<span style="color:#c8102e">falta ' + rs(Math.abs(v)) + '</span>';
 
-    // O SALDO É O OBJETIVO FINAL (dono, 19/08/2026), e a diferença se abre em
-    // três pedaços: o que está na fila, o que foi lançado com outra data
-    // (casamento certo, some sozinho) e o que sobra. Só o terceiro é problema.
+    // A COLUNA SALDO MOSTRA O SALDO DO BANCO NO DIA — regra do dono, 19/08/2026:
+    // "o objetivo é ela ter tudo o que precisa do banco na tela do painel, sem
+    // precisar abrir o extrato". Antes mostrava a DIFERENÇA, que serve para mim
+    // e não para quem concilia.
+    //
+    // O Itaú não emite saldo todo dia (em agosto deu 14, 17 e 19, e a
+    // conciliação é de 18), então o valor é calculado: último saldo declarado
+    // mais o que moveu depois. Só é confiável porque o extrato é íntegro —
+    // conferido no centavo nas 5 contas.
     const sd = saldoConf.find(x => x.conta === conta);
-    const fechado = sd && Math.abs(n(sd.diferenca)) < CONCB_TOL_CENTAVOS;
-    let saldoTxt, saldoTitulo = '';
-    if (!sd) {
-      saldoTxt = '<span style="opacity:.4">—</span>';
-    } else if (fechado) {
-      saldoTxt = '<span style="color:#2e7d32">bateu</span>';
-      saldoTitulo = 'banco ' + rs(sd.saldo_banco) + ' · Saipos ' + rs(sd.saldo_saipos);
-    } else {
-      const sobra = n(sd.sem_explicacao);
-      const outra = n(sd.lancado_em_outra_data);
-      // Extrato parado nao e diferenca sem explicacao: e falta de dado. A
-      // SANTANDER estava ha 6 dias sem OFX e a tela acusava R$ 1.343,89 "sem
-      // explicação" — alarme que nao se resolve conciliando e alarme que todo
-      // mundo aprende a ignorar. O que resolve e baixar o extrato.
-      const diasSemExtrato = Math.round(
-        (new Date(ontem) - new Date(sd.data_saldo)) / 86400000);
-      const motivo = diasSemExtrato > 2
-        ? '<span style="color:#b8860b">extrato parado em ' + ddmm(sd.data_saldo) + '</span>'
-        : Math.abs(sobra) >= CONCB_TOL_CENTAVOS
-        // valor ja aparece antes do ponto; repetir aqui e ruido
-        ? '<span style="color:#c8102e">sem explicação</span>'
-        : Math.abs(outra) >= CONCB_TOL_CENTAVOS
-          ? '<span style="opacity:.7">lançado com outra data</span>'
-          : '<span style="opacity:.7">está na fila abaixo</span>';
-      saldoTxt = '<b>' + rs(sd.diferenca) + '</b> · ' + motivo;
-      saldoTitulo = 'em ' + ddmm(sd.data_saldo) + ': banco ' + rs(sd.saldo_banco)
-        + ' · Saipos ' + rs(sd.saldo_saipos)
-        + ' · na fila ' + rs(sd.explicado_pela_fila)
+    // Um centavo de diferença é arredondamento de soma, não dinheiro.
+    const TOL_SALDO = 0.015;
+    let saldoTxt = '<span style="opacity:.4">—</span>', saldoTitulo = '';
+    if (sd) {
+      const semExtratoDe = !sd.extrato_ate ? 'nunca'
+        : (Math.round((new Date(ontem) - new Date(sd.extrato_ate)) / 86400000) > 2
+            ? ddmm(sd.extrato_ate) : null);
+      const dif = n(sd.diferenca);
+      saldoTitulo = 'banco ' + rs(sd.saldo_banco) + ' · Saipos ' + rs(sd.saldo_saipos)
+        + ' · diferença ' + rs(dif) + ' · na fila ' + rs(sd.explicado_pela_fila)
         + ' · outra data ' + rs(sd.lancado_em_outra_data)
         + ' · sem explicação ' + rs(sd.sem_explicacao);
+      if (semExtratoDe) {
+        // Extrato parado não é diferença: é falta de dado, e não se resolve
+        // conciliando. Mostrar o saldo velho como se fosse o de ontem mente.
+        saldoTxt = '<span style="color:#b8860b">extrato parado'
+          + (semExtratoDe === 'nunca' ? '' : ' em ' + semExtratoDe) + '</span>';
+      } else {
+        const bateu = Math.abs(dif) < TOL_SALDO;
+        const sobra = n(sd.sem_explicacao);
+        saldoTxt = '<b>' + rs(sd.saldo_banco) + '</b> · '
+          + (bateu ? '<span style="color:#2e7d32">Saipos igual</span>'
+             : Math.abs(sobra) >= TOL_SALDO
+               ? '<span style="color:#c8102e">Saipos ' + rs(sd.saldo_saipos)
+                 + ', R$ ' + rs(Math.abs(sobra)) + ' sem explicação</span>'
+               : '<span style="opacity:.7">Saipos ' + rs(sd.saldo_saipos)
+                 + ', diferença toda explicada</span>');
+      }
     }
     const td = 'style="text-align:left;font-size:12px"';
     return '<tr><td style="text-align:left;font-size:18px;color:' + cor + '">' + marca + '</td>'
