@@ -438,6 +438,7 @@
       <button class="sidebar-btn" id="navBtnFluxo" onclick="mostrarModulo('fluxo')"><span class="mico">💵</span>Fluxo de caixa</button>
       <button class="sidebar-btn" id="navBtnProjecao" onclick="mostrarModulo('projecao')"><span class="mico">🔮</span>Fluxo projetado</button>
       <button class="sidebar-btn" id="navBtnConcbanco" onclick="mostrarModulo('concbanco')"><span class="mico">🏦</span>Conciliação bancária</button>
+      <button class="sidebar-btn" id="navBtnRede" onclick="mostrarModulo('rede')"><span class="mico">🏧</span>Cartão &amp; maquininha</button>
       <button class="sidebar-btn" id="navBtnDespesas" onclick="mostrarModulo('despesas')"><span class="mico">🧾</span>Análise de despesas</button>
       <button class="sidebar-btn" id="navBtnReembolsos" onclick="mostrarModulo('reembolsos')"><span class="mico">💸</span>Reembolsos</button>
       <button class="sidebar-btn" id="navBtnRh" onclick="mostrarModulo('rh')"><span class="mico">💳</span>Descontos em folha</button>
@@ -567,6 +568,10 @@
 
     <div id="modulo-concbanco" class="modulo" style="display:none;">
       <div id="view-concbanco"></div>
+    </div>
+
+    <div id="modulo-rede" class="modulo" style="display:none;">
+      <div id="view-rede"></div>
     </div>
 
     <div id="modulo-reembolsos" class="modulo" style="display:none;">
@@ -1124,7 +1129,7 @@ function abrirGrupoDoModulo(nome) {
                     dre: 'gResultado', indicadores: 'gResultado', estasemana: 'gResultado',
                     consolidada: 'gResultado', atrasos: 'gOperacao',
                     frete: 'gOperacao', listas: 'gOperacao',
-                    reembolsos: 'gFinanceiro', rh: 'gFinanceiro',
+                    reembolsos: 'gFinanceiro', rh: 'gFinanceiro', rede: 'gFinanceiro',
                     qualidade: 'gIfood',
                     relatorios: 'gArquivo', conciliacao: 'gArquivo', rotinas: 'gArquivo' };
   const id = grupoDe[nome] || 'gIfood';
@@ -1166,6 +1171,7 @@ function mostrarModulo(nome) {
     reembolsos: ['modulo-reembolsos', 'navBtnReembolsos'],
     rh: ['modulo-rh', 'navBtnRh'],
     concbanco: ['modulo-concbanco', 'navBtnConcbanco'],
+    rede: ['modulo-rede', 'navBtnRede'],
   };
   Object.entries(modulos).forEach(([chave, [idDiv, idBtn]]) => {
     // Tolerante a botao/div ausente: o menu e mexido com frequencia e um id
@@ -1206,6 +1212,7 @@ function mostrarModulo(nome) {
   if (nome === 'frete') entrarFrete();
   if (nome === 'listas') entrarListas();
   if (nome === 'concbanco') entrarConcbanco();
+  if (nome === 'rede') entrarRede();
   if (nome === 'reembolsos') entrarReembolsos();
   if (nome === 'rh') entrarRh();
   if (nome === 'rotinas') entrarRotinas();
@@ -3652,6 +3659,143 @@ async function carregarReembolsos() {
     consultarTudo('vw_rmb_sem_registro?select=debito'),
   ]);
   return { saldo, fila, orfaos };
+}
+
+// ------------------------------------------------------------------
+// Cartao & maquininha (Rede, adquirente do Itau). Fonte: API da Rede em
+// producao, lida pela nossa conciliadora VICENTE E IKOMA. Ligado ao painel em
+// 18/08/2026 — o que a rede paga de MDR e de aluguel de maquininha, por loja e
+// por bandeira, direto da fonte. Views: vw_rede_taxas_efetivas (venda x MDR) e
+// vw_rede_aluguel (cobranca de aluguel por loja/mes). Ambas ja medidas seguras
+// no timeout de 3s do anon (rede_vendas ~15k linhas, nada perto de fato_pedidos).
+let REDE_DADOS = null;
+
+async function carregarRede() {
+  const [taxas, aluguel] = await Promise.all([
+    consultarTudo('vw_rede_taxas_efetivas?select=unidade,modalidade,n_vendas,bruto,mdr_cobrado&ambiente=eq.producao'),
+    consultarTudo('vw_rede_aluguel?select=unidade,mes,aluguel&ambiente=eq.producao&order=unidade,mes'),
+  ]);
+  return { taxas, aluguel };
+}
+
+async function entrarRede() {
+  const alvo = document.getElementById('view-rede');
+  if (!alvo) return;
+  if (REDE_DADOS === null) {
+    alvo.innerHTML = '<div class="contexto">Carregando cartão e maquininha (dados da Rede)...</div>';
+    REDE_DADOS = await carregarRede();
+  }
+  renderModuloRede(REDE_DADOS);
+}
+
+function renderModuloRede({ taxas, aluguel }) {
+  const alvo = document.getElementById('view-rede');
+  if (!alvo) return;
+  const reais = (v) => 'R$ ' + Number(v).toLocaleString('pt-BR', { minimumFractionDigits:2, maximumFractionDigits:2 });
+  const efetiva = (mdr, br) => br > 0 ? (100 * mdr / br) : 0;
+  const MOD_ROTULO = { CREDIT:'Crédito', DEBIT:'Débito', VAN:'Voucher (VAN)' };
+
+  // por loja: faturamento no cartao, MDR e aluguel
+  const lojas = {};
+  const garante = (u) => (lojas[u] = lojas[u] || { bruto:0, mdr:0, nvendas:0, aluguel:0, meses:new Set() });
+  taxas.forEach(t => { const l = garante(t.unidade || '(sem loja)');
+    l.bruto += +t.bruto||0; l.mdr += +t.mdr_cobrado||0; l.nvendas += +t.n_vendas||0; });
+  aluguel.forEach(a => { const l = garante(a.unidade || '(sem loja)');
+    l.aluguel += +a.aluguel||0; if (a.mes) l.meses.add(a.mes); });
+
+  // por modalidade (rede toda)
+  const mods = {};
+  taxas.forEach(t => { const m = t.modalidade || '(sem)';
+    mods[m] = mods[m] || { bruto:0, mdr:0, nvendas:0 };
+    mods[m].bruto += +t.bruto||0; mods[m].mdr += +t.mdr_cobrado||0; mods[m].nvendas += +t.n_vendas||0; });
+
+  const totBruto = Object.values(lojas).reduce((a,l)=>a+l.bruto,0);
+  const totMdr   = Object.values(lojas).reduce((a,l)=>a+l.mdr,0);
+  const totAlug  = Object.values(lojas).reduce((a,l)=>a+l.aluguel,0);
+  const custoTot = totMdr + totAlug;
+
+  // periodo coberto (dos meses de aluguel)
+  const todosMeses = aluguel.map(a => a.mes).filter(Boolean).sort();
+  const mesLabel = (m) => m ? new Date(m + 'T12:00:00').toLocaleDateString('pt-BR',{month:'short',year:'2-digit'}) : '';
+  const periodo = todosMeses.length ? `${mesLabel(todosMeses[0])} a ${mesLabel(todosMeses[todosMeses.length-1])}` : '';
+
+  const cards = `
+    <div class="card"><div style="font-size:12px; color:#a5a49a; text-transform:uppercase;">Faturamento no cartão</div>
+      <div style="font-size:26px; font-weight:700;">${reais(totBruto)}</div>
+      <div style="font-size:12px; color:#8a897e;">o que passou nas maquininhas no período</div></div>
+    <div class="card"><div style="font-size:12px; color:#a5a49a; text-transform:uppercase;">Taxa de cartão (MDR)</div>
+      <div style="font-size:26px; font-weight:700;">${reais(totMdr)}</div>
+      <div style="font-size:12px; color:#8a897e;">taxa efetiva média <b style="color:#e8e6dc;">${pct(efetiva(totMdr,totBruto))}%</b></div></div>
+    <div class="card"><div style="font-size:12px; color:#a5a49a; text-transform:uppercase;">Aluguel de maquininha</div>
+      <div style="font-size:26px; font-weight:700;">${reais(totAlug)}</div>
+      <div style="font-size:12px; color:#8a897e;">cobrado uma vez por mês, por máquina</div></div>
+    <div class="card" style="border:1px solid #6b5b2e;"><div style="font-size:12px; color:#a5a49a; text-transform:uppercase;">Custo total com a Rede</div>
+      <div style="font-size:26px; font-weight:700; color:#f5a623;">${reais(custoTot)}</div>
+      <div style="font-size:12px; color:#8a897e;">taxa + aluguel no período</div></div>`;
+
+  // taxa por modalidade
+  const ordemMod = ['CREDIT','DEBIT','VAN'];
+  const linhasMod = Object.entries(mods)
+    .sort((a,b)=> (ordemMod.indexOf(a[0])+99)%100 - (ordemMod.indexOf(b[0])+99)%100 || b[1].bruto-a[1].bruto)
+    .map(([m,v]) => `<tr>
+      <td style="padding:5px 8px;">${MOD_ROTULO[m] || m}</td>
+      <td style="padding:5px 8px; text-align:right; color:#a5a49a;">${v.nvendas.toLocaleString('pt-BR')}</td>
+      <td style="padding:5px 8px; text-align:right;">${reais(v.bruto)}</td>
+      <td style="padding:5px 8px; text-align:right;">${reais(v.mdr)}</td>
+      <td style="padding:5px 8px; text-align:right; font-weight:600;">${pct(efetiva(v.mdr,v.bruto))}%</td></tr>`).join('');
+
+  // custo por loja, com o fato do aluguel vs MDR (sem julgar — so o numero)
+  const lojasOrd = Object.entries(lojas).sort((a,b)=> b[1].bruto - a[1].bruto);
+  const linhasLoja = lojasOrd.map(([u,l]) => {
+    const custo = l.mdr + l.aluguel;
+    const razao = l.mdr > 0 ? l.aluguel / l.mdr : null;   // aluguel como multiplo do MDR
+    // fato, nao julgamento: aluguel MAIOR que a taxa que a Rede ganha usando a maquina
+    const alugMaior = razao !== null && razao > 1;
+    const corAlug = alugMaior ? '#ff6b6b' : '#e8e6dc';
+    return `<tr>
+      <td style="padding:5px 8px; font-weight:600;">${u}</td>
+      <td style="padding:5px 8px; text-align:right;">${reais(l.bruto)}</td>
+      <td style="padding:5px 8px; text-align:right;">${reais(l.mdr)}</td>
+      <td style="padding:5px 8px; text-align:right; color:#a5a49a;">${pct(efetiva(l.mdr,l.bruto))}%</td>
+      <td style="padding:5px 8px; text-align:right; color:${corAlug};">${reais(l.aluguel)}</td>
+      <td style="padding:5px 8px; text-align:right; font-weight:600;">${reais(custo)}</td>
+      <td style="padding:5px 8px; color:#8a897e; font-size:11px;">${
+        razao === null ? '' :
+        alugMaior ? `aluguel = <b style="color:#ff6b6b;">${razao.toLocaleString('pt-BR',{maximumFractionDigits:1})}×</b> a taxa`
+                  : `aluguel = ${Math.round(100*razao)}% da taxa`}</td></tr>`;
+  }).join('');
+
+  // alguma loja com aluguel maior que a taxa? vira uma frase de fato no topo da tabela
+  const lojaFlag = lojasOrd.find(([u,l]) => l.mdr > 0 && l.aluguel > l.mdr);
+  const avisoAlug = lojaFlag
+    ? `<div class="contexto" style="border-left:3px solid #ff6b6b; padding-left:10px;">Em <b>${lojaFlag[0]}</b>, o aluguel das maquininhas foi <b>maior</b> que o total de taxa que a Rede ganhou sobre as vendas dessa loja no período. É um fato a olhar: pode haver máquina parada gerando aluguel. Não é um erro do dado.</div>`
+    : '';
+
+  alvo.innerHTML = `
+    <div class="contexto">Custo com a <b>Rede</b> (adquirente do cartão, do grupo Itaú), direto da API da Rede — o que
+      efetivamente foi cobrado, não uma estimativa. Cobre <b>${periodo}</b>, nas lojas Água Verde, Ahú e São Braz
+      (Boqueirão fora por ora). Dois custos: a <b>taxa de cartão (MDR)</b> sobre cada venda e o <b>aluguel das
+      maquininhas</b>, cobrado por máquina todo mês.</div>
+
+    <div class="cards" style="display:flex; flex-wrap:wrap; gap:12px; margin:14px 0;">${cards}</div>
+
+    <div class="section-label">Taxa efetiva por tipo de pagamento</div>
+    <div class="contexto">A taxa efetiva é a taxa real paga: soma do MDR dividida pelo que passou. Voucher (VAN) a Rede
+      só captura — a taxa é da bandeira, por isso aparece zerada aqui.</div>
+    <table><thead><tr><th style="text-align:left">Tipo</th><th style="text-align:right">Vendas</th>
+      <th style="text-align:right">Faturamento</th><th style="text-align:right">Taxa (R$)</th>
+      <th style="text-align:right">Taxa efetiva</th></tr></thead><tbody>${linhasMod}</tbody></table>
+
+    <div class="section-label" style="margin-top:18px;">Custo por loja</div>
+    ${avisoAlug}
+    <table><thead><tr><th style="text-align:left">Loja</th><th style="text-align:right">Faturamento</th>
+      <th style="text-align:right">Taxa (MDR)</th><th style="text-align:right">Taxa efetiva</th>
+      <th style="text-align:right">Aluguel</th><th style="text-align:right">Custo total</th>
+      <th></th></tr></thead><tbody>${linhasLoja}</tbody></table>
+
+    <div class="contexto" style="margin-top:14px; color:#8a897e; font-size:11.5px;">Fonte: API da Rede em produção,
+      lida pela conciliadora VICENTE E IKOMA. Atualiza na rotina diária das APIs (08:00). A agenda de recebíveis não
+      entra aqui — está fora do ar do lado da Rede.</div>`;
 }
 
 async function entrarReembolsos() {
