@@ -3386,6 +3386,12 @@ function renderModuloClientes(mesSel) {
 // E' um retrato mensal da empresa inteira — NAO segue os filtros de
 // loja/periodo do topo (que sao do canal iFood).
 // ------------------------------------------------------------------
+// NOTA MULTI-LOJA (18/08/2026): as views de DFC e DRE AGRUPAM por unidade — o
+// backend sempre foi multi-loja. O painel e que nunca filtrou, e ate aqui isso
+// dava certo por acidente, porque so a Agua Verde tinha dados. Com o historico
+// de AHU e SAO BRAZ entrando, somar tudo faria a DRE e o DFC crescerem sem dar
+// erro nenhum — o pior tipo de mudanca, a que parece resultado. O filtro fixo
+// congela o comportamento de hoje; o proximo passo e um seletor de loja.
 let DFC_MENSAL = null;   // vw_fin_dfc_mensal: mes, natureza, tipo, subtipo, ordem, credito, debito
 let DFC_CONTAS = null;   // fin_contas: conta, saldo_inicial, ordem
 let DFC_MOV = null;      // vw_fin_saldo_conta_mensal: mes, conta, movimento
@@ -4057,7 +4063,7 @@ function renderConcbanco() {
     'o que aparece aqui como "sem explicação" é quase sempre um formato que o comparador ainda não aprendeu, ' +
     'não dinheiro sumido. <b>Olhe o dinheiro antes de olhar a quantidade de linhas:</b> na Itaú Água Verde, de ' +
     '01/07 a 14/08, entraram R$ 1.135.558 pelo banco em 872 linhas contra R$ 1.134.302 em 319 lançamentos — ' +
-    'falta 0,11%.' + periodo + quando + ' O Boqueirão fica fora desta conciliação, e Ahú e São Braz começam em agosto.</div>' +
+    'falta 0,11%.' + periodo + quando + ' O Boqueirão fica fora desta conciliação.</div>' +
     cards +
     '<div class="section-label">Por conta</div>' +
     '<div class="contexto">"Falta lançar" é o dinheiro que passou pelo banco e ainda não apareceu no Saipos no ' +
@@ -5827,7 +5833,8 @@ async function entrarIndicadores() {
 async function garantirDadosFin() {
   if (DFC_MENSAL !== null) return;
   [DFC_MENSAL, DFC_CONTAS, DFC_MOV] = await Promise.all([
-    consultarTudo("vw_fin_dfc_mensal?select=mes,natureza,tipo,subtipo,ordem,credito,debito&order=mes,ordem"),
+    consultarTudo("vw_fin_dfc_mensal?select=mes,natureza,tipo,subtipo,ordem,credito,debito"
+                  + "&unidade=eq.AGUA VERDE&order=mes,ordem"),   // ver NOTA MULTI-LOJA
     consultarTudo("fin_contas?select=conta,saldo_inicial,ordem&order=ordem"),
     consultarTudo("vw_fin_saldo_conta_mensal?select=mes,conta,movimento&order=mes,conta"),
   ]);
@@ -6300,8 +6307,10 @@ async function entrarDre() {
     alvo.innerHTML = '<div class="contexto">Carregando DRE...</div>';
     let metas, benefMes;
     [DRE_FIN, DRE_VENDAS, metas, BENEF_FAROL, benefMes, DRE_TAXAS] = await Promise.all([
-      consultarTudo('vw_fin_dre_mensal?select=mes,natureza,tipo,subtipo,ordem,credito,debito&order=mes,ordem'),
-      consultarTudo('vw_vendas_canal_mensal?select=mes,canal,vendas,receita&order=mes'),
+      consultarTudo('vw_fin_dre_mensal?select=mes,natureza,tipo,subtipo,ordem,credito,debito'
+        + '&unidade=eq.AGUA VERDE&order=mes,ordem'),   // ver NOTA MULTI-LOJA
+      consultarTudo('vw_vendas_canal_mensal?select=mes,canal,vendas,receita'
+        + '&unidade=eq.AGUA VERDE&order=mes'),   // ver NOTA MULTI-LOJA
       consultarTudo('fin_metas_dre?select=chave,sentido,pct_meta&order=ordem'),
       carregarBeneficioIfood(),
       consultarTudo('vw_fin_dre_beneficio?select=mes,beneficio_ifood&order=mes'),
