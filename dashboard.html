@@ -5974,18 +5974,101 @@ async function entrarIndicadores() {
   ${corpo}`;
 }
 
+// ===== Seletor de loja do financeiro (18/08/2026) =====
+// Ate 18/08 o painel somava as tres lojas sem dizer, porque as views sempre
+// agruparam por unidade e ninguem filtrava. Enquanto so a Agua Verde tinha
+// dados isso passava; com AHU e SAO BRAZ no Saipos desde 01/08, o DFC de agosto
+// ficou inflado em R$ 131 mil sem dar erro nenhum.
+// A regra agora: a loja e SEMPRE uma escolha explicita, e somar as tres ("Rede")
+// e uma opcao, nunca o padrao.
+let LOJA_FIN = 'AGUA VERDE';
+const LOJAS_FIN = [
+  ['AGUA VERDE', 'Água Verde'],
+  ['AHU', 'Ahú'],
+  ['SÃO BRAZ', 'São Braz'],
+  ['REDE', 'Rede (as três)'],
+];
+let DFC_RAW = null, DFC_CONTAS_RAW = null, DFC_MOV_RAW = null;
+let DRE_RAW = null, DRE_VENDAS_RAW = null;
+
+// Filtra pela loja escolhida. Em REDE soma as linhas equivalentes das unidades
+// (mesma competencia, mesma linha do plano de contas).
+function porLojaFin(linhas, chaves, somar) {
+  if (!linhas) return linhas;
+  if (LOJA_FIN !== 'REDE') return linhas.filter(r => r.unidade === LOJA_FIN);
+  const mapa = new Map();
+  linhas.forEach(r => {
+    const k = chaves.map(c => r[c]).join('');
+    const acc = mapa.get(k);
+    if (!acc) { mapa.set(k, Object.assign({}, r, { unidade: 'REDE' })); return; }
+    somar.forEach(c => { acc[c] = Number(acc[c] || 0) + Number(r[c] || 0); });
+  });
+  return [...mapa.values()];
+}
+
+// Deriva as listas que os modulos ja usavam. Nada mais busca no servidor: trocar
+// de loja e so refiltrar o que ja esta na memoria.
+function aplicarLojaFin() {
+  if (DFC_RAW) {
+    DFC_MENSAL = porLojaFin(DFC_RAW, ['mes', 'natureza', 'tipo', 'subtipo', 'ordem'],
+                            ['credito', 'debito']);
+    DFC_MENSAL.forEach(r => { r.credito = Number(r.credito); r.debito = Number(r.debito); });
+    // Conta pertence a uma unidade: em REDE entram todas, senao so as da loja.
+    DFC_CONTAS = (LOJA_FIN === 'REDE' ? (DFC_CONTAS_RAW || [])
+      : (DFC_CONTAS_RAW || []).filter(c => c.unidade === LOJA_FIN)).map(c => c);
+    DFC_CONTAS.forEach(c => { c.saldo_inicial = Number(c.saldo_inicial); });
+    const minhas = new Set((DFC_CONTAS || []).map(c => c.conta));
+    DFC_MOV = (DFC_MOV_RAW || []).filter(m => minhas.has(m.conta));
+    DFC_MOV.forEach(r => { r.movimento = Number(r.movimento); });
+  }
+  if (DRE_RAW) {
+    DRE_FIN = porLojaFin(DRE_RAW, ['mes', 'natureza', 'tipo', 'subtipo', 'ordem'],
+                         ['credito', 'debito']);
+    DRE_FIN.forEach(r => { r.credito = Number(r.credito); r.debito = Number(r.debito); });
+    DRE_VENDAS = porLojaFin(DRE_VENDAS_RAW, ['mes', 'canal'], ['vendas', 'receita']);
+    DRE_VENDAS.forEach(r => { r.receita = Number(r.receita); r.vendas = Number(r.vendas); });
+  }
+}
+
+function seletorLojaFin() {
+  return '<div class="contexto" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
+    + '<b>Loja:</b>'
+    + LOJAS_FIN.map(([v, rot]) =>
+        '<button class="loja-fin" data-loja="' + v + '" style="cursor:pointer;padding:4px 10px;'
+        + 'font-size:12px;border-radius:4px;'
+        + (v === LOJA_FIN ? 'font-weight:700;border:2px solid #c8102e' : 'border:1px solid #bbb')
+        + '">' + rot + '</button>').join('')
+    + '<span style="opacity:.65;font-size:12px">'
+    + (LOJA_FIN === 'REDE' ? 'Somando as três lojas.' : 'Só esta loja.')
+    + '</span></div>';
+}
+
+function nomeLojaFin() {
+  const l = LOJAS_FIN.find(x => x[0] === LOJA_FIN);
+  return l ? l[1] : LOJA_FIN;
+}
+
+// Um listener so, no documento, registrado uma vez: os modulos reescrevem o
+// proprio HTML o tempo todo, e religar botao a cada render e a receita para um
+// dia esquecer e o clique morrer em silencio.
+document.addEventListener('click', (e) => {
+  const b = e.target && e.target.closest && e.target.closest('.loja-fin');
+  if (!b || b.dataset.loja === LOJA_FIN) return;
+  LOJA_FIN = b.dataset.loja;
+  aplicarLojaFin();
+  if (MODULO_ATUAL === 'fluxo') renderModuloDFC();
+  else if (MODULO_ATUAL === 'dre') renderModuloDRE();
+});
+
 // Carrega os dados financeiros uma vez so — compartilhados entre DFC e DRE.
 async function garantirDadosFin() {
   if (DFC_MENSAL !== null) return;
-  [DFC_MENSAL, DFC_CONTAS, DFC_MOV] = await Promise.all([
-    consultarTudo("vw_fin_dfc_mensal?select=mes,natureza,tipo,subtipo,ordem,credito,debito"
-                  + "&unidade=eq.AGUA VERDE&order=mes,ordem"),   // ver NOTA MULTI-LOJA
-    consultarTudo("fin_contas?select=conta,saldo_inicial,ordem&order=ordem"),
+  [DFC_RAW, DFC_CONTAS_RAW, DFC_MOV_RAW] = await Promise.all([
+    consultarTudo("vw_fin_dfc_mensal?select=unidade,mes,natureza,tipo,subtipo,ordem,credito,debito&order=mes,ordem"),
+    consultarTudo("fin_contas?select=conta,unidade,saldo_inicial,ordem&order=ordem"),
     consultarTudo("vw_fin_saldo_conta_mensal?select=mes,conta,movimento&order=mes,conta"),
   ]);
-  DFC_MENSAL.forEach(r => { r.credito = Number(r.credito); r.debito = Number(r.debito); });
-  DFC_CONTAS.forEach(r => { r.saldo_inicial = Number(r.saldo_inicial); });
-  DFC_MOV.forEach(r => { r.movimento = Number(r.movimento); });
+  aplicarLojaFin();   // converte os números lá dentro: trocar de loja refaz as listas
 }
 
 async function entrarFluxo() {
@@ -6050,7 +6133,8 @@ function dfcToggle(chave) {
 function renderModuloDFC() {
   const alvo = document.getElementById('view-fluxo');
   if (!DFC_MENSAL || !DFC_MENSAL.length) {
-    alvo.innerHTML = `<div class="contexto" style="border-color:#c8102e;">Sem lançamentos financeiros ainda.</div>`;
+    alvo.innerHTML = seletorLojaFin() +
+      `<div class="contexto" style="border-color:#c8102e;">Sem lançamentos financeiros para esta loja.</div>`;
     return;
   }
   const mesAtual = mesCorrenteSP();
@@ -6240,8 +6324,8 @@ function renderModuloDFC() {
     .filter(x => x[1] > 0).sort((a, b) => b[1] - a[1]);
 
   const nSemClass = Math.abs(total(semClass));
-  alvo.innerHTML = `
-  <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Fluxo de Caixa — Água Verde</div>
+  alvo.innerHTML = seletorLojaFin() + `
+  <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Fluxo de Caixa — ${nomeLojaFin()}</div>
   <div class="caption-label" style="text-align:center;">
     DFC realizado, mês a mês, da empresa inteira (todos os canais) — <b>não segue os filtros de período/loja do topo</b>,
     que valem só para o canal iFood. Clique nas linhas com ▶ para abrir o detalhe.
@@ -6448,22 +6532,19 @@ function blocoBeneficioIfood({ f, semanas }) {
 
 async function entrarDre() {
   const alvo = document.getElementById('view-dre');
-  if (DRE_FIN === null) {
+  if (DRE_RAW === null) {   // DRE_FIN e derivado; quem diz se ja buscou e o cru
     alvo.innerHTML = '<div class="contexto">Carregando DRE...</div>';
     let metas, benefMes;
-    [DRE_FIN, DRE_VENDAS, metas, BENEF_FAROL, benefMes, DRE_TAXAS] = await Promise.all([
-      consultarTudo('vw_fin_dre_mensal?select=mes,natureza,tipo,subtipo,ordem,credito,debito'
-        + '&unidade=eq.AGUA VERDE&order=mes,ordem'),   // ver NOTA MULTI-LOJA
-      consultarTudo('vw_vendas_canal_mensal?select=mes,canal,vendas,receita'
-        + '&unidade=eq.AGUA VERDE&order=mes'),   // ver NOTA MULTI-LOJA
+    [DRE_RAW, DRE_VENDAS_RAW, metas, BENEF_FAROL, benefMes, DRE_TAXAS] = await Promise.all([
+      consultarTudo('vw_fin_dre_mensal?select=unidade,mes,natureza,tipo,subtipo,ordem,credito,debito&order=mes,ordem'),
+      consultarTudo('vw_vendas_canal_mensal?select=unidade,mes,canal,vendas,receita&order=mes'),
       consultarTudo('fin_metas_dre?select=chave,sentido,pct_meta&order=ordem'),
       carregarBeneficioIfood(),
       consultarTudo('vw_fin_dre_beneficio?select=mes,beneficio_ifood&order=mes'),
       consultarTudo('mv_conciliacao_agregado?select=data,grupo,valor&unidade=eq.AGUA%20VERDE'),
       garantirDadosFin(),   // DFC (caixa) para a ponte DRE x DFC do mes fechado
     ]);
-    DRE_FIN.forEach(r => { r.credito = Number(r.credito); r.debito = Number(r.debito); });
-    DRE_VENDAS.forEach(r => { r.receita = Number(r.receita); });
+    aplicarLojaFin();   // deriva DRE_FIN e DRE_VENDAS da loja escolhida
     DRE_METAS = {};
     metas.forEach(m => { DRE_METAS[m.chave] = { sentido: m.sentido, meta: Number(m.pct_meta) }; });
     DRE_BENEF = {};
@@ -6487,7 +6568,8 @@ function dreRangeSet() {
 function renderModuloDRE() {
   const alvo = document.getElementById('view-dre');
   if (!DRE_FIN || !DRE_FIN.length) {
-    alvo.innerHTML = `<div class="contexto" style="border-color:#c8102e;">Sem lançamentos financeiros ainda.</div>`;
+    alvo.innerHTML = seletorLojaFin() +
+      `<div class="contexto" style="border-color:#c8102e;">Sem lançamentos financeiros para esta loja.</div>`;
     return;
   }
   const mesAtual = mesCorrenteSP();
@@ -6857,10 +6939,10 @@ function renderModuloDRE() {
     }
   }
 
-  alvo.innerHTML = `
+  alvo.innerHTML = seletorLojaFin() + `
   ${fechHtml}
   ${blocoBeneficioIfood(BENEF_FAROL || { f: null, semanas: [] })}
-  <div class="section-label">DRE Gerencial — Água Verde</div>
+  <div class="section-label">DRE Gerencial — ${nomeLojaFin()}</div>
   <div class="caption-label" style="text-align:center;">
     Resultado mês a mês da empresa inteira, direto do Saipos desde jan/2026 — <b>não segue os filtros do topo</b>.
     Receitas = vendas do PDV por canal (bruto); despesas por <b>competência</b> (data de emissão da NF).
