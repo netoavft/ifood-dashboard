@@ -4232,12 +4232,13 @@ function renderConcbanco() {
   // e preciso LANCAR, que e decisao humana. Misturar as duas na mesma lista faz a
   // pessoa trocar de raciocinio linha a linha; e a segunda lista, a de lancar, e
   // onde mora a proxima automacao.
-  // Pista que comeca com "talvez" NAO conta como previsao achada. Ela nasce de
-  // valor exato com nome que nao bate — as vezes acerta (CASA DORICO x DORIGO
-  // MATERIAIS), as vezes erra feio (R$ 120 do motoboy KAWANN x "Itens Paes"). Em
-  // "so conciliar" a promessa e que nao ha decisao a tomar, e ali essa promessa
-  // nao se sustenta.
-  const firme = (p) => Boolean(p.pista) && !String(p.pista).startsWith('talvez');
+  // Quem decide o lado e a coluna `acao`, calculada no comparador. CONCILIAR
+  // significa que a previsao foi achada com certeza e nao ha decisao a tomar.
+  // Fica de fora quem tem pista "talvez" (valor exato com nome que nao bate: as
+  // vezes acerta, como CASA DORICO x DORIGO MATERIAIS, as vezes erra feio, como
+  // R$ 120 do motoboy KAWANN x "Itens Paes") e os BLOCOS de familia, que trazem
+  // a receita do que digitar e nao um lancamento pronto para achar.
+  const firme = (p) => p.acao === 'CONCILIAR';
   const tabela = (conta, lado, lista, temProv) => {
     lista = lista.filter(p => firme(p) === temProv);
     if (!lista.length) return '';
@@ -4245,7 +4246,7 @@ function renderConcbanco() {
     return '<div class="section-label" style="font-size:12px;opacity:.9">'
       + (lado === 'ent' ? '↓ Entradas' : '↑ Saídas') + ' · '
       + (temProv ? '<b>só conciliar</b> (a previsão já está no Saipos)'
-                 : '<b>precisa lançar</b> (não achei previsão)') + ' — ' + lista.length
+                 : '<b>precisa lançar</b>') + ' — ' + lista.length
       + ' linha' + (lista.length === 1 ? '' : 's') + ', R$ ' + rs(total) + '</div>' +
       '<div id="tabelaConcbFila' + conta.replace(/[^A-Za-z]/g, '') + lado + (temProv ? 'P' : 'S')
       + '"><table><thead><tr>' +
@@ -4259,7 +4260,9 @@ function renderConcbanco() {
       lista.slice(0, 30).map(p =>
         '<tr><td>' + ddmm(p.data) + '</td>' +
         '<td style="text-align:right">' + rs(p.valor) + '</td>' +
-        '<td>' + esc((p.nome || memoLimpo(p.memo)).slice(0, 40)) + '</td>' +
+        '<td>' + esc((p.nome || memoLimpo(p.memo)).slice(0, 40))
+          + (n(p.linhas) > 1 ? '<br><span style="opacity:.6;font-size:11px">'
+              + n(p.linhas) + ' linhas do extrato somadas</span>' : '') + '</td>' +
         // sem pista a celula fica vazia de proposito: o titulo do bloco ja disse
         // que ali ninguem achou previsao, e repetir em toda linha e ruido
         '<td style="opacity:.85">' + (p.pista ? esc(String(p.pista).slice(0, 60)) : '—') + '</td>' +
