@@ -3963,14 +3963,15 @@ async function entrarConcbanco() {
   if (CONCB) { renderConcbanco(); return; }
   alvo.innerHTML = '<div class="contexto">Carregando a conciliação...</div>';
   try {
-    const [placar, pend, pessoas, marcadas, naoConf] = await Promise.all([
+    const [placar, pend, saldoDia, pessoas, marcadas, naoConf] = await Promise.all([
       consultarTudo('vw_fin_conciliacao_placar?select=*&order=data.desc'),
       consultarTudo('vw_fin_conciliacao_pendencias?select=*&order=dias.desc'),
+      consultarTudo('mv_fin_conciliacao_saldo_dia?select=*&order=data.desc'),
       consultarTudo('rmb_pessoas?select=pessoa,email&ativo=is.true'),
       consultarTudo('fin_conciliacao_marcacao?select=*&order=criado_em.desc'),
       consultarTudo('vw_fin_conciliacao_nao_confirmou?select=*'),
     ]);
-    CONCB = { placar, pend, pessoas, marcadas, naoConf };
+    CONCB = { placar, pend, saldoDia, pessoas, marcadas, naoConf };
   } catch (e) {
     alvo.innerHTML = '<div class="contexto">Não consegui carregar a conciliação: ' + e.message + '</div>';
     return;
@@ -4030,7 +4031,7 @@ async function concbDesmarcar(conta, fitid) {
 function renderConcbanco() {
   const alvo = document.getElementById('view-concbanco');
   if (!alvo || !CONCB) return;
-  const { placar, pend, marcadas, naoConf } = CONCB;
+  const { placar, pend, saldoDia, marcadas, naoConf } = CONCB;
   const quem = concbQuem();
   const n = (v) => Number(v) || 0;
   const rs = (v) => n(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -4231,6 +4232,41 @@ function renderConcbanco() {
     : '<div class="contexto">Para marcar as linhas, entre com seu login no módulo <b>Reembolsos</b> — ' +
       'é o mesmo acesso. Sem entrar, esta tela é só leitura.</div>';
 
+  // O TESTE DEFINITIVO: o banco carimba o saldo ao fim de cada dia no extrato, e
+  // a gente compara com o saldo que o Saipos diz. Diferenca zero = aquele dia
+  // fechou de verdade. Isso responde "em que dia parou de fechar" em vez de
+  // entregar um desvio acumulado sem origem.
+  const porContaSaldo = {};
+  (saldoDia || []).forEach(r => {
+    const o = porContaSaldo[r.conta] || (porContaSaldo[r.conta] = { dias: 0, ok: 0, ultima: null, primeiroFora: null });
+    o.dias++;
+    if (Math.abs(n(r.diferenca)) < CONCB_TOL_CENTAVOS) o.ok++;
+    else if (!o.primeiroFora || r.data < o.primeiroFora.data) o.primeiroFora = r;
+    if (!o.ultima || r.data > o.ultima.data) o.ultima = r;
+  });
+  const linhasSaldo = Object.entries(porContaSaldo).sort().map(([nome, o]) => {
+    const u = o.ultima || {};
+    const fechou = Math.abs(n(u.diferenca)) < CONCB_TOL_CENTAVOS;
+    return '<tr><td>' + nome + '</td>' +
+      '<td>' + o.ok + ' de ' + o.dias + '</td>' +
+      '<td>' + (o.primeiroFora ? ddmm(o.primeiroFora.data) : '<span style="color:#2e7d32">nunca</span>') + '</td>' +
+      '<td>' + ddmm(u.data) + '</td>' +
+      '<td>' + rs(u.saldo_banco) + '</td>' +
+      '<td>' + rs(u.saldo_saipos) + '</td>' +
+      '<td>' + (fechou ? '<span style="color:#2e7d32">0,00</span>' : '<b style="color:#c8102e">' + rs(u.diferenca) + '</b>') + '</td></tr>';
+  }).join('');
+  const blocoSaldo = linhasSaldo
+    ? '<div class="section-label">O saldo bate? (o teste que vale)</div>' +
+      '<div class="contexto">O extrato do banco carimba o saldo ao fim de cada dia. Aqui ele é comparado ' +
+      'com o saldo que o Saipos diz ter. <b>Diferença zero quer dizer que aquele dia fechou de verdade</b> — ' +
+      'é isso que garante que nada ficou por pagar e que o Fluxo Projetado parte de um número real. ' +
+      'A coluna "1º dia fora" diz onde a conta parou de fechar, em vez de mostrar um desvio acumulado ' +
+      'sem origem conhecida.</div>' +
+      '<div id="tabelaConcbSaldo"><table><thead><tr><th>Conta</th><th>Dias que fecharam</th>' +
+      '<th>1º dia fora</th><th>Último dia</th><th>Saldo do banco</th><th>Saldo pelo Saipos</th>' +
+      '<th>Diferença</th></tr></thead><tbody>' + linhasSaldo + '</tbody></table></div>'
+    : '';
+
   alvo.innerHTML =
     '<div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Conciliação bancária — o banco contra o Saipos</div>' +
     '<div class="contexto">Todo dia de manhã o extrato das contas é comparado com o que foi lançado no Saipos. ' +
@@ -4248,6 +4284,7 @@ function renderConcbanco() {
     '<th>Falta lançar (entrada)</th><th>Falta lançar (saída)</th>' +
     '<th>Linhas sem par</th><th>Ontem</th><th>Acumulado</th></tr></thead>' +
     '<tbody>' + linhasContas + '</tbody></table></div>' +
+    blocoSaldo +
     blocoTrava +
     '<div class="section-label">O que eu ainda não sei explicar</div>' +
     '<div class="contexto">' + textoFila + textoNovas + '</div>' +
