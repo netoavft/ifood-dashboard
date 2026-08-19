@@ -4349,33 +4349,47 @@ function renderConcbanco() {
     lista = lista.filter(p => firme(p) === temProv);
     if (!lista.length) return '';
     const total = lista.reduce((s, x) => s + Math.abs(n(x.valor)), 0);
-    return '<div class="section-label" style="font-size:12px;opacity:.9">'
-      + (lado === 'ent' ? '↓ Entradas' : '↑ Saídas') + ' · '
-      + (temProv ? '<b>só conciliar</b> (a previsão já está no Saipos)'
-                 : '<b>precisa lançar</b>') + ' — ' + lista.length
-      + ' linha' + (lista.length === 1 ? '' : 's') + ', R$ ' + rs(total) + '</div>' +
-      '<div id="tabelaConcbFila' + conta.replace(/[^A-Za-z]/g, '') + lado + (temProv ? 'P' : 'S')
-      + '"><table><thead><tr>' +
-      '<th>Data</th><th>Valor</th><th>Descrição</th><th>O que é</th><th>Categoria</th><th></th>' +
+    // Entrada e verde, saida e vermelha, em TUDO: no titulo do bloco, na barra
+    // lateral e no valor. Quem concilia trabalha os dois lados em sequencia e
+    // precisa saber de relance em qual esta — o titulo sozinho perde a briga
+    // quando a lista e longa e a pessoa rolou a tela.
+    const ent = lado === 'ent';
+    const cor = ent ? '#2e7d32' : '#c8102e';
+    return '<div style="margin:14px 0 6px;padding:6px 10px;border-left:4px solid ' + cor + ';'
+      + 'background:' + (ent ? 'rgba(46,125,50,.07)' : 'rgba(200,16,46,.07)') + '">'
+      + '<b style="color:' + cor + ';font-size:13px">'
+      + (ent ? '↓ ENTRADAS' : '↑ SAÍDAS') + '</b>'
+      + '<span style="font-size:12px;opacity:.85"> · '
+      + (temProv ? '<b>só conciliar</b> — a previsão já está no Saipos'
+                 : '<b>precisa lançar</b>')
+      + ' · ' + lista.length + ' linha' + (lista.length === 1 ? '' : 's')
+      + ' · R$ ' + rs(total) + '</span></div>' +
+      // table-layout fixo com larguras declaradas: sem isso a coluna "Descrição"
+      // estica com o texto mais longo e joga o botao para fora do quadro. Se
+      // ainda nao couber, a barra horizontal aparece so nesta div.
+      '<div style="overflow-x:auto" id="tabelaConcbFila'
+      + conta.replace(/[^A-Za-z]/g, '') + lado + (temProv ? 'P' : 'S')
+      + '"><table style="table-layout:fixed;width:100%;min-width:640px">'
+      + '<colgroup><col style="width:48px"><col style="width:86px"><col>'
+      + '<col style="width:150px"><col style="width:118px"><col style="width:96px"></colgroup>'
+      + '<thead><tr>' +
+      '<th>Data</th><th style="text-align:right">Valor</th><th>Descrição</th>'
+      + '<th>O que é</th><th>Categoria</th><th></th>' +
       '</tr></thead><tbody>' +
-      // Duas colunas em vez de uma. "Quem" e o nome ja limpo do verbo, do nome
-      // repetido e do CNPJ que o Itau enfia no memo. "O que e" e a conta a pagar
-      // do Saipos que corresponde aquela linha — quando ela existe, a pessoa nao
-      // precisa descobrir nada: e so conciliar. Em 17/08/2026, 13 das 30 linhas
-      // da ITAU AV ja vinham com a previsao identificada.
+      // DESCRICAO e o historico a digitar, quando eu sei qual e; sem isso, mostro
+      // quem esta do outro lado no banco — nunca um palpite escrito como se fosse
+      // certeza. O QUE E diz de onde a linha veio; CATEGORIA e a do Saipos.
       lista.slice(0, 30).map(p =>
-        '<tr><td>' + ddmm(p.data) + '</td>' +
-        '<td style="text-align:right">' + rs(p.valor) + '</td>' +
-        // DESCRICAO e o historico a digitar, quando eu sei qual e; sem isso,
-        // mostro quem esta do outro lado no banco — nunca um palpite escrito
-        // como se fosse certeza. O QUE E explica de onde a linha veio, e a
-        // CATEGORIA e a do Saipos.
-        '<td>' + (p.descricao_lancar
-            ? '<b>' + esc(String(p.descricao_lancar).slice(0, 52)) + '</b>'
-            : esc((p.nome || memoLimpo(p.memo)).slice(0, 44))) + '</td>' +
-        '<td style="opacity:.8;font-size:12px">'
-          + (p.pista ? esc(String(p.pista).slice(0, 58)) : '—') + '</td>' +
-        '<td style="font-size:12px">' + (p.categoria ? esc(p.categoria) : '—') + '</td>' +
+        '<tr><td style="font-size:12px">' + ddmm(p.data) + '</td>' +
+        '<td style="text-align:right;color:' + cor + ';font-weight:600;white-space:nowrap">'
+          + rs(p.valor) + '</td>' +
+        '<td style="overflow:hidden;text-overflow:ellipsis">' + (p.descricao_lancar
+            ? '<b>' + esc(p.descricao_lancar) + '</b>'
+            : esc(p.nome || memoLimpo(p.memo))) + '</td>' +
+        '<td style="opacity:.75;font-size:11px;overflow:hidden;text-overflow:ellipsis">'
+          + (p.pista ? esc(p.pista) : '—') + '</td>' +
+        '<td style="font-size:11px;overflow:hidden;text-overflow:ellipsis">'
+          + (p.categoria ? esc(p.categoria) : '—') + '</td>' +
         '<td style="text-align:center">' + botoes(p) + '</td></tr>').join('') +
       '</tbody></table></div>' +
       (lista.length > 30 ? '<div class="contexto">Mostrando 30 de ' + lista.length + '.</div>' : '');
@@ -4384,7 +4398,12 @@ function renderConcbanco() {
   const blocosConferir = Object.entries(porConta).sort().map(([conta, lista]) => {
     const ent = lista.filter(p => n(p.valor) > 0);
     const sai = lista.filter(p => n(p.valor) < 0);
-    return '<div class="section-label" style="font-size:13px">' + conta + '</div>' +
+    // O nome da conta e o titulo do bloco inteiro: tudo abaixo dele e daquela
+    // conta ate o proximo. Antes era um rotulo do mesmo tamanho dos subtitulos e
+    // se perdia no meio.
+    return '<div style="margin:22px 0 4px;font-size:16px;font-weight:700;'
+      + 'letter-spacing:.3px;border-bottom:2px solid currentColor;padding-bottom:3px">'
+      + esc(conta) + '</div>' +
       tabela(conta, 'ent', ent, true) + tabela(conta, 'ent', ent, false) +
       tabela(conta, 'sai', sai, true) + tabela(conta, 'sai', sai, false);
   }).join('');
