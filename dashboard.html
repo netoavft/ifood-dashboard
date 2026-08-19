@@ -4280,20 +4280,30 @@ function renderConcbanco() {
     // 31/03 e R$ 120 em 31/07, dias que fecham em zero. Alarme que dispara
     // sozinho e alarme que todo mundo aprende a ignorar.
     const sd = saldoConf.find(x => x.conta === conta);
-    const naFila = abertas.filter(x => x.conta === conta)
-                          .reduce((s, x) => s + n(x.valor), 0);
+    // A diferenca entre os dois saldos se abre em TRES pedacos, e so o terceiro e
+    // problema. Antes esta tela comparava a diferenca com a soma da fila e, quando
+    // nao batia, gritava "nao ha mais nada na fila para lancar" — o que era falso
+    // alarme na maioria das vezes. O pedaco que faltava: casamento certo com
+    // datas diferentes. Em 17/08/2026 o banco pagou a CRBS e o Saipos lancou a NF
+    // em 19/08; o dia estava fechado linha por linha e mesmo assim o saldo
+    // acusava R$ 2.602,96. Com os tres termos, a conta fecha em zero.
     const fechado = sd && Math.abs(n(sd.diferenca)) < CONCB_TOL_CENTAVOS;
-    const alarme = sd && !fechado && Math.abs(naFila) < CONCB_TOL_CENTAVOS;
+    const pedacos = [];
+    if (sd && Math.abs(n(sd.explicado_pela_fila)) >= CONCB_TOL_CENTAVOS)
+      pedacos.push('R$ ' + rs(Math.abs(n(sd.explicado_pela_fila))) + ' na fila abaixo');
+    if (sd && Math.abs(n(sd.lancado_em_outra_data)) >= CONCB_TOL_CENTAVOS)
+      pedacos.push('R$ ' + rs(Math.abs(n(sd.lancado_em_outra_data)))
+        + ' lançado no Saipos com outra data');
+    if (sd && Math.abs(n(sd.sem_explicacao)) >= CONCB_TOL_CENTAVOS)
+      pedacos.push('<span style="color:#c8102e"><b>R$ '
+        + rs(Math.abs(n(sd.sem_explicacao))) + ' sem explicação</b></span>');
     const linhaSaldo = !sd ? '' :
       '<tr><td></td><td colspan="3" style="font-size:12px;opacity:.85;padding-bottom:8px">'
       + 'saldo em ' + ddmm(sd.data_saldo) + ': banco <b>' + rs(sd.saldo_banco) + '</b>'
       + ' · Saipos <b>' + rs(sd.saldo_saipos) + '</b>'
       + (fechado
           ? ' — <span style="color:#2e7d32"><b>bateu</b></span>'
-          : ' · diferença <b>' + rs(sd.diferenca) + '</b>'
-            + (alarme
-                ? ' — <span style="color:#c8102e"><b>e não há mais nada na fila para lançar</b></span>'
-                : ' <span style="opacity:.7">(a fila tem ' + rs(naFila) + ' por lançar)</span>'))
+          : ' · diferença <b>' + rs(sd.diferenca) + '</b> — ' + pedacos.join(' + '))
       + '</td></tr>';
     return '<tr><td style="font-size:20px;color:' + cor + ';text-align:center;width:40px">' + marca + '</td>'
       + '<td><b>' + conta + '</b></td>'
