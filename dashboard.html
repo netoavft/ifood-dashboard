@@ -4280,6 +4280,11 @@ function renderConcbanco() {
   const naoFecharam = nomes.filter(c => contas[c].temOntem && contas[c].ontemGap >= CONCB_TOL_CENTAVOS);
   const semMov = nomes.filter(c => !contas[c].temOntem);
 
+  // UMA LINHA POR CONTA, cinco colunas: status, conta, entradas, saídas, saldo.
+  // Antes eram duas linhas por conta — a de cima com o texto do dia e a de baixo
+  // com o saldo por extenso —, e o dono cortou: "está mostrando muita
+  // informação". O que cada coluna responde é uma pergunta só, e o detalhe longo
+  // virou `title` (aparece ao passar o mouse) em vez de ocupar a tela.
   const cartao = (conta) => {
     const c = contas[conta];
     const fechou = c.temOntem && c.ontemGap < CONCB_TOL_CENTAVOS;
@@ -4290,59 +4295,51 @@ function renderConcbanco() {
     const semExtrato = c.temOntem && !c.temOfx && !fechou;
     const cor = !c.temOntem ? '#a5a49a' : fechou ? '#2e7d32' : semExtrato ? '#b8860b' : '#c8102e';
     const marca = !c.temOntem ? '—' : fechou ? '✓' : semExtrato ? '?' : '✗';
-    const faltas = [];
-    if (Math.abs(c.gapEnt) >= CONCB_TOL_CENTAVOS) faltas.push('entrada R$ ' + rs(Math.abs(c.gapEnt)));
-    if (Math.abs(c.gapSai) >= CONCB_TOL_CENTAVOS) faltas.push('saída R$ ' + rs(Math.abs(c.gapSai)));
-    const txt = !c.temOntem ? 'não movimentou'
-      : fechou ? 'fechou certinho'
-      : semExtrato ? 'extrato de ontem ainda não chegou — não dá para conferir'
-      : 'falta ' + faltas.join(' e ');
-    // A LINHA DO SALDO — o objetivo final da conciliacao (dono, 19/08/2026).
-    // A conta que fecha e: saldo do banco menos saldo pelo Saipos tem que dar
-    // exatamente o que sobrou na fila. Quando da, zerar a fila zera o saldo.
-    // Quando NAO da, o que sobra e dinheiro que nenhum dos dois lados explica —
-    // e e o unico numero desta tela que nao se resolve conciliando.
-    // O ALARME CERTO E A FILA VAZIA COM SALDO DIFERENTE. Enquanto ha linha por
-    // lancar, a diferenca de saldo E a fila — nao ha o que noticiar. Medido em
-    // 19/08/2026: a ITAU AV fecha no centavo em TODOS os fechamentos de mes de
-    // dezembro a julho, e a diferenca so existe dentro do mes que esta sendo
-    // conciliado.
-    //
-    // Nao uso `sem_explicacao` como alarme porque ele tem ruido: compara saldo
-    // acumulado com residuo casado em datas de outro mes, e acusa R$ 960 em
-    // 31/03 e R$ 120 em 31/07, dias que fecham em zero. Alarme que dispara
-    // sozinho e alarme que todo mundo aprende a ignorar.
+    const lado = (v) => !c.temOntem ? '<span style="opacity:.4">—</span>'
+      : Math.abs(v) < CONCB_TOL_CENTAVOS ? '<span style="color:#2e7d32">ok</span>'
+      : '<span style="color:#c8102e">falta ' + rs(Math.abs(v)) + '</span>';
+
+    // O SALDO É O OBJETIVO FINAL (dono, 19/08/2026), e a diferença se abre em
+    // três pedaços: o que está na fila, o que foi lançado com outra data
+    // (casamento certo, some sozinho) e o que sobra. Só o terceiro é problema.
     const sd = saldoConf.find(x => x.conta === conta);
-    // A diferenca entre os dois saldos se abre em TRES pedacos, e so o terceiro e
-    // problema. Antes esta tela comparava a diferenca com a soma da fila e, quando
-    // nao batia, gritava "nao ha mais nada na fila para lancar" — o que era falso
-    // alarme na maioria das vezes. O pedaco que faltava: casamento certo com
-    // datas diferentes. Em 17/08/2026 o banco pagou a CRBS e o Saipos lancou a NF
-    // em 19/08; o dia estava fechado linha por linha e mesmo assim o saldo
-    // acusava R$ 2.602,96. Com os tres termos, a conta fecha em zero.
     const fechado = sd && Math.abs(n(sd.diferenca)) < CONCB_TOL_CENTAVOS;
-    const pedacos = [];
-    if (sd && Math.abs(n(sd.explicado_pela_fila)) >= CONCB_TOL_CENTAVOS)
-      pedacos.push('R$ ' + rs(Math.abs(n(sd.explicado_pela_fila))) + ' na fila abaixo');
-    if (sd && Math.abs(n(sd.lancado_em_outra_data)) >= CONCB_TOL_CENTAVOS)
-      pedacos.push('R$ ' + rs(Math.abs(n(sd.lancado_em_outra_data)))
-        + ' lançado no Saipos com outra data');
-    if (sd && Math.abs(n(sd.sem_explicacao)) >= CONCB_TOL_CENTAVOS)
-      pedacos.push('<span style="color:#c8102e"><b>R$ '
-        + rs(Math.abs(n(sd.sem_explicacao))) + ' sem explicação</b></span>');
-    const linhaSaldo = !sd ? '' :
-      '<tr><td></td><td colspan="3" style="font-size:12px;opacity:.85;padding-bottom:8px">'
-      + 'saldo em ' + ddmm(sd.data_saldo) + ': banco <b>' + rs(sd.saldo_banco) + '</b>'
-      + ' · Saipos <b>' + rs(sd.saldo_saipos) + '</b>'
-      + (fechado
-          ? ' — <span style="color:#2e7d32"><b>bateu</b></span>'
-          : ' · diferença <b>' + rs(sd.diferenca) + '</b> — ' + pedacos.join(' + '))
-      + '</td></tr>';
-    return '<tr><td style="font-size:20px;color:' + cor + ';text-align:center;width:40px">' + marca + '</td>'
-      + '<td><b>' + conta + '</b></td>'
-      + '<td style="color:' + cor + '">' + txt + '</td>'
-      + '<td style="text-align:right;opacity:.7">' + (c.temOntem ? rs(c.ontemMov) + ' movimentados' : '') + '</td></tr>'
-      + linhaSaldo;
+    let saldoTxt, saldoTitulo = '';
+    if (!sd) {
+      saldoTxt = '<span style="opacity:.4">—</span>';
+    } else if (fechado) {
+      saldoTxt = '<span style="color:#2e7d32">bateu</span>';
+      saldoTitulo = 'banco ' + rs(sd.saldo_banco) + ' · Saipos ' + rs(sd.saldo_saipos);
+    } else {
+      const sobra = n(sd.sem_explicacao);
+      const outra = n(sd.lancado_em_outra_data);
+      // Extrato parado nao e diferenca sem explicacao: e falta de dado. A
+      // SANTANDER estava ha 6 dias sem OFX e a tela acusava R$ 1.343,89 "sem
+      // explicação" — alarme que nao se resolve conciliando e alarme que todo
+      // mundo aprende a ignorar. O que resolve e baixar o extrato.
+      const diasSemExtrato = Math.round(
+        (new Date(ontem) - new Date(sd.data_saldo)) / 86400000);
+      const motivo = diasSemExtrato > 2
+        ? '<span style="color:#b8860b">extrato parado em ' + ddmm(sd.data_saldo) + '</span>'
+        : Math.abs(sobra) >= CONCB_TOL_CENTAVOS
+        // valor ja aparece antes do ponto; repetir aqui e ruido
+        ? '<span style="color:#c8102e">sem explicação</span>'
+        : Math.abs(outra) >= CONCB_TOL_CENTAVOS
+          ? '<span style="opacity:.7">lançado com outra data</span>'
+          : '<span style="opacity:.7">está na fila abaixo</span>';
+      saldoTxt = '<b>' + rs(sd.diferenca) + '</b> · ' + motivo;
+      saldoTitulo = 'em ' + ddmm(sd.data_saldo) + ': banco ' + rs(sd.saldo_banco)
+        + ' · Saipos ' + rs(sd.saldo_saipos)
+        + ' · na fila ' + rs(sd.explicado_pela_fila)
+        + ' · outra data ' + rs(sd.lancado_em_outra_data)
+        + ' · sem explicação ' + rs(sd.sem_explicacao);
+    }
+    const td = 'style="text-align:left;font-size:12px"';
+    return '<tr><td style="text-align:left;font-size:18px;color:' + cor + '">' + marca + '</td>'
+      + '<td style="text-align:left"><b>' + esc(conta) + '</b></td>'
+      + '<td ' + td + '>' + lado(c.gapEnt) + '</td>'
+      + '<td ' + td + '>' + lado(c.gapSai) + '</td>'
+      + '<td ' + td + ' title="' + esc(saldoTitulo) + '">' + saldoTxt + '</td></tr>';
   };
 
   const resumo = naoFecharam.length
@@ -4508,7 +4505,13 @@ function renderConcbanco() {
       'border:1px solid #8a887e;background:transparent;color:inherit;border-radius:4px;' +
       'font-weight:normal">mandar uma regra</button></div>' +
     '<div class="contexto">' + resumo + '</div>' +
-    '<div id="tabelaConcbOntem"><table><tbody>' +
+    '<div id="tabelaConcbOntem"><table style="width:100%">' +
+      '<colgroup><col style="width:34px"><col style="width:130px"><col style="width:110px">' +
+      '<col style="width:110px"><col></colgroup>' +
+      '<thead><tr>' +
+      '<th style="text-align:left"></th><th style="text-align:left">Conta</th>' +
+      '<th style="text-align:left">Entradas</th><th style="text-align:left">Saídas</th>' +
+      '<th style="text-align:left">Saldo</th></tr></thead><tbody>' +
       naoFecharam.map(cartao).join('') + fecharam.map(cartao).join('') + semMov.map(cartao).join('') +
     '</tbody></table></div>' +
     trava +
