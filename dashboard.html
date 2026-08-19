@@ -3528,7 +3528,9 @@ function rmbSessao() {
 }
 function rmbHeaders(extra = {}) {
   const s = rmbSessao();
-  return { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${s.access_token}`,
+  // Sem sessao vale o proprio anon: a conciliacao marca sem login desde 19/08.
+  return { apikey: SUPABASE_ANON_KEY,
+           Authorization: `Bearer ${(s && s.access_token) || SUPABASE_ANON_KEY}`,
            'Content-Type': 'application/json', ...extra };
 }
 
@@ -3943,11 +3945,17 @@ let RH = null;
 // olha dinheiro ve que esta em dia.
 // Escopo: Agua Verde, Ahu e Sao Braz. BOQUEIRAO fica fora (decisao do dono, 18/08).
 let CONCB = null;
-// Regra da casa (dono, 18/08/2026): concilia-se HOJE tudo que movimentou a conta
-// ATE ONTEM. Logo um dia so esta atrasado depois de D+1. Como a rotina roda de
-// manha, antes de a conciliacao daquele dia acontecer, o corte justo e D-2: ate
-// anteontem ja deu tempo. Era 3 por chute meu, antes de a regra existir.
-const CONCB_TOLERANCIA_DIAS = 2;
+// A REGRA DA CASA (dono, 19/08/2026), e ela e mais dura do que eu supunha:
+// **a conciliacao bate no ZERO e fecha sempre em D-1**. Tudo que movimentou no
+// banco ONTEM tem de bater no centavo ja na primeira rotina de hoje. Nao e meta
+// de qualidade, e o que garante duas coisas: que nenhuma conta ficou por pagar,
+// e que o saldo de partida do Fluxo Projetado do dia e real.
+//
+// Por isso o corte e 1 dia, nao 2 nem 3 (numeros que eu tinha chutado antes de
+// perguntar), e a tolerancia em dinheiro e ZERO, nao "1% ou R$ 500" (regua que
+// tambem era minha, nao da casa).
+const CONCB_TOLERANCIA_DIAS = 1;
+const CONCB_TOL_CENTAVOS = 0.005;   // zero de verdade; so o arredondamento passa
 
 async function entrarConcbanco() {
   const alvo = document.getElementById('view-concbanco');
@@ -3975,9 +3983,13 @@ async function entrarConcbanco() {
 // "Lancei agora" = digitou no Saipos. "Ja estava lancado" = achou la em outro
 // formato, e isso e uma REGRA que o comparador nao sabe — vale mais que o
 // lancamento em si, porque ensina o sistema. O login e o mesmo dos reembolsos.
+// Sem login (decisao do dono, 19/08/2026): a Hellen ja entra no painel inteiro
+// com a senha unica, e pedir um segundo login so para marcar era atrito sem
+// ganho. O rastro continua pela identificacao escolhida na tela, lembrada no
+// navegador — quem quiser marcar sem se identificar fica como PAINEL.
 function concbQuem() {
   const s = rmbSessao();
-  if (!s) return null;
+  if (!s) return localStorage.getItem('concbQuem') || 'PAINEL';
   const lista = (CONCB && CONCB.pessoas) || [];
   const login = (s.email || '').toLowerCase();
   const local = login.split('@')[0];
@@ -3993,7 +4005,7 @@ async function concbMarcar(conta, fitid, tipo) {
   const quem = concbQuem();
   if (!quem) return;
   const s = rmbSessao();
-  const corpo = JSON.stringify({ conta, fitid, tipo, quem, email: s && s.email });
+  const corpo = JSON.stringify({ conta, fitid, tipo, quem, email: (s && s.email) || null });
   let r = await fetch(`${SUPABASE_URL}/rest/v1/fin_conciliacao_marcacao`, {
     method: 'POST', headers: rmbHeaders({ Prefer: 'return=minimal' }), body: corpo });
   if (await rmbRenovarSeExpirado(r)) {
@@ -4051,15 +4063,11 @@ function renderConcbanco() {
   // Uma conta esta "em dia" quando o DINHEIRO fecha, mesmo com muitas linhas sem
   // par. Sem isso a tela contradiz a propria tese: a ITAU SB chegou a aparecer com
   // 37 linhas "paradas" e R$ 390 de diferenca de verdade.
-  // Regua igual a da rotina: so incomoda diferenca acima de 1% do que a conta
-  // movimentou, com piso de R$ 500. Conta que gira R$ 700 mil carrega mais ruido
-  // em valor absoluto que uma que gira R$ 20 mil — cobrar as duas pelo mesmo
-  // numero fixo faz a tela apontar problema onde nao ha.
-  const TOL_REAIS = 500, TOL_PCT = 0.01;
+  // Zero e zero. A conta so esta em dia se o dinheiro fecha no centavo nos dias
+  // ja vencidos pela regra D-1.
   Object.values(contas).forEach(c => {
     c.gap = Math.max(Math.abs(c.faltaEnt), Math.abs(c.faltaSai));
-    c.limite = Math.max(TOL_REAIS, c.mov * TOL_PCT);
-    c.emDia = c.gap < c.limite;
+    c.emDia = c.gap < CONCB_TOL_CENTAVOS;
   });
 
   const abertas = pend.filter(p => p.classe === 'ABERTA' && n(p.dias) > CONCB_TOLERANCIA_DIAS);
@@ -4071,6 +4079,20 @@ function renderConcbanco() {
     o.n++; o.valor += n(p.valor); o.maisVelha = Math.max(o.maisVelha, n(p.dias));
   });
 
+  // O dia de ONTEM em separado: e nele que a regra manda bater no zero.
+  const ontem = new Date(Date.now() - (new Date().getTimezoneOffset() + 1440) * 60000)
+    .toISOString().slice(0, 10);
+  const dOntem = {};
+  placar.filter(r => r.data === ontem).forEach(r => {
+    const o = dOntem[r.conta] || (dOntem[r.conta] = { ent: 0, sai: 0, mov: 0 });
+    o.ent += n(r.falta_entrada); o.sai += n(r.falta_saida);
+    o.mov += Math.abs(n(r.banco_entrou)) + Math.abs(n(r.banco_saiu));
+  });
+  Object.values(dOntem).forEach(o => { o.gap = Math.max(Math.abs(o.ent), Math.abs(o.sai)); });
+  const contasOntem = Object.entries(dOntem).filter(([, o]) => o.mov > 0);
+  const fecharamOntem = contasOntem.filter(([, o]) => o.gap < CONCB_TOL_CENTAVOS).length;
+  const difOntem = contasOntem.reduce((s, [, o]) => s + o.gap, 0);
+
   const contasComTrabalho = Object.values(contas).filter(c => !c.emDia).length;
   const valorAberto = Object.values(contas).filter(c => !c.emDia).reduce((s, c) => s + c.gap, 0);
   const maisVelha = abertas.reduce((m, p) => Math.max(m, n(p.dias)), 0);
@@ -4078,13 +4100,17 @@ function renderConcbanco() {
   const atualizado = placar.reduce((m, r) => (r.atualizado_em || '') > m ? r.atualizado_em : m, '');
 
   const cards = '<div class="cards">' +
+    '<div class="card ' + (contasOntem.length && fecharamOntem === contasOntem.length ? 'pos' : 'neg') + '">' +
+      '<div class="card-lbl">Ontem fechou no zero?</div>' +
+      '<div class="card-val">' + fecharamOntem + ' de ' + contasOntem.length + '</div>' +
+      '<div class="card-sub">' + (contasOntem.length
+        ? (difOntem < CONCB_TOL_CENTAVOS ? 'todas as contas que movimentaram bateram'
+           : 'faltam R$ ' + rs(difOntem) + ' para fechar ' + ddmm(ontem))
+        : 'nenhuma conta movimentou ontem') + '</div></div>' +
     '<div class="card ' + (contasComTrabalho ? 'neg' : 'pos') + '">' +
       '<div class="card-lbl">Contas que ainda não fecham</div>' +
       '<div class="card-val">' + contasComTrabalho + ' de ' + Object.keys(contas).length + '</div>' +
-      '<div class="card-sub">olhando só os dias já liquidados</div></div>' +
-    '<div class="card neutral"><div class="card-lbl">Dinheiro que não fecha</div>' +
-      '<div class="card-val">R$ ' + rs(valorAberto) + '</div>' +
-      '<div class="card-sub">só das contas fora da régua (1% do movimento, mínimo R$ 500)</div></div>' +
+      '<div class="card-sub">acumulado, R$ ' + rs(valorAberto) + ' fora do zero</div></div>' +
     '<div class="card ' + (maisVelha > 7 ? 'neg' : 'neutral') + '"><div class="card-lbl">Espera mais longa</div>' +
       '<div class="card-val">' + maisVelha + ' dia' + (maisVelha === 1 ? '' : 's') + '</div>' +
       '<div class="card-sub">passando de 7 dias, deixa de ser atraso e vira esquecimento</div></div>' +
@@ -4095,14 +4121,19 @@ function renderConcbanco() {
 
   const linhasContas = Object.entries(contas).sort((a, b) => b[1].mov - a[1].mov).map(([nome, c]) => {
     const p = porConta[nome];
+    const o = dOntem[nome];
+    const ontemTxt = !o || !o.mov ? '<span style="opacity:.5">sem movimento</span>'
+      : o.gap < CONCB_TOL_CENTAVOS ? '<span style="color:#2e7d32">fechou</span>'
+      : '<b style="color:#c8102e">R$ ' + rs(o.gap) + '</b>';
     const situacao = c.emDia
-      ? '<span style="color:#2e7d32">em dia</span>' + (c.gap > 0 ? ' <span style="opacity:.6">(diferença de ' + rs(c.gap) + ', dentro da régua de ' + rs(c.limite) + ')</span>' : '')
-      : '<b>fora por R$ ' + rs(c.gap) + '</b>' + (p ? ', a linha mais velha tem <b>' + p.maisVelha + 'd</b>' : '');
+      ? '<span style="color:#2e7d32">zerada</span>'
+      : '<b>fora por R$ ' + rs(c.gap) + '</b>' + (p ? ', a mais velha tem <b>' + p.maisVelha + 'd</b>' : '');
     return '<tr><td>' + nome + '</td>' +
       '<td style="text-align:right">' + rs(c.mov) + '</td>' +
       '<td style="text-align:right">' + rs(c.faltaEnt) + '</td>' +
       '<td style="text-align:right">' + rs(c.faltaSai) + '</td>' +
       '<td style="text-align:right">' + c.residuo + ' de ' + c.linhas + '</td>' +
+      '<td style="text-align:center">' + ontemTxt + '</td>' +
       '<td style="text-align:center">' + situacao + '</td></tr>';
   }).join('');
 
@@ -4128,10 +4159,9 @@ function renderConcbanco() {
   const quando = atualizado ? ' Conferido em ' + ddmm(atualizado.slice(0, 10)) + '.' : '';
 
   const blocoFila = abertas.length
-    ? '<table><thead><tr><th>Dia</th><th>Conta</th><th style="text-align:right">Valor</th>' +
-      '<th>O que o banco diz</th><th style="text-align:center">Há quanto tempo</th>' +
-      '<th style="text-align:center">Conferi</th></tr></thead>' +
-      '<tbody>' + filaLinhas + '</tbody></table>' +
+    ? '<div id="tabelaConcbFila"><table><thead><tr><th>Dia</th><th>Conta</th><th>Valor</th>' +
+      '<th>O que o banco diz</th><th>Há quanto tempo</th><th>Conferi</th></tr></thead>' +
+      '<tbody>' + filaLinhas + '</tbody></table></div>' +
       (abertas.length > 60 ? '<div class="contexto">Mostrando as 60 mais antigas de ' + abertas.length + '.</div>' : '')
     : '';
 
@@ -4158,10 +4188,10 @@ function renderConcbanco() {
       'só depois é transferida para a conta corrente, já sem a taxa. O Saipos registra <b>uma</b> transferência; ' +
       'o banco registra <b>várias</b> entradas. Não existe par linha a linha para achar — o par é do bloco. ' +
       'O mesmo vale para pagamento em lote (SISPAG) e boleto que quita várias notas.</div>' +
-      '<table><thead><tr><th>Dia</th><th>Conta</th><th style="text-align:right">Valor</th><th>Quem está do outro lado</th></tr></thead><tbody>' +
+      '<div id="tabelaConcbRuido"><table><thead><tr><th>Dia</th><th>Conta</th><th>Valor</th><th>Quem está do outro lado</th></tr></thead><tbody>' +
       ruido.slice(0, 40).map(p => '<tr><td>' + ddmm(p.data) + '</td><td>' + p.conta + '</td>' +
         '<td style="text-align:right">' + rs(p.valor) + '</td><td>' + (p.contraparte || '') + '</td></tr>').join('') +
-      '</tbody></table></details>'
+      '</tbody></table></div></details>'
     : '';
 
   // A trava: marcou "lancei" e o comparador continuou sem achar. Ou lancou com
@@ -4171,12 +4201,12 @@ function renderConcbanco() {
     ? '<div class="section-label">Confira: marcado como lançado, mas ainda não aparece</div>' +
       '<div class="contexto">Alguém marcou estas linhas como lançadas e o comparador continuou sem ' +
       'achar par depois disso. Provavelmente foi lançado com valor ou data diferente do extrato.</div>' +
-      '<table><thead><tr><th>Dia</th><th>Conta</th><th style="text-align:right">Valor</th>' +
-      '<th>O que o banco diz</th><th>Quem marcou</th><th style="text-align:center">Há</th></tr></thead><tbody>' +
+      '<div id="tabelaConcbTrava"><table><thead><tr><th>Dia</th><th>Conta</th><th>Valor</th>' +
+      '<th>O que o banco diz</th><th>Quem marcou</th><th>Há</th></tr></thead><tbody>' +
       naoConf.map(x => '<tr><td>' + ddmm(x.data) + '</td><td>' + x.conta + '</td>' +
         '<td style="text-align:right">' + rs(x.valor) + '</td><td>' + (x.memo || '').slice(0, 46) + '</td>' +
         '<td>' + (x.quem || '') + '</td><td style="text-align:center">' + n(x.dias_desde) + 'd</td></tr>').join('') +
-      '</tbody></table>'
+      '</tbody></table></div>'
     : '';
 
   // O achado que vale mais que o lancamento: linha que ja estava no Saipos e o
@@ -4187,13 +4217,13 @@ function renderConcbanco() {
       '<div class="contexto">Estas linhas já estavam lançadas no Saipos e este comparador não soube ' +
       'reconhecer. <b>Cada uma é uma regra que falta.</b> Quando alguém explicar o que são, elas viram ' +
       'código e o mesmo caso deixa de aparecer.</div>' +
-      '<table><thead><tr><th>Conta</th><th>Marcou</th><th>Quem</th>' +
+      '<div id="tabelaConcbAprender"><table><thead><tr><th>Conta</th><th>Marcou</th><th>Quem</th>' +
       (quem ? '<th></th>' : '') + '</tr></thead><tbody>' +
       aprender.slice(0, 25).map(m => '<tr><td>' + m.conta + '</td>' +
         '<td>' + ddmm((m.criado_em || '').slice(0, 10)) + '</td><td>' + (m.quem || '') + '</td>' +
         (quem ? '<td><button class="concb-desmarca" ' + ATR(m) +
           ' style="font-size:11px;padding:2px 6px;cursor:pointer">desfazer</button></td>' : '') +
-        '</tr>').join('') + '</tbody></table>'
+        '</tr>').join('') + '</tbody></table></div>'
     : '';
 
   const avisoLogin = quem
@@ -4214,10 +4244,10 @@ function renderConcbanco() {
     '<div class="contexto">"Falta lançar" é o dinheiro que passou pelo banco e ainda não apareceu no Saipos no ' +
     'período. Valor negativo quer dizer o contrário: o Saipos registrou mais do que o banco movimentou, quase ' +
     'sempre porque alguém lançou adiantado.</div>' +
-    '<table><thead><tr><th>Conta</th><th style="text-align:right">Movimentou no banco</th>' +
-    '<th style="text-align:right">Falta lançar (entrada)</th><th style="text-align:right">Falta lançar (saída)</th>' +
-    '<th style="text-align:right">Linhas sem par</th><th style="text-align:center">Situação</th></tr></thead>' +
-    '<tbody>' + linhasContas + '</tbody></table>' +
+    '<div id="tabelaConcbContas"><table><thead><tr><th>Conta</th><th>Movimentou no banco</th>' +
+    '<th>Falta lançar (entrada)</th><th>Falta lançar (saída)</th>' +
+    '<th>Linhas sem par</th><th>Ontem</th><th>Acumulado</th></tr></thead>' +
+    '<tbody>' + linhasContas + '</tbody></table></div>' +
     blocoTrava +
     '<div class="section-label">O que eu ainda não sei explicar</div>' +
     '<div class="contexto">' + textoFila + textoNovas + '</div>' +
