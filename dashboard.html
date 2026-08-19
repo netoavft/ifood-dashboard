@@ -4109,14 +4109,21 @@ function renderConcbanco() {
   // ---- ONTEM, conta por conta ----
   const ontem = new Date(Date.now() - (new Date().getTimezoneOffset() + 1440) * 60000)
     .toISOString().slice(0, 10);
+  // Regra do dono (19/08): entrada e saida sao conciliadas SEPARADO, e a entrada
+  // vem primeiro. Entao o placar tambem separa — dizer "faltam R$ 500" sem dizer
+  // de que lado obriga a pessoa a procurar nos dois.
   const contas = {};
   placar.forEach(r => {
-    const c = contas[r.conta] || (contas[r.conta] = { ontemMov: 0, ontemGap: 0, temOntem: false });
+    const c = contas[r.conta] || (contas[r.conta] = { ontemMov: 0, gapEnt: 0, gapSai: 0, temOntem: false });
     if (r.data === ontem) {
       c.temOntem = true;
       c.ontemMov += Math.abs(n(r.banco_entrou)) + Math.abs(n(r.banco_saiu));
-      c.ontemGap = Math.max(c.ontemGap, Math.abs(n(r.falta_entrada)), Math.abs(n(r.falta_saida)));
+      c.gapEnt += n(r.falta_entrada);
+      c.gapSai += n(r.falta_saida);
     }
+  });
+  Object.values(contas).forEach(c => {
+    c.ontemGap = Math.max(Math.abs(c.gapEnt), Math.abs(c.gapSai));
   });
 
   const abertas = pend.filter(p => p.classe === 'ABERTA' && n(p.dias) > CONCB_TOLERANCIA_DIAS);
@@ -4134,9 +4141,12 @@ function renderConcbanco() {
     const fechou = c.temOntem && c.ontemGap < CONCB_TOL_CENTAVOS;
     const cor = !c.temOntem ? '#a5a49a' : fechou ? '#2e7d32' : '#c8102e';
     const marca = !c.temOntem ? '—' : fechou ? '✓' : '✗';
+    const faltas = [];
+    if (Math.abs(c.gapEnt) >= CONCB_TOL_CENTAVOS) faltas.push('entrada R$ ' + rs(Math.abs(c.gapEnt)));
+    if (Math.abs(c.gapSai) >= CONCB_TOL_CENTAVOS) faltas.push('saída R$ ' + rs(Math.abs(c.gapSai)));
     const txt = !c.temOntem ? 'não movimentou'
       : fechou ? 'fechou certinho'
-      : 'faltam R$ ' + rs(c.ontemGap);
+      : 'falta ' + faltas.join(' e ');
     return '<tr><td style="font-size:20px;color:' + cor + ';text-align:center;width:40px">' + marca + '</td>'
       + '<td><b>' + conta + '</b></td>'
       + '<td style="color:' + cor + '">' + txt + '</td>'
@@ -4157,21 +4167,35 @@ function renderConcbanco() {
     + '" data-fitid="' + String(p.fitid).replace(/"/g, '&quot;')
     + '" data-tipo="JA_ESTAVA" style="font-size:11px;padding:3px 8px;cursor:pointer">já estava</button>';
 
-  const blocosConferir = Object.entries(porConta).sort().map(([conta, lista]) =>
-    '<div class="section-label" style="font-size:13px">' + conta + ' — ' + lista.length
-      + ' linha' + (lista.length === 1 ? '' : 's') + ' para conferir</div>' +
-    '<div id="tabelaConcbFila' + conta.replace(/[^A-Za-z]/g, '') + '"><table><thead><tr>' +
-    '<th>Dia</th><th>Valor</th><th>O que o banco diz</th><th>Espera</th><th>Confere</th>' +
-    '</tr></thead><tbody>' +
-    lista.slice(0, 40).map(p =>
-      '<tr><td>' + ddmm(p.data) + '</td>' +
-      '<td style="text-align:right">' + rs(p.valor) + '</td>' +
-      '<td>' + (p.memo || '').slice(0, 54) + '</td>' +
-      '<td style="text-align:center">' + n(p.dias) + 'd</td>' +
-      '<td style="text-align:center">' + botoes(p) + '</td></tr>').join('') +
-    '</tbody></table></div>' +
-    (lista.length > 40 ? '<div class="contexto">Mostrando 40 de ' + lista.length + '.</div>' : '')
-  ).join('');
+  // ENTRADA primeiro, SAIDA depois — ordem de trabalho definida pelo dono. Sao
+  // duas tarefas diferentes: entrada e conferir recebimento, saida e conferir
+  // pagamento, e misturar as duas na mesma lista faz a pessoa trocar de contexto
+  // a cada linha.
+  const tabela = (conta, lado, lista) => {
+    if (!lista.length) return '';
+    const total = lista.reduce((s, x) => s + Math.abs(n(x.valor)), 0);
+    return '<div class="section-label" style="font-size:12px;opacity:.9">'
+      + (lado === 'ent' ? '↓ Entradas' : '↑ Saídas') + ' — ' + lista.length
+      + ' linha' + (lista.length === 1 ? '' : 's') + ', R$ ' + rs(total) + '</div>' +
+      '<div id="tabelaConcbFila' + conta.replace(/[^A-Za-z]/g, '') + lado + '"><table><thead><tr>' +
+      '<th>Dia</th><th>Valor</th><th>O que o banco diz</th><th>Espera</th><th>Confere</th>' +
+      '</tr></thead><tbody>' +
+      lista.slice(0, 30).map(p =>
+        '<tr><td>' + ddmm(p.data) + '</td>' +
+        '<td style="text-align:right">' + rs(p.valor) + '</td>' +
+        '<td>' + (p.memo || '').slice(0, 54) + '</td>' +
+        '<td style="text-align:center">' + n(p.dias) + 'd</td>' +
+        '<td style="text-align:center">' + botoes(p) + '</td></tr>').join('') +
+      '</tbody></table></div>' +
+      (lista.length > 30 ? '<div class="contexto">Mostrando 30 de ' + lista.length + '.</div>' : '');
+  };
+
+  const blocosConferir = Object.entries(porConta).sort().map(([conta, lista]) => {
+    const ent = lista.filter(p => n(p.valor) > 0);
+    const sai = lista.filter(p => n(p.valor) < 0);
+    return '<div class="section-label" style="font-size:13px">' + conta + '</div>' +
+      tabela(conta, 'ent', ent) + tabela(conta, 'sai', sai);
+  }).join('');
 
   const trava = naoConf.length
     ? '<div class="section-label" style="color:#c8102e">Marcado como lançado, mas ainda não apareceu</div>' +
@@ -4221,8 +4245,9 @@ function renderConcbanco() {
     (blocosConferir
       ? '<div class="section-label">O que conferir no Saipos</div>' +
         '<div class="contexto">' + (quem ? 'Você está como <b>' + quem + '</b>. ' : '') +
-        'Ache a linha no Saipos. Se já estiver lá, clique <b>já estava</b> — isso ensina o sistema. ' +
-        'Se faltar mesmo, lance e clique <b>lancei</b>.</div>' + blocosConferir
+        '<b>Comece pelas entradas, depois as saídas.</b> Ache a linha no Saipos: se já estiver lá, ' +
+        'clique <b>já estava</b> — isso ensina o sistema. Se faltar mesmo, lance e clique <b>lancei</b>.</div>' +
+        blocosConferir
       : '') +
     detalhe;
 
