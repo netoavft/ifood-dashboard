@@ -4226,8 +4226,14 @@ function renderConcbanco() {
   // e preciso LANCAR, que e decisao humana. Misturar as duas na mesma lista faz a
   // pessoa trocar de raciocinio linha a linha; e a segunda lista, a de lancar, e
   // onde mora a proxima automacao.
+  // Pista que comeca com "talvez" NAO conta como previsao achada. Ela nasce de
+  // valor exato com nome que nao bate — as vezes acerta (CASA DORICO x DORIGO
+  // MATERIAIS), as vezes erra feio (R$ 120 do motoboy KAWANN x "Itens Paes"). Em
+  // "so conciliar" a promessa e que nao ha decisao a tomar, e ali essa promessa
+  // nao se sustenta.
+  const firme = (p) => Boolean(p.pista) && !String(p.pista).startsWith('talvez');
   const tabela = (conta, lado, lista, temProv) => {
-    lista = lista.filter(p => Boolean(p.pista) === temProv);
+    lista = lista.filter(p => firme(p) === temProv);
     if (!lista.length) return '';
     const total = lista.reduce((s, x) => s + Math.abs(n(x.valor)), 0);
     return '<div class="section-label" style="font-size:12px;opacity:.9">'
