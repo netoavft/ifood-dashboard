@@ -4070,6 +4070,56 @@ function concbQuem() {
   return p ? p.pessoa : (s.email || '');
 }
 
+// ATUALIZAR DE VERDADE: o painel e um HTML estatico no GitHub Pages e nao tem
+// como rodar Python. Entao ele nao executa o comparador — ele INSERE um pedido
+// em `fin_conciliacao_pedido`, e quem executa e `atender_conciliacao.py`, na
+// maquina das rotinas. Este daqui so espera a resposta.
+//
+// O ciclo que isso fecha: a Hellen salva o OFX na pasta do Drive, clica
+// atualizar, e o sistema importa o extrato, rele a janela curta do Saipos (para
+// pegar o que ela acabou de lancar) e roda o comparador. A fila encolhe na tela
+// sem ninguem ser chamado.
+async function concbRodarComparador(bt) {
+  const texto = bt.textContent;
+  bt.disabled = true;
+  bt.textContent = 'atualizando...';
+  try {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/fin_conciliacao_pedido`, {
+      method: 'POST',
+      headers: rmbHeaders({ Prefer: 'return=representation' }),
+      body: JSON.stringify({ quem: concbQuem() || 'PAINEL' }),
+    });
+    if (!r.ok) throw new Error((await r.text()).slice(0, 120));
+    const pedido = (await r.json())[0];
+
+    // ate 3 minutos: importar OFX + janela curta do Saipos + comparador leva
+    // cerca de 1 minuto quando a rede esta boa
+    const limite = Date.now() + 180000;
+    let estado = 'PENDENTE';
+    while (Date.now() < limite && (estado === 'PENDENTE' || estado === 'RODANDO')) {
+      await new Promise(s => setTimeout(s, 3000));
+      const q = await fetch(
+        `${SUPABASE_URL}/rest/v1/fin_conciliacao_pedido?id=eq.${pedido.id}&select=status,resumo`,
+        { headers: rmbHeaders() });
+      if (!q.ok) break;
+      const linha = (await q.json())[0];
+      if (linha) estado = linha.status;
+      bt.textContent = estado === 'RODANDO' ? 'rodando...' : 'na fila...';
+      if (estado === 'ERRO') { alert('Não consegui atualizar: ' + (linha.resumo || '')); break; }
+    }
+    if (estado === 'PENDENTE') {
+      alert('O pedido entrou na fila mas ninguém atendeu. A máquina das rotinas '
+          + 'pode estar desligada — a conciliação da manhã pega isso de qualquer jeito.');
+    }
+  } catch (e) {
+    alert('Não consegui pedir a atualização: ' + e.message);
+  }
+  bt.textContent = texto;
+  bt.disabled = false;
+  CONCB = null;
+  await entrarConcbanco();
+}
+
 async function concbMarcar(conta, fitid, tipo) {
   const quem = concbQuem();
   if (!quem) return;
@@ -4376,11 +4426,7 @@ function renderConcbanco() {
     detalhe;
 
   const btAtu = document.getElementById('concbAtualizar');
-  if (btAtu) btAtu.addEventListener('click', async () => {
-    btAtu.textContent = 'atualizando...'; btAtu.disabled = true;
-    CONCB = null;
-    await entrarConcbanco();
-  });
+  if (btAtu) btAtu.addEventListener('click', () => concbRodarComparador(btAtu));
   alvo.querySelectorAll('.concb-marca').forEach(b => b.addEventListener('click', () =>
     concbMarcar(b.dataset.conta, b.dataset.fitid, b.dataset.tipo)));
   alvo.querySelectorAll('.concb-desmarca').forEach(b => b.addEventListener('click', () =>
