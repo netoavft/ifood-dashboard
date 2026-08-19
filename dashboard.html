@@ -205,12 +205,18 @@
   div[id^="tabela"] tr.liq td:last-child { border-right:2px solid #ee8a3c; }
 
   /* modulo Engenharia de cardapio (19/08/2026) */
-  #tabelaEngcard, #tabelaEngcardCombo, #tabelaEngcardAdic { overflow-x:auto; max-width:100%; }
-  #tabelaEngcardCombo table, #tabelaEngcardAdic table { border-collapse:collapse; width:100%; font-size:12.5px; }
-  #tabelaEngcardCombo th, #tabelaEngcardCombo td, #tabelaEngcardAdic th, #tabelaEngcardAdic td {
+  #tabelaEngcard, #tabelaEngcardCombo, #tabelaEngcardAdic,
+  #tabelaEngcardDup, #tabelaEngcardAlc { overflow-x:auto; max-width:100%; }
+  #tabelaEngcardCombo table, #tabelaEngcardAdic table,
+  #tabelaEngcardDup table, #tabelaEngcardAlc table { border-collapse:collapse; width:100%; font-size:12.5px; }
+  #tabelaEngcardCombo th, #tabelaEngcardCombo td, #tabelaEngcardAdic th, #tabelaEngcardAdic td,
+  #tabelaEngcardDup th, #tabelaEngcardDup td, #tabelaEngcardAlc th, #tabelaEngcardAlc td {
     border:1px solid #34332f; padding:6px 10px; text-align:right; white-space:nowrap; }
   #tabelaEngcardCombo th:first-child, #tabelaEngcardCombo td:first-child,
-  #tabelaEngcardAdic th:first-child, #tabelaEngcardAdic td:first-child { text-align:left; white-space:normal; }
+  #tabelaEngcardAdic th:first-child, #tabelaEngcardAdic td:first-child,
+  #tabelaEngcardDup th:first-child, #tabelaEngcardDup td:first-child,
+  #tabelaEngcardDup th:nth-child(2), #tabelaEngcardDup td:nth-child(2),
+  #tabelaEngcardAlc th:first-child, #tabelaEngcardAlc td:first-child { text-align:left; white-space:normal; }
   #tabelaEngcard table { border-collapse:collapse; width:100%; font-size:12.5px; }
   #tabelaEngcard th, #tabelaEngcard td { border:1px solid #34332f; padding:6px 10px; text-align:right; white-space:nowrap; }
   #tabelaEngcard th:first-child, #tabelaEngcard td:first-child { text-align:left; white-space:normal; }
@@ -239,6 +245,9 @@
     background:#171716; color:#f2f0e9; border:1px solid #45443f; border-radius:8px; }
   .ficha-busca-linha input[type="search"]:focus { outline:none; border-color:#f6c63e; }
   .ficha-check { font-size:12.5px; color:#b9b7ae; cursor:pointer; user-select:none; }
+  #fichaSelect { width:100%; padding:9px 12px; font-size:14px; background:#171716; color:#f2f0e9;
+    border:1px solid #45443f; border-radius:8px; }
+  #fichaSelect:focus { outline:none; border-color:#f6c63e; }
 
   /* tabelas dos modulos Vendas/Cardapio/Clientes (mesmo visual das demais) */
   #tabelaVendasCanal, #tabelaVendasLojas, #tabelaFunil, #tabelaItens, #tabelaCompl, #tabelaClientesLojas { overflow-x:auto; max-width:100%; }
@@ -4638,6 +4647,8 @@ let ENGCARD_DIAS = 30;
 let ENGCARD_GRUPO = null;   // filtro por grupo ao clicar no card
 let ENGCARD_COMBO = null;   // custo do combo SO com os itens obrigatorios (regra do dono 19/08)
 let ENGCARD_ADIC = null;    // venda de adicional: a segunda linha de negocio
+let ENGCARD_ESTRUT = null;  // cadastro do cardapio no iFood (grupos e copias)
+let ENGCARD_ALCANCE = null; // alcance x resultado de cada adicional
 
 async function entrarEngcard() {
   const alvo = document.getElementById('view-engcard');
@@ -4645,13 +4656,16 @@ async function entrarEngcard() {
   if (ENGCARD === null) {
     alvo.innerHTML = '<div class="contexto">Carregando a engenharia de cardápio...</div>';
     const de = new Date(Date.now() - 91 * 864e5).toISOString().slice(0, 10);
-    const [itens, combos, adicionais] = await Promise.all([
+    const [itens, combos, adicionais, estrutura, alcance] = await Promise.all([
       consultarTudo('mv_engenharia_cardapio?select=shift_date,item,unidades,receita,custo,margem' +
                     '&unidade=eq.AGUA%20VERDE&shift_date=gte.' + de),
       consultarTudo('mv_combo_obrigatorio?select=*&unidade=eq.AGUA%20VERDE&shift_date=gte.' + de),
       consultarTudo('mv_adicional_venda?select=*&unidade=eq.AGUA%20VERDE&shift_date=gte.' + de),
+      consultarTudo('vw_ifood_estrutura_grupo?select=*'),
+      consultarTudo('vw_ifood_adicional_alcance?select=*&unidade=eq.AGUA%20VERDE'),
     ]);
     ENGCARD = itens; ENGCARD_COMBO = combos; ENGCARD_ADIC = adicionais;
+    ENGCARD_ESTRUT = estrutura; ENGCARD_ALCANCE = alcance;
   }
   renderModuloEngcard();
 }
@@ -4805,7 +4819,49 @@ function renderModuloEngcard() {
       <div id="tabelaEngcardAdic"><table>
         <thead><tr><th>Adicional</th><th>Vezes</th><th>Receita</th><th>Preço médio</th>
           <th>Custo</th><th>Margem</th><th>Produtos</th></tr></thead>
-        <tbody>${linhas}</tbody></table></div>`;
+        <tbody>${linhas}</tbody></table></div>
+      ${blocoEstrutura()}`;
+  }
+
+  // ---- ESTRUTURA DO CARDAPIO NO IFOOD: o que so o cadastro conta ----
+  function blocoEstrutura() {
+    if (!ENGCARD_ESTRUT || !ENGCARD_ESTRUT.length) return '';
+    const dup = ENGCARD_ESTRUT.filter(g => nu(g.copias) >= 3)
+      .sort((a,b) => nu(b.copias) - nu(a.copias)).slice(0, 12);
+    const linhasDup = dup.map(g => `<tr>
+        <td>${esc(g.grupo)}</td><td>${esc(g.marca)}</td>
+        <td><b>${nu(g.copias)}</b></td><td>${nu(g.produtos_qtd)}</td>
+        <td>${g.papel === 'PRODUTO' ? 'compõe o combo' : 'adicional'}</td></tr>`).join('');
+
+    // alcance x margem: adicional que rende bem e esta em poucos produtos
+    const alc = (ENGCARD_ALCANCE || []).filter(a => nu(a.receita) > 200 && a.tem_custo)
+      .sort((a,b) => nu(b.margem_pct) - nu(a.margem_pct)).slice(0, 12);
+    const linhasAlc = alc.map(a => `<tr>
+        <td>${esc(a.adicional)}</td>
+        <td>R$ ${fmt(nu(a.receita))}</td>
+        <td>${nu(a.margem_pct).toFixed(0)}%</td>
+        <td>${nu(a.em_produtos)}</td></tr>`).join('');
+
+    const totCopias = ENGCARD_ESTRUT.reduce((s,g) => s + nu(g.copias), 0);
+    return `
+      <div class="section-label">Estrutura do cardápio no iFood</div>
+      <div class="caption-label" style="text-align:center;">
+        Isto não vem de venda: é o <b>cadastro</b> do cardápio, lido do portal.
+        São ${ENGCARD_ESTRUT.length} nomes de grupo em ${totCopias} grupos de fato —
+        porque o mesmo grupo existe em várias cópias, uma por produto.
+        <b>Mudar o preço de um adicional exige editar todas as cópias</b>, e uma que passe
+        batida deixa o mesmo item com dois preços no cardápio.</div>
+      <div id="tabelaEngcardDup"><table>
+        <thead><tr><th>Grupo</th><th>Marca</th><th>Cópias</th><th>Alcance</th><th>Papel</th></tr></thead>
+        <tbody>${linhasDup}</tbody></table></div>
+      ${linhasAlc ? `
+      <div class="section-label">Onde ampliar a oferta de adicional</div>
+      <div class="caption-label" style="text-align:center;">
+        Adicional que <b>rende bem</b> mas está oferecido em <b>poucos produtos</b> é venda deixada
+        na mesa — basta acrescentar o grupo em mais itens. Ordenado por margem, 90 dias.</div>
+      <div id="tabelaEngcardAlc"><table>
+        <thead><tr><th>Adicional</th><th>Receita 90d</th><th>Margem</th><th>Em quantos produtos</th></tr></thead>
+        <tbody>${linhasAlc}</tbody></table></div>` : ''}`;
   }
 
   const custoCortesia = cortesia.reduce((s,a) => s + a.cus, 0);
@@ -5051,6 +5107,13 @@ function abrirFicha(nome) {
   FICHA_LINHA_ABERTA = null;
   renderModuloFichas();
 }
+// vindo da lista suspensa: escolher sempre ABRE (alternar aqui seria estranho —
+// o usuário escolheu o item, não clicou nele de novo)
+function abrirFichaSel(nome) {
+  FICHA_ABERTA = nome || null;
+  FICHA_LINHA_ABERTA = null;
+  renderModuloFichas();
+}
 function abrirOrigemCusto(item) {
   FICHA_LINHA_ABERTA = (FICHA_LINHA_ABERTA === item) ? null : item;
   renderModuloFichas();
@@ -5075,16 +5138,17 @@ function renderModuloFichas() {
 
   const semCusto = lista.filter(f => !nu(f.custo)).length;
 
-  const linhasLista = visiveis.map(f => {
-    const aberta = FICHA_ABERTA === f.ficha;
-    const alerta = !nu(f.custo) ? ' <span style="color:#ff6b6b;">sem custo</span>' : '';
-    const manual = f.fonte === 'MANUAL' ? ' <span class="ficha-tag" style="background:#58a6ff;">criada no painel</span>' : '';
-    return `<tr class="ficha-linha${aberta ? ' liq' : ''}" onclick="abrirFicha('${esc(f.ficha)}')">
-      <td>${aberta ? '▾' : '▸'} ${esc(f.ficha)}${f.e_preparacao ? ' <span class="ficha-tag">preparação</span>' : ''}${manual}${alerta}</td>
-      <td>R$ ${fmt(nu(f.custo))}</td>
-      <td>${f.ingredientes}</td>
-      <td>${nu(f.nomes_de_venda) || '—'}</td>
-    </tr>`;
+  // Lista suspensa em vez de tabela (pedido do dono, 19/08): com 246 fichas a
+  // tabela ocupava a tela inteira e a composição, que é o que interessa, ficava
+  // abaixo da dobra. O <select> mostra uma linha e devolve a tela à grade.
+  const opcoes = visiveis.map(f => {
+    const marca = [f.e_preparacao ? 'preparação' : null,
+                   f.fonte === 'MANUAL' ? 'criada no painel' : null,
+                   !nu(f.custo) ? 'SEM CUSTO' : null].filter(Boolean).join(', ');
+    return `<option value="${esc(f.ficha)}"${FICHA_ABERTA === f.ficha ? ' selected' : ''}>` +
+           `${esc(f.ficha)} — R$ ${fmt(nu(f.custo))}` +
+           `${f.ingredientes ? ' · ' + f.ingredientes + ' ingr.' : ''}` +
+           `${marca ? ' (' + marca + ')' : ''}</option>`;
   }).join('');
 
   // A grade fica FORA da lista, em bloco próprio: tabela dentro de tabela quebra
@@ -5165,19 +5229,20 @@ function renderModuloFichas() {
       Consulta apenas: quem manda é a planilha, e reimportá-la reescreve tudo.</div>
     ${FICHA_MSG ? '<div class="contexto" style="border-color:#3fb950; text-align:left;">' + FICHA_MSG + '</div>' : ''}
     <div class="ficha-busca-linha">
-      <input id="fichaBusca" type="search" placeholder="Procurar ficha... (ex.: ayrton, feijoada, chopp)"
+      <input id="fichaBusca" type="search" placeholder="Filtrar a lista... (ex.: ayrton, feijoada, chopp)"
              oninput="renderModuloFichas()" value="${esc(campo ? campo.value : '')}" autocomplete="off">
       <label class="ficha-check"><input type="checkbox" id="fichaSoVendaveis" ${esconderPrep ? 'checked' : ''}
              onchange="renderModuloFichas()"> esconder preparações</label>
       <button class="preset-btn active" onclick="fichaNova()">＋ Nova ficha</button>
     </div>
-    <div id="tabelaFichas"><table>
-      <thead><tr><th>Ficha</th><th>Custo</th>
-        <th>Ingredientes</th><th>Nomes de venda</th></tr></thead>
-      <tbody>${linhasLista || '<tr><td colspan="4">Nenhuma ficha com esse nome.</td></tr>'}</tbody>
-    </table></div>
-    ${visiveis.length >= 400 ? '<div class="caption-label">Mostrando as 400 primeiras — refine a busca.</div>' : ''}
-    ${FICHA_ABERTA ? gradeDaFicha(FICHA_ABERTA) : ''}`;
+    <div class="ficha-busca-linha">
+      <select id="fichaSelect" onchange="abrirFichaSel(this.value)">
+        <option value="">— escolha uma ficha (${visiveis.length}) —</option>
+        ${opcoes}
+      </select>
+    </div>
+    ${FICHA_ABERTA ? gradeDaFicha(FICHA_ABERTA)
+                   : '<div class="contexto">Escolha uma ficha acima para ver a composição.</div>'}`;
   if (FICHA_EDIT) alvo.insertAdjacentHTML('afterbegin', fichaFormulario());
 
   FICHA_MSG = null;
