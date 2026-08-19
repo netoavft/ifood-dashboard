@@ -1,0 +1,204 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cronograma — Cidadão do Mundo</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:#111110; color:#ffffff; font-family:'Segoe UI', system-ui, -apple-system, sans-serif;
+         line-height:1.6; -webkit-font-smoothing:antialiased; }
+  body::before { content:''; display:block; height:3px; background:linear-gradient(90deg,#f6c63e,#ee8a3c 60%,#e2622b); }
+  .wrap { max-width:1000px; margin:0 auto; padding:26px 18px 70px; }
+
+  header { margin-bottom:26px; }
+  .marca { display:inline-flex; align-items:center; gap:9px; background:linear-gradient(135deg,#f6c63e,#ee8a3c);
+           color:#111110; font-weight:800; font-size:12.5px; letter-spacing:.4px; padding:6px 13px; border-radius:11px; }
+  h1 { font-size:26px; line-height:1.25; margin:14px 0 6px; font-weight:800; }
+  .lede { color:#a5a49a; font-size:14.5px; margin:0; max-width:70ch; }
+  .lede b { color:#c3c2b7; }
+
+  h2 { font-size:11px; text-transform:uppercase; letter-spacing:1.1px; color:#8a897e; font-weight:800;
+       margin:34px 0 12px; display:flex; align-items:center; gap:9px; border-top:1px solid #232321; padding-top:16px; }
+  h2::before { content:''; width:14px; height:3px; border-radius:2px; flex:0 0 auto;
+               background:linear-gradient(90deg,#f6c63e,#ee8a3c); }
+
+  .card { background:#1a1a19; border:1px solid #34332f; border-radius:14px; padding:15px 17px; margin-bottom:10px; }
+  .card .topo { display:flex; align-items:baseline; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:4px; }
+  .card .nome { font-weight:800; font-size:15px; }
+  .card p { margin:0; font-size:13.5px; color:#a5a49a; }
+  .card p + p { margin-top:7px; }
+  .card b { color:#c3c2b7; }
+
+  .selo { font-size:10.5px; font-weight:800; letter-spacing:.6px; text-transform:uppercase;
+          padding:3px 9px; border-radius:20px; white-space:nowrap; }
+  .rodando { background:#0f2417; color:#3fb950; border:1px solid #3fb950; }
+  .voce    { background:#2a1e08; color:#f5a623; border:1px solid #f5a623; }
+  .fila    { background:#1a1a19; color:#8a897e; border:1px solid #45443f; }
+  .travado { background:#250f13; color:#ff6b6b; border:1px solid #c8102e; }
+  .feito   { background:#0f2417; color:#3fb950; border:1px solid #26523a; }
+
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:10px; }
+  .num { background:#1a1a19; border:1px solid #34332f; border-radius:14px; padding:14px 16px; }
+  .num .v { font-size:23px; font-weight:800; line-height:1.15; }
+  .num .l { font-size:11.5px; color:#8a897e; text-transform:uppercase; letter-spacing:.7px; margin-top:3px; }
+  .num .n { font-size:12.5px; color:#a5a49a; margin-top:6px; }
+  .amarelo { color:#f5a623; } .verde { color:#3fb950; } .vermelho { color:#ff6b6b; }
+
+  ol.passos { counter-reset:p; list-style:none; padding:0; margin:10px 0 0; }
+  ol.passos li { counter-increment:p; background:#1a1a19; border:1px solid #34332f; border-radius:12px;
+                 padding:13px 15px 13px 48px; position:relative; margin-bottom:8px; font-size:13.5px; color:#a5a49a; }
+  ol.passos li::before { content:counter(p); position:absolute; left:15px; top:12px; width:22px; height:22px;
+                         border-radius:50%; background:linear-gradient(135deg,#f6c63e,#ee8a3c); color:#111110;
+                         font-weight:800; font-size:12px; display:flex; align-items:center; justify-content:center; }
+  ol.passos li b { color:#ffffff; display:block; font-size:14px; margin-bottom:2px; }
+
+  table { border-collapse:collapse; width:100%; font-size:13px; }
+  .tab { background:#1a1a19; border:1px solid #34332f; border-radius:14px; overflow:hidden; }
+  th, td { text-align:left; padding:10px 15px; border-bottom:1px solid #26251f; vertical-align:top; }
+  tr:last-child td { border-bottom:none; }
+  th { font-size:10px; text-transform:uppercase; letter-spacing:.9px; color:#8a897e; background:#161615; font-weight:800; }
+  td.q { color:#a5a49a; }
+
+  .nota { font-size:12.5px; color:#8a897e; margin:9px 2px 0; }
+  footer { margin-top:40px; padding-top:16px; border-top:1px solid #232321; font-size:12px; color:#57564e; }
+  a { color:#f5a623; }
+</style>
+
+<div class="wrap">
+<header>
+  <span class="marca">🍔 CIDADÃO DO MUNDO</span>
+  <h1>Cronograma do projeto</h1>
+  <p class="lede">O que está rodando, o que vem depois e o que depende de uma decisão sua.
+  Prioridade declarada: <b>fechar o CMV por item e construir a engenharia de cardápio</b> — o resto anda em paralelo,
+  conforme couber. Atualizado em <b>18/08/2026</b>.</p>
+</header>
+
+<h2>Rodando agora</h2>
+
+<div class="card">
+  <div class="topo"><span class="nome">API da Rede — histórico de cartão</span><span class="selo rodando">rodando</span></div>
+  <p>Credencial de <b>produção</b> funcionando e o histórico baixando: <b>7.099 vendas reais</b> já no banco
+  (19/02 a 18/05 até agora), com os 3 PVs mapeados — Água Verde 84954310, Ahú 91227160, São Braz 95884688.</p>
+  <p><b>Por que importa:</b> é a fonte que abre a taxa por bandeira e modalidade. Quando o histórico fechar,
+  a linha "Cartões, vouchers e defasagem (estimado)" da DRE deixa de ser resto de conta e vira custo conferido.</p>
+</div>
+
+<div class="card">
+  <div class="topo"><span class="nome">Conciliação bancária — banco × Saipos</span><span class="selo rodando">rodando</span></div>
+  <p>Veio do projeto do Fabio para o nosso. Carregando as bases do Saipos de <b>Água Verde e Ahú</b>;
+  já existem as views do placar, das pendências e do que o banco não confirmou, e a rotina diária das 08:40
+  está ativa.</p>
+  <p><b>Base pronta desde ontem:</b> o extrato das 7 contas entra sozinho pela API do Organizze — inclusive
+  Ahú e São Braz, que nunca tiveram extrato no painel.</p>
+</div>
+
+<h2>Prioridade 1 — CMV por item e engenharia de cardápio</h2>
+
+<div class="grid">
+  <div class="num"><div class="v verde">1.077</div><div class="l">fichas técnicas</div><div class="n">já cadastradas, com 635 insumos</div></div>
+  <div class="num"><div class="v vermelho">19,9%</div><div class="l">cobertura do de-para</div><div class="n">106 de 533 produtos vendidos têm ficha ligada</div></div>
+  <div class="num"><div class="v amarelo">123</div><div class="l">ligações feitas</div><div class="n">todas automáticas — <b>nenhuma validada por você</b></div></div>
+  <div class="num"><div class="v">143 mil</div><div class="l">itens vendidos</div><div class="n">jan a ago, mas <b>só Água Verde</b></div></div>
+</div>
+
+<p class="nota">O gargalo não são as fichas — é a ponte entre <b>o nome que vende</b> e <b>a ficha que custa</b>.
+Hoje os campeões de venda estão fora dela.</p>
+
+<div class="tab" style="margin-top:10px;">
+<table>
+  <tr><th>Mais vendidos sem ficha (30 dias)</th><th>Qtd</th><th>Por que está fora</th></tr>
+  <tr><td>2 BURGERS COM DESCONTO</td><td>1.202</td><td class="q">combo — precisa explodir nos itens escolhidos</td></tr>
+  <tr><td>#CIDADAO# 2 MARMITAS COM DESCONTO</td><td>443</td><td class="q">combo</td></tr>
+  <tr><td>FAMOSA MARMITA (ESCOLHA O ITEM)</td><td>389</td><td class="q">genérico — o item real está na escolha</td></tr>
+  <tr><td>PEPSI BLACK LATA 350ML SALÃO</td><td>338</td><td class="q">revenda — ficha trivial (custo = compra)</td></tr>
+  <tr><td>ESCOLHA SEU BURGER CLÁSSICO</td><td>307</td><td class="q">genérico</td></tr>
+  <tr><td>COMBO BURGER CLÁSSICO + BATATA + BEBIDA</td><td>261</td><td class="q">combo</td></tr>
+</table>
+</div>
+
+<ol class="passos">
+  <li><b>Explodir os combos e genéricos</b>
+      Os campeões de venda não têm ficha própria: são escolhas. A tabela de complementos do Saipos
+      (<i>saipos_itens_choices</i>) guarda o que o cliente escolheu — dá para transformar "2 BURGERS COM DESCONTO"
+      nos dois burgers de verdade. Isso sozinho deve levar a cobertura de 20% para a casa dos 70%.</li>
+  <li><b>Bebidas e revenda em lote</b>
+      Refrigerante e cerveja não precisam de ficha: custo é preço de compra. Uma tabela de custo por item
+      resolve dezenas de linhas de uma vez.</li>
+  <li><b>Você valida o de-para</b>
+      As 123 ligações existentes são automáticas — ninguém confirmou. Eu te trago em blocos
+      ("estes 40 nomes viraram estas fichas, confere?") e nunca classifico sozinho o que estiver ambíguo.</li>
+  <li><b>Margem por item, por canal</b>
+      Com preço de venda por canal (já temos 225 preços) menos o custo da ficha: a margem real de cada prato
+      no iFood, no salão e no site — que é o que falta para o módulo "Margem por item" sair do "em breve".</li>
+  <li><b>Engenharia de cardápio</b>
+      Cruzar margem × popularidade: estrela, vaca leiteira, quebra-cabeça e abacaxi. É a tela que responde
+      o que promover, o que repreçar e o que tirar do cardápio.</li>
+</ol>
+
+<h2>Depende de você</h2>
+
+<div class="card">
+  <div class="topo"><span class="nome">Criar 5 logins no Supabase</span><span class="selo voce">2 minutos</span></div>
+  <p>A tabela de usuários do banco está <b>vazia</b> — nem você consegue entrar. Sem isso, os módulos
+  <b>Reembolsos</b> e <b>Operação das Listas</b> (pedido → separação → conferência → contas) estão no ar mas
+  ninguém loga. Authentication → Add user, marcando "Auto Confirm": netoavft@gmail.com (você),
+  saobraz@ (Diego), info@ (Edgar), everton.baron@ (Loana), compras@ (Rita/Habraham).</p>
+</div>
+
+<div class="card">
+  <div class="topo"><span class="nome">Validar o rateio de despesas por canal</span><span class="selo voce">decisão</span></div>
+  <p>A lista subtipo → critério está esperando seu aval, e falta a folha por setor. <b>É o que trava a DRE por
+  canal</b> — saber se o iFood, o salão ou o site dá mais resultado depende desse rateio estar validado.</p>
+</div>
+
+<div class="card">
+  <div class="topo"><span class="nome">Homologação iFood Developer</span><span class="selo voce">abrir chamado</span></div>
+  <p>Sandbox 100% testado e as evidências de tela prontas (pasta <i>homologacao/</i>). Falta abrir o chamado —
+  o texto está pronto no guia. Destrava as APIs oficiais de pedidos e financeiro nas 17 lojas.</p>
+</div>
+
+<h2>Fila — quando o de cima andar</h2>
+
+<div class="tab">
+<table>
+  <tr><th>Frente</th><th>Estado</th><th>O que falta</th></tr>
+  <tr><td><b>Rede na DRE</b></td><td><span class="selo fila">quase</span></td>
+      <td class="q">esperar o histórico fechar de baixar; depois ligar a taxa real por bandeira no lugar da estimada</td></tr>
+  <tr><td><b>Saipos nas 3 lojas</b></td><td><span class="selo fila">parcial</span></td>
+      <td class="q">itens vendidos só da Água Verde; Ahú e São Braz ampliam CMV, Consolidada e DRE</td></tr>
+  <tr><td><b>Rotinas no mini PC</b></td><td><span class="selo travado">conferir</span></td>
+      <td class="q">6 rotinas existem em texto mas podem não estar instaladas lá — detalhe na seção seguinte</td></tr>
+  <tr><td><b>Cartões no Organizze</b></td><td><span class="selo fila">mapeado</span></td>
+      <td class="q">os 4 cartões estão identificados; falta decidir se a fatura entra no painel</td></tr>
+  <tr><td><b>Tempo de entrega e escalas</b></td><td><span class="selo fila">guardado</span></td>
+      <td class="q">monitorar tempo, dimensionar motoboys por turno, alerta de tempo configurado</td></tr>
+  <tr><td><b>Painéis por operação</b></td><td><span class="selo fila">guardado</span></td>
+      <td class="q">uma tela por unidade com metas próprias, e o modelo de "culpa" dos atrasos</td></tr>
+</table>
+</div>
+
+<h2>Rotinas — o que roda sozinho</h2>
+
+<div class="tab">
+<table>
+  <tr><th>Horário</th><th>Rotina</th><th>Onde</th></tr>
+  <tr><td class="q">08:00 diária</td><td>APIs: Saipos, Foody, <b>Organizze</b>, Accon/CRM</td><td class="q">mini PC — <b>confirmar instalada</b></td></tr>
+  <tr><td class="q">08:40 diária</td><td>Conciliação bancária (banco × Saipos)</td><td class="q">ativa neste PC</td></tr>
+  <tr><td class="q">10:00 diária</td><td>Extração de pedidos (abre a fila do Chrome)</td><td class="q">mini PC ✔</td></tr>
+  <tr><td class="q">11:30 diária</td><td>Contestação de cancelamentos</td><td class="q">mini PC ✔</td></tr>
+  <tr><td class="q">12:30 diária</td><td>Promoções</td><td class="q">mini PC — <b>confirmar</b></td></tr>
+  <tr><td class="q">seg 07:00</td><td>Cardápio, loja a loja</td><td class="q">mini PC ✔</td></tr>
+  <tr><td class="q">seg 13:00</td><td>Resumo semanal</td><td class="q">mini PC ✔</td></tr>
+  <tr><td class="q">ter 14:00</td><td>Relatórios da rede (avaliações, negociações, vendas, qualidade)</td><td class="q">mini PC — <b>confirmar</b></td></tr>
+  <tr><td class="q">qui 14:00</td><td>Conciliação iFood</td><td class="q">mini PC — <b>confirmar</b></td></tr>
+  <tr><td class="q">dia 03, 13:30</td><td>Clientes (mensal)</td><td class="q">mini PC — <b>confirmar</b></td></tr>
+</table>
+</div>
+
+<p class="nota"><b>Um buraco conhecido:</b> o importador da Rede (<i>import_rede.py</i>) ainda não está dentro da
+rotina das 08:00 — enquanto isso, o dado de cartão só entra quando alguém roda à mão.</p>
+
+<footer>
+  Cronograma gerado pelo chat do painel. As rotinas em texto vivem em <i>rotinas/</i> e são a fonte de verdade;
+  o que roda de fato são as cópias instaladas em cada máquina.
+</footer>
+</div>
