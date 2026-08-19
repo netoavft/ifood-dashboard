@@ -4078,14 +4078,22 @@ async function concbDesmarcar(conta, fitid) {
 function renderConcbanco() {
   const alvo = document.getElementById('view-concbanco');
   if (!alvo || !CONCB) return;
-  const { placar, pend, saldoDia, marcadas, naoConf } = CONCB;
+  const cru = CONCB;
+  // A conciliacao e feita LOJA POR LOJA e CONTA A CONTA (dono, 19/08). Juntar as
+  // 6 contas das 3 lojas numa grade so deixou a tela ilegivel. Usa o mesmo
+  // seletor da DRE e do Fluxo, entao a navegacao do financeiro e uma so.
+  const daLoja = (arr) => (arr || []).filter(r => LOJA_FIN === 'REDE' || r.unidade === LOJA_FIN);
+  const placar = daLoja(cru.placar), pend = daLoja(cru.pend), saldoDia = daLoja(cru.saldoDia);
+  const marcadas = cru.marcadas, naoConf = cru.naoConf;
   const quem = concbQuem();
   const n = (v) => Number(v) || 0;
   const rs = (v) => n(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const ddmm = (d) => d ? d.slice(8, 10) + '/' + d.slice(5, 7) : '—';
 
   if (!placar.length) {
-    alvo.innerHTML = '<div class="contexto">Nada conciliado ainda. A rotina <b>conciliação bancária</b> roda todo dia às 08:40 e alimenta esta tela.</div>';
+    alvo.innerHTML = seletorLojaFin() +
+      '<div class="contexto">Nada conciliado para <b>' + nomeLojaFin() + '</b> no período. ' +
+      'A rotina <b>conciliação bancária</b> roda todo dia às 08:40 e alimenta esta tela.</div>';
     return;
   }
 
@@ -4196,22 +4204,29 @@ function renderConcbanco() {
       + '<button class="concb-marca" ' + ATR(p) + ' data-tipo="JA_ESTAVA" style="' + BTN + '">já estava lá</button>'
     : '<span style="opacity:.5;font-size:11px">entre para marcar</span>';
 
-  const filaLinhas = abertas.slice(0, 60).map(p =>
-    '<tr><td>' + ddmm(p.data) + '</td><td>' + p.conta + '</td>' +
+  // Uma tabela POR CONTA, nao uma lista com tudo junto: quem concilia trabalha
+  // uma conta de cada vez, e misturar obriga a pessoa a filtrar com o olho.
+  const filaPorConta = {};
+  abertas.forEach(p => (filaPorConta[p.conta] || (filaPorConta[p.conta] = [])).push(p));
+  const filaLinhas = (lista) => lista.slice(0, 40).map(p =>
+    '<tr><td>' + ddmm(p.data) + '</td>' +
     '<td style="text-align:right">' + rs(p.valor) + '</td>' +
-    '<td>' + (p.memo || '').slice(0, 52) + '</td>' +
+    '<td>' + (p.memo || '').slice(0, 54) + '</td>' +
     '<td style="text-align:center"><b>' + n(p.dias) + 'd</b></td>' +
     '<td style="text-align:center">' + botoes(p) + '</td></tr>').join('');
 
   const periodo = dias.length ? ' Período: ' + ddmm(dias[0]) + ' a ' + ddmm(dias[dias.length - 1]) + '.' : '';
   const quando = atualizado ? ' Conferido em ' + ddmm(atualizado.slice(0, 10)) + '.' : '';
 
-  const blocoFila = abertas.length
-    ? '<div id="tabelaConcbFila"><table><thead><tr><th>Dia</th><th>Conta</th><th>Valor</th>' +
-      '<th>O que o banco diz</th><th>Há quanto tempo</th><th>Conferi</th></tr></thead>' +
-      '<tbody>' + filaLinhas + '</tbody></table></div>' +
-      (abertas.length > 60 ? '<div class="contexto">Mostrando as 60 mais antigas de ' + abertas.length + '.</div>' : '')
-    : '';
+  const blocoFila = Object.entries(filaPorConta).sort().map(([conta, lista]) =>
+    '<div class="section-label" style="font-size:12px;opacity:.85">' + conta + ' — ' +
+      lista.length + ' linha' + (lista.length === 1 ? '' : 's') +
+      ', ' + rs(lista.reduce((s, x) => s + Math.abs(n(x.valor)), 0)) + '</div>' +
+    '<div id="tabelaConcbFila' + conta.replace(/[^A-Za-z]/g, '') + '"><table><thead><tr>' +
+    '<th>Dia</th><th>Valor</th><th>O que o banco diz</th><th>Há quanto tempo</th>' +
+    '<th>Conferi</th></tr></thead><tbody>' + filaLinhas(lista) + '</tbody></table></div>' +
+    (lista.length > 40 ? '<div class="contexto">Mostrando as 40 mais antigas de ' + lista.length + '.</div>' : '')
+  ).join('');
 
   // ATENCAO ao mexer neste texto: a conciliacao JA E FEITA A MAO dentro do Saipos e
   // fecha no centavo (dono, 18/08/2026). Entao esta lista NAO e trabalho a fazer —
@@ -4236,10 +4251,14 @@ function renderConcbanco() {
       'só depois é transferida para a conta corrente, já sem a taxa. O Saipos registra <b>uma</b> transferência; ' +
       'o banco registra <b>várias</b> entradas. Não existe par linha a linha para achar — o par é do bloco. ' +
       'O mesmo vale para pagamento em lote (SISPAG) e boleto que quita várias notas.</div>' +
-      '<div id="tabelaConcbRuido"><table><thead><tr><th>Dia</th><th>Conta</th><th>Valor</th><th>Quem está do outro lado</th></tr></thead><tbody>' +
-      ruido.slice(0, 40).map(p => '<tr><td>' + ddmm(p.data) + '</td><td>' + p.conta + '</td>' +
-        '<td style="text-align:right">' + rs(p.valor) + '</td><td>' + (p.contraparte || '') + '</td></tr>').join('') +
-      '</tbody></table></div></details>'
+      Object.entries(ruido.reduce((m, p) => ((m[p.conta] = m[p.conta] || []).push(p), m), {}))
+        .sort().map(([conta, lista]) =>
+          '<div class="section-label" style="font-size:12px;opacity:.85">' + conta + ' — ' + lista.length + '</div>' +
+          '<div id="tabelaConcbRuido' + conta.replace(/[^A-Za-z]/g, '') + '"><table><thead><tr>' +
+          '<th>Dia</th><th>Valor</th><th>Quem está do outro lado</th></tr></thead><tbody>' +
+          lista.slice(0, 20).map(p => '<tr><td>' + ddmm(p.data) + '</td>' +
+            '<td style="text-align:right">' + rs(p.valor) + '</td><td>' + (p.contraparte || '') + '</td></tr>').join('') +
+          '</tbody></table></div>').join('') + '</details>'
     : '';
 
   // A trava: marcou "lancei" e o comparador continuou sem achar. Ou lancou com
@@ -4314,14 +4333,12 @@ function renderConcbanco() {
       '<th>Diferença</th></tr></thead><tbody>' + linhasSaldo + '</tbody></table></div>'
     : '';
 
-  alvo.innerHTML =
-    '<div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Conciliação bancária — o banco contra o Saipos</div>' +
-    '<div class="contexto">Todo dia de manhã o extrato das contas é comparado com o que foi lançado no Saipos. ' +
-    '<b>Esta tela confere, não cobra.</b> A conciliação em si é feita à mão dentro do Saipos e fecha no centavo; ' +
-    'o que aparece aqui como "sem explicação" é quase sempre um formato que o comparador ainda não aprendeu, ' +
-    'não dinheiro sumido. <b>Olhe o dinheiro antes de olhar a quantidade de linhas:</b> na Itaú Água Verde, de ' +
-    '01/07 a 14/08, entraram R$ 1.135.558 pelo banco em 872 linhas contra R$ 1.134.302 em 319 lançamentos — ' +
-    'falta 0,11%.' + periodo + quando + ' O Boqueirão fica fora desta conciliação.</div>' +
+  alvo.innerHTML = seletorLojaFin() +
+    '<div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Conciliação bancária — ' + nomeLojaFin() + '</div>' +
+    '<div class="contexto"><b>Esta tela confere, não cobra.</b> A conciliação é feita à mão dentro do ' +
+    'Saipos; aqui só se verifica se bateu. <b>Olhe o dinheiro antes da quantidade de linhas</b> — muita ' +
+    'linha sem par com pouca diferença em reais é formato diferente, não dinheiro sumido.' +
+    periodo + quando + ' O Boqueirão fica fora.</div>' +
     cards +
     '<div class="section-label">Por conta</div>' +
     '<div class="contexto">"Falta lançar" é o dinheiro que passou pelo banco e ainda não apareceu no Saipos no ' +
@@ -6640,6 +6657,7 @@ document.addEventListener('click', (e) => {
   aplicarLojaFin();
   if (MODULO_ATUAL === 'fluxo') renderModuloDFC();
   else if (MODULO_ATUAL === 'dre') renderModuloDRE();
+  else if (MODULO_ATUAL === 'concbanco') renderConcbanco();
 });
 
 // Carrega os dados financeiros uma vez so — compartilhados entre DFC e DRE.
