@@ -4114,9 +4114,10 @@ function renderConcbanco() {
   // de que lado obriga a pessoa a procurar nos dois.
   const contas = {};
   placar.forEach(r => {
-    const c = contas[r.conta] || (contas[r.conta] = { ontemMov: 0, gapEnt: 0, gapSai: 0, temOntem: false });
+    const c = contas[r.conta] || (contas[r.conta] = { ontemMov: 0, gapEnt: 0, gapSai: 0, temOntem: false, temOfx: false });
     if (r.data === ontem) {
       c.temOntem = true;
+      if (r.tem_ofx) c.temOfx = true;
       c.ontemMov += Math.abs(n(r.banco_entrou)) + Math.abs(n(r.banco_saiu));
       c.gapEnt += n(r.falta_entrada);
       c.gapSai += n(r.falta_saida);
@@ -4139,13 +4140,19 @@ function renderConcbanco() {
   const cartao = (conta) => {
     const c = contas[conta];
     const fechou = c.temOntem && c.ontemGap < CONCB_TOL_CENTAVOS;
-    const cor = !c.temOntem ? '#a5a49a' : fechou ? '#2e7d32' : '#c8102e';
-    const marca = !c.temOntem ? '—' : fechou ? '✓' : '✗';
+    // Medido em 19/08: o Organizze leva de 2 a 5 dias para ficar completo (4 de
+    // 40 linhas no dia seguinte, na ITAU AV). Sem o OFX de ontem, a diferenca
+    // que aparece e atraso da FONTE, nao lancamento faltando — e cobrar por isso
+    // ensina todo mundo a ignorar a lista.
+    const semExtrato = c.temOntem && !c.temOfx && !fechou;
+    const cor = !c.temOntem ? '#a5a49a' : fechou ? '#2e7d32' : semExtrato ? '#b8860b' : '#c8102e';
+    const marca = !c.temOntem ? '—' : fechou ? '✓' : semExtrato ? '?' : '✗';
     const faltas = [];
     if (Math.abs(c.gapEnt) >= CONCB_TOL_CENTAVOS) faltas.push('entrada R$ ' + rs(Math.abs(c.gapEnt)));
     if (Math.abs(c.gapSai) >= CONCB_TOL_CENTAVOS) faltas.push('saída R$ ' + rs(Math.abs(c.gapSai)));
     const txt = !c.temOntem ? 'não movimentou'
       : fechou ? 'fechou certinho'
+      : semExtrato ? 'extrato de ontem ainda não chegou — não dá para conferir'
       : 'falta ' + faltas.join(' e ');
     return '<tr><td style="font-size:20px;color:' + cor + ';text-align:center;width:40px">' + marca + '</td>'
       + '<td><b>' + conta + '</b></td>'
