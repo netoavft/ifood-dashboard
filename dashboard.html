@@ -204,6 +204,12 @@
   div[id^="tabela"] tr.liq td:first-child { color:#fff; border-left:2px solid #f6c63e; }
   div[id^="tabela"] tr.liq td:last-child { border-right:2px solid #ee8a3c; }
 
+  /* modulo Engenharia de cardapio (19/08/2026) */
+  #tabelaEngcard { overflow-x:auto; max-width:100%; }
+  #tabelaEngcard table { border-collapse:collapse; width:100%; font-size:12.5px; }
+  #tabelaEngcard th, #tabelaEngcard td { border:1px solid #34332f; padding:6px 10px; text-align:right; white-space:nowrap; }
+  #tabelaEngcard th:first-child, #tabelaEngcard td:first-child { text-align:left; white-space:normal; }
+
   /* modulo Fichas tecnicas (19/08/2026) */
   #tabelaFichas, #tabelaFichaGrade { overflow-x:auto; max-width:100%; }
   #tabelaFichas table, #tabelaFichaGrade table { border-collapse:collapse; width:100%; font-size:12.5px; }
@@ -448,6 +454,7 @@
       <button class="sidebar-btn" id="navBtnFrete" onclick="mostrarModulo('frete')"><span class="mico">📍</span>Frete por distância</button>
       <button class="sidebar-btn" id="navBtnListas" onclick="mostrarModulo('listas')"><span class="mico">📦</span>Transferências AV → filiais</button>
       <button class="sidebar-btn" id="navBtnFichas" onclick="mostrarModulo('fichas')"><span class="mico">📋</span>Fichas técnicas</button>
+      <button class="sidebar-btn" id="navBtnEngcard" onclick="mostrarModulo('engcard')"><span class="mico">🍔</span>Engenharia de cardápio</button>
       <span class="sidebar-btn breve"><span class="mico">🚚</span>Tempo de entrega</span>
       <span class="sidebar-btn breve"><span class="mico">🧑‍🍳</span>Pessoas (Flash)</span>
     </div>
@@ -603,6 +610,10 @@
 
     <div id="modulo-fichas" class="modulo" style="display:none;">
       <div id="view-fichas"></div>
+    </div>
+
+    <div id="modulo-engcard" class="modulo" style="display:none;">
+      <div id="view-engcard"></div>
     </div>
 
     <div id="modulo-logfin" class="modulo" style="display:none;">
@@ -1152,6 +1163,7 @@ function abrirGrupoDoModulo(nome) {
                     dre: 'gResultado', indicadores: 'gResultado', estasemana: 'gResultado',
                     consolidada: 'gResultado', atrasos: 'gOperacao',
                     frete: 'gOperacao', listas: 'gOperacao', fichas: 'gOperacao',
+                    engcard: 'gOperacao',
                     reembolsos: 'gFinanceiro', rh: 'gFinanceiro', rede: 'gFinanceiro',
                     qualidade: 'gIfood',
                     relatorios: 'gArquivo', conciliacao: 'gArquivo', rotinas: 'gArquivo' };
@@ -1192,6 +1204,7 @@ function mostrarModulo(nome) {
     frete: ['modulo-frete', 'navBtnFrete'],
     listas: ['modulo-listas', 'navBtnListas'],
     fichas: ['modulo-fichas', 'navBtnFichas'],
+    engcard: ['modulo-engcard', 'navBtnEngcard'],
     reembolsos: ['modulo-reembolsos', 'navBtnReembolsos'],
     rh: ['modulo-rh', 'navBtnRh'],
     concbanco: ['modulo-concbanco', 'navBtnConcbanco'],
@@ -1236,6 +1249,7 @@ function mostrarModulo(nome) {
   if (nome === 'frete') entrarFrete();
   if (nome === 'listas') entrarListas();
   if (nome === 'fichas') entrarFichas();
+  if (nome === 'engcard') entrarEngcard();
   if (nome === 'concbanco') entrarConcbanco();
   if (nome === 'rede') entrarRede();
   if (nome === 'reembolsos') entrarReembolsos();
@@ -1263,7 +1277,7 @@ function moduloAtivo() {
   const atr = document.getElementById('modulo-atrasos');
   if (atr && atr.style.display !== 'none') return 'atrasos';
   for (const [idm, nomem] of [['modulo-frete','frete'], ['modulo-listas','listas'],
-                              ['modulo-fichas','fichas'],
+                              ['modulo-fichas','fichas'], ['modulo-engcard','engcard'],
                               ['modulo-reembolsos','reembolsos'], ['modulo-rh','rh']]) {
     const el = document.getElementById(idm);
     if (el && el.style.display !== 'none') return nomem;
@@ -4611,6 +4625,130 @@ function renderModuloFrete(linhas) {
 // Cuidados aplicados: valor_lista (congelado no mes fechado), frete so
 // Boqueirao, royalty derivado de regra, total_pago pelo mes de referencia.
 let LISTAS = null;
+
+// ============ ENGENHARIA DE CARDÁPIO ============
+// Cruza quanto cada item VENDE com quanto SOBRA nele, e diz o que fazer com
+// cada um. Só Água Verde por ora (decisão do dono 19/08: fechar aqui e depois
+// replicar no São Braz).
+//
+// A margem aqui é PREÇO − CMV. Não é lucro: falta comissão do iFood, taxa de
+// cartão, embalagem, mão de obra e ponto. Por isso os percentuais são altos
+// (77% a 88%) — o aviso está na tela para ninguém ler como sobra de caixa.
+let ENGCARD = null;
+let ENGCARD_DIAS = 30;
+let ENGCARD_GRUPO = null;   // filtro por grupo ao clicar no card
+
+async function entrarEngcard() {
+  const alvo = document.getElementById('view-engcard');
+  if (!alvo) return;
+  if (ENGCARD === null) {
+    alvo.innerHTML = '<div class="contexto">Carregando a engenharia de cardápio...</div>';
+    const de = new Date(Date.now() - 91 * 864e5).toISOString().slice(0, 10);
+    ENGCARD = await consultarTudo(
+      'mv_engenharia_cardapio?select=shift_date,item,unidades,receita,custo,margem' +
+      '&unidade=eq.AGUA%20VERDE&shift_date=gte.' + de);
+  }
+  renderModuloEngcard();
+}
+function engcardPeriodo(d) { ENGCARD_DIAS = d; renderModuloEngcard(); }
+function engcardGrupo(g) { ENGCARD_GRUPO = (ENGCARD_GRUPO === g) ? null : g; renderModuloEngcard(); }
+
+function renderModuloEngcard() {
+  const alvo = document.getElementById('view-engcard');
+  if (!alvo || ENGCARD === null) return;
+  const nu = (v) => Number(v) || 0;
+  const esc = (s) => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/'/g,'&#39;');
+  const corte = new Date(Date.now() - ENGCARD_DIAS * 864e5).toISOString().slice(0, 10);
+
+  const acc = {};
+  ENGCARD.filter(r => r.shift_date >= corte).forEach(r => {
+    const a = acc[r.item] || (acc[r.item] = { item: r.item, un: 0, rec: 0, cus: 0, mg: 0 });
+    a.un += nu(r.unidades); a.rec += nu(r.receita); a.cus += nu(r.custo); a.mg += nu(r.margem);
+  });
+  const todos = Object.values(acc);
+  const vendidos = todos.filter(a => a.rec > 0);          // preço zero é cortesia
+  const cortesia = todos.filter(a => a.rec <= 0);
+  if (!vendidos.length) { alvo.innerHTML = '<div class="contexto">Sem itens no período.</div>'; return; }
+
+  // Os cortes são MÉDIA SIMPLES (regra do dono): média de unidades por item e
+  // margem média por unidade da casa (ponderada pelo volume, que é a margem
+  // real de cada unidade vendida — não a média das médias).
+  const unMedio = vendidos.reduce((s,a) => s + a.un, 0) / vendidos.length;
+  const mgUnMedio = vendidos.reduce((s,a) => s + a.mg, 0) / vendidos.reduce((s,a) => s + a.un, 0);
+  const GRUPOS = {
+    CAMPEAO:   { nome: 'Campeões',   cor: '#3fb950', o: 'Vende muito e sobra muito', faz: 'Proteger: não mexer no preço nem na receita' },
+    POPULAR:   { nome: 'Populares',  cor: '#f6c63e', o: 'Vende muito e sobra pouco', faz: 'Puxa gente. Cada centavo ganho aqui vale muito' },
+    ESCONDIDO: { nome: 'Escondidos', cor: '#58a6ff', o: 'Vende pouco e sobra muito', faz: 'Dar destaque, foto e sugestão de venda' },
+    'PESO MORTO': { nome: 'Peso morto', cor: '#ff6b6b', o: 'Vende pouco e sobra pouco', faz: 'Repensar a receita, o preço, ou tirar do cardápio' },
+  };
+  vendidos.forEach(a => {
+    a.mgUn = a.mg / a.un;
+    a.pct = a.mg / a.rec * 100;
+    a.grupo = (a.un >= unMedio)
+      ? (a.mgUn >= mgUnMedio ? 'CAMPEAO' : 'POPULAR')
+      : (a.mgUn >= mgUnMedio ? 'ESCONDIDO' : 'PESO MORTO');
+  });
+
+  const totRec = vendidos.reduce((s,a) => s + a.rec, 0);
+  const totMg  = vendidos.reduce((s,a) => s + a.mg, 0);
+  const cards = Object.keys(GRUPOS).map(g => {
+    const doGrupo = vendidos.filter(a => a.grupo === g);
+    const rec = doGrupo.reduce((s,a) => s + a.rec, 0);
+    const mg  = doGrupo.reduce((s,a) => s + a.mg, 0);
+    const sel = ENGCARD_GRUPO === g;
+    return `<div class="card" style="border:1px solid ${GRUPOS[g].cor}; cursor:pointer; ${
+        sel ? 'box-shadow:0 0 0 2px ' + GRUPOS[g].cor + ';' : ''}" onclick="engcardGrupo('${g}')">
+      <div class="card-lbl">${GRUPOS[g].nome}${sel ? ' ·' : ''}</div>
+      <div class="card-val">${doGrupo.length}</div>
+      <div class="card-pct">${GRUPOS[g].o}<br>R$ ${fmt(mg)} de margem${
+        totMg ? ' · ' + (mg / totMg * 100).toFixed(0) + '% do total' : ''}</div></div>`;
+  }).join('');
+
+  let lista = vendidos.slice().sort((a,b) => b.mg - a.mg);
+  if (ENGCARD_GRUPO) lista = lista.filter(a => a.grupo === ENGCARD_GRUPO);
+  const linhas = lista.slice(0, 200).map(a => `<tr>
+      <td>${esc(a.item)}</td>
+      <td style="color:${GRUPOS[a.grupo].cor};">${GRUPOS[a.grupo].nome}</td>
+      <td>${a.un.toLocaleString('pt-BR')}</td>
+      <td>R$ ${fmt(a.rec / a.un)}</td>
+      <td>R$ ${fmt(a.rec)}</td>
+      <td>R$ ${fmt(a.mgUn)}</td>
+      <td>R$ ${fmt(a.mg)}</td>
+      <td>${a.pct.toFixed(0)}%</td>
+    </tr>`).join('');
+
+  const custoCortesia = cortesia.reduce((s,a) => s + a.cus, 0);
+  const unCortesia = cortesia.reduce((s,a) => s + a.un, 0);
+
+  alvo.innerHTML = `
+    <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Engenharia de cardápio — Água Verde</div>
+    <div class="caption-label" style="text-align:center;">
+      O que vende muito × o que sobra muito, item a item, nos últimos ${ENGCARD_DIAS} dias.
+      Corte pela média da casa: <b>${Math.round(unMedio).toLocaleString('pt-BR')} unidades</b> por item e
+      <b>R$ ${fmt(mgUnMedio)}</b> de margem por unidade.
+      <br><b style="color:#f6c63e;">Margem aqui é preço menos o custo dos ingredientes.</b>
+      Não é lucro: falta comissão do iFood, taxa de cartão, embalagem, gente e ponto.
+      Serve para comparar itens entre si, não para dizer quanto sobra no caixa.</div>
+    <div style="text-align:center; margin:10px 0;">
+      ${[30, 60, 90].map(d => `<button class="preset-btn ${ENGCARD_DIAS === d ? 'active' : ''}"
+        onclick="engcardPeriodo(${d})">${d} dias</button>`).join(' ')}
+    </div>
+    <div class="cards">${cards}</div>
+    <div class="caption-label" style="text-align:center;">
+      ${ENGCARD_GRUPO ? 'Mostrando só <b>' + GRUPOS[ENGCARD_GRUPO].nome + '</b> — ' + GRUPOS[ENGCARD_GRUPO].faz
+                      + '. <button class="preset-btn" onclick="engcardGrupo(null)">ver todos</button>'
+                      : 'Clique num grupo para filtrar a tabela.'}</div>
+    <div id="tabelaEngcard"><table>
+      <thead><tr><th>Item</th><th>Grupo</th><th>Unidades</th><th>Preço médio</th>
+        <th>Receita</th><th>Margem por unidade</th><th>Margem total</th><th>% da receita</th></tr></thead>
+      <tbody>${linhas}</tbody></table></div>
+    ${lista.length > 200 ? '<div class="caption-label">Mostrando os 200 maiores de ' + lista.length + '.</div>' : ''}
+    ${cortesia.length ? `<div class="contexto" style="text-align:left; margin-top:14px;">
+      <b>Fora da conta:</b> ${cortesia.length} itens saíram com preço zero
+      (${unCortesia.toLocaleString('pt-BR')} unidades, <b>R$ ${fmt(custoCortesia)}</b> de ingrediente) — cortesia,
+      consumo de funcionário e motoboy. Não entram na engenharia porque não têm preço,
+      mas o custo existe.</div>` : ''}`;
+}
 
 // ============ FICHAS TÉCNICAS ============
 // Pedido do dono (19/08/2026): "procuro o item numa lista, ele carrega a grade
