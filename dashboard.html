@@ -204,6 +204,24 @@
   div[id^="tabela"] tr.liq td:first-child { color:#fff; border-left:2px solid #f6c63e; }
   div[id^="tabela"] tr.liq td:last-child { border-right:2px solid #ee8a3c; }
 
+  /* modulo Fichas tecnicas (19/08/2026) */
+  #tabelaFichas, #tabelaFichaGrade { overflow-x:auto; max-width:100%; }
+  #tabelaFichas table, #tabelaFichaGrade table { border-collapse:collapse; width:100%; font-size:12.5px; }
+  #tabelaFichas th, #tabelaFichas td, #tabelaFichaGrade th, #tabelaFichaGrade td {
+    border:1px solid #34332f; padding:6px 10px; text-align:right; white-space:nowrap; }
+  #tabelaFichas th:first-child, #tabelaFichas td:first-child,
+  #tabelaFichaGrade th:first-child, #tabelaFichaGrade td:first-child { text-align:left; white-space:normal; }
+  #tabelaFichas { max-height:420px; overflow-y:auto; }
+  #tabelaFichas thead th { position:sticky; top:0; z-index:4; background:#232321; }
+  tr.ficha-linha { cursor:pointer; }
+  tr.ficha-linha:hover td { background:#232321; }
+  .ficha-tag { font-size:10.5px; color:#111110; background:#8a8a80; border-radius:4px; padding:1px 5px; }
+  .ficha-busca-linha { display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin:10px 0; }
+  .ficha-busca-linha input[type="search"] { flex:1; min-width:220px; padding:8px 12px; font-size:14px;
+    background:#171716; color:#f2f0e9; border:1px solid #45443f; border-radius:8px; }
+  .ficha-busca-linha input[type="search"]:focus { outline:none; border-color:#f6c63e; }
+  .ficha-check { font-size:12.5px; color:#b9b7ae; cursor:pointer; user-select:none; }
+
   /* tabelas dos modulos Vendas/Cardapio/Clientes (mesmo visual das demais) */
   #tabelaVendasCanal, #tabelaVendasLojas, #tabelaFunil, #tabelaItens, #tabelaCompl, #tabelaClientesLojas { overflow-x:auto; max-width:100%; }
   #tabelaVendasCanal table, #tabelaVendasLojas table, #tabelaFunil table, #tabelaItens table, #tabelaCompl table, #tabelaClientesLojas table { border-collapse:collapse; width:100%; font-size:12.5px; }
@@ -429,6 +447,7 @@
       <button class="sidebar-btn" id="navBtnLogfin" onclick="mostrarModulo('logfin')"><span class="mico">🛵</span>Financeiro da logística</button>
       <button class="sidebar-btn" id="navBtnFrete" onclick="mostrarModulo('frete')"><span class="mico">📍</span>Frete por distância</button>
       <button class="sidebar-btn" id="navBtnListas" onclick="mostrarModulo('listas')"><span class="mico">📦</span>Transferências AV → filiais</button>
+      <button class="sidebar-btn" id="navBtnFichas" onclick="mostrarModulo('fichas')"><span class="mico">📋</span>Fichas técnicas</button>
       <span class="sidebar-btn breve"><span class="mico">🚚</span>Tempo de entrega</span>
       <span class="sidebar-btn breve"><span class="mico">🧑‍🍳</span>Pessoas (Flash)</span>
     </div>
@@ -580,6 +599,10 @@
 
     <div id="modulo-listas" class="modulo" style="display:none;">
       <div id="view-listas"></div>
+    </div>
+
+    <div id="modulo-fichas" class="modulo" style="display:none;">
+      <div id="view-fichas"></div>
     </div>
 
     <div id="modulo-logfin" class="modulo" style="display:none;">
@@ -1128,7 +1151,7 @@ function abrirGrupoDoModulo(nome) {
   const grupoDe = { fluxo: 'gFinanceiro', projecao: 'gFinanceiro', despesas: 'gFinanceiro',
                     dre: 'gResultado', indicadores: 'gResultado', estasemana: 'gResultado',
                     consolidada: 'gResultado', atrasos: 'gOperacao',
-                    frete: 'gOperacao', listas: 'gOperacao',
+                    frete: 'gOperacao', listas: 'gOperacao', fichas: 'gOperacao',
                     reembolsos: 'gFinanceiro', rh: 'gFinanceiro', rede: 'gFinanceiro',
                     qualidade: 'gIfood',
                     relatorios: 'gArquivo', conciliacao: 'gArquivo', rotinas: 'gArquivo' };
@@ -1168,6 +1191,7 @@ function mostrarModulo(nome) {
     logfin: ['modulo-logfin', 'navBtnLogfin'],
     frete: ['modulo-frete', 'navBtnFrete'],
     listas: ['modulo-listas', 'navBtnListas'],
+    fichas: ['modulo-fichas', 'navBtnFichas'],
     reembolsos: ['modulo-reembolsos', 'navBtnReembolsos'],
     rh: ['modulo-rh', 'navBtnRh'],
     concbanco: ['modulo-concbanco', 'navBtnConcbanco'],
@@ -1211,6 +1235,7 @@ function mostrarModulo(nome) {
   if (nome === 'logfin') entrarLogfin();
   if (nome === 'frete') entrarFrete();
   if (nome === 'listas') entrarListas();
+  if (nome === 'fichas') entrarFichas();
   if (nome === 'concbanco') entrarConcbanco();
   if (nome === 'rede') entrarRede();
   if (nome === 'reembolsos') entrarReembolsos();
@@ -1238,6 +1263,7 @@ function moduloAtivo() {
   const atr = document.getElementById('modulo-atrasos');
   if (atr && atr.style.display !== 'none') return 'atrasos';
   for (const [idm, nomem] of [['modulo-frete','frete'], ['modulo-listas','listas'],
+                              ['modulo-fichas','fichas'],
                               ['modulo-reembolsos','reembolsos'], ['modulo-rh','rh']]) {
     const el = document.getElementById(idm);
     if (el && el.style.display !== 'none') return nomem;
@@ -4585,6 +4611,171 @@ function renderModuloFrete(linhas) {
 // Cuidados aplicados: valor_lista (congelado no mes fechado), frete so
 // Boqueirao, royalty derivado de regra, total_pago pelo mes de referencia.
 let LISTAS = null;
+
+// ============ FICHAS TÉCNICAS ============
+// Pedido do dono (19/08/2026): "procuro o item numa lista, ele carrega a grade
+// com ingredientes, unidade e custo, igual o esquema da Base FT da minha
+// planilha, e se houver dúvida em algum custo tenho onde consultar de onde ele
+// vem". A grade é a leitura da Base FT; clicar numa linha abre a origem.
+//
+// As três views são pequenas (311 fichas, 1.085 linhas, ~950 origens), então
+// carregam de uma vez e a busca filtra no navegador — sem ida ao banco a cada
+// tecla. Consulta apenas: criar/editar ficha ainda não grava (a planilha é a
+// fonte de verdade e o import a substitui inteira; ver conversa de 19/08).
+let FICHAS = null;
+let FICHA_ABERTA = null;
+let FICHA_LINHA_ABERTA = null;
+
+async function entrarFichas() {
+  const alvo = document.getElementById('view-fichas');
+  if (!alvo) return;
+  if (FICHAS === null) {
+    alvo.innerHTML = '<div class="contexto">Carregando as fichas técnicas...</div>';
+    const [lista, composicao, origem] = await Promise.all([
+      consultarTudo('vw_ft_lista?select=*&order=ficha'),
+      consultarTudo('vw_ft_composicao?select=*'),
+      consultarTudo('vw_ft_origem_custo?select=*'),
+    ]);
+    const porFicha = {};
+    composicao.forEach(l => { (porFicha[l.ficha] = porFicha[l.ficha] || []).push(l); });
+    const porItem = {};
+    origem.forEach(o => { porItem[o.item] = o; });
+    FICHAS = { lista, porFicha, porItem };
+  }
+  renderModuloFichas();
+}
+
+function fichasFiltro(termo) {
+  document.getElementById('fichaBusca').value = termo || '';
+  renderModuloFichas();
+}
+function abrirFicha(nome) {
+  FICHA_ABERTA = (FICHA_ABERTA === nome) ? null : nome;
+  FICHA_LINHA_ABERTA = null;
+  renderModuloFichas();
+}
+function abrirOrigemCusto(item) {
+  FICHA_LINHA_ABERTA = (FICHA_LINHA_ABERTA === item) ? null : item;
+  renderModuloFichas();
+}
+
+function renderModuloFichas() {
+  const alvo = document.getElementById('view-fichas');
+  if (!alvo || FICHAS === null) return;
+  const { lista, porFicha, porItem } = FICHAS;
+  const nu = (v) => Number(v) || 0;
+  const esc = (s) => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/'/g,'&#39;').replace(/"/g,'&quot;');
+  const semAcento = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase();
+
+  const campo = document.getElementById('fichaBusca');
+  const termo = semAcento(campo ? campo.value : '');
+  const soVendaveis = document.getElementById('fichaSoVendaveis');
+  const esconderPrep = soVendaveis ? soVendaveis.checked : true;
+
+  let visiveis = lista.filter(f => !(esconderPrep && f.e_preparacao));
+  if (termo) visiveis = visiveis.filter(f => semAcento(f.ficha).includes(termo));
+  visiveis = visiveis.slice(0, 400);
+
+  const semCusto = lista.filter(f => !nu(f.custo)).length;
+
+  const linhasLista = visiveis.map(f => {
+    const aberta = FICHA_ABERTA === f.ficha;
+    const alerta = !nu(f.custo) ? ' <span style="color:#ff6b6b;">sem custo</span>' : '';
+    return `<tr class="ficha-linha${aberta ? ' liq' : ''}" onclick="abrirFicha('${esc(f.ficha)}')">
+      <td>${aberta ? '▾' : '▸'} ${esc(f.ficha)}${f.e_preparacao ? ' <span class="ficha-tag">preparação</span>' : ''}${alerta}</td>
+      <td>R$ ${fmt(nu(f.custo))}</td>
+      <td>${f.ingredientes}</td>
+      <td>${nu(f.nomes_de_venda) || '—'}</td>
+    </tr>`;
+  }).join('');
+
+  // A grade fica FORA da lista, em bloco próprio: tabela dentro de tabela quebra
+  // a coluna fixa (o CSS de div[id^="tabela"] gruda a 1ª célula de qualquer tr).
+  function gradeDaFicha(nome) {
+    const linhas = (porFicha[nome] || []).slice().sort((a,b) => nu(b.valor_total) - nu(a.valor_total));
+    if (!linhas.length) return '<div class="contexto">Ficha sem linhas de composição.</div>';
+    const total = linhas.reduce((s,l) => s + nu(l.valor_total), 0);
+    const vendas = (lista.find(f => f.ficha === nome) || {}).nomes_de_venda;
+    const corpo = linhas.map(l => {
+      const aberto = FICHA_LINHA_ABERTA === l.materia_prima;
+      const semPreco = l.origem_do_preco === 'SEM CADASTRO';
+      return `<tr class="ficha-linha${aberto ? ' sub' : ''}" onclick="abrirOrigemCusto('${esc(l.materia_prima)}')">
+        <td>${aberto ? '▾' : '▸'} ${esc(l.materia_prima)}${
+          semPreco ? ' <span style="color:#ff6b6b;">sem cadastro</span>' : ''}</td>
+        <td>${nu(l.qtd_ft).toFixed(3)}</td>
+        <td>${esc(l.un_uso)}</td>
+        <td>R$ ${fmt(nu(l.preco_custo))}</td>
+        <td>${nu(l.rendimento) ? nu(l.rendimento).toFixed(3) : '—'}</td>
+        <td><b>R$ ${fmt(nu(l.valor_total))}</b></td>
+      </tr>`;
+    }).join('');
+    const origem = FICHA_LINHA_ABERTA ? origemDoCusto(FICHA_LINHA_ABERTA) : '';
+    return `
+      <div class="section-label">${esc(nome)}</div>
+      <div class="caption-label" style="text-align:center;">
+        Composição igual à Base FT da planilha. Clique num ingrediente para ver de onde vem o custo dele.
+        ${nu(vendas) ? nu(vendas) + ' nome' + (nu(vendas) > 1 ? 's' : '') + ' de venda apontam para esta ficha.'
+                     : '<b>Nenhum nome de venda aponta para esta ficha</b> — ela não entra no CMV hoje.'}</div>
+      <div id="tabelaFichaGrade"><table>
+        <thead><tr><th>Matéria-prima</th><th>Qtd</th><th>Un</th>
+          <th>Preço custo</th><th>Rendimento</th><th>Valor</th></tr></thead>
+        <tbody>${corpo}
+          <tr class="liq"><td><b>Custo da ficha</b></td>
+            <td colspan="4"></td><td><b>R$ ${fmt(total)}</b></td></tr>
+        </tbody></table></div>
+      ${origem}`;
+  }
+
+  function origemDoCusto(item) {
+    const o = porItem[item];
+    if (!o) return `<div class="contexto" style="border-color:#ff6b6b;">
+      <b>${esc(item)}</b> não está cadastrado nem como insumo nem como ficha — por isso a
+      linha fica sem preço. Corrigir na planilha (Base Insumos e Produtos).</div>`;
+    if (o.tipo === 'FICHA') {
+      return `<div class="contexto" style="text-align:left;">
+        <b>${esc(item)}</b> é uma <b>preparação</b>: o custo dela vem da própria ficha
+        (${o.ingredientes} ingredientes, R$ ${fmt(nu(o.preco_un_uso))}).
+        <button class="preset-btn" style="margin-left:8px;" onclick="fichasFiltro('${esc(item)}')">abrir esta ficha</button></div>`;
+    }
+    const esperado = nu(o.preco_un_uso_esperado);
+    const usado = nu(o.preco_un_uso);
+    const bate = !esperado || Math.abs(esperado - usado) < 0.01;
+    return `<div class="contexto" style="text-align:left; ${bate ? '' : 'border-color:#ff6b6b;'}">
+      <b>${esc(item)}</b> é insumo comprado.
+      <b>Compra:</b> ${nu(o.qtd_un_compra).toFixed(3)} ${esc(o.un_compra)} por
+      R$ ${fmt(nu(o.preco_un_compra))}${o.fornecedor ? ' — fornecedor <b>' + esc(o.fornecedor) + '</b>' : ''}${
+        (o.marca && o.marca !== o.fornecedor) ? ' (marca ' + esc(o.marca) + ')' : ''}.
+      <b>Uso na ficha:</b> R$ ${fmt(usado)} por ${esc(o.un_uso)}.
+      ${bate ? '' : `<br><b style="color:#ff6b6b;">A conversão não fecha:</b> pelo preço de compra
+        deveria ser R$ ${fmt(esperado)} por ${esc(o.un_uso)}, e a planilha usa R$ ${fmt(usado)}.
+        Corrigir na planilha — o importador reclama a cada carga até lá.`}</div>`;
+  }
+
+  alvo.innerHTML = `
+    <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Fichas técnicas</div>
+    <div class="caption-label" style="text-align:center;">
+      ${lista.length} fichas na planilha do Neto — ${lista.filter(f=>!f.e_preparacao).length} vendáveis e
+      ${lista.filter(f=>f.e_preparacao).length} de preparação (base que outra ficha consome).
+      ${semCusto ? '<b style="color:#ff6b6b;">' + semCusto + ' sem custo calculado.</b>' : ''}
+      Consulta apenas: quem manda é a planilha, e reimportá-la reescreve tudo.</div>
+    <div class="ficha-busca-linha">
+      <input id="fichaBusca" type="search" placeholder="Procurar ficha... (ex.: ayrton, feijoada, chopp)"
+             oninput="renderModuloFichas()" value="${esc(campo ? campo.value : '')}" autocomplete="off">
+      <label class="ficha-check"><input type="checkbox" id="fichaSoVendaveis" ${esconderPrep ? 'checked' : ''}
+             onchange="renderModuloFichas()"> esconder preparações</label>
+    </div>
+    <div id="tabelaFichas"><table>
+      <thead><tr><th>Ficha</th><th>Custo</th>
+        <th>Ingredientes</th><th>Nomes de venda</th></tr></thead>
+      <tbody>${linhasLista || '<tr><td colspan="4">Nenhuma ficha com esse nome.</td></tr>'}</tbody>
+    </table></div>
+    ${visiveis.length >= 400 ? '<div class="caption-label">Mostrando as 400 primeiras — refine a busca.</div>' : ''}
+    ${FICHA_ABERTA ? gradeDaFicha(FICHA_ABERTA) : ''}`;
+
+  // devolve o cursor ao campo (o render troca o innerHTML a cada tecla)
+  const c = document.getElementById('fichaBusca');
+  if (campo && c) { c.focus(); c.setSelectionRange(c.value.length, c.value.length); }
+}
 
 async function entrarListas() {
   const alvo = document.getElementById('view-listas');
