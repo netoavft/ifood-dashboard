@@ -4006,6 +4006,12 @@ let CONCB = null;
 // Por isso o corte e 1 dia, nao 2 nem 3 (numeros que eu tinha chutado antes de
 // perguntar), e a tolerancia em dinheiro e ZERO, nao "1% ou R$ 500" (regua que
 // tambem era minha, nao da casa).
+// Idade minima para uma linha entrar na fila. 1 = ONTEM em diante, que e a
+// regra da casa: tudo que o banco movimentou ontem tem que bater no centavo na
+// primeira rotina de hoje. Ficou como `> 1` por engano ate 19/08/2026, e o
+// efeito era perverso: o cartao de cima dizia "ITAU AV nao fechou ontem,
+// confira as linhas abaixo" e as linhas abaixo eram de ANTEONTEM. O dia
+// cobrado era o unico que nao dava para conferir.
 const CONCB_TOLERANCIA_DIAS = 1;
 const CONCB_TOL_CENTAVOS = 0.005;   // zero de verdade; so o arredondamento passa
 
@@ -4170,7 +4176,7 @@ function renderConcbanco() {
     c.ontemGap = Math.max(Math.abs(c.gapEnt), Math.abs(c.gapSai));
   });
 
-  const abertas = pend.filter(p => p.classe === 'ABERTA' && n(p.dias) > CONCB_TOLERANCIA_DIAS);
+  const abertas = pend.filter(p => p.classe === 'ABERTA' && n(p.dias) >= CONCB_TOLERANCIA_DIAS);
   const ruido = pend.filter(p => p.classe === 'AGREGACAO');
   const porConta = {};
   abertas.forEach(p => (porConta[p.conta] || (porConta[p.conta] = [])).push(p));
