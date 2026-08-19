@@ -4120,6 +4120,43 @@ async function concbRodarComparador(bt) {
   await entrarConcbanco();
 }
 
+// ENSINAR UM NOME: o par vira cadastro sozinho na proxima rodada
+// (`aplicar_licoes.py`). Nao interpreto texto livre aqui — so o par de nomes,
+// que e mecanico e reversivel.
+async function concbEnsinar(d) {
+  const texto = prompt('Como essa linha aparece no Saipos?
+
+'
+    + 'No banco: ' + (d.nome || d.memo || '') + '
+
+'
+    + 'Escreva o nome ou o histórico do Saipos:');
+  if (!texto || !texto.trim()) return;
+  await concbGravarLicao({ tipo: 'NOME', conta: d.conta, fitid: d.fitid,
+    memo_banco: d.memo || null, nome_banco: d.nome || null, texto: texto.trim() });
+}
+
+// MANDAR UMA REGRA: qualquer coisa que nao seja um par de nomes. Fica esperando
+// leitura humana de proposito — regra em texto livre virando codigo sozinha e
+// como se inventa erro caro.
+async function concbRecado() {
+  const texto = prompt('Escreva a regra ou o recado. '
+    + 'Ele fica guardado até alguém aplicar — não é interpretado automaticamente.');
+  if (!texto || !texto.trim()) return;
+  await concbGravarLicao({ tipo: 'RECADO', texto: texto.trim() });
+}
+
+async function concbGravarLicao(corpo) {
+  corpo.quem = concbQuem() || 'PAINEL';
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/fin_licao`, {
+    method: 'POST', headers: rmbHeaders({ Prefer: 'return=minimal' }),
+    body: JSON.stringify(corpo) });
+  if (!r.ok) { alert('Não gravou: ' + (await r.text()).slice(0, 140)); return; }
+  alert(corpo.tipo === 'NOME'
+    ? 'Guardado. Na próxima atualização essa linha já casa sozinha.'
+    : 'Guardado. Vai ser lido e aplicado — não é automático.');
+}
+
 async function concbMarcar(conta, fitid, tipo) {
   const quem = concbQuem();
   if (!quem) return;
@@ -4327,7 +4364,18 @@ function renderConcbanco() {
     + '" data-fitid="' + String(p.fitid).replace(/"/g, '&quot;')
     + '" data-tipo="CONCILIADO" style="font-size:11px;padding:4px 10px;cursor:pointer;'
     + 'border:1px solid #c8102e;background:transparent;color:#c8102e;border-radius:4px;'
-    + 'white-space:nowrap">A CONCILIAR</button>';
+    + 'white-space:nowrap">A CONCILIAR</button>'
+    // ENSINAR: quando a linha nao tem descricao, e porque eu nao sei quem e.
+    // Quem sabe esta olhando para a tela. Antes isso virava mensagem no chat e
+    // dependia de alguem traduzir em cadastro; agora vira cadastro na hora.
+    + (p.descricao_lancar ? '' :
+       '<br><button class="concb-ensina" data-conta="' + String(p.conta).replace(/"/g, '&quot;')
+       + '" data-fitid="' + String(p.fitid).replace(/"/g, '&quot;')
+       + '" data-nome="' + String(p.nome || '').replace(/"/g, '&quot;')
+       + '" data-memo="' + String(p.memo || '').replace(/"/g, '&quot;')
+       + '" style="font-size:10px;padding:2px 6px;margin-top:3px;cursor:pointer;border:none;'
+       + 'background:transparent;color:inherit;opacity:.6;text-decoration:underline">'
+       + 'ensinar</button>');
 
   // ENTRADA primeiro, SAIDA depois — ordem de trabalho definida pelo dono. Sao
   // duas tarefas diferentes: entrada e conferir recebimento, saida e conferir
@@ -4454,7 +4502,10 @@ function renderConcbanco() {
       // conciliado e ver o que sobrou, sem recarregar a pagina inteira.
       '<button id="concbAtualizar" style="font-size:11px;padding:3px 10px;cursor:pointer;' +
       'border:1px solid #8a887e;background:transparent;color:inherit;border-radius:4px;' +
-      'font-weight:normal">atualizar</button></div>' +
+      'font-weight:normal">atualizar</button>' +
+      '<button id="concbRecado" style="font-size:11px;padding:3px 10px;cursor:pointer;' +
+      'border:1px solid #8a887e;background:transparent;color:inherit;border-radius:4px;' +
+      'font-weight:normal">mandar uma regra</button></div>' +
     '<div class="contexto">' + resumo + '</div>' +
     '<div id="tabelaConcbOntem"><table><tbody>' +
       naoFecharam.map(cartao).join('') + fecharam.map(cartao).join('') + semMov.map(cartao).join('') +
@@ -4471,6 +4522,10 @@ function renderConcbanco() {
 
   const btAtu = document.getElementById('concbAtualizar');
   if (btAtu) btAtu.addEventListener('click', () => concbRodarComparador(btAtu));
+  alvo.querySelectorAll('.concb-ensina').forEach(b => b.addEventListener('click', () =>
+    concbEnsinar(b.dataset)));
+  const btRec = document.getElementById('concbRecado');
+  if (btRec) btRec.addEventListener('click', () => concbRecado());
   alvo.querySelectorAll('.concb-marca').forEach(b => b.addEventListener('click', () =>
     concbMarcar(b.dataset.conta, b.dataset.fitid, b.dataset.tipo)));
   alvo.querySelectorAll('.concb-desmarca').forEach(b => b.addEventListener('click', () =>
