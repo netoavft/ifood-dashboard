@@ -1193,9 +1193,18 @@ function abrirGrupoDoModulo(nome) {
   if (grupo && !grupo.classList.contains('aberto')) toggleGrupo(id);
 }
 
+// O rodapé explica como o Líquido do iFood é calculado. Isso vale para os
+// módulos de venda e para mais nenhum — na conciliação bancária, no financeiro
+// ou no CMV ele é texto que ninguém lê e que empurra a tela para baixo. O dono
+// cortou em 19/08/2026: "a tela pode encerrar antes deles começarem".
+const MODULOS_COM_RODAPE = new Set(['estasemana', 'resumo', 'cancelamentos',
+  'promocoes', 'negociacoes', 'avaliacoes', 'relatorios', 'contestacoes']);
+
 function mostrarModulo(nome) {
   MODULO_ATUAL = nome; // usado pelo setPerimetro para reentrar no modulo atual
   abrirGrupoDoModulo(nome);
+  const rodape = document.querySelector('.footer');
+  if (rodape) rodape.style.display = MODULOS_COM_RODAPE.has(nome) ? '' : 'none';
   const modulos = {
     estasemana: ['modulo-estasemana', 'navBtnEstaSemana'],
     resumo: ['modulo-resumo', 'navBtnResumo'],
