@@ -4114,6 +4114,24 @@ function concbQuem() {
   return p ? p.pessoa : (s.email || '');
 }
 
+// QUEM ESTA CONCILIANDO. Sem login, `concbQuem` devolvia sempre 'PAINEL' —
+// localStorage era lido e nunca escrito. Na transicao para o robo isso e
+// justamente o registro que importa: precisa dar para distinguir o que a Hellen
+// fez do que o robo fez, e hoje nao dava. O dono nao quer exigir login para
+// conciliar, entao pergunta-se UMA vez e guarda-se no proprio navegador.
+async function concbGarantirQuem() {
+  if (rmbSessao()) return concbQuem();
+  const guardado = localStorage.getItem('concbQuem');
+  if (guardado) return guardado;
+  const pessoas = ((CONCB && CONCB.pessoas) || []).map(p => p.pessoa).filter(Boolean);
+  const opcoes = pessoas.length ? pessoas.join(', ') : 'seu nome';
+  const nome = prompt('Quem está conciliando?\n\n(' + opcoes + ')');
+  if (!nome || !nome.trim()) return null;
+  const limpo = nome.trim().toUpperCase().slice(0, 40);
+  localStorage.setItem('concbQuem', limpo);
+  return limpo;
+}
+
 // ATUALIZAR DE VERDADE: o painel e um HTML estatico no GitHub Pages e nao tem
 // como rodar Python. Entao ele nao executa o comparador — ele INSERE um pedido
 // em `fin_conciliacao_pedido`, e quem executa e `atender_conciliacao.py`, na
@@ -4273,7 +4291,7 @@ async function concbRecado() {
 }
 
 async function concbGravarLicao(corpo) {
-  corpo.quem = concbQuem() || 'PAINEL';
+  corpo.quem = (await concbGarantirQuem()) || 'PAINEL';
   let r;
   // try/catch em volta: sem ele, qualquer erro daqui morre como promessa
   // rejeitada e a pessoa fica achando que gravou. Aviso na cara e obrigatorio.
@@ -4299,7 +4317,7 @@ async function concbConciliarMarcadas(bt) {
   if (!tab) return;
   const marcadas = [...tab.querySelectorAll('.concb-check')].filter(x => x.checked);
   if (!marcadas.length) { alert('Marque as linhas que você já conciliou no Saipos.'); return; }
-  const quem = concbQuem();
+  const quem = await concbGarantirQuem();
   if (!quem) return;
   const s = rmbSessao();
   const corpo = marcadas.map(x => ({ conta: x.dataset.conta, fitid: x.dataset.fitid,
