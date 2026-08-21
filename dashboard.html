@@ -4059,6 +4059,9 @@ let CONCB = null;
 // confira as linhas abaixo" e as linhas abaixo eram de ANTEONTEM. O dia
 // cobrado era o unico que nao dava para conferir.
 const CONCB_TOLERANCIA_DIAS = 1;
+// Dia escolhido a mao pelas setas. Null = o sistema decide (o mais antigo em
+// aberto). Fica fora do CONCB para sobreviver ao recarregar dos dados.
+let CONCB_DIA_ESCOLHIDO = null;
 const CONCB_TOL_CENTAVOS = 0.005;   // zero de verdade; so o arredondamento passa
 
 async function entrarConcbanco() {
@@ -4067,7 +4070,7 @@ async function entrarConcbanco() {
   if (CONCB) { renderConcbanco(); return; }
   alvo.innerHTML = '<div class="contexto">Carregando a conciliação...</div>';
   try {
-    const [placar, pend, saldoDia, pessoas, marcadas, naoConf, saldoConf] = await Promise.all([
+    const [placar, pend, saldoDia, pessoas, marcadas, naoConf, saldoConf, aFazer] = await Promise.all([
       consultarTudo('vw_fin_conciliacao_placar?select=*&order=data.desc'),
       consultarTudo('vw_fin_conciliacao_pendencias?select=*&order=dias.desc'),
       consultarTudo('mv_fin_conciliacao_saldo_dia?select=*&order=data.desc'),
@@ -4075,8 +4078,9 @@ async function entrarConcbanco() {
       consultarTudo('fin_conciliacao_marcacao?select=*&order=criado_em.desc'),
       consultarTudo('vw_fin_conciliacao_nao_confirmou?select=*'),
       consultarTudo('vw_fin_conciliacao_saldo?select=*'),
+      consultarTudo('vw_fin_conciliacao_a_fazer?select=*'),
     ]);
-    CONCB = { placar, pend, saldoDia, pessoas, marcadas, naoConf, saldoConf };
+    CONCB = { placar, pend, saldoDia, pessoas, marcadas, naoConf, saldoConf, aFazer };
   } catch (e) {
     alvo.innerHTML = '<div class="contexto">Não consegui carregar a conciliação: ' + e.message + '</div>';
     return;
@@ -4333,6 +4337,7 @@ function renderConcbanco() {
   const placar = daLoja(cru.placar), pend = daLoja(cru.pend), saldoDia = daLoja(cru.saldoDia);
   const naoConf = daLoja(cru.naoConf);
   const saldoConf = daLoja(cru.saldoConf);
+  const aFazer = daLoja(cru.aFazer);
   const quem = concbQuem();
   const n = (v) => Number(v) || 0;
   const rs = (v) => n(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -4358,10 +4363,30 @@ function renderConcbanco() {
   // escondia o dia anterior, que era metade do trabalho. Agora ela mostra todos
   // os dias que ainda têm linha por conciliar, do marco zero até ontem, e só cai
   // para "ontem" quando não há nada em aberto.
-  const diasComFila = [...new Set(pend.filter(p => p.classe === 'ABERTA')
+  // O DIA A CONCILIAR É O SEGUINTE AO ÚLTIMO EM QUE OS SALDOS BATERAM — regra do
+  // dono, 21/08/2026, e é melhor que "ontem" por um motivo: "ontem" é suposição,
+  // isto é fato. Quando o saldo acumulado bate num dia, tudo para trás está
+  // resolvido, mesmo que dias no meio tenham ficado fora (o SÃO BRAZ teve 15, 16
+  // e 17/08 fora e voltou a zero em 18).
+  //
+  // E a conciliação é feita DIA A DIA, em ordem: fecha o 19 antes de ir ao 20.
+  // Por isso a tela mostra UM dia, o mais antigo em aberto, com setas para
+  // navegar — não uma pilha de dias misturados.
+  const pendentes = [...new Set(aFazer.filter(x => !x.em_dia)
+    .map(x => x.dia_a_conciliar))].sort();
+  // O DIA PADRÃO É O MAIS ANTIGO COM LINHA NA FILA. Tentei antes usar "o mais
+  // antigo em aberto pelo saldo", mas conta que nunca fecha mantém o dia dela em
+  // aberto para sempre: a SANTANDER e a PARTICIPAÇÕES prendiam a tela em 17/08
+  // enquanto o trabalho real era 19 e 20/08. Fila vazia num dia significa que não
+  // há o que fazer ali — o problema de saldo daquelas duas contas aparece na
+  // coluna Saldo, que é onde ele se resolve, e não arrasta a tela junto.
+  const comTrabalho = [...new Set(pend.filter(p => p.classe === 'ABERTA')
     .map(p => p.data).filter(d => d && d <= ontem))].sort();
-  const dias = diasComFila.length ? diasComFila : [ontem];
-  const umDiaSo = dias.length === 1;
+  const diaAlvo = CONCB_DIA_ESCOLHIDO || comTrabalho[0] || pendentes[0] || ontem;
+  const dias = [diaAlvo];
+  const umDiaSo = true;
+  const diasNavega = [...new Set(comTrabalho.concat([diaAlvo])
+    .filter(d => d && d <= ontem))].sort();
 
   const contas = {};
   placar.forEach(r => {
@@ -4636,12 +4661,23 @@ function renderConcbanco() {
   alvo.innerHTML = seletorLojaFin() +
     '<div class="section-label" style="border-top:none;margin-top:0;padding-top:0;' +
       'display:flex;align-items:center;gap:12px">' +
-      '<span>' + (umDiaSo
-          ? (dias[0] === ontem ? 'Conciliação de ontem (' + ddmm(ontem) + ')'
-                               : 'Conciliação de ' + ddmm(dias[0]))
-          : 'Conciliação de ' + dias.length + ' dias ('
-            + dias.map(ddmm).join(' e ') + ')')
-        + ' — ' + nomeLojaFin() + '</span>' +
+      '<span>Conciliação de ' + ddmm(diaAlvo)
+        + (diaAlvo === ontem ? ' (ontem)' : '') + ' — ' + nomeLojaFin() + '</span>' +
+      // Setas para andar entre os dias. A ordem importa — fecha o 19 antes de ir
+      // ao 20 —, mas quem concilia às vezes precisa olhar o dia seguinte para
+      // entender o de hoje, então navegar é livre e a ordem é orientação.
+      (diasNavega.length > 1
+        ? '<span style="font-size:12px;font-weight:normal;opacity:.85">'
+          + diasNavega.map(d =>
+              '<button class="concb-dia" data-dia="' + d + '" style="font-size:11px;'
+              + 'padding:2px 8px;margin-right:3px;cursor:pointer;border-radius:4px;'
+              + 'border:1px solid ' + (d === diaAlvo ? '#c8102e' : '#8a887e') + ';'
+              + 'background:transparent;color:' + (d === diaAlvo ? '#c8102e' : 'inherit')
+              + '">' + ddmm(d) + '</button>').join('')
+          + (diasNavega.length > 1
+              ? '<span style="opacity:.7">· ' + diasNavega.length + ' dias para conciliar</span>'
+              : '') + '</span>'
+        : '') +
       // Atualizar RELE o banco. Nao roda o comparador nem importa o Saipos —
       // isso e a rotina das 08:44. Serve para tirar da tela o que ja foi
       // conciliado e ver o que sobrou, sem recarregar a pagina inteira.
@@ -4680,6 +4716,10 @@ function renderConcbanco() {
       : '') +
     detalhe;
 
+  alvo.querySelectorAll('.concb-dia').forEach(b => b.addEventListener('click', () => {
+    CONCB_DIA_ESCOLHIDO = b.dataset.dia;
+    renderConcbanco();
+  }));
   const btAtu = document.getElementById('concbAtualizar');
   if (btAtu) btAtu.addEventListener('click', () => concbRodarComparador(btAtu));
   alvo.querySelectorAll('.concb-ensina').forEach(b => b.addEventListener('click', () =>
