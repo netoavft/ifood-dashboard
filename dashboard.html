@@ -4196,14 +4196,63 @@ async function concbRodarComparador(bt) {
 // ENSINAR UM NOME: o par vira cadastro sozinho na proxima rodada
 // (`aplicar_licoes.py`). Nao interpreto texto livre aqui — so o par de nomes,
 // que e mecanico e reversivel.
-async function concbEnsinar(d) {
-  const texto = prompt('Como essa linha aparece no Saipos?\n\n'
-    + 'No banco: ' + (d.nome || d.memo || '') + '\n\n'
-    + 'Escreva o nome ou o histórico do Saipos:');
-  if (!texto || !texto.trim()) return;
-  await concbGravarLicao({ tipo: 'NOME', conta: d.conta, fitid: d.fitid,
-    memo_banco: d.memo || null, nome_banco: d.nome || null, texto: texto.trim() });
+// TRES CAMPOS, espelhando as colunas da grade — desenho do dono, 21/08/2026:
+// o que e, a descricao a digitar no Saipos, e a categoria. O prompt de um campo
+// so nao servia: perguntava "como aparece no Saipos" e recebia ora um nome, ora
+// um historico, ora uma explicacao — tres coisas diferentes na mesma caixa.
+//
+// A CATEGORIA e o campo que vai fazer diferenca na automacao via Chrome: sem ela
+// o robo sabe o que digitar no historico e nao sabe onde classificar.
+function concbFormEnsinar(d) {
+  const antigo = document.getElementById('concbFormEnsinar');
+  if (antigo) antigo.remove();
+  // escape proprio: o `esc` do modulo e local do renderConcbanco e nao existe aqui
+  const seguro = (s) => String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+  const campo = (id, rotulo, dica) =>
+    '<div style="margin-bottom:10px"><label style="display:block;font-size:11px;'
+    + 'opacity:.8;margin-bottom:3px">' + rotulo + '</label>'
+    + '<input id="' + id + '" placeholder="' + dica + '" style="width:100%;padding:6px 8px;'
+    + 'font-size:13px;border:1px solid #8a887e;border-radius:4px;background:transparent;'
+    + 'color:inherit;box-sizing:border-box"></div>';
+  const cx = document.createElement('div');
+  cx.id = 'concbFormEnsinar';
+  cx.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;'
+    + 'display:flex;align-items:center;justify-content:center';
+  cx.innerHTML = '<div style="background:#1c1b19;color:#e8e6e1;padding:18px 20px;'
+    + 'border-radius:8px;max-width:460px;width:92%;border:1px solid #8a887e">'
+    + '<div style="font-weight:700;margin-bottom:4px">Ensinar esta linha</div>'
+    + '<div style="font-size:12px;opacity:.8;margin-bottom:14px">No banco: <b>'
+    + seguro(d.nome || d.memo || '') + '</b></div>'
+    + campo('ensQue', 'O que é', 'ex.: compra de tinta para manutenção')
+    + campo('ensDesc', 'Descrição no Saipos (o histórico a digitar)', 'ex.: TINTAS VERGINIA')
+    + campo('ensCat', 'Categoria no Saipos', 'ex.: MANUTENÇÃO PREDIAL MATERIAL')
+    + '<div style="text-align:right;margin-top:14px">'
+    + '<button id="ensCancela" style="font-size:12px;padding:5px 12px;margin-right:6px;'
+    + 'cursor:pointer;border:1px solid #8a887e;background:transparent;color:inherit;'
+    + 'border-radius:4px">cancelar</button>'
+    + '<button id="ensSalva" style="font-size:12px;padding:5px 14px;cursor:pointer;'
+    + 'border:1px solid #c8102e;background:transparent;color:#c8102e;border-radius:4px">'
+    + 'guardar</button></div></div>';
+  document.body.appendChild(cx);
+  document.getElementById('ensQue').focus();
+  const fecha = () => cx.remove();
+  cx.addEventListener('click', e => { if (e.target === cx) fecha(); });
+  document.getElementById('ensCancela').addEventListener('click', fecha);
+  document.getElementById('ensSalva').addEventListener('click', async () => {
+    const desc = document.getElementById('ensDesc').value.trim();
+    // A descricao e o unico campo obrigatorio: e ela que vira o par de de-para e
+    // faz a linha casar sozinha da proxima vez. Os outros dois enriquecem.
+    if (!desc) { alert('A descrição do Saipos é o que faz a linha casar. Preencha ela.'); return; }
+    fecha();
+    await concbGravarLicao({ tipo: 'NOME', conta: d.conta, fitid: d.fitid,
+      memo_banco: d.memo || null, nome_banco: d.nome || null, texto: desc,
+      o_que_e: document.getElementById('ensQue').value.trim() || null,
+      categoria: document.getElementById('ensCat').value.trim() || null });
+  });
 }
+
+async function concbEnsinar(d) { concbFormEnsinar(d); }
 
 // MANDAR UMA REGRA: qualquer coisa que nao seja um par de nomes. Fica esperando
 // leitura humana de proposito — regra em texto livre virando codigo sozinha e
