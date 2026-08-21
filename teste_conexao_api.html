@@ -18,6 +18,18 @@
 <body>
 
 <h1>Teste de conexão — Supabase</h1>
+
+<!-- Esta página lê com a chave anonima. Em 21/08/2026 o papel `anon` perdeu o
+     SELECT no banco (script/fechar_leitura_anonima.sql), então daqui em diante
+     ela responde "permission denied" — e isso é o comportamento CERTO, nao
+     conexao quebrada. Quem quiser testar leitura tem de mandar o token de um
+     usuario logado, como o painel faz. -->
+<div class="card" style="border-color:#e8b04b;">
+  <div class="lbl">aviso</div>
+  <div>Desde 21/08/2026 a leitura anônima está fechada. Os testes abaixo vão
+      responder <strong>permission denied</strong> — é o esperado. Para ler o banco
+      é preciso estar logado, e aí o lugar é o próprio painel.</div>
+</div>
 <div id="status">Consultando...</div>
 <div id="resultado"></div>
 
