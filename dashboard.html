@@ -4070,7 +4070,8 @@ async function entrarConcbanco() {
   if (CONCB) { renderConcbanco(); return; }
   alvo.innerHTML = '<div class="contexto">Carregando a conciliação...</div>';
   try {
-    const [placar, pend, saldoDia, pessoas, marcadas, naoConf, saldoConf, aFazer] = await Promise.all([
+    const [placar, pend, saldoDia, pessoas, marcadas, naoConf, saldoConf, aFazer,
+           diaSaldo] = await Promise.all([
       consultarTudo('vw_fin_conciliacao_placar?select=*&order=data.desc'),
       consultarTudo('vw_fin_conciliacao_pendencias?select=*&order=dias.desc'),
       consultarTudo('mv_fin_conciliacao_saldo_dia?select=*&order=data.desc'),
@@ -4079,8 +4080,10 @@ async function entrarConcbanco() {
       consultarTudo('vw_fin_conciliacao_nao_confirmou?select=*'),
       consultarTudo('vw_fin_conciliacao_saldo?select=*'),
       consultarTudo('vw_fin_conciliacao_a_fazer?select=*'),
+      consultarTudo('vw_fin_conciliacao_dia_saldo?select=*&data=gte.'
+        + new Date(Date.now() - 40 * 86400000).toISOString().slice(0, 10)),
     ]);
-    CONCB = { placar, pend, saldoDia, pessoas, marcadas, naoConf, saldoConf, aFazer };
+    CONCB = { placar, pend, saldoDia, pessoas, marcadas, naoConf, saldoConf, aFazer, diaSaldo };
   } catch (e) {
     alvo.innerHTML = '<div class="contexto">Não consegui carregar a conciliação: ' + e.message + '</div>';
     return;
@@ -4509,7 +4512,26 @@ function renderConcbanco() {
     // conciliação é de 18), então o valor é calculado: último saldo declarado
     // mais o que moveu depois. Só é confiável porque o extrato é íntegro —
     // conferido no centavo nas 5 contas.
-    const sd = saldoConf.find(x => x.conta === conta);
+    // O SALDO TEM QUE SER O DO DIA QUE ESTA NA TELA. Ele vinha de
+    // vw_fin_conciliacao_saldo, que e sempre ancorada em ONTEM — entao quem
+    // navegava para o dia 19 via o saldo do dia 20 e nada batia. O dono conferiu
+    // contra o extrato e cobrou (21/08/2026). Agora vem de
+    // vw_fin_conciliacao_dia_saldo, que tem os dois lados dia a dia; o resumo de
+    // ontem so entra quando o dia escolhido E ontem, porque so ali ele tem os
+    // termos da decomposicao (fila, outra data, varredura).
+    // Conta que nao movimentou no dia nao tem linha — mas TEM saldo: e o do
+    // ultimo dia em que mexeu. Mostrar travessao ali sugere que falta dado, e nao
+    // falta: a FF SAO BRAZ ficou parada em 19/08 e o saldo dela era 295,63.
+    const sdDia = (cru.diaSaldo || [])
+      .filter(x => x.conta === conta && x.data <= diaAlvo)
+      .sort((a, b) => a.data < b.data ? 1 : -1)[0];
+    const sdOntem = saldoConf.find(x => x.conta === conta);
+    const sd = diaAlvo === ontem ? sdOntem
+      : (sdDia ? { conta, data_saldo: sdDia.data, saldo_banco: sdDia.saldo_banco,
+                   saldo_saipos: sdDia.saldo_saipos, diferenca: sdDia.diferenca,
+                   explicado_pela_fila: null, lancado_em_outra_data: null,
+                   varredura_do_banco: null, sem_explicacao: null,
+                   extrato_ate: sdOntem && sdOntem.extrato_ate } : null);
     // Um centavo de diferença é arredondamento de soma, não dinheiro.
     const TOL_SALDO = 0.015;
     let saldoTxt = '<span style="opacity:.4">—</span>', saldoTitulo = '';
@@ -4537,7 +4559,13 @@ function renderConcbanco() {
         // conciliado, aquilo era aviso de nada. Aviso que não pede ação treina a
         // pessoa a ignorar a coluna inteira, e junto vai o aviso que importa.
         const bateu = Math.abs(dif) < TOL_SALDO;
-        const sobra = n(sd.sem_explicacao);
+        // A decomposição (fila, outra data, varredura) só existe para ONTEM: ela
+        // depende do resíduo acumulado que o comparador grava. Em dia anterior eu
+        // tenho só os dois saldos — então a diferença crua vira o alerta, sem
+        // fingir que está explicada. Dizer "conferido" num dia que não fecha é o
+        // pior erro possível nesta coluna.
+        const temDecomposicao = sd.sem_explicacao !== null && sd.sem_explicacao !== undefined;
+        const sobra = temDecomposicao ? n(sd.sem_explicacao) : dif;
         // O SALDO BATER É A VERDADE FINAL. Se banco e Saipos dão o mesmo número,
         // acabou — não importa que a decomposição em termos deixe um resto (ela
         // é aproximada por natureza; a PARTICIPAÇÕES tinha saldo igual e R$ 0,55
@@ -4546,7 +4574,8 @@ function renderConcbanco() {
           + (bateu ? '<span style="color:#2e7d32">Saipos igual</span>'
              : Math.abs(sobra) >= TOL_SALDO
                ? '<span style="color:#c8102e">Saipos ' + rs(sd.saldo_saipos)
-                 + ', R$ ' + rs(Math.abs(sobra)) + ' sem explicação</span>'
+                 + ', R$ ' + rs(Math.abs(sobra))
+                 + (temDecomposicao ? ' sem explicação' : ' de diferença') + '</span>'
                : '<span style="color:#2e7d32">conferido</span>');
       }
     }
