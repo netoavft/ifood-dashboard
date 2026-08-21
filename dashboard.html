@@ -807,6 +807,41 @@ document.addEventListener('click', (e) => {
 // Busca TODAS as linhas de uma tabela/view, paginando (o Supabase limita
 // a 1000 linhas por consulta), para funcionar mesmo quando o volume de
 // pedidos crescer (junho, julho, ...).
+// ------------------------------------------------------------------
+// O NOME DA CONTA: chave por dentro, apelido na tela
+// ------------------------------------------------------------------
+// A conta tem dois nomes. A CHAVE ('ITAU AV') amarra 50.987 linhas e 6 chaves
+// estrangeiras — ela nao muda, e e' ela que vai em todo POST. O APELIDO
+// ('ITAU AV 27004-3') e' o que o dono escreve para ler na tela, e muda quando
+// ele quiser (aba Apelidos de contexto/padronizacao-saipos.xlsx +
+// script/aplicar_padronizacao.py).
+//
+// Algumas views ja devolvem `conta_exibida` pronta; outras nao. Em vez de
+// esperar view por view ganhar a coluna, o painel carrega o de/para uma vez —
+// sao 17 linhas — e resolve o nome em qualquer tela. `ativa` vem junto porque
+// BRADESCO e FABIO PESSOAL nao tem lancamento nem extrato e nao devem aparecer
+// em lista nenhuma. (21/08/2026)
+let APELIDOS = null;      // chave -> nome de tela
+let CONTAS_MORTAS = null; // chaves com ativa=false
+
+async function carregarApelidos() {
+  if (APELIDOS) return APELIDOS;
+  APELIDOS = {}; CONTAS_MORTAS = new Set();
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/fin_contas?select=conta,apelido,ativa`,
+                        { headers: cabecalhoLeitura() });
+  if (!r.ok) return APELIDOS;   // sem o de/para a tela mostra a chave, que e' legivel
+  for (const c of await r.json()) {
+    if (c.apelido) APELIDOS[c.conta] = c.apelido;
+    if (c.ativa === false) CONTAS_MORTAS.add(c.conta);
+  }
+  return APELIDOS;
+}
+
+// Mostrar. Nunca usar o retorno como chave de nada.
+function nomeConta(c) { return (APELIDOS && APELIDOS[c]) || c; }
+// Conta desativada some das listas; na duvida (de/para ainda nao carregado), mostra.
+function contaViva(c) { return !CONTAS_MORTAS || !CONTAS_MORTAS.has(c); }
+
 // A chave anon continua indo no apikey (o PostgREST exige), mas quem manda no
 // que pode ser lido e o Bearer: o token da pessoa logada.
 function cabecalhoLeitura() {
@@ -4180,6 +4215,7 @@ let CONCB_DIA_ESCOLHIDO = null;
 const CONCB_TOL_CENTAVOS = 0.005;   // zero de verdade; so o arredondamento passa
 
 async function entrarConcbanco() {
+  await carregarApelidos();
   const alvo = document.getElementById('view-concbanco');
   if (!alvo) return;
   if (CONCB) { renderConcbanco(); return; }
@@ -4600,19 +4636,10 @@ function renderConcbanco() {
   const esc = (s) => String(s == null ? '' : s)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
 
-  // A conta tem DOIS nomes. A CHAVE ('ITAU AV') amarra 50.987 linhas e 6 chaves
-  // estrangeiras, e e' ela que tem de seguir nos POSTs de conciliacao e de licao
-  // — apelido virando chave grava marcacao em conta que nao existe. O APELIDO
-  // ('ITAU AV 27004-3') e' o que o dono escreve para ler na tela. As 7 views da
-  // conciliacao ja devolvem os dois; aqui so montamos o de/para para MOSTRAR um
-  // e MANDAR o outro. (21/08/2026)
-  const APELIDO_CONTA = {};
-  [placar, saldoConf, naoConf, pend, saldoDia, aFazer].forEach((arr) =>
-    (arr || []).forEach((r) => {
-      if (r && r.conta && r.conta_exibida) APELIDO_CONTA[r.conta] = r.conta_exibida;
-    }));
-  const nomeConta = (c) => APELIDO_CONTA[c] || c;
-
+  // O nome de tela sai de nomeConta(), la de cima — o mesmo de/para do painel
+  // inteiro. As views daqui tambem trazem `conta_exibida`, mas manter duas
+  // fontes para a mesma pergunta e' como o nome do dono acabou escrito em dois
+  // lugares e um deles envelheceu. Uma so.
   if (!placar.length) {
     alvo.innerHTML = seletorLojaFin() +
       '<div class="contexto">Sem conciliação para <b>' + nomeLojaFin() + '</b> ainda. ' +
@@ -7914,13 +7941,17 @@ async function garantirDadosFin() {
   if (DFC_MENSAL !== null) return;
   [DFC_RAW, DFC_CONTAS_RAW, DFC_MOV_RAW] = await Promise.all([
     consultarTudo("vw_fin_dfc_mensal?select=unidade,mes,natureza,tipo,subtipo,ordem,credito,debito&order=mes,ordem"),
-    consultarTudo("fin_contas?select=conta,unidade,saldo_inicial,ordem&order=ordem"),
+    // ativa=is.true: BRADESCO e FABIO PESSOAL tem zero lancamento e zero
+    // extrato. Antes apareciam com saldo 0,00, e conta morta em lista de saldo
+    // faz a pessoa procurar o que nao existe.
+    consultarTudo("fin_contas?select=conta,unidade,saldo_inicial,ordem,apelido&ativa=is.true&order=ordem"),
     consultarTudo("vw_fin_saldo_conta_mensal?select=mes,conta,movimento&order=mes,conta"),
   ]);
   aplicarLojaFin();   // converte os números lá dentro: trocar de loja refaz as listas
 }
 
 async function entrarFluxo() {
+  await carregarApelidos();
   const alvo = document.getElementById('view-fluxo');
   if (DFC_MENSAL === null) alvo.innerHTML = '<div class="contexto">Carregando fluxo de caixa...</div>';
   await garantirDadosFin();
@@ -8084,7 +8115,7 @@ function renderModuloDFC() {
   // SALDO INICIAL (abre por conta)
   corpo += linhaSaldo('dfc-saldo', 'SALDO INICIAL', saldoIni, 'SALDO_INI', saldoIni[0]);
   if (dfcAberto.has('SALDO_INI')) contas.forEach(c => {
-    corpo += linhaSaldo('dfc-conta', c.conta, saldoIniConta[c.conta], null, saldoIniConta[c.conta][0]);
+    corpo += linhaSaldo('dfc-conta', nomeConta(c.conta), saldoIniConta[c.conta], null, saldoIniConta[c.conta][0]);
   });
 
   // bloco expansivel de subtipos (saida herda o sinal de menos na exibicao)
@@ -8147,7 +8178,7 @@ function renderModuloDFC() {
 
   corpo += linhaSaldo('dfc-saldo', 'SALDO FINAL', saldoFim, 'SALDO_FIM', saldoFim[nM - 1]);
   if (dfcAberto.has('SALDO_FIM')) contas.forEach(c => {
-    corpo += linhaSaldo('dfc-conta', c.conta, saldoFimConta[c.conta], null, saldoFimConta[c.conta][nM - 1]);
+    corpo += linhaSaldo('dfc-conta', nomeConta(c.conta), saldoFimConta[c.conta], null, saldoFimConta[c.conta][nM - 1]);
   });
   // saldo separado por natureza (proposta do financeiro, 13/08): o total
   // sozinho dava impressao de folga — a maior parte esta aplicada e nao
@@ -8877,6 +8908,7 @@ let PROJ_RECEB_SUB = null; // vw_fin_receitas_diarias_subtipo: a mesma media, ab
 const PROJ_FORA_CAIXA = ['XP INVESTIMENTOS', 'PARTICIPACOES', 'FABIO PESSOAL'];
 
 async function entrarProjecao() {
+  await carregarApelidos();
   const alvo = document.getElementById('view-projecao');
   if (PROJ_PAGAR === null) alvo.innerHTML = '<div class="contexto">Carregando projeção...</div>';
   const corte = new Date(); corte.setDate(corte.getDate() - 35);
@@ -9468,12 +9500,15 @@ let CONF_IMPORT = null, CONF_GENERICAS = null, CONF_DIVERG = null, CONF_CARTOES 
 let CONF_ACEITAS = null;   // fin_divergencias_aceitas: divergências já conferidas pelo dono
 
 async function entrarConciliacao() {
+  await carregarApelidos();
   const alvo = document.getElementById('view-conciliacao');
   if (CONF_SALDOS === null) {
     alvo.innerHTML = '<div class="contexto">Carregando conferências...</div>';
     [CONF_SALDOS, CONF_TRANSF, CONF_SEMCLASS, CONF_IMPORT, CONF_GENERICAS, CONF_DIVERG,
      CONF_CARTOES, CONF_ACEITAS] = await Promise.all([
-      consultarTudo('vw_fin_saldo_conta?select=conta,ordem,saldo,ultimo_lancamento,lancamentos&order=ordem'),
+      // Esta view sai de fin_contas, nao do movimento: sem o filtro ela traz as
+      // duas contas desativadas com saldo 0,00. (aviso do chat da conciliacao)
+      consultarTudo('vw_fin_saldo_conta?select=conta,conta_exibida,ativa,ordem,saldo,ultimo_lancamento,lancamentos&ativa=is.true&order=ordem'),
       consultarTudo('vw_fin_transf_conferencia?select=mes,diferenca,lancamentos&order=mes'),
       consultarTudo('vw_fin_sem_classificacao?select=data,conta,descricao,credito,debito&order=data.desc'),
       consultarTudo('vw_fin_ultima_importacao?select=fonte,importado_em,ultimo_lancamento,lancamentos'),
@@ -9548,7 +9583,7 @@ function renderModuloConciliacao() {
     blocos += `
     <div class="section-label">Contas com saldo negativo no painel</div>
     <div class="contexto" style="border-color:#ff6b6b; text-align:left;">
-      ${negativas.map(c => `<div style="padding:3px 0;"><b>${c.conta}</b>: <span class="negativo">R$ ${fmt(c.saldo)}</span></div>`).join('')}
+      ${negativas.map(c => `<div style="padding:3px 0;"><b>${nomeConta(c.conta)}</b>: <span class="negativo">R$ ${fmt(c.saldo)}</span></div>`).join('')}
       <div style="font-size:12px; color:#9aa4af; margin-top:6px;">
         Se o extrato real não está negativo, faltam <b>recebimentos lançados no Saipos</b> (ex.: repasse que caiu no banco
         mas ainda não foi baixado) — é exatamente o que a conciliação no Saipos resolve.
@@ -9575,7 +9610,7 @@ function renderModuloConciliacao() {
     <div class="section-label">Contas sem movimento recente</div>
     <div class="contexto" style="border-color:#f5a623; text-align:left;">
       ${paradas.map(c => `<div style="display:flex; justify-content:space-between; padding:3px 0;">
-        <span>${c.conta}</span><span style="color:#9aa4af;">último lançamento em ${fmtData(c.ultimo_lancamento)}
+        <span>${nomeConta(c.conta)}</span><span style="color:#9aa4af;">último lançamento em ${fmtData(c.ultimo_lancamento)}
         (${diasDesde(c.ultimo_lancamento)} dias)</span></div>`).join('')}
       <div style="font-size:12px; color:#9aa4af; margin-top:6px;">
         Pode ser normal (conta pouco usada) ou sinal de que os lançamentos dessa conta pararam de ser feitos no Saipos.
@@ -9590,7 +9625,7 @@ function renderModuloConciliacao() {
       <table style="width:100%; font-size:12.5px;">
         <tr><th style="text-align:left;">Conta</th><th>Planilha</th><th>Saipos</th><th>Falta resolver</th></tr>
         ${divergentes.sort((a, b) => Math.abs(b.pendente) - Math.abs(a.pendente)).map(d => `
-          <tr><td>${d.conta}</td><td>${fmt(d.planilha)}</td><td>${fmt(d.saipos)}</td>
+          <tr><td>${nomeConta(d.conta)}</td><td>${fmt(d.planilha)}</td><td>${fmt(d.saipos)}</td>
           <td class="negativo">${fmt(d.pendente)}</td></tr>`).join('')}
         <tr style="border-top:1px solid #45443f;"><td colspan="3"><b>Total pendente</b></td>
           <td class="negativo"><b>${fmt(divergentes.reduce((s, d) => s + d.pendente, 0))}</b></td></tr>
@@ -9602,7 +9637,7 @@ function renderModuloConciliacao() {
       </div>
       ${(CONF_ACEITAS || []).length ? `<div style="font-size:12px; color:#a5a49a; margin-top:8px; border-top:1px solid #34332f; padding-top:8px;">
         <b>Já conferidas</b> (fora da conta acima):<br>
-        ${CONF_ACEITAS.map(a => `• ${a.conta}: R$ ${fmt(Number(a.valor))} — ${a.motivo}`).join('<br>')}
+        ${CONF_ACEITAS.map(a => `• ${nomeConta(a.conta)}: R$ ${fmt(Number(a.valor))} — ${a.motivo}`).join('<br>')}
       </div>` : ''}
     </div>`;
   }
@@ -9612,7 +9647,7 @@ function renderModuloConciliacao() {
     <div class="section-label">Cartão com saldo positivo</div>
     <div class="contexto" style="border-color:#ff6b6b; text-align:left;">
       ${cartoesPositivos.map(c => `<div style="display:flex; justify-content:space-between; padding:3px 0;">
-        <span>${c.conta}</span><b>R$ ${fmt(c.saldo)}</b></div>`).join('')}
+        <span>${nomeConta(c.conta)}</span><b>R$ ${fmt(c.saldo)}</b></div>`).join('')}
       <div style="font-size:12px; color:#a5a49a; margin-top:6px;">
         Cartão só pode estar zerado ou devedor. Saldo positivo = fatura paga cujas <b>compras não foram lançadas</b> no Saipos —
         some sozinho quando o cartão for conciliado lá.
@@ -9639,7 +9674,7 @@ function renderModuloConciliacao() {
     <div class="section-label">Lançamentos sem classificação</div>
     <div id="tabelaSemClass"><table>
       <tr><th>Data</th><th>Conta</th><th>Descrição</th><th>Valor</th></tr>
-      ${CONF_SEMCLASS.slice(0, 30).map(r => `<tr><td>${fmtData(r.data)}</td><td>${r.conta}</td>
+      ${CONF_SEMCLASS.slice(0, 30).map(r => `<tr><td>${fmtData(r.data)}</td><td>${nomeConta(r.conta)}</td>
         <td>${(r.descricao || '').slice(0, 60)}</td>
         <td class="negativo">R$ ${fmt(Number(r.debito) - Number(r.credito))}</td></tr>`).join('')}
       <tr class="liq"><td>TOTAL${CONF_SEMCLASS.length > 30 ? ' (' + CONF_SEMCLASS.length + ' lançamentos, 30 listados)' : ''}</td><td></td><td></td>
@@ -9668,7 +9703,7 @@ function renderModuloConciliacao() {
   <div id="tabelaSaldos"><table>
     <tr><th>Conta</th><th>Saldo no painel</th><th>Último lançamento</th><th>Lançamentos</th></tr>
     ${CONF_SALDOS.map(c => `<tr class="${c.lancamentos ? '' : 'dfc-linha'}">
-      <td>${c.conta}</td>
+      <td>${nomeConta(c.conta)}</td>
       <td class="${c.saldo < -0.005 ? 'negativo' : ''}">R$ ${fmt(c.saldo)}</td>
       <td>${fmtData(c.ultimo_lancamento)}</td>
       <td>${c.lancamentos || '—'}</td></tr>`).join('')}
