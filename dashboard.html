@@ -3719,6 +3719,7 @@ async function rmbFazerLogin(pref) {
   localStorage.setItem('rmbSessao', JSON.stringify({
     access_token: s.access_token, refresh_token: s.refresh_token,
     email: (s.user && s.user.email) || email,
+    expira_em: Date.now() + ((s.expires_in || 3600) * 1000),
   }));
   // NAO redesenha modulo nenhum: quem chamou decide o que fazer. Antes daqui
   // saia um renderModuloReembolsos(REEMBOLSOS) que explodia quando o login vinha
@@ -3736,22 +3737,54 @@ async function reembolsosLogin() {
   await entrarReembolsos();
 }
 
+// UMA renovacao de cada vez. O refresh_token do Supabase e' de uso unico: ao
+// usar, ele vira outro. O painel dispara dezenas de consultas em paralelo,
+// entao um token vencido produzia dezenas de 401 simultaneos e dezenas de
+// tentativas de renovar com o MESMO refresh_token — a primeira funcionava e as
+// outras recebiam "token ja usado", que o codigo tratava como sessao invalida
+// e apagava o login. Resultado: quem passasse de uma hora com o painel aberto
+// era jogado para fora, com a sessao ainda viva no servidor. (21/08/2026)
+let RENOVANDO = null;
+
+async function rmbRenovar() {
+  if (RENOVANDO) return RENOVANDO;          // ja tem uma em curso: espera ela
+  RENOVANDO = (async () => {
+    const s = rmbSessao();
+    if (!s || !s.refresh_token) return false;
+    const r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+      method: 'POST',
+      headers: { apikey: SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: s.refresh_token }),
+    });
+    let novo = {};
+    try { novo = await r.json(); } catch (e) {}
+    if (!r.ok || !novo.access_token) {
+      // Falha de rede nao e' motivo para deslogar ninguem — so a recusa do
+      // servidor (400/401) significa que o refresh_token nao vale mais.
+      if (r.status === 400 || r.status === 401) localStorage.removeItem('rmbSessao');
+      return false;
+    }
+    localStorage.setItem('rmbSessao', JSON.stringify({
+      access_token: novo.access_token, refresh_token: novo.refresh_token, email: s.email,
+      expira_em: Date.now() + ((novo.expires_in || 3600) * 1000),
+    }));
+    return true;
+  })();
+  try { return await RENOVANDO; } finally { RENOVANDO = null; }
+}
+
 async function rmbRenovarSeExpirado(resp) {
-  // 401 = token venceu; tenta renovar UMA vez com o refresh_token
   if (resp.status !== 401) return false;
+  return rmbRenovar();
+}
+
+// Renova ANTES de sair disparando consulta. Sem isto, um token vencido vira
+// dezenas de 401 e o painel pisca erro antes de se recuperar.
+async function rmbGarantirTokenValido() {
   const s = rmbSessao();
-  if (!s || !s.refresh_token) return false;
-  const r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
-    method: 'POST',
-    headers: { apikey: SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refresh_token: s.refresh_token }),
-  });
-  const novo = await r.json();
-  if (!r.ok || !novo.access_token) { localStorage.removeItem('rmbSessao'); return false; }
-  localStorage.setItem('rmbSessao', JSON.stringify({
-    access_token: novo.access_token, refresh_token: novo.refresh_token, email: s.email,
-  }));
-  return true;
+  if (!s) return false;
+  if (s.expira_em && Date.now() < s.expira_em - 60000) return true;   // ainda vale
+  return rmbRenovar();
 }
 
 async function rmbEnviarGasto() {
@@ -6327,6 +6360,7 @@ async function trFazerLogin() {
   localStorage.setItem('rmbSessao', JSON.stringify({
     access_token: s.access_token, refresh_token: s.refresh_token,
     email: (s.user && s.user.email) || email,
+    expira_em: Date.now() + ((s.expires_in || 3600) * 1000),
   }));
   TR_OP = null;
   entrarOperacaoListas();
@@ -9856,7 +9890,7 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
 // usavam (chave 'rmbSessao'), entao quem entra na porta ja entra logado neles.
 // Criar usuario continua sendo passo do dono, no Supabase.
 // ------------------------------------------------------------------
-const CHAVE_ACESSO_VELHA = 'painelIfoodAcessoOk_v3';
+const CHAVES_ACESSO_VELHAS = ['painelIfoodAcessoOk', 'painelIfoodAcessoOk_v2', 'painelIfoodAcessoOk_v3'];
 
 function exigirLogin(recado) {
   localStorage.removeItem('rmbSessao');
@@ -9896,8 +9930,9 @@ async function entrarNoPainel() {
     localStorage.setItem('rmbSessao', JSON.stringify({
       access_token: d.access_token, refresh_token: d.refresh_token,
       email: (d.user && d.user.email) || email,
+      expira_em: Date.now() + ((d.expires_in || 3600) * 1000),
     }));
-    localStorage.removeItem(CHAVE_ACESSO_VELHA);
+    CHAVES_ACESSO_VELHAS.forEach((k) => localStorage.removeItem(k));
     erro.style.display = 'none';
     document.getElementById('loginGate').style.display = 'none';
     const quem = document.getElementById('rodapeQuem');
@@ -9925,14 +9960,19 @@ function sairDoPainel() {
 // No boot: so abre o painel se a sessao ainda vale. Token vencido nao e motivo
 // para mandar a pessoa digitar de novo — tenta o refresh_token primeiro.
 (async function abrirSeLogado() {
-  localStorage.removeItem(CHAVE_ACESSO_VELHA);   // a senha velha nao vale mais
+  CHAVES_ACESSO_VELHAS.forEach((k) => localStorage.removeItem(k));   // a senha velha nao vale mais
   const sessao = rmbSessao();
   if (!sessao || !sessao.access_token) return;   // fica na porta
+  await rmbGarantirTokenValido();                // renova antes, sem piscar erro
   let r = await fetch(`${SUPABASE_URL}/auth/v1/user`, { headers: cabecalhoLeitura() });
   if (r.status === 401 && await rmbRenovarSeExpirado(r)) {
     r = await fetch(`${SUPABASE_URL}/auth/v1/user`, { headers: cabecalhoLeitura() });
   }
-  if (!r.ok) { exigirLogin(); return; }
+  if (!r.ok) {
+    // Sem rede nao se apaga sessao de ninguem: so quando o servidor recusa.
+    if (r.status === 401 || r.status === 403) exigirLogin();
+    return;
+  }
   document.getElementById('loginGate').style.display = 'none';
   const quem = document.getElementById('rodapeQuem');
   if (quem) quem.textContent = (rmbSessao() || {}).email || '';
