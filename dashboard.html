@@ -466,6 +466,17 @@
     border-radius:6px; padding:7px 9px; font-size:13px; font-family:inherit; resize:vertical; }
   .plano-recado-envio { margin-top:6px; display:flex; align-items:center; gap:10px; }
   .plano-recado-envio span { font-size:12px; color:#8b877c; }
+  .plano-vez { margin-left:8px; font-size:11px; color:#8b877c; border:1px solid #45443f;
+    border-radius:10px; padding:1px 8px; }
+  .plano-vez.minha { color:#e8b04b; border-color:#e8b04b; }
+  .plano-editor { border-left-color:#e8b04b; }
+  .plano-editor-tit { font-size:12px; color:#e8b04b; margin-bottom:8px; }
+  .plano-editor label { display:block; font-size:11px; color:#8b877c; margin-bottom:8px; }
+  .plano-editor input, .plano-editor textarea { width:100%; background:#171716; color:#f2f0e9;
+    border:1px solid #45443f; border-radius:6px; padding:7px 9px; font-size:13px;
+    font-family:inherit; margin-top:3px; }
+  .plano-editor-linha { display:flex; gap:10px; }
+  .plano-editor-linha label { flex:1; }
   .plano-aviso-recados { max-width:620px; margin:12px auto; padding:9px 14px; font-size:13px;
     background:rgba(232,176,75,.13); border:1px solid #e8b04b; border-radius:8px; text-align:center; }
 </style>
@@ -4053,10 +4064,11 @@ function renderModuloReembolsos(dados) {
   const linhas = fila.map(g => {
     const badge  = { PENDENTE:'#f5a623', APROVADO:'#3fb950', REVISAR:'#ff6b6b' }[g.status] || '#8a897e';
     const rotulo = { PENDENTE:'esperando você', APROVADO:'pode pagar', REVISAR:'revisar' }[g.status] || g.status;
-    const acoes = souDono && g.status === 'PENDENTE'
-      ? ` <button onclick="rmbDecidir(${g.id}, 'APROVADO')" style="background:#1a3d24; border:1px solid #3fb950; color:#3fb950; border-radius:8px; padding:2px 8px; cursor:pointer; font-size:11px;">aprovar</button>
-          <button onclick="rmbDecidir(${g.id}, 'REVISAR')" style="background:#3d1a1a; border:1px solid #ff6b6b; color:#ff6b6b; border-radius:8px; padding:2px 8px; cursor:pointer; font-size:11px;">recusar</button>`
-      : '';
+    // Aprovar/recusar saiu em 21/08/2026 junto com as regras do banco: o modulo
+    // volta ao assunto mais para a frente, com o desenho refeito. Deixar o botao
+    // sem a policy por tras so entregaria erro a quem clicasse. (souDono segue
+    // calculado porque o resto da tela usa.)
+    const acoes = '';
     return `<tr>
       <td style="padding:5px 8px; color:#a5a49a;">${ddmm(g.data_gasto)}</td>
       <td style="padding:5px 8px;">${g.pessoa}</td>
@@ -4076,24 +4088,12 @@ function renderModuloReembolsos(dados) {
   const blocoEntrar = sessao
     ? `<div class="contexto" style="text-align:left;">
         logado como <b>${sessao.email}</b> · <a href="javascript:void(0)" onclick="rmbSair()" style="color:#a5a49a;">sair</a>
-        <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:8px; margin-top:10px;">
-          <select id="rmbPessoa" style="background:#232321; border:1px solid #34332f; color:#fff; border-radius:8px; padding:8px;">
-            ${saldo.map(p => `<option>${p.pessoa}</option>`).join('')}
-          </select>
-          <input id="rmbData" type="date" value="${hoje}" style="background:#232321; border:1px solid #34332f; color:#fff; border-radius:8px; padding:8px;">
-          <input id="rmbValor" type="text" inputmode="decimal" placeholder="valor (R$)" style="background:#232321; border:1px solid #34332f; color:#fff; border-radius:8px; padding:8px;">
-          <select id="rmbSubtipo" style="background:#232321; border:1px solid #34332f; color:#fff; border-radius:8px; padding:8px;">
-            <option value="">não sei a categoria</option>
-            ${RMB_SUBTIPOS.map(s => `<option>${s}</option>`).join('')}
-          </select>
-        </div>
-        <input id="rmbDesc" type="text" placeholder="o que foi comprado / pago" style="width:100%; margin-top:8px; background:#232321; border:1px solid #34332f; color:#fff; border-radius:8px; padding:8px;">
-        <div style="display:flex; gap:10px; align-items:center; margin-top:8px;">
-          <input id="rmbNota" type="file" accept="image/*,.pdf" style="color:#a5a49a; font-size:12px; flex:1;">
-          <button onclick="rmbEnviarGasto()" style="background:#c8102e; border:none; color:#fff; font-weight:700; border-radius:8px; padding:8px 18px; cursor:pointer;">Lançar gasto</button>
-        </div>
-        <div id="rmbFormMsg" style="display:none; color:#f5a623; font-size:12px; margin-top:6px;"></div>
-        <div style="color:#8a897e; font-size:11px; margin-top:6px;">O banco só aceita gasto lançado no próprio nome (o Neto lança por qualquer um). Acima de R$ 300 nasce esperando aprovação — quem decide é o gatilho do banco, não esta tela.</div>
+        <div class="contexto" style="border-color:#e8b04b; margin-top:10px;">
+          <b>Lançamento pausado.</b> As regras de quem lança e de quem aprova saíram do banco
+          em 21/08/2026, a pedido do dono — elas foram desenhadas antes de o painel ter login
+          por pessoa. O módulo segue mostrando a fila e o histórico; lançar volta quando o
+          assunto for retomado. Enquanto isso, gasto novo entra pelo importador, como sempre
+          entrou.</div>
       </div>`
     : `<div class="contexto" style="text-align:left;">
         <a href="javascript:void(0)" onclick="document.getElementById('rmbLoginBox').style.display='block'; this.style.display='none';" style="color:#a5a49a;">Entrar para lançar um gasto ou ver as notas →</a>
@@ -5312,6 +5312,7 @@ let PLANO = null;
 let PLANO_DONO = null;   // filtro por pessoa
 let PLANO_RECADOS = null;   // recados de todos os itens, numa lista so
 let PLANO_ITEM_ABERTO = null;   // qual item esta com os recados abertos
+let PLANO_EDITANDO = null;      // item cujo texto esta aberto para ajuste
 
 const PLANO_ESTADOS = [
   ['andando', 'andando',      '#f6c63e'],
@@ -5348,32 +5349,67 @@ async function entrarPlano() {
   renderModuloPlano();
 }
 
+// De quem e' a vez, derivado de quem escreveu por ultimo — nao de uma coluna
+// de estado que alguem precisa lembrar de atualizar. Conversa encerrada nao
+// espera ninguem.
+function vezDaConversa(recados) {
+  const vivos = recados.filter(r => !r.encerrado_em);
+  if (!vivos.length) return null;
+  const ultimo = vivos[vivos.length - 1];
+  const doDono = (ultimo.quem || '').toLowerCase() === String(EMAIL_DONO || '').toLowerCase();
+  // se o ultimo a falar foi o dono, a bola esta com quem propos; senao, com o dono
+  return doDono ? { quem: 'autor', nome: (vivos[0].quem || '').split('@')[0] }
+                : { quem: 'dono',  nome: (String(EMAIL_DONO || '')).split('@')[0] };
+}
+
 // Recados de um item: o historico + a caixa de escrever. Fica fechado por
 // padrao — 61 itens com caixa de texto aberta viram uma parede.
 // Recado que ninguem le nao serve para nada: a contagem fica no topo do
 // modulo, antes da barra de progresso.
 function avisoRecados(esc) {
-  const novos = (PLANO_RECADOS || []).filter(r => !r.visto_em);
-  if (!novos.length) return '';
-  const de = [...new Set(novos.map(r => (r.quem || '').split('@')[0]))].join(', ');
+  const eu = ((rmbSessao() || {}).email || '').toLowerCase();
+  // conversas vivas em que a vez e' minha — e' isso que a pessoa precisa ver ao
+  // abrir o modulo, nao a contagem geral de mensagens
+  const itens = [...new Set((PLANO_RECADOS || []).filter(r => !r.encerrado_em).map(r => r.item_id))];
+  const minhaVez = itens.filter(id => {
+    const vez = vezDaConversa((PLANO_RECADOS || []).filter(r => r.item_id === id));
+    if (!vez) return false;
+    return vez.quem === 'dono' ? souODono()
+                               : (PLANO_RECADOS || []).filter(r => r.item_id === id)[0].quem.toLowerCase() === eu;
+  });
+  if (!minhaVez.length) return '';
+  const nomes = minhaVez.map(id => {
+    const it = (PLANO || []).find(i => i.id === id);
+    return it ? it.titulo : id;
+  });
   return `<div class="plano-aviso-recados">
-    <b>${novos.length} recado${novos.length > 1 ? 's' : ''} sem ler</b> \u2014 de ${esc(de)}.
-    Os itens com recado est\u00e3o marcados abaixo.</div>`;
+    <b>${minhaVez.length} ${minhaVez.length > 1 ? 'conversas esperam' : 'conversa espera'} voc\u00ea</b>
+    \u2014 ${esc(nomes.join(' \u00b7 '))}.</div>`;
 }
 
 function blocoRecados(item, esc, sess) {
   const meus = (PLANO_RECADOS || []).filter(r => r.item_id === item.id);
-  const novos = meus.filter(r => !r.visto_em).length;
+  const eu = ((sess && sess.email) || '').toLowerCase();
+  // "sem ler" e' o que os OUTROS escreveram e ninguem marcou como lido
+  const novos = meus.filter(r => !r.visto_em && (r.quem || '').toLowerCase() !== eu).length;
+  const vez = vezDaConversa(meus);
   const aberto = PLANO_ITEM_ABERTO === item.id;
+  const etiqueta = vez
+    ? `<span class="plano-vez${vez.quem === 'dono' && souODono() ? ' minha' : ''}">${
+        vez.quem === 'dono'
+          ? (souODono() ? 'esperando voc\u00ea' : 'esperando ' + esc(vez.nome))
+          : 'esperando ' + esc(vez.nome)}</span>`
+    : '';
   const rotulo = meus.length
     ? `${meus.length} recado${meus.length > 1 ? 's' : ''}${novos ? ' · ' + novos + ' sem ler' : ''}`
     : 'escrever um recado';
 
   const gatilho = `<button class="plano-recado-bt${novos ? ' tem-novo' : ''}"
-      onclick="planoRecadosAlternar('${esc(item.id)}')">${aberto ? '\u25be' : '\u25b8'} ${rotulo}</button>`;
+      onclick="planoRecadosAlternar('${esc(item.id)}')">${aberto ? '\u25be' : '\u25b8'} ${rotulo}</button>${etiqueta}`;
   if (!aberto) return `<div class="plano-recados-linha">${gatilho}</div>`;
 
   const souDono = souODono();
+  if (PLANO_EDITANDO === item.id) return `<div class="plano-recados-linha">${gatilho}${editorDoItem(item, esc)}</div>`;
   const linhas = meus.map(r => `
     <div class="plano-recado${r.visto_em ? ' lido' : ''}">
       <div class="plano-recado-cab">
@@ -5385,15 +5421,101 @@ function blocoRecados(item, esc, sess) {
       <div class="plano-recado-txt">${esc(r.texto)}</div>
     </div>`).join('') || '<div class="plano-recado-vazio">Nenhum recado neste item ainda.</div>';
 
+  // O aceite so aparece para o dono e so quando ha proposta esperando ele: e' o
+  // "concordo" que vira mudanca no plano, em vez de virar mais uma mensagem.
+  const aceite = (souDono && vez && vez.quem === 'dono')
+    ? `<button class="preset-btn active" onclick="planoAceitar('${esc(item.id)}')">Concordo \u2014 ajustar o item</button>
+       <button class="preset-btn" onclick="planoEncerrar('${esc(item.id)}')">Encerrar sem mudar</button>`
+    : '';
+
   return `<div class="plano-recados-linha">${gatilho}
     <div class="plano-recados">
       ${linhas}
-      <textarea id="planoRecadoTexto" rows="2" placeholder="O que voc\u00ea mudaria nesta atividade? (fica salvo para todo mundo do plano)"></textarea>
+      <textarea id="planoRecadoTexto" rows="2" placeholder="${souDono
+        ? 'Responder \u2014 a pergunta volta para quem escreveu'
+        : 'O que voc\u00ea mudaria nesta atividade? (fica salvo para todo mundo do plano)'}"></textarea>
       <div class="plano-recado-envio">
-        <button class="preset-btn active" onclick="planoRecadoEnviar('${esc(item.id)}')">Enviar recado</button>
+        <button class="preset-btn active" onclick="planoRecadoEnviar('${esc(item.id)}')">${souDono ? 'Responder' : 'Enviar recado'}</button>
+        ${aceite}
         <span id="planoRecadoMsg"></span>
       </div>
     </div></div>`;
+}
+
+// O editor do texto do item. Abre no "Concordo": aceitar uma proposta e' mudar
+// o plano, nao responder "ok". O banco so deixa o dono chegar aqui (trigger
+// trg_transicao_item_texto).
+function editorDoItem(item, esc) {
+  return `<div class="plano-recados plano-editor">
+    <div class="plano-editor-tit">Ajustando o item \u2014 o que ficar aqui vale para todo mundo</div>
+    <label>t\u00edtulo<input id="planoEdTitulo" type="text" value="${esc(item.titulo || '')}"></label>
+    <label>detalhe<textarea id="planoEdDetalhe" rows="3">${esc(item.detalhe || '')}</textarea></label>
+    <div class="plano-editor-linha">
+      <label>dono<input id="planoEdQuem" type="text" value="${esc(item.quem || '')}"></label>
+      <label>depende de<input id="planoEdDep" type="text" value="${esc(item.dependencia || '')}"></label>
+    </div>
+    <div class="plano-recado-envio">
+      <button class="preset-btn active" onclick="planoSalvarItem('${esc(item.id)}')">Salvar e encerrar a conversa</button>
+      <button class="preset-btn" onclick="planoCancelarEdicao()">Cancelar</button>
+      <span id="planoRecadoMsg"></span>
+    </div>
+  </div>`;
+}
+
+function planoAceitar(id) { PLANO_EDITANDO = id; PLANO_ITEM_ABERTO = id; renderModuloPlano(); }
+function planoCancelarEdicao() { PLANO_EDITANDO = null; renderModuloPlano(); }
+
+async function planoSalvarItem(id) {
+  const msg = document.getElementById('planoRecadoMsg');
+  const item = (PLANO || []).find(i => i.id === id);
+  if (!item) return;
+  const novo = {
+    titulo: document.getElementById('planoEdTitulo').value.trim(),
+    detalhe: document.getElementById('planoEdDetalhe').value.trim() || null,
+    quem: document.getElementById('planoEdQuem').value.trim() || null,
+    dependencia: document.getElementById('planoEdDep').value.trim() || null,
+    atualizado_em: new Date().toISOString(),
+    atualizado_por: (rmbSessao() || {}).email || null,
+  };
+  if (!novo.titulo) { if (msg) msg.textContent = 'O t\u00edtulo n\u00e3o pode ficar vazio.'; return; }
+  if (msg) msg.textContent = 'salvando...';
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/transicao_itens?id=eq.${encodeURIComponent(id)}`, {
+    method: 'PATCH', headers: rmbHeaders({ Prefer: 'return=representation' }),
+    body: JSON.stringify(novo),
+  });
+  if (!r.ok) { if (msg) msg.textContent = 'n\u00e3o deu (' + r.status + '): ' + (await r.text()).slice(0, 90); return; }
+  const [atualizado] = await r.json();
+  PLANO = PLANO.map(i => i.id === id ? (atualizado || i) : i);
+  // fica escrito na conversa o que mudou, e ela se encerra
+  const mudou = ['titulo','detalhe','quem','dependencia']
+    .filter(c => (item[c] || '') !== (novo[c] || ''))
+    .map(c => c === 'quem' ? 'dono' : c);
+  await planoRecadoCriar(id, mudou.length
+    ? 'Aceito e aplicado no item: ' + mudou.join(', ') + '.'
+    : 'Aceito \u2014 sem mudar o texto do item.');
+  await planoEncerrar(id, true);
+  PLANO_EDITANDO = null;
+  renderModuloPlano();
+}
+
+// Encerra a conversa do item: some a etiqueta de "esperando fulano".
+async function planoEncerrar(id, silencioso) {
+  const abertos = (PLANO_RECADOS || []).filter(r => r.item_id === id && !r.encerrado_em);
+  if (!abertos.length) { if (!silencioso) renderModuloPlano(); return; }
+  const agora = new Date().toISOString();
+  const quem = (rmbSessao() || {}).email || null;
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/transicao_recados?item_id=eq.${encodeURIComponent(id)}&encerrado_em=is.null`, {
+    method: 'PATCH', headers: rmbHeaders({ Prefer: 'return=minimal' }),
+    body: JSON.stringify({ encerrado_em: agora, encerrado_por: quem,
+                           visto_em: agora, visto_por: quem }),
+  });
+  if (r.ok) {
+    PLANO_RECADOS = (PLANO_RECADOS || []).map(x =>
+      (x.item_id === id && !x.encerrado_em)
+        ? { ...x, encerrado_em: agora, encerrado_por: quem, visto_em: x.visto_em || agora }
+        : x);
+  }
+  if (!silencioso) renderModuloPlano();
 }
 
 function planoRecadosAlternar(id) {
@@ -5403,27 +5525,30 @@ function planoRecadosAlternar(id) {
   if (cx) cx.focus();
 }
 
-async function planoRecadoEnviar(itemId) {
-  const cx = document.getElementById('planoRecadoTexto');
-  const msg = document.getElementById('planoRecadoMsg');
-  const texto = (cx ? cx.value : '').trim();
-  if (!texto) { if (msg) msg.textContent = 'Escreva alguma coisa primeiro.'; return; }
+// `quem` vai do lado de ca, mas quem manda e' o banco: a policy exige que seja
+// o e-mail do proprio token, entao ninguem assina por outra pessoa.
+async function planoRecadoCriar(itemId, texto) {
   const sess = rmbSessao();
-  if (!sess) { exigirLogin('Entre de novo para escrever.'); return; }
-  if (msg) msg.textContent = 'enviando...';
-  // `quem` vai do lado de ca, mas quem manda e' o banco: a policy exige que
-  // seja o e-mail do proprio token, entao ninguem assina por outro.
+  if (!sess) { exigirLogin('Entre de novo para escrever.'); return null; }
   const r = await fetch(`${SUPABASE_URL}/rest/v1/transicao_recados`, {
     method: 'POST',
     headers: rmbHeaders({ Prefer: 'return=representation' }),
     body: JSON.stringify({ item_id: itemId, quem: sess.email, texto }),
   });
-  if (!r.ok) {
-    if (msg) msg.textContent = 'n\u00e3o deu (' + r.status + '): ' + (await r.text()).slice(0, 90);
-    return;
-  }
+  if (!r.ok) return { erro: r.status + ': ' + (await r.text()).slice(0, 90) };
   const [novo] = await r.json();
   PLANO_RECADOS = (PLANO_RECADOS || []).concat(novo ? [novo] : []);
+  return novo;
+}
+
+async function planoRecadoEnviar(itemId) {
+  const cx = document.getElementById('planoRecadoTexto');
+  const msg = document.getElementById('planoRecadoMsg');
+  const texto = (cx ? cx.value : '').trim();
+  if (!texto) { if (msg) msg.textContent = 'Escreva alguma coisa primeiro.'; return; }
+  if (msg) msg.textContent = 'enviando...';
+  const novo = await planoRecadoCriar(itemId, texto);
+  if (novo && novo.erro) { if (msg) msg.textContent = 'n\u00e3o deu (' + novo.erro + ')'; return; }
   renderModuloPlano();
 }
 
