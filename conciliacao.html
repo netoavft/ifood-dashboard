@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" href="icon-192.png">
+<title>Conciliação do dia — Cidadão do Mundo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bitter:wght@500;700&family=Source+Sans+3:wght@400;600&display=swap">
+
+</head>
+<body>
+<style>
+  :root {
+    --papel:    #faf7f2;
+    --cartao:   #ffffff;
+    --tinta:    #23201b;
+    --cinza:    #6f6a61;
+    --borda:    #e5ded2;
+    --vermelho: #c8102e;
+    --verde:    #2e7d32;
+    --ambar:    #b8860b;
+    --realce:   #fdf3e7;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --papel:    #1a1815;
+      --cartao:   #232019;
+      --tinta:    #f0ece4;
+      --cinza:    #a9a294;
+      --borda:    #3a352c;
+      --vermelho: #ff6b7f;
+      --verde:    #7bc47f;
+      --ambar:    #e0b24a;
+      --realce:   #2b2519;
+    }
+  }
+  :root[data-theme="dark"] {
+    --papel:    #1a1815;
+    --cartao:   #232019;
+    --tinta:    #f0ece4;
+    --cinza:    #a9a294;
+    --borda:    #3a352c;
+    --vermelho: #ff6b7f;
+    --verde:    #7bc47f;
+    --ambar:    #e0b24a;
+    --realce:   #2b2519;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--papel);
+    color: var(--tinta);
+    font-family: "Source Sans 3", system-ui, -apple-system, sans-serif;
+    font-size: 17px;
+    line-height: 1.55;
+    margin: 0;
+    padding: 28px 20px 64px;
+  }
+
+  .folha { max-width: 660px; margin: 0 auto; }
+
+  header { margin-bottom: 34px; }
+
+  .etiqueta {
+    font-size: 12px;
+    letter-spacing: .13em;
+    text-transform: uppercase;
+    color: var(--cinza);
+    font-weight: 600;
+    margin: 0 0 6px;
+  }
+
+  h1 {
+    font-family: Bitter, Georgia, serif;
+    font-weight: 700;
+    font-size: clamp(30px, 6vw, 40px);
+    line-height: 1.12;
+    letter-spacing: -.01em;
+    margin: 0 0 12px;
+    text-wrap: balance;
+  }
+
+  .abertura { color: var(--cinza); margin: 0; max-width: 56ch; }
+
+  /* os passos sao numerados porque a ORDEM importa de verdade:
+     entradas antes de saidas, e um dia fecha antes do proximo comecar */
+  ol.passos { list-style: none; margin: 0; padding: 0; display: grid; gap: 22px; }
+
+  li.passo {
+    display: grid;
+    grid-template-columns: 40px 1fr;
+    gap: 16px;
+    align-items: start;
+  }
+
+  .num {
+    font-family: Bitter, Georgia, serif;
+    font-weight: 700;
+    font-size: 20px;
+    color: var(--vermelho);
+    line-height: 1.4;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .passo h2 {
+    font-family: Bitter, Georgia, serif;
+    font-weight: 500;
+    font-size: 19px;
+    margin: 0 0 4px;
+    line-height: 1.3;
+  }
+
+  .passo p { margin: 0 0 8px; }
+  .passo p:last-child { margin-bottom: 0; }
+
+  b.botao {
+    font-weight: 600;
+    border: 1px solid var(--borda);
+    border-radius: 4px;
+    padding: 1px 7px;
+    font-size: 15px;
+    white-space: nowrap;
+    background: var(--cartao);
+  }
+
+  .entrada { color: var(--verde); font-weight: 600; }
+  .saida   { color: var(--vermelho); font-weight: 600; }
+
+  .nota {
+    background: var(--realce);
+    border-left: 3px solid var(--ambar);
+    padding: 12px 16px;
+    margin-top: 10px;
+    font-size: 15.5px;
+  }
+  .nota strong { font-weight: 600; }
+
+  h3.secao {
+    font-family: Bitter, Georgia, serif;
+    font-weight: 700;
+    font-size: 21px;
+    margin: 44px 0 4px;
+    padding-top: 26px;
+    border-top: 2px solid var(--borda);
+  }
+  h3.secao + p { color: var(--cinza); margin: 0 0 18px; }
+
+  .quadro { overflow-x: auto; }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 15.5px;
+    min-width: 420px;
+  }
+  th {
+    text-align: left;
+    font-weight: 600;
+    font-size: 12px;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+    color: var(--cinza);
+    border-bottom: 1px solid var(--borda);
+    padding: 0 12px 7px 0;
+  }
+  td {
+    border-bottom: 1px solid var(--borda);
+    padding: 11px 12px 11px 0;
+    vertical-align: top;
+  }
+  td:first-child { font-weight: 600; width: 38%; }
+
+  footer {
+    margin-top: 44px;
+    padding-top: 20px;
+    border-top: 2px solid var(--borda);
+    color: var(--cinza);
+    font-size: 15px;
+  }
+</style>
+
+<div class="folha">
+
+  <header>
+    <p class="etiqueta">Cidadão do Mundo · rotina diária</p>
+    <h1>Conciliação do dia</h1>
+    <p class="abertura">
+      Conferir, todo dia, se tudo que passou pelo banco está lançado no Saipos.
+      Leva alguns minutos e o painel já vem com quase tudo mastigado.
+    </p>
+  </header>
+
+  <ol class="passos">
+
+    <li class="passo">
+      <div class="num">1</div>
+      <div>
+        <h2>Baixe os extratos e envie</h2>
+        <p>
+          De cada conta, baixe o extrato dos <b>últimos 3 dias</b>, na opção
+          <b>com saldo do dia</b>. No painel, em Financeiro → Conciliação bancária,
+          clique em <b class="botao">enviar extrato (OFX)</b> e escolha os arquivos —
+          pode mandar vários de uma vez.
+        </p>
+        <p>
+          Se preferir, salvar os arquivos na pasta do Drive dá no mesmo.
+        </p>
+        <div class="nota">
+          Os 3 dias se sobrepõem de propósito. Se um dia falhar o download,
+          o do dia seguinte cobre o buraco sozinho.
+        </div>
+      </div>
+    </li>
+
+    <li class="passo">
+      <div class="num">2</div>
+      <div>
+        <h2>Atualize o Organizze</h2>
+        <p>
+          Entre no Organizze e mande atualizar os lançamentos. Ele não busca
+          sozinho — se ninguém pedir, ele fica parado no dia em que alguém
+          entrou pela última vez.
+        </p>
+        <div class="nota">
+          O Organizze não é usado para conciliar; ele é a rede de segurança
+          que avisa quando falta o extrato de alguma conta.
+        </div>
+      </div>
+    </li>
+
+    <li class="passo">
+      <div class="num">3</div>
+      <div>
+        <h2>Veja o dia que a tela abriu</h2>
+        <p>
+          O painel escolhe sozinho: é o dia seguinte ao último que fechou certo.
+          Se tiver mais de um dia em aberto, aparecem botões com as datas —
+          <b>comece sempre pelo mais antigo</b>. Um dia fecha antes do próximo começar.
+        </p>
+      </div>
+    </li>
+
+    <li class="passo">
+      <div class="num">4</div>
+      <div>
+        <h2>Comece pelas <span class="entrada">entradas</span></h2>
+        <p>
+          Depois as <span class="saida">saídas</span>. São dois trabalhos diferentes:
+          entrada é conferir recebimento, saída é conferir pagamento. Misturar cansa à toa.
+        </p>
+      </div>
+    </li>
+
+    <li class="passo">
+      <div class="num">5</div>
+      <div>
+        <h2>Cada bloco diz o que fazer</h2>
+        <p>
+          <b>Só conciliar</b> — a conta a pagar já existe no Saipos. É achar e baixar,
+          não precisa criar nada. A coluna <b>Descrição</b> mostra o que procurar.
+        </p>
+        <p>
+          <b>Precisa lançar</b> — não existe ainda. A coluna <b>Descrição</b> mostra
+          o histórico a digitar e a <b>Categoria</b> mostra onde classificar.
+        </p>
+      </div>
+    </li>
+
+    <li class="passo">
+      <div class="num">6</div>
+      <div>
+        <h2>Marque e mande de uma vez</h2>
+        <p>
+          Terminou a linha no Saipos? Marque a caixinha. Pode marcar várias e clicar
+          <b class="botao">conciliar marcadas</b> no fim do quadro. A caixinha do
+          cabeçalho marca todas de uma vez.
+        </p>
+      </div>
+    </li>
+
+    <li class="passo">
+      <div class="num">7</div>
+      <div>
+        <h2>Linha sem descrição: <b class="botao">ensinar</b></h2>
+        <p>
+          Quando a Descrição vier só com o nome do banco e sem negrito, é porque
+          o sistema não sabe o que é aquilo. Clique em <b class="botao">ensinar</b> e
+          preencha o que é, a descrição do Saipos e a categoria.
+        </p>
+        <div class="nota">
+          <strong>Da próxima vez ela vem pronta.</strong> Cada linha ensinada é
+          uma a menos para sempre — vale gastar o minuto.
+        </div>
+        <p style="margin-top:12px">
+          E quando você não souber mesmo o que fazer com a linha — não achou no
+          Saipos, não sabe lançar — clique em <b class="botao">não sei</b>, do lado.
+          Isso avisa o Neto com a linha inteira. <b>Não deixe passar em silêncio:</b>
+          a linha volta amanhã do mesmo jeito e ninguém fica sabendo.
+        </p>
+      </div>
+    </li>
+
+    <li class="passo">
+      <div class="num">8</div>
+      <div>
+        <h2>O saldo é quem diz que acabou</h2>
+        <p>
+          Na tabela de cima, a coluna <b>Saldo</b> mostra o saldo do banco naquele dia.
+          Quando aparecer <span class="entrada">Saipos igual</span>, aquela conta fechou.
+          Clique em <b class="botao">atualizar</b> para ver o resultado do que você acabou de fazer.
+        </p>
+      </div>
+    </li>
+
+  </ol>
+
+  <h3 class="secao">Quando aparecer algo diferente</h3>
+  <p>Nenhum destes é erro seu.</p>
+
+  <div class="quadro">
+    <table>
+      <thead>
+        <tr><th>Na tela</th><th>O que significa</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>extrato parado em 13/08</td>
+          <td>Falta o arquivo daquela conta. Baixe e envie — não tem o que conciliar sem ele.</td>
+        </tr>
+        <tr>
+          <td>talvez: …</td>
+          <td>Achei algo parecido no Saipos, mas o nome não bate. Confira antes de marcar.</td>
+        </tr>
+        <tr>
+          <td>sem regra cadastrada para esta conta</td>
+          <td>Sei que é um repasse e sei somar o dia, mas não sei para onde vai nessa loja. Avise o Neto.</td>
+        </tr>
+        <tr>
+          <td>R$ X sem explicação</td>
+          <td>O saldo não fecha e a fila não explica. Avise o Neto — não é coisa de lançar.</td>
+        </tr>
+        <tr>
+          <td>Aviso em amarelo no topo</td>
+          <td>São as linhas em que alguém clicou <b>não sei</b>. Ficam ali até o Neto resolver.</td>
+        </tr>
+        <tr>
+          <td>Uma linha que você marcou voltou</td>
+          <td>Foi marcada sem o lançamento existir no Saipos. Procure de novo, ou lance.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 class="secao">Duas coisas que ajudam a entender</h3>
+  <p>Por que algumas linhas parecem estranhas.</p>
+
+  <div class="quadro">
+    <table>
+      <tbody>
+        <tr>
+          <td>Uma linha somando várias</td>
+          <td>
+            O banco lista o repasse da maquininha em várias linhas e o Saipos lança
+            uma só. Quando aparecer <b>“4 linhas do extrato”</b>, é isso — lance uma
+            transferência com o total.
+          </td>
+        </tr>
+        <tr>
+          <td>Motoboy pago no dia seguinte</td>
+          <td>
+            A corrida de um dia é paga no outro, e a de sexta e sábado cai na segunda.
+            A data no histórico é a da corrida, não a do pagamento.
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <footer>
+    Na primeira vez o painel pergunta quem está conciliando. Responda com o seu nome —
+    é o que registra o seu trabalho. Qualquer coisa que não estiver aqui, fale com o Neto.
+  </footer>
+
+</div>
+
+</body>
+</html>
