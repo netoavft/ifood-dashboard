@@ -5264,6 +5264,8 @@ async function entrarPlano() {
 
 function renderPlanoSemAcesso() {
   const alvo = document.getElementById('view-plano');
+  // esc local, como nas demais telas: nao existe um esc global neste arquivo
+  const esc = (x) => String(x == null ? '' : x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/'/g,'&#39;');
   const quem = (rmbSessao() || {}).email || '';
   alvo.innerHTML = `
     <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Plano</div>
