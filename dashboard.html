@@ -4240,15 +4240,20 @@ function concbFormEnsinar(d) {
   cx.addEventListener('click', e => { if (e.target === cx) fecha(); });
   document.getElementById('ensCancela').addEventListener('click', fecha);
   document.getElementById('ensSalva').addEventListener('click', async () => {
+    // LER OS TRES CAMPOS ANTES DE FECHAR. Eu fechava a janela e so entao lia dois
+    // deles — os elementos ja nao existiam, `getElementById` devolvia null,
+    // `.value` estourava e a gravacao morria em silencio, sem nem um aviso. O
+    // dono preencheu tudo e nada chegou (21/08/2026).
+    const oQue = document.getElementById('ensQue').value.trim();
     const desc = document.getElementById('ensDesc').value.trim();
+    const cat = document.getElementById('ensCat').value.trim();
     // A descricao e o unico campo obrigatorio: e ela que vira o par de de-para e
     // faz a linha casar sozinha da proxima vez. Os outros dois enriquecem.
     if (!desc) { alert('A descrição do Saipos é o que faz a linha casar. Preencha ela.'); return; }
     fecha();
     await concbGravarLicao({ tipo: 'NOME', conta: d.conta, fitid: d.fitid,
       memo_banco: d.memo || null, nome_banco: d.nome || null, texto: desc,
-      o_que_e: document.getElementById('ensQue').value.trim() || null,
-      categoria: document.getElementById('ensCat').value.trim() || null });
+      o_que_e: oQue || null, categoria: cat || null });
   });
 }
 
@@ -4266,9 +4271,17 @@ async function concbRecado() {
 
 async function concbGravarLicao(corpo) {
   corpo.quem = concbQuem() || 'PAINEL';
-  const r = await fetch(`${SUPABASE_URL}/rest/v1/fin_licao`, {
-    method: 'POST', headers: rmbHeaders({ Prefer: 'return=minimal' }),
-    body: JSON.stringify(corpo) });
+  let r;
+  // try/catch em volta: sem ele, qualquer erro daqui morre como promessa
+  // rejeitada e a pessoa fica achando que gravou. Aviso na cara e obrigatorio.
+  try {
+    r = await fetch(`${SUPABASE_URL}/rest/v1/fin_licao`, {
+      method: 'POST', headers: rmbHeaders({ Prefer: 'return=minimal' }),
+      body: JSON.stringify(corpo) });
+  } catch (e) {
+    alert('Não consegui gravar: ' + e.message);
+    return;
+  }
   if (!r.ok) { alert('Não gravou: ' + (await r.text()).slice(0, 140)); return; }
   alert(corpo.tipo === 'NOME'
     ? 'Guardado. Na próxima atualização essa linha já casa sozinha.'
