@@ -5254,7 +5254,26 @@ async function entrarPlano() {
     }
     PLANO = await r.json();
   }
+  // Lista vazia AQUI nunca e' "nao ha o que fazer": o plano tem 61 itens. E o
+  // banco dizendo que esta pessoa nao esta na lista de quem ve o Plano
+  // (rmb_config.emails_plano). A policy devolve 200 com zero linhas, nao 401 —
+  // sem este recado a pessoa veria "0 de 0 resolvidos" e acharia que quebrou.
+  if (Array.isArray(PLANO) && PLANO.length === 0) { renderPlanoSemAcesso(); return; }
   renderModuloPlano();
+}
+
+function renderPlanoSemAcesso() {
+  const alvo = document.getElementById('view-plano');
+  const quem = (rmbSessao() || {}).email || '';
+  alvo.innerHTML = `
+    <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Plano</div>
+    <div class="contexto" style="max-width:520px; margin:22px auto; text-align:left;">
+      <p style="margin:0 0 10px;"><b>Este módulo é restrito.</b> Você está logado
+         normalmente${quem ? ' como ' + esc(quem) : ''} e o resto do painel funciona — só o Plano
+         que não abre para a sua conta.</p>
+      <p style="margin:0; color:#a5a49a;">Se você precisa acompanhar o plano, fale com o Neto:
+         é uma linha de configuração, resolve em um minuto.</p>
+    </div>`;
 }
 
 function renderPlanoLogin() {
