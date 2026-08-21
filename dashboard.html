@@ -4071,7 +4071,7 @@ async function entrarConcbanco() {
   alvo.innerHTML = '<div class="contexto">Carregando a conciliação...</div>';
   try {
     const [placar, pend, saldoDia, pessoas, marcadas, naoConf, saldoConf, aFazer,
-           diaSaldo] = await Promise.all([
+           diaSaldo, duvidas] = await Promise.all([
       consultarTudo('vw_fin_conciliacao_placar?select=*&order=data.desc'),
       consultarTudo('vw_fin_conciliacao_pendencias?select=*&order=dias.desc'),
       consultarTudo('mv_fin_conciliacao_saldo_dia?select=*&order=data.desc'),
@@ -4082,8 +4082,10 @@ async function entrarConcbanco() {
       consultarTudo('vw_fin_conciliacao_a_fazer?select=*'),
       consultarTudo('vw_fin_conciliacao_dia_saldo?select=*&data=gte.'
         + new Date(Date.now() - 40 * 86400000).toISOString().slice(0, 10)),
+      consultarTudo('vw_fin_conciliacao_duvidas?select=*'),
     ]);
-    CONCB = { placar, pend, saldoDia, pessoas, marcadas, naoConf, saldoConf, aFazer, diaSaldo };
+    CONCB = { placar, pend, saldoDia, pessoas, marcadas, naoConf, saldoConf, aFazer,
+              diaSaldo, duvidas };
   } catch (e) {
     alvo.innerHTML = '<div class="contexto">Não consegui carregar a conciliação: ' + e.message + '</div>';
     return;
@@ -4279,6 +4281,18 @@ function concbFormEnsinar(d) {
 }
 
 async function concbEnsinar(d) { concbFormEnsinar(d); }
+
+// Registrar a duvida sem exigir explicacao: quem nao sabe o que e a linha
+// tambem nao sabe descrever o problema. O texto e opcional de proposito.
+async function concbDuvida(d) {
+  const texto = prompt('Vou avisar o Neto sobre esta linha.\n\n'
+    + 'No banco: ' + (d.nome || d.memo || '') + '\n\n'
+    + 'Quer dizer alguma coisa? (pode deixar em branco)');
+  if (texto === null) return;
+  await concbGravarLicao({ tipo: 'DUVIDA', conta: d.conta, fitid: d.fitid,
+    memo_banco: d.memo || null, nome_banco: d.nome || null,
+    texto: texto.trim() || 'sem observação' });
+}
 
 // MANDAR UMA REGRA: qualquer coisa que nao seja um par de nomes. Fica esperando
 // leitura humana de proposito — regra em texto livre virando codigo sozinha e
@@ -4635,7 +4649,18 @@ function renderConcbanco() {
        + '" data-memo="' + String(p.memo || '').replace(/"/g, '&quot;')
        + '" style="font-size:10px;padding:2px 6px;margin-top:3px;cursor:pointer;border:none;'
        + 'background:transparent;color:inherit;opacity:.6;text-decoration:underline">'
-       + 'ensinar</button>');
+       + 'ensinar</button>'
+       // NAO SEI: a alternativa era deixar a linha na fila em silencio. Funciona
+       // — ela volta amanha —, mas nao avisa ninguem, e quem concilia fica sem
+       // saida quando nao acha o lancamento nem sabe cria-lo. Registrar a duvida
+       // custa um clique e vira lista para o dono (pedido dele, 21/08/2026).
+       + '<button class="concb-duvida" data-conta="' + String(p.conta).replace(/"/g, '&quot;')
+       + '" data-fitid="' + String(p.fitid).replace(/"/g, '&quot;')
+       + '" data-nome="' + String(p.nome || '').replace(/"/g, '&quot;')
+       + '" data-memo="' + String(p.memo || '').replace(/"/g, '&quot;')
+       + '" style="font-size:10px;padding:2px 6px;margin-top:3px;cursor:pointer;border:none;'
+       + 'background:transparent;color:inherit;opacity:.6;text-decoration:underline">'
+       + 'não sei</button>');
 
   // ENTRADA primeiro, SAIDA depois — ordem de trabalho definida pelo dono. Sao
   // duas tarefas diferentes: entrada e conferir recebimento, saida e conferir
@@ -4730,6 +4755,25 @@ function renderConcbanco() {
       tabela(conta, 'sai', sai, true) + tabela(conta, 'sai', sai, false);
   }).join('');
 
+  // DUVIDA REGISTRADA E DUVIDA QUE APARECE. Quem concilia clicou "nao sei" e
+  // seguiu em frente; se isso nao subir para a tela do dono, ela vira registro
+  // que ninguem le — pior que nao ter botao nenhum.
+  const duvidas = (cru.duvidas || []).filter(d => !d.conta
+    || LOJA_FIN === 'REDE' || (placar.find(r => r.conta === d.conta) !== undefined));
+  const blocoDuvidas = !duvidas.length ? '' :
+    '<div style="margin:16px 0;padding:10px 14px;border-left:3px solid #b8860b;'
+    + 'background:rgba(184,134,11,.09)">'
+    + '<b style="color:#b8860b">' + duvidas.length
+    + (duvidas.length === 1 ? ' linha esperando você' : ' linhas esperando você')
+    + '</b><div style="font-size:12px;opacity:.85;margin-top:5px">'
+    + duvidas.slice(0, 6).map(d => esc(d.quem || '?') + ' não soube o que fazer com '
+        + '<b>' + esc(d.nome_banco || d.memo_banco || '(linha)') + '</b>'
+        + (n(d.valor) ? ' (' + rs(d.valor) + ')' : '')
+        + (d.texto && d.texto !== 'sem observação' ? ' — “' + esc(d.texto) + '”' : ''))
+      .join('<br>')
+    + (duvidas.length > 6 ? '<br>… e mais ' + (duvidas.length - 6) : '')
+    + '</div></div>';
+
   const trava = naoConf.length
     ? '<div class="section-label" style="color:#c8102e">Marcado como lançado, mas ainda não apareceu</div>' +
       '<div class="contexto">Provavelmente foi lançado com valor ou data diferente do extrato.</div>' +
@@ -4803,7 +4847,7 @@ function renderConcbanco() {
       '<button id="concbEnviarOfx" style="font-size:11px;padding:3px 10px;cursor:pointer;' +
       'border:1px solid #8a887e;background:transparent;color:inherit;border-radius:4px;' +
       'font-weight:normal">enviar extrato (OFX)</button></div>' +
-    '<div class="contexto">' + resumo + '</div>' +
+    '<div class="contexto">' + resumo + '</div>' + blocoDuvidas +
     '<div id="tabelaConcbOntem"><table style="width:100%">' +
       '<colgroup><col style="width:34px"><col style="width:130px"><col style="width:110px">' +
       '<col style="width:110px"><col></colgroup>' +
@@ -4833,6 +4877,8 @@ function renderConcbanco() {
   if (btAtu) btAtu.addEventListener('click', () => concbRodarComparador(btAtu));
   alvo.querySelectorAll('.concb-ensina').forEach(b => b.addEventListener('click', () =>
     concbEnsinar(b.dataset)));
+  alvo.querySelectorAll('.concb-duvida').forEach(b => b.addEventListener('click', () =>
+    concbDuvida(b.dataset)));
   const btRec = document.getElementById('concbRecado');
   if (btRec) btRec.addEventListener('click', () => concbRecado());
   const btOfx = document.getElementById('concbEnviarOfx');
