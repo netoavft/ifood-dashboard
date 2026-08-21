@@ -444,6 +444,30 @@
     border-radius:6px; padding:4px 10px; font-size:11px; cursor:pointer; }
   .sidebar-rodape button:hover { border-color:#c8102e; color:#fff; }
   #loginEmail { margin-bottom:8px; }
+
+  /* recados nos itens do Plano (21/08/2026) */
+  .plano-recados-linha { margin-top:8px; }
+  .plano-recado-bt { background:none; border:none; color:#8b877c; font-size:12px;
+    cursor:pointer; padding:2px 0; }
+  .plano-recado-bt:hover { color:#f2f0e9; }
+  .plano-recado-bt.tem-novo { color:#e8b04b; font-weight:600; }
+  .plano-recados { margin-top:8px; border-left:2px solid #34332f; padding-left:10px; }
+  .plano-recado { margin-bottom:8px; }
+  .plano-recado.lido { opacity:.6; }
+  .plano-recado-cab { display:flex; align-items:center; gap:8px; font-size:11px; color:#8b877c; }
+  .plano-recado-cab b { color:#c9c5b8; }
+  .plano-recado-lido { color:#3fb950; }
+  .plano-recado-visto { background:none; border:1px solid #45443f; color:#c9c5b8;
+    border-radius:5px; font-size:10px; padding:1px 7px; cursor:pointer; }
+  .plano-recado-visto:hover { border-color:#3fb950; color:#3fb950; }
+  .plano-recado-txt { font-size:13px; color:#f2f0e9; white-space:pre-wrap; margin-top:2px; }
+  .plano-recado-vazio { font-size:12px; color:#7d7a70; margin-bottom:8px; }
+  #planoRecadoTexto { width:100%; background:#171716; color:#f2f0e9; border:1px solid #45443f;
+    border-radius:6px; padding:7px 9px; font-size:13px; font-family:inherit; resize:vertical; }
+  .plano-recado-envio { margin-top:6px; display:flex; align-items:center; gap:10px; }
+  .plano-recado-envio span { font-size:12px; color:#8b877c; }
+  .plano-aviso-recados { max-width:620px; margin:12px auto; padding:9px 14px; font-size:13px;
+    background:rgba(232,176,75,.13); border:1px solid #e8b04b; border-radius:8px; text-align:center; }
 </style>
 
 <div id="loginGate" class="login-gate">
@@ -3633,7 +3657,27 @@ function fmtMeta(meta) {
 let REEMBOLSOS = null;
 const RMB_SUBTIPOS = ['TAXAS COZINHA', 'MOTOBOY', 'TAXAS SALAO', 'SISTEMA DE GESTAO',
                       'USO E CONSUMO', 'MANUTENCAO', 'DESPESAS ADMINISTRATIVAS'];
-const RMB_EMAIL_DONO = 'netoavft@gmail.com';
+// Quem e' o dono vem do BANCO (rmb_config.email_dono) — a mesma linha que a
+// funcao eh_dono() consulta nas policies. Ate 21/08/2026 este e-mail estava
+// escrito aqui como 'netoavft@gmail.com' e ficou para tras quando o dono mudou
+// para o endereco da empresa, em 20/08: o painel escondia os botoes de aprovar
+// reembolso do proprio dono, porque comparava com o endereco velho.
+let EMAIL_DONO = null;
+
+async function carregarEmailDono() {
+  if (EMAIL_DONO !== null) return EMAIL_DONO;
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/rmb_config?chave=eq.email_dono&select=valor`,
+                        { headers: rmbHeaders() });
+  const d = r.ok ? await r.json() : [];
+  EMAIL_DONO = (d[0] && d[0].valor) || '';
+  return EMAIL_DONO;
+}
+
+function souODono() {
+  const s = rmbSessao();
+  return !!(s && s.email && EMAIL_DONO &&
+            s.email.toLowerCase() === String(EMAIL_DONO).toLowerCase());
+}
 
 function rmbSessao() {
   try { return JSON.parse(localStorage.getItem('rmbSessao') || 'null'); } catch (e) { return null; }
@@ -3937,6 +3981,7 @@ function renderModuloRede({ taxas, aluguel }) {
 async function entrarReembolsos() {
   const alvo = document.getElementById('view-reembolsos');
   if (!alvo) return;
+  await carregarEmailDono();   // decide se aparecem os botoes de aprovar
   if (REEMBOLSOS === null) {
     alvo.innerHTML = '<div class="contexto">Carregando os reembolsos...</div>';
     REEMBOLSOS = await carregarReembolsos();
@@ -3951,7 +3996,7 @@ function renderModuloReembolsos(dados) {
   const reais = (v) => 'R$ ' + Number(v).toLocaleString('pt-BR', { minimumFractionDigits:2, maximumFractionDigits:2 });
   const ddmm  = (d) => new Date(d + 'T12:00:00').toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit' });
   const sessao = rmbSessao();
-  const souDono = sessao && sessao.email === RMB_EMAIL_DONO;
+  const souDono = souODono();
 
   const totalAberto = saldo.reduce((a, p) => a + Number(p.a_receber), 0);
   const orfaoValor  = orfaos.reduce((a, l) => a + Number(l.debito), 0);
@@ -5232,6 +5277,8 @@ let LISTAS = null;
 // (lista vazia sem explicacao parece defeito).
 let PLANO = null;
 let PLANO_DONO = null;   // filtro por pessoa
+let PLANO_RECADOS = null;   // recados de todos os itens, numa lista so
+let PLANO_ITEM_ABERTO = null;   // qual item esta com os recados abertos
 
 const PLANO_ESTADOS = [
   ['andando', 'andando',      '#f6c63e'],
@@ -5254,11 +5301,109 @@ async function entrarPlano() {
     }
     PLANO = await r.json();
   }
+  await carregarEmailDono();   // decide quem pode marcar recado como lido
+  if (PLANO_RECADOS === null && Array.isArray(PLANO) && PLANO.length) {
+    const rr = await fetch(`${SUPABASE_URL}/rest/v1/transicao_recados?select=*&order=criado_em`,
+                           { headers: rmbHeaders() });
+    PLANO_RECADOS = rr.ok ? await rr.json() : [];
+  }
   // Lista vazia AQUI nunca e' "nao ha o que fazer": o plano tem 61 itens. E o
   // banco dizendo que esta pessoa nao esta na lista de quem ve o Plano
   // (rmb_config.emails_plano). A policy devolve 200 com zero linhas, nao 401 —
   // sem este recado a pessoa veria "0 de 0 resolvidos" e acharia que quebrou.
   if (Array.isArray(PLANO) && PLANO.length === 0) { renderPlanoSemAcesso(); return; }
+  renderModuloPlano();
+}
+
+// Recados de um item: o historico + a caixa de escrever. Fica fechado por
+// padrao — 61 itens com caixa de texto aberta viram uma parede.
+// Recado que ninguem le nao serve para nada: a contagem fica no topo do
+// modulo, antes da barra de progresso.
+function avisoRecados(esc) {
+  const novos = (PLANO_RECADOS || []).filter(r => !r.visto_em);
+  if (!novos.length) return '';
+  const de = [...new Set(novos.map(r => (r.quem || '').split('@')[0]))].join(', ');
+  return `<div class="plano-aviso-recados">
+    <b>${novos.length} recado${novos.length > 1 ? 's' : ''} sem ler</b> \u2014 de ${esc(de)}.
+    Os itens com recado est\u00e3o marcados abaixo.</div>`;
+}
+
+function blocoRecados(item, esc, sess) {
+  const meus = (PLANO_RECADOS || []).filter(r => r.item_id === item.id);
+  const novos = meus.filter(r => !r.visto_em).length;
+  const aberto = PLANO_ITEM_ABERTO === item.id;
+  const rotulo = meus.length
+    ? `${meus.length} recado${meus.length > 1 ? 's' : ''}${novos ? ' · ' + novos + ' sem ler' : ''}`
+    : 'escrever um recado';
+
+  const gatilho = `<button class="plano-recado-bt${novos ? ' tem-novo' : ''}"
+      onclick="planoRecadosAlternar('${esc(item.id)}')">${aberto ? '\u25be' : '\u25b8'} ${rotulo}</button>`;
+  if (!aberto) return `<div class="plano-recados-linha">${gatilho}</div>`;
+
+  const souDono = souODono();
+  const linhas = meus.map(r => `
+    <div class="plano-recado${r.visto_em ? ' lido' : ''}">
+      <div class="plano-recado-cab">
+        <b>${esc((r.quem || '').split('@')[0])}</b>
+        <span>${new Date(r.criado_em).toLocaleDateString('pt-BR')} ${new Date(r.criado_em).toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'})}</span>
+        ${r.visto_em ? '<span class="plano-recado-lido">lido</span>'
+                     : (souDono ? `<button class="plano-recado-visto" onclick="planoRecadoVisto(${r.id})">marcar lido</button>` : '')}
+      </div>
+      <div class="plano-recado-txt">${esc(r.texto)}</div>
+    </div>`).join('') || '<div class="plano-recado-vazio">Nenhum recado neste item ainda.</div>';
+
+  return `<div class="plano-recados-linha">${gatilho}
+    <div class="plano-recados">
+      ${linhas}
+      <textarea id="planoRecadoTexto" rows="2" placeholder="O que voc\u00ea mudaria nesta atividade? (fica salvo para todo mundo do plano)"></textarea>
+      <div class="plano-recado-envio">
+        <button class="preset-btn active" onclick="planoRecadoEnviar('${esc(item.id)}')">Enviar recado</button>
+        <span id="planoRecadoMsg"></span>
+      </div>
+    </div></div>`;
+}
+
+function planoRecadosAlternar(id) {
+  PLANO_ITEM_ABERTO = (PLANO_ITEM_ABERTO === id) ? null : id;
+  renderModuloPlano();
+  const cx = document.getElementById('planoRecadoTexto');
+  if (cx) cx.focus();
+}
+
+async function planoRecadoEnviar(itemId) {
+  const cx = document.getElementById('planoRecadoTexto');
+  const msg = document.getElementById('planoRecadoMsg');
+  const texto = (cx ? cx.value : '').trim();
+  if (!texto) { if (msg) msg.textContent = 'Escreva alguma coisa primeiro.'; return; }
+  const sess = rmbSessao();
+  if (!sess) { exigirLogin('Entre de novo para escrever.'); return; }
+  if (msg) msg.textContent = 'enviando...';
+  // `quem` vai do lado de ca, mas quem manda e' o banco: a policy exige que
+  // seja o e-mail do proprio token, entao ninguem assina por outro.
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/transicao_recados`, {
+    method: 'POST',
+    headers: rmbHeaders({ Prefer: 'return=representation' }),
+    body: JSON.stringify({ item_id: itemId, quem: sess.email, texto }),
+  });
+  if (!r.ok) {
+    if (msg) msg.textContent = 'n\u00e3o deu (' + r.status + '): ' + (await r.text()).slice(0, 90);
+    return;
+  }
+  const [novo] = await r.json();
+  PLANO_RECADOS = (PLANO_RECADOS || []).concat(novo ? [novo] : []);
+  renderModuloPlano();
+}
+
+async function planoRecadoVisto(id) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/transicao_recados?id=eq.${id}`, {
+    method: 'PATCH',
+    headers: rmbHeaders({ Prefer: 'return=representation' }),
+    body: JSON.stringify({ visto_em: new Date().toISOString(),
+                           visto_por: (rmbSessao() || {}).email || null }),
+  });
+  if (!r.ok) return;
+  const [atualizado] = await r.json();
+  PLANO_RECADOS = (PLANO_RECADOS || []).map(x => x.id === id ? (atualizado || x) : x);
   renderModuloPlano();
 }
 
@@ -5357,6 +5502,7 @@ function renderModuloPlano() {
         ${i.detalhe ? '<div class="plano-det">' + esc(i.detalhe) + '</div>' : ''}
         ${i.dependencia ? '<div class="plano-dep">depende de: ' + esc(i.dependencia) + '</div>' : ''}
         <div class="plano-acoes">${botoes}${quando}</div>
+        ${blocoRecados(i, esc, sess)}
       </div>`;
     }).join('');
     return `<div class="section-label">${esc(f.quando)} · ${esc(f.titulo)}</div>${linhas}`;
@@ -5374,6 +5520,7 @@ function renderModuloPlano() {
       Tudo que precisa acontecer, com dono e estado. Marcar aqui vale para todo mundo —
       não fica só no seu navegador. Entrou como <b>${esc((sess && sess.email) || '')}</b>.
       <button class="preset-btn" onclick="planoSair()">sair</button></div>
+    ${avisoRecados(esc)}
     <div class="plano-barra">
       <div class="plano-contagem"><b>${feitos}</b> de ${lista.length}${PLANO_DONO ? ' de ' + esc(PLANO_DONO) : ''} resolvidos</div>
       <div class="plano-trilho"><div class="plano-preenche" style="width:${pct.toFixed(1)}%;"></div></div>
