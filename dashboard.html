@@ -4353,11 +4353,21 @@ function renderConcbanco() {
   // Regra do dono (19/08): entrada e saida sao conciliadas SEPARADO, e a entrada
   // vem primeiro. Entao o placar tambem separa — dizer "faltam R$ 500" sem dizer
   // de que lado obriga a pessoa a procurar nos dois.
+  // OS DIAS EM ABERTO, nao só ontem. Em 21/08/2026 a Hellen precisou se ausentar
+  // e ficaram dois dias para fazer — a tela dizia "conciliação de ontem" e
+  // escondia o dia anterior, que era metade do trabalho. Agora ela mostra todos
+  // os dias que ainda têm linha por conciliar, do marco zero até ontem, e só cai
+  // para "ontem" quando não há nada em aberto.
+  const diasComFila = [...new Set(pend.filter(p => p.classe === 'ABERTA')
+    .map(p => p.data).filter(d => d && d <= ontem))].sort();
+  const dias = diasComFila.length ? diasComFila : [ontem];
+  const umDiaSo = dias.length === 1;
+
   const contas = {};
   placar.forEach(r => {
     const c = contas[r.conta] || (contas[r.conta] = { ontemMov: 0, gapEnt: 0, gapSai: 0,
       entrou: 0, saiu: 0, temOntem: false, temOfx: false });
-    if (r.data === ontem) {
+    if (dias.includes(r.data)) {
       c.temOntem = true;
       if (r.tem_ofx) c.temOfx = true;
       // O TOTAL QUE O BANCO MOVIMENTOU no dia — regra do dono, 19/08/2026: e o
@@ -4461,11 +4471,13 @@ function renderConcbanco() {
       + '<td ' + td + ' title="' + esc(saldoTitulo) + '">' + saldoTxt + '</td></tr>';
   };
 
+  const quando = umDiaSo ? (dias[0] === ontem ? 'ontem' : 'em ' + ddmm(dias[0]))
+                         : 'nestes dias';
   const resumo = naoFecharam.length
     ? '<b style="color:#c8102e">' + naoFecharam.length
-      + (naoFecharam.length === 1 ? ' conta não fechou' : ' contas não fecharam')
-      + ' ontem.</b> Confira as linhas abaixo.'
-    : '<b style="color:#2e7d32">Tudo certo ontem.</b> Nada a fazer nesta loja.';
+      + (naoFecharam.length === 1 ? ' conta não fechou ' : ' contas não fecharam ')
+      + quando + '.</b> Confira as linhas abaixo.'
+    : '<b style="color:#2e7d32">Tudo certo ' + quando + '.</b> Nada a fazer nesta loja.';
 
   // ---- o que conferir, uma conta de cada vez ----
   // Um estado, nao duas acoes. Antes eram dois botoes ("lancei" e "ja estava")
@@ -4624,7 +4636,12 @@ function renderConcbanco() {
   alvo.innerHTML = seletorLojaFin() +
     '<div class="section-label" style="border-top:none;margin-top:0;padding-top:0;' +
       'display:flex;align-items:center;gap:12px">' +
-      '<span>Conciliação de ontem (' + ddmm(ontem) + ') — ' + nomeLojaFin() + '</span>' +
+      '<span>' + (umDiaSo
+          ? (dias[0] === ontem ? 'Conciliação de ontem (' + ddmm(ontem) + ')'
+                               : 'Conciliação de ' + ddmm(dias[0]))
+          : 'Conciliação de ' + dias.length + ' dias ('
+            + dias.map(ddmm).join(' e ') + ')')
+        + ' — ' + nomeLojaFin() + '</span>' +
       // Atualizar RELE o banco. Nao roda o comparador nem importa o Saipos —
       // isso e a rotina das 08:44. Serve para tirar da tela o que ja foi
       // conciliado e ver o que sobrou, sem recarregar a pagina inteira.
