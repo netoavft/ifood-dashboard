@@ -427,6 +427,7 @@
     .sidebar { width:100%; flex:0 0 auto; flex-direction:row; overflow-x:auto; border-right:none; border-bottom:1px solid #34332f; padding:8px; }
     .sidebar-btn { padding:9px 14px; white-space:nowrap; }
     /* no menu horizontal do celular a sanfona atrapalha: tudo fica visivel */
+    .sidebar-rodape { flex-direction:column; align-items:stretch; }
     .sidebar-grupo { display:flex; flex-direction:row; }
     .sidebar-secao { display:none; }
   }
@@ -434,14 +435,26 @@
 </head>
 <body>
 
+<style>
+  /* rodape da barra lateral: quem esta logado + sair (21/08/2026) */
+  .sidebar-rodape { margin-top:14px; padding:10px 12px; border-top:1px solid #34332f;
+    display:flex; align-items:center; gap:8px; font-size:11px; color:#8b877c; }
+  .sidebar-rodape span { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .sidebar-rodape button { background:none; border:1px solid #45443f; color:#c9c5b8;
+    border-radius:6px; padding:4px 10px; font-size:11px; cursor:pointer; }
+  .sidebar-rodape button:hover { border-color:#c8102e; color:#fff; }
+  #loginEmail { margin-bottom:8px; }
+</style>
+
 <div id="loginGate" class="login-gate">
   <div class="login-box">
     <img src="logo-preta.png" onerror="this.onerror=null;this.src='logo.png';this.style.height='56px';this.style.borderRadius='13px';" alt="Cidadao do Mundo">
     <h2>PAINEL CDM</h2>
-    <p>Acesso restrito. Digite a senha para continuar.</p>
-    <input type="password" id="loginSenha" placeholder="Senha" autocomplete="off">
-    <button onclick="verificarSenha()">Entrar</button>
-    <div id="loginErro" class="login-erro" style="display:none;">Senha incorreta.</div>
+    <p>Acesso restrito. Entre com seu e-mail e senha.</p>
+    <input type="email" id="loginEmail" placeholder="seu e-mail" autocomplete="username">
+    <input type="password" id="loginSenha" placeholder="Senha" autocomplete="current-password">
+    <button id="loginBtn" onclick="entrarNoPainel()">Entrar</button>
+    <div id="loginErro" class="login-erro" style="display:none;"></div>
   </div>
 </div>
 
@@ -452,18 +465,23 @@
       <span class="sidebar-marca-nome">Cidadão do Mundo</span>
     </div>
 
-    <!-- Ordem dos grupos = ordem das perguntas do dono (12/08/2026):
-         1 como está o negócio -> 2 e o canal que paga as contas -> 3 os outros
-         canais -> 4 a operação está saudável -> 5 o caixa aguenta -> 6 o que
-         planejo -> 7 arquivo/sistema. Consolidado em cima, canal no meio,
-         operação atravessando, base embaixo. -->
-    <button class="sidebar-secao" onclick="toggleGrupo('gResultado')">Resultado <span class="seta">▶</span></button>
-    <div class="sidebar-grupo" id="gResultado">
+    <!-- Ordem = a pergunta que a pessoa quer responder (21/08/2026):
+         1 por onde comeco -> 2 como esta o negocio -> 3 o canal que paga as
+         contas -> 4 a entrega -> 5 o caixa -> 6 producao -> 7 sistema.
+         Regra: "em breve" NAO fica no menu; vira item do modulo Plano. -->
+    <button class="sidebar-secao" onclick="toggleGrupo('gComecar')">Começar por aqui <span class="seta">▶</span></button>
+    <div class="sidebar-grupo" id="gComecar">
+      <button class="sidebar-btn" id="navBtnPlano" onclick="mostrarModulo('plano')"><span class="mico">🗺️</span>Plano</button>
       <button class="sidebar-btn active" id="navBtnEstaSemana" onclick="mostrarModulo('estasemana')"><span class="mico">🏠</span>Esta semana</button>
       <button class="sidebar-btn" id="navBtnIndicadores" onclick="mostrarModulo('indicadores')"><span class="mico">🎯</span>Indicadores e metas</button>
+    </div>
+
+    <button class="sidebar-secao" onclick="toggleGrupo('gResultado')">Resultado <span class="seta">▶</span></button>
+    <div class="sidebar-grupo" id="gResultado">
       <button class="sidebar-btn" id="navBtnConsolidada" onclick="mostrarModulo('consolidada')"><span class="mico">📊</span>Visão consolidada</button>
       <button class="sidebar-btn" id="navBtnDre" onclick="mostrarModulo('dre')"><span class="mico">📑</span>DRE</button>
-      <span class="sidebar-btn breve"><span class="mico">💰</span>Margem por item</span>
+      <button class="sidebar-btn" id="navBtnEngcard" onclick="mostrarModulo('engcard')"><span class="mico">🍔</span>Engenharia de cardápio</button>
+      <button class="sidebar-btn" id="navBtnFichas" onclick="mostrarModulo('fichas')"><span class="mico">📋</span>Fichas técnicas</button>
     </div>
 
     <button class="sidebar-secao" onclick="toggleGrupo('gIfood')">Canal · iFood <span class="seta">▶</span></button>
@@ -479,26 +497,11 @@
       <button class="sidebar-btn" id="navBtnClientes" onclick="mostrarModulo('clientes')"><span class="mico">👥</span>Clientes</button>
     </div>
 
-    <button class="sidebar-secao" onclick="toggleGrupo('gOutros')">Outros canais <span class="seta">▶</span></button>
-    <div class="sidebar-grupo" id="gOutros">
-      <span class="sidebar-btn breve"><span class="mico">🏪</span>Salão · Balcão · Site</span>
-    </div>
-
-    <button class="sidebar-secao" onclick="toggleGrupo('gOperacao')">Operação <span class="seta">▶</span></button>
-    <div class="sidebar-grupo" id="gOperacao">
-      <!-- Qualidade & Super mudou para Canal · iFood em 12/08/2026, a pedido do
-           dono e com razao: e programa do iFood, medido pelo iFood. Operacao
-           fica para o que atravessa canais — a base sera a API do Foody
-           Delivery (logistica propria, 97% das entregas). -->
+    <button class="sidebar-secao" onclick="toggleGrupo('gEntrega')">Entrega <span class="seta">▶</span></button>
+    <div class="sidebar-grupo" id="gEntrega">
       <button class="sidebar-btn" id="navBtnAtrasos" onclick="mostrarModulo('atrasos')"><span class="mico">⏱️</span>Atrasos e turnos</button>
-      <button class="sidebar-btn" id="navBtnLogfin" onclick="mostrarModulo('logfin')"><span class="mico">🛵</span>Financeiro da logística</button>
       <button class="sidebar-btn" id="navBtnFrete" onclick="mostrarModulo('frete')"><span class="mico">📍</span>Frete por distância</button>
-      <button class="sidebar-btn" id="navBtnListas" onclick="mostrarModulo('listas')"><span class="mico">📦</span>Transferências AV → filiais</button>
-      <button class="sidebar-btn" id="navBtnFichas" onclick="mostrarModulo('fichas')"><span class="mico">📋</span>Fichas técnicas</button>
-      <button class="sidebar-btn" id="navBtnEngcard" onclick="mostrarModulo('engcard')"><span class="mico">🍔</span>Engenharia de cardápio</button>
-      <button class="sidebar-btn" id="navBtnPlano" onclick="mostrarModulo('plano')"><span class="mico">🗺️</span>Plano</button>
-      <span class="sidebar-btn breve"><span class="mico">🚚</span>Tempo de entrega</span>
-      <span class="sidebar-btn breve"><span class="mico">🧑‍🍳</span>Pessoas (Flash)</span>
+      <button class="sidebar-btn" id="navBtnLogfin" onclick="mostrarModulo('logfin')"><span class="mico">🛵</span>Financeiro da logística</button>
     </div>
 
     <button class="sidebar-secao" onclick="toggleGrupo('gFinanceiro')">Financeiro <span class="seta">▶</span></button>
@@ -512,25 +515,25 @@
       <button class="sidebar-btn" id="navBtnRh" onclick="mostrarModulo('rh')"><span class="mico">💳</span>Descontos em folha</button>
     </div>
 
-    <button class="sidebar-secao" onclick="toggleGrupo('gPlanejamento')">Planejamento <span class="seta">▶</span></button>
-    <div class="sidebar-grupo" id="gPlanejamento">
-      <span class="sidebar-btn breve"><span class="mico">🧮</span>Formação de preço</span>
-      <span class="sidebar-btn breve"><span class="mico">📖</span>Ficha técnica</span>
-      <span class="sidebar-btn breve"><span class="mico">➗</span>Despesas e rateio</span>
+    <button class="sidebar-secao" onclick="toggleGrupo('gProducao')">Produção e estoque <span class="seta">▶</span></button>
+    <div class="sidebar-grupo" id="gProducao">
+      <button class="sidebar-btn" id="navBtnListas" onclick="mostrarModulo('listas')"><span class="mico">📦</span>Transferências AV → filiais</button>
     </div>
 
-    <button class="sidebar-secao" onclick="toggleGrupo('gArquivo')">Arquivo &amp; Sistema <span class="seta">▶</span></button>
-    <div class="sidebar-grupo" id="gArquivo">
+    <button class="sidebar-secao" onclick="toggleGrupo('gSistema')">Sistema <span class="seta">▶</span></button>
+    <div class="sidebar-grupo" id="gSistema">
       <button class="sidebar-btn" id="navBtnRelatorios" onclick="mostrarModulo('relatorios')"><span class="mico">🗞️</span>Resumos semanais</button>
       <button class="sidebar-btn" id="navBtnConciliacao" onclick="mostrarModulo('conciliacao')"><span class="mico">✅</span>Conferência da base</button>
       <button class="sidebar-btn" id="navBtnRotinas" onclick="mostrarModulo('rotinas')"><span class="mico">🤖</span>Rotinas</button>
-      <!-- Links, nao modulos (sem registro em mostrarModulo/moduloAtivo): paginas
-           publicas do site, abertas em aba nova. Decisao do dono (13/08/2026):
-           ficam sem a trava de senha do painel — sao a versao que o Fabio abre
-           sem conta. promos.html TEM verbas em R$; aprovado assim mesmo. -->
-      <button class="sidebar-btn" onclick="window.open('cronograma.html','_blank')"><span class="mico">🧭</span>Cronograma ↗</button>
-      <button class="sidebar-btn" onclick="window.open('plano.html','_blank')"><span class="mico">🗺️</span>Plano do projeto ↗</button>
+      <!-- Link, nao modulo: pagina publica do site, aberta em aba nova. Decisao
+           do dono (13/08/2026): fica sem a trava de senha do painel — e a versao
+           que o Fabio abre sem conta. promos.html TEM verbas em R$; aprovado assim. -->
       <button class="sidebar-btn" onclick="window.open('promos.html','_blank')"><span class="mico">📅</span>Calendário de promos ↗</button>
+    </div>
+
+    <div class="sidebar-rodape">
+      <span id="rodapeQuem" title="quem está logado"></span>
+      <button onclick="sairDoPainel()">Sair</button>
     </div>
   </nav>
   <div class="main-content">
@@ -769,6 +772,13 @@ document.addEventListener('click', (e) => {
 // Busca TODAS as linhas de uma tabela/view, paginando (o Supabase limita
 // a 1000 linhas por consulta), para funcionar mesmo quando o volume de
 // pedidos crescer (junho, julho, ...).
+// A chave anon continua indo no apikey (o PostgREST exige), mas quem manda no
+// que pode ser lido e o Bearer: o token da pessoa logada.
+function cabecalhoLeitura() {
+  const s = rmbSessao();
+  return { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${(s && s.access_token) || SUPABASE_ANON_KEY}` };
+}
+
 async function consultarTudo(caminho) {
   const PAGE = 1000;
   let offset = 0;
@@ -776,12 +786,14 @@ async function consultarTudo(caminho) {
   while (true) {
     const sep = caminho.includes('?') ? '&' : '?';
     const url = `${SUPABASE_URL}/rest/v1/${caminho}${sep}limit=${PAGE}&offset=${offset}`;
-    const resp = await fetch(url, {
-      headers: {
-        apikey: SUPABASE_ANON_KEY,
-        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-      },
-    });
+    // Desde 21/08/2026 o painel le com o token de QUEM ESTA LOGADO: o papel
+    // anon perdeu o SELECT (script/fechar_leitura_anonima.sql). Sem sessao
+    // valida nao ha painel — e nao ha dado exposto a quem achar o repositorio.
+    let resp = await fetch(url, { headers: cabecalhoLeitura() });
+    if (resp.status === 401 && await rmbRenovarSeExpirado(resp)) {
+      resp = await fetch(url, { headers: cabecalhoLeitura() });   // token renovado, tenta de novo
+    }
+    if (resp.status === 401) { exigirLogin('Sua sessão venceu. Entre de novo.'); throw new Error('sessão vencida'); }
     if (!resp.ok) throw new Error(`Erro ${resp.status} ao consultar ${caminho}: ${await resp.text()}`);
     const pagina = await resp.json();
     tudo = tudo.concat(pagina);
@@ -1205,14 +1217,16 @@ function toggleGrupo(id) {
 // Garante que o grupo que contem o modulo esteja aberto (ex.: botao que leva
 // a Cancelamentos a partir da Visao geral, ou o modulo inicial no boot).
 function abrirGrupoDoModulo(nome) {
-  const grupoDe = { fluxo: 'gFinanceiro', projecao: 'gFinanceiro', despesas: 'gFinanceiro',
-                    dre: 'gResultado', indicadores: 'gResultado', estasemana: 'gResultado',
-                    consolidada: 'gResultado', atrasos: 'gOperacao',
-                    frete: 'gOperacao', listas: 'gOperacao', fichas: 'gOperacao',
-                    engcard: 'gOperacao', plano: 'gResultado',
-                    reembolsos: 'gFinanceiro', rh: 'gFinanceiro', rede: 'gFinanceiro',
+  const grupoDe = { plano: 'gComecar', estasemana: 'gComecar', indicadores: 'gComecar',
+                    consolidada: 'gResultado', dre: 'gResultado',
+                    engcard: 'gResultado', fichas: 'gResultado',
+                    atrasos: 'gEntrega', frete: 'gEntrega', logfin: 'gEntrega',
+                    fluxo: 'gFinanceiro', projecao: 'gFinanceiro', despesas: 'gFinanceiro',
+                    concbanco: 'gFinanceiro', rede: 'gFinanceiro',
+                    reembolsos: 'gFinanceiro', rh: 'gFinanceiro',
+                    listas: 'gProducao',
                     qualidade: 'gIfood',
-                    relatorios: 'gArquivo', conciliacao: 'gArquivo', rotinas: 'gArquivo' };
+                    relatorios: 'gSistema', conciliacao: 'gSistema', rotinas: 'gSistema' };
   const id = grupoDe[nome] || 'gIfood';
   const grupo = document.getElementById(id);
   if (grupo && !grupo.classList.contains('aberto')) toggleGrupo(id);
@@ -3632,10 +3646,19 @@ function rmbHeaders(extra = {}) {
            'Content-Type': 'application/json', ...extra };
 }
 
-async function rmbFazerLogin() {
-  const email = document.getElementById('rmbEmail').value.trim();
-  const senha = document.getElementById('rmbSenha').value;
-  const erroEl = document.getElementById('rmbLoginErro');
+// pref: prefixo dos ids dos campos. O modulo Plano usa os seus proprios
+// ('plano'), porque os ids do Reembolsos existem em paralelo no documento e
+// getElementById devolve o PRIMEIRO — quem abrisse Reembolsos e depois Plano
+// mandaria credencial vazia (causa C de 21/08/2026).
+async function rmbFazerLogin(pref) {
+  const idE = pref ? pref + 'Email' : 'rmbEmail';
+  const idS = pref ? pref + 'Senha' : 'rmbSenha';
+  const idR = pref ? pref + 'LoginErro' : 'rmbLoginErro';
+  const campoE = document.getElementById(idE), campoS = document.getElementById(idS);
+  if (!campoE || !campoS) return false;
+  const email = campoE.value.trim();
+  const senha = campoS.value;
+  const erroEl = document.getElementById(idR);
   const r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
     method: 'POST',
     headers: { apikey: SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
@@ -3643,18 +3666,31 @@ async function rmbFazerLogin() {
   });
   const s = await r.json();
   if (!r.ok || !s.access_token) {
-    erroEl.textContent = 'Não deu: ' + (s.error_description || s.msg || 'e-mail ou senha errados, ou usuário ainda não criado no Supabase (ver rotinas/REEMBOLSOS-PAINEL.md).');
-    erroEl.style.display = 'block';
-    return;
+    if (erroEl) {
+      erroEl.textContent = 'Não deu: ' + (s.error_description || s.msg || 'e-mail ou senha errados, ou usuário ainda não criado no Supabase (ver rotinas/REEMBOLSOS-PAINEL.md).');
+      erroEl.style.display = 'block';
+    }
+    return false;
   }
   localStorage.setItem('rmbSessao', JSON.stringify({
     access_token: s.access_token, refresh_token: s.refresh_token,
     email: (s.user && s.user.email) || email,
   }));
-  renderModuloReembolsos(REEMBOLSOS);
+  // NAO redesenha modulo nenhum: quem chamou decide o que fazer. Antes daqui
+  // saia um renderModuloReembolsos(REEMBOLSOS) que explodia quando o login vinha
+  // do modulo Plano (REEMBOLSOS ainda null), matando a funcao DEPOIS de salvar a
+  // sessao — o login funcionava e a tela nunca ficava sabendo (21/08/2026).
+  return true;
 }
 
 function rmbSair() { localStorage.removeItem('rmbSessao'); renderModuloReembolsos(REEMBOLSOS); }
+
+// Cada modulo trata o pos-login do seu jeito. A funcao compartilhada so
+// autentica e devolve true/false.
+async function reembolsosLogin() {
+  if (!(await rmbFazerLogin())) return;   // o erro ja esta escrito na tela
+  await entrarReembolsos();
+}
 
 async function rmbRenovarSeExpirado(resp) {
   // 401 = token venceu; tenta renovar UMA vez com o refresh_token
@@ -3908,7 +3944,8 @@ async function entrarReembolsos() {
   renderModuloReembolsos(REEMBOLSOS);
 }
 
-function renderModuloReembolsos({ saldo, fila, orfaos }) {
+function renderModuloReembolsos(dados) {
+  const { saldo, fila, orfaos } = dados || {};   // aceita nulo: ver bug do login de 21/08
   const alvo  = document.getElementById('view-reembolsos');
   if (!alvo) return;
   const reais = (v) => 'R$ ' + Number(v).toLocaleString('pt-BR', { minimumFractionDigits:2, maximumFractionDigits:2 });
@@ -3986,7 +4023,7 @@ function renderModuloReembolsos({ saldo, fila, orfaos }) {
           <div style="display:flex; gap:8px; flex-wrap:wrap;">
             <input id="rmbEmail" type="email" placeholder="e-mail" style="flex:1; min-width:180px; background:#232321; border:1px solid #34332f; color:#fff; border-radius:8px; padding:8px;">
             <input id="rmbSenha" type="password" placeholder="senha" style="flex:1; min-width:140px; background:#232321; border:1px solid #34332f; color:#fff; border-radius:8px; padding:8px;">
-            <button onclick="rmbFazerLogin()" style="background:#c8102e; border:none; color:#fff; font-weight:700; border-radius:8px; padding:8px 18px; cursor:pointer;">Entrar</button>
+            <button onclick="reembolsosLogin()" style="background:#c8102e; border:none; color:#fff; font-weight:700; border-radius:8px; padding:8px 18px; cursor:pointer;">Entrar</button>
           </div>
           <div id="rmbLoginErro" style="display:none; color:#ff6b6b; font-size:12px; margin-top:6px;"></div>
         </div>
@@ -5228,16 +5265,21 @@ function renderPlanoLogin() {
       Tudo que precisa acontecer, com dono e estado. <b>Precisa entrar para ver</b> — o plano
       tem nome de fornecedor, de funcionário e faturamento por loja, e este painel é público.</div>
     <div class="contexto" style="max-width:420px; margin:16px auto; text-align:left;">
-      <div style="margin-bottom:8px;"><input id="rmbEmail" type="email" placeholder="seu e-mail"
+      <div style="margin-bottom:8px;"><input id="planoEmail" type="email" placeholder="seu e-mail"
         style="width:100%; padding:8px 10px; background:#171716; color:#f2f0e9; border:1px solid #45443f; border-radius:6px;"></div>
-      <div style="margin-bottom:10px;"><input id="rmbSenha" type="password" placeholder="senha"
+      <div style="margin-bottom:10px;"><input id="planoSenha" type="password" placeholder="senha"
+        onkeydown="if(event.key==='Enter')planoLogin()"
         style="width:100%; padding:8px 10px; background:#171716; color:#f2f0e9; border:1px solid #45443f; border-radius:6px;"></div>
       <button class="preset-btn active" onclick="planoLogin()">Entrar</button>
-      <div id="rmbLoginErro" class="contexto" style="display:none; border-color:#ff6b6b; margin-top:10px;"></div>
+      <div id="planoLoginErro" class="contexto" style="display:none; border-color:#ff6b6b; margin-top:10px;"></div>
     </div>`;
 }
 
-async function planoLogin() { await rmbFazerLogin(); PLANO = null; entrarPlano(); }
+async function planoLogin() {
+  if (!(await rmbFazerLogin('plano'))) return;   // sem sessao, o erro fica na tela
+  PLANO = null;
+  entrarPlano();
+}
 function planoSair() { rmbSair(); PLANO = null; entrarPlano(); }
 function planoFiltrar(quem) { PLANO_DONO = (PLANO_DONO === quem) ? null : quem; renderModuloPlano(); }
 
@@ -9633,43 +9675,101 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
 }
 
 // ------------------------------------------------------------------
-// Trava de acesso (senha) — protecao simples do lado do cliente, so pra
-// evitar que alguem tropece no link sem querer. Nao e seguranca de
-// verdade: o codigo-fonte e' publico e os dados continuam acessiveis
-// direto pela API do Supabase com a chave anonima usada acima.
+// A porta do painel (21/08/2026): login do Supabase, um por pessoa.
+//
+// Ate aqui era uma senha unica conferida por hash NO NAVEGADOR, e ela nao
+// protegia nada: o repositorio docs/ e publico, a chave anon esta no
+// codigo-fonte acima, e quem achasse o repositorio lia o banco inteiro sem
+// digitar senha nenhuma — 76 tabelas, 99 views e 7 materializadas, incluindo
+// gasto de reembolso com nome de pessoa. Agora quem decide o que pode ser
+// lido e o banco, pelo token de quem entrou (papel authenticated).
+//
+// A sessao e a MESMA que os modulos Reembolsos, Plano e Transferencias ja
+// usavam (chave 'rmbSessao'), entao quem entra na porta ja entra logado neles.
+// Criar usuario continua sendo passo do dono, no Supabase.
 // ------------------------------------------------------------------
-const SENHA_HASH = 'a7a9a110f0f858060bfed42e6e79f72f18fbd466770811105e6f669254edb8eb';
-// Trocar o sufixo da chave invalida a liberacao salva em todos os aparelhos
-// (forca todo mundo a digitar a senha atual de novo).
-const CHAVE_ACESSO = 'painelIfoodAcessoOk_v3';
+const CHAVE_ACESSO_VELHA = 'painelIfoodAcessoOk_v3';
 
-async function sha256Hex(texto) {
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(texto));
-  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
-}
-
-async function verificarSenha() {
-  const input = document.getElementById('loginSenha');
-  const hash = await sha256Hex(input.value);
-  if (hash === SENHA_HASH) {
-    localStorage.setItem(CHAVE_ACESSO, '1');
-    document.getElementById('loginGate').style.display = 'none';
-    iniciar();
-  } else {
-    document.getElementById('loginErro').style.display = 'block';
-    input.value = '';
-    input.focus();
+function exigirLogin(recado) {
+  localStorage.removeItem('rmbSessao');
+  const gate = document.getElementById('loginGate');
+  if (!gate) return;
+  gate.style.display = '';
+  if (recado) {
+    const erro = document.getElementById('loginErro');
+    erro.textContent = recado;
+    erro.style.display = 'block';
   }
 }
 
-document.getElementById('loginSenha').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') verificarSenha();
+async function entrarNoPainel() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const senha = document.getElementById('loginSenha').value;
+  const erro = document.getElementById('loginErro');
+  const btn = document.getElementById('loginBtn');
+  if (!email || !senha) {
+    erro.textContent = 'Preencha e-mail e senha.'; erro.style.display = 'block'; return;
+  }
+  btn.disabled = true; btn.textContent = 'Entrando...';
+  try {
+    const r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+      method: 'POST',
+      headers: { apikey: SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password: senha }),
+    });
+    const d = await r.json();
+    if (!r.ok || !d.access_token) {
+      erro.textContent = (d.error_description || d.msg || 'E-mail ou senha errados.') +
+                         ' Se você ainda não tem conta, peça ao Neto para criar.';
+      erro.style.display = 'block';
+      document.getElementById('loginSenha').value = '';
+      return;
+    }
+    localStorage.setItem('rmbSessao', JSON.stringify({
+      access_token: d.access_token, refresh_token: d.refresh_token,
+      email: (d.user && d.user.email) || email,
+    }));
+    localStorage.removeItem(CHAVE_ACESSO_VELHA);
+    erro.style.display = 'none';
+    document.getElementById('loginGate').style.display = 'none';
+    const quem = document.getElementById('rodapeQuem');
+    if (quem) quem.textContent = (rmbSessao() || {}).email || '';
+    iniciar();
+  } catch (e) {
+    erro.textContent = 'Não consegui falar com o servidor: ' + e.message;
+    erro.style.display = 'block';
+  } finally {
+    btn.disabled = false; btn.textContent = 'Entrar';
+  }
+}
+
+['loginEmail', 'loginSenha'].forEach((id) => {
+  document.getElementById(id).addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') entrarNoPainel();
+  });
 });
 
-if (localStorage.getItem(CHAVE_ACESSO) === '1') {
-  document.getElementById('loginGate').style.display = 'none';
-  iniciar();
+function sairDoPainel() {
+  localStorage.removeItem('rmbSessao');
+  location.reload();
 }
+
+// No boot: so abre o painel se a sessao ainda vale. Token vencido nao e motivo
+// para mandar a pessoa digitar de novo — tenta o refresh_token primeiro.
+(async function abrirSeLogado() {
+  localStorage.removeItem(CHAVE_ACESSO_VELHA);   // a senha velha nao vale mais
+  const sessao = rmbSessao();
+  if (!sessao || !sessao.access_token) return;   // fica na porta
+  let r = await fetch(`${SUPABASE_URL}/auth/v1/user`, { headers: cabecalhoLeitura() });
+  if (r.status === 401 && await rmbRenovarSeExpirado(r)) {
+    r = await fetch(`${SUPABASE_URL}/auth/v1/user`, { headers: cabecalhoLeitura() });
+  }
+  if (!r.ok) { exigirLogin(); return; }
+  document.getElementById('loginGate').style.display = 'none';
+  const quem = document.getElementById('rodapeQuem');
+  if (quem) quem.textContent = (rmbSessao() || {}).email || '';
+  iniciar();
+})();
 </script>
 </body>
 </html>
