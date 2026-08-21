@@ -4341,7 +4341,29 @@ async function concbRodarComparador(bt) {
 //
 // A CATEGORIA e o campo que vai fazer diferenca na automacao via Chrome: sem ela
 // o robo sabe o que digitar no historico e nao sabe onde classificar.
-function concbFormEnsinar(d) {
+// AS CATEGORIAS SAO AS NOSSAS, nao as do Saipos. O Saipos tem a mesma coisa
+// escrita de tres jeitos ('Alimentação Funcionarios', 'Alimentacao Funcionarios',
+// 'Alimentaçao Funcionarios') e o dono decidiu em 21/08 NAO padronizar la
+// ("mexer la e muito trabalhoso"): a faxina passou a ser do nosso lado, na
+// tabela fin_de_para_categoria — 245 grafias do Saipos cobertas por 106
+// categorias nossas. Por isso a lista sai de categoria_nossa, distinta.
+// Pendencia conhecida: quando o robo for digitar no Saipos, ele vai precisar do
+// nome de LA, e o caminho de volta ainda nao esta resolvido.
+let CONCB_CATEGORIAS = null;
+async function concbCategorias() {
+  if (CONCB_CATEGORIAS) return CONCB_CATEGORIAS;
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/fin_de_para_categoria`
+    + '?usar=is.true&select=categoria_nossa&order=categoria_nossa.asc',
+    { headers: rmbHeaders() });
+  const linhas = r.ok ? await r.json() : [];
+  // varias grafias do Saipos apontam para a mesma categoria nossa: a lista
+  // mostra cada uma UMA vez, senao nasce com repetido — que foi exatamente a
+  // confusao que esta proposta veio resolver
+  CONCB_CATEGORIAS = [...new Set(linhas.map(x => x.categoria_nossa).filter(Boolean))];
+  return CONCB_CATEGORIAS;
+}
+
+async function concbFormEnsinar(d) {
   const antigo = document.getElementById('concbFormEnsinar');
   if (antigo) antigo.remove();
   // escape proprio: o `esc` do modulo e local do renderConcbanco e nao existe aqui
@@ -4353,6 +4375,20 @@ function concbFormEnsinar(d) {
     + '<input id="' + id + '" placeholder="' + dica + '" style="width:100%;padding:6px 8px;'
     + 'font-size:13px;border:1px solid #8a887e;border-radius:4px;background:transparent;'
     + 'color:inherit;box-sizing:border-box"></div>';
+  // Lista fechada de proposito: digitar a categoria na mao foi o que trouxe esta
+  // proposta — a Hellen digitou uma em 21/08, e categoria errada joga o
+  // lancamento numa conta que nao move DRE nem DFC. A saida "nao esta na lista"
+  // existe para nao travar quem esta conciliando, mas marca a licao como DUVIDA
+  // para alguem olhar, em vez de virar cadastro sozinha.
+  const lista = (id, rotulo, itens) =>
+    '<div style="margin-bottom:10px"><label style="display:block;font-size:11px;'
+    + 'opacity:.8;margin-bottom:3px">' + rotulo + '</label>'
+    + '<select id="' + id + '" style="width:100%;padding:6px 8px;font-size:13px;'
+    + 'border:1px solid #8a887e;border-radius:4px;background:#1c1b19;color:inherit;'
+    + 'box-sizing:border-box"><option value="">\u2014 escolha \u2014</option>'
+    + itens.map(v => '<option>' + seguro(v) + '</option>').join('')
+    + '<option value="__OUTRA__">n\u00e3o est\u00e1 na lista\u2026</option></select></div>';
+  const categorias = await concbCategorias();
   const cx = document.createElement('div');
   cx.id = 'concbFormEnsinar';
   cx.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;'
@@ -4364,7 +4400,7 @@ function concbFormEnsinar(d) {
     + seguro(d.nome || d.memo || '') + '</b></div>'
     + campo('ensQue', 'O que é', 'ex.: compra de tinta para manutenção')
     + campo('ensDesc', 'Descrição no Saipos (o histórico a digitar)', 'ex.: TINTAS VERGINIA')
-    + campo('ensCat', 'Categoria no Saipos', 'ex.: MANUTENÇÃO PREDIAL MATERIAL')
+    + lista('ensCat', 'Categoria', categorias)
     + '<div style="text-align:right;margin-top:14px">'
     + '<button id="ensCancela" style="font-size:12px;padding:5px 12px;margin-right:6px;'
     + 'cursor:pointer;border:1px solid #8a887e;background:transparent;color:inherit;'
@@ -4384,18 +4420,25 @@ function concbFormEnsinar(d) {
     // dono preencheu tudo e nada chegou (21/08/2026).
     const oQue = document.getElementById('ensQue').value.trim();
     const desc = document.getElementById('ensDesc').value.trim();
-    const cat = document.getElementById('ensCat').value.trim();
+    let cat = document.getElementById('ensCat').value.trim();
+    // "nao esta na lista" nao vira cadastro sozinho: e' justamente o caso que
+    // alguem precisa olhar antes de virar regra.
+    let revisar = false;
+    if (cat === '__OUTRA__') {
+      cat = (prompt('Qual categoria? Vou guardar para alguém conferir.') || '').trim();
+      revisar = true;
+    }
     // A descricao e o unico campo obrigatorio: e ela que vira o par de de-para e
     // faz a linha casar sozinha da proxima vez. Os outros dois enriquecem.
     if (!desc) { alert('A descrição do Saipos é o que faz a linha casar. Preencha ela.'); return; }
     fecha();
-    await concbGravarLicao({ tipo: 'NOME', conta: d.conta, fitid: d.fitid,
+    await concbGravarLicao({ tipo: revisar ? 'DUVIDA' : 'NOME', conta: d.conta, fitid: d.fitid,
       memo_banco: d.memo || null, nome_banco: d.nome || null, texto: desc,
       o_que_e: oQue || null, categoria: cat || null });
   });
 }
 
-async function concbEnsinar(d) { concbFormEnsinar(d); }
+async function concbEnsinar(d) { await concbFormEnsinar(d); }
 
 // Registrar a duvida sem exigir explicacao: quem nao sabe o que e a linha
 // tambem nao sabe descrever o problema. O texto e opcional de proposito.
@@ -4556,6 +4599,19 @@ function renderConcbanco() {
   const ddmm = (d) => d ? d.slice(8, 10) + '/' + d.slice(5, 7) : '—';
   const esc = (s) => String(s == null ? '' : s)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+
+  // A conta tem DOIS nomes. A CHAVE ('ITAU AV') amarra 50.987 linhas e 6 chaves
+  // estrangeiras, e e' ela que tem de seguir nos POSTs de conciliacao e de licao
+  // — apelido virando chave grava marcacao em conta que nao existe. O APELIDO
+  // ('ITAU AV 27004-3') e' o que o dono escreve para ler na tela. As 7 views da
+  // conciliacao ja devolvem os dois; aqui so montamos o de/para para MOSTRAR um
+  // e MANDAR o outro. (21/08/2026)
+  const APELIDO_CONTA = {};
+  [placar, saldoConf, naoConf, pend, saldoDia, aFazer].forEach((arr) =>
+    (arr || []).forEach((r) => {
+      if (r && r.conta && r.conta_exibida) APELIDO_CONTA[r.conta] = r.conta_exibida;
+    }));
+  const nomeConta = (c) => APELIDO_CONTA[c] || c;
 
   if (!placar.length) {
     alvo.innerHTML = seletorLojaFin() +
@@ -4728,7 +4784,7 @@ function renderConcbanco() {
     }
     const td = 'style="text-align:left;font-size:12px"';
     return '<tr><td style="text-align:left;font-size:18px;color:' + cor + '">' + marca + '</td>'
-      + '<td style="text-align:left"><b>' + esc(conta) + '</b></td>'
+      + '<td style="text-align:left"><b>' + esc(nomeConta(conta)) + '</b></td>'
       + '<td ' + td + '>' + lado(c.entrou, '#2e7d32') + '</td>'
       + '<td ' + td + '>' + lado(c.saiu, '#c8102e') + '</td>'
       + '<td ' + td + ' title="' + esc(saldoTitulo) + '">' + saldoTxt + '</td></tr>';
@@ -4865,7 +4921,7 @@ function renderConcbanco() {
     // se perdia no meio.
     return '<div style="margin:22px 0 4px;font-size:16px;font-weight:700;'
       + 'letter-spacing:.3px;border-bottom:2px solid currentColor;padding-bottom:3px">'
-      + esc(conta) + '</div>' +
+      + esc(nomeConta(conta)) + '</div>' +
       tabela(conta, 'ent', ent, true) + tabela(conta, 'ent', ent, false) +
       tabela(conta, 'sai', sai, true) + tabela(conta, 'sai', sai, false);
   }).join('');
@@ -4894,7 +4950,7 @@ function renderConcbanco() {
       '<div class="contexto">Provavelmente foi lançado com valor ou data diferente do extrato.</div>' +
       '<div id="tabelaConcbTrava"><table><thead><tr><th>Dia</th><th>Conta</th><th>Valor</th>' +
       '<th>O que o banco diz</th><th>Quem marcou</th></tr></thead><tbody>' +
-      naoConf.map(x => '<tr><td>' + ddmm(x.data) + '</td><td>' + x.conta + '</td>' +
+      naoConf.map(x => '<tr><td>' + ddmm(x.data) + '</td><td>' + esc(nomeConta(x.conta)) + '</td>' +
         '<td style="text-align:right">' + rs(x.valor) + '</td><td>' + (x.memo || '').slice(0, 44) + '</td>' +
         '<td>' + (x.quem || '') + '</td></tr>').join('') + '</tbody></table></div>'
     : '';
