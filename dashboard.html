@@ -5449,12 +5449,15 @@ async function entrarRateio() {
     try {
       const pct = await consultarTudo('vw_rateio_pct_canal_precificacao?select=*');
       const de = pct.length ? pct[0].de : '2026-01-01';
-      const [resumo, linhas, preco] = await Promise.all([
+      const [resumo, linhas, preco, semCriterio] = await Promise.all([
         consultarTudo('vw_rateio_resumo_canal?select=*&order=mes'),
         consultarTudo(`mv_rateio_canal_mensal?select=mes,tipo,subtipo,metodo,canal,valor&mes=gte.${de}`),
         consultarTudo('vw_rateio_preco_alvo?select=produto,classe,canal,custo_ficha,preco_alvo,preco_atual,fonte_preco,qtd_vendida,cmv_pct_atual,margem_atual_real,margem_atual_cheia,sobra_para_custo,ingredientes_sem_custo&preco_atual=not.is.null&order=margem_atual_cheia'),
+        // Conta de despesa que apareceu no dinheiro sem criterio decidido — cairia em
+        // "por vendas" em silencio (foi assim que a Agencia Oito passou despercebida).
+        consultarTudo('vw_rateio_sem_criterio?select=*').catch(() => []),
       ]);
-      RATEIO = { pct, resumo, linhas, preco };
+      RATEIO = { pct, resumo, linhas, preco, semCriterio };
     } catch (e) {
       alvo.innerHTML = `<div class="contexto" style="border-color:#c8102e;">Não consegui ler o rateio: ${e.message || e}</div>`;
       return;
@@ -5539,6 +5542,7 @@ function renderModuloRateio() {
   alvo.innerHTML = `
     <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Resultado por canal · ${mesNome(de)} a ${mesNome(ate)}</div>
     <div class="contexto">Quanto de cada R$ 100 vendidos vai para <b>operar o canal</b> — entrega, taxas, folha, aluguel, impostos — <b>sem a matéria-prima</b> (ela entra pela ficha técnica). Leitura <b>cheia</b> considera a comissão do iFood de 9,5% que o benefício dos R$ 500 mil zera até dez/26–jan/27; é por ela que se precifica. Clique no canal para ver onde vai o dinheiro. O <b>pró-labore dos sócios fica fora</b> (decisão de 22/08/2026): é remuneração fixa, não muda com o resultado nem com o canal — sai da sobra, depois do resultado operacional.${canais.some(c => porCanal[c].provisorio) ? ' <span style="color:#a5a49a;">Parte da folha ainda cai na proporção geral (nomes sem setor).</span>' : ''}</div>
+    ${(RATEIO.semCriterio || []).length ? `<div class="contexto" style="border-color:#c8102e;"><b>Conta nova sem critério de rateio</b> — está caindo em "por vendas" sem ninguém ter decidido: ${RATEIO.semCriterio.map(r => `${String(r.subtipo).toLowerCase()} (${reais(r.valor_3m)} em 3 meses)`).join(' · ')}. Decidir em rateio_criterios.</div>` : ''}
     <div class="cards">${cards}</div>
 
     <div class="section-label">Onde vai o dinheiro · ${nome[RATEIO_CANAL] || RATEIO_CANAL}</div>
