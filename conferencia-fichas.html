@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Conferir gramatura — Cidadão do Mundo</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin:0; background:#111110; color:#f2f0e9; padding:16px 14px 40px;
+         font-family:'Segoe UI', system-ui, -apple-system, sans-serif; line-height:1.5; }
+  .marca { color:#c8102e; font-weight:700; letter-spacing:.12em; font-size:11px; }
+  h1 { font-size:20px; margin:6px 0 4px; }
+  .sub { color:#a5a49a; font-size:14px; margin-bottom:14px; }
+  .prog { font-size:12px; color:#8b877c; margin-bottom:16px; }
+  .ficha { background:#1a1a19; border:1px solid #34332f; border-radius:12px;
+           margin-bottom:12px; overflow:hidden; }
+  .ficha.feita { border-color:#3fb950; }
+  .cab { padding:13px 15px; cursor:pointer; display:flex; align-items:center; gap:10px; }
+  .cab:active { background:#232321; }
+  .nome { flex:1; font-size:15px; font-weight:600; }
+  .cls { font-size:11px; color:#8b877c; margin-top:2px; font-weight:400; }
+  .ok { color:#3fb950; font-size:18px; }
+  .corpo { display:none; padding:0 15px 15px; border-top:1px solid #34332f; }
+  .ficha.aberta .corpo { display:block; }
+  .ing { display:flex; align-items:center; gap:10px; padding:9px 0;
+         border-bottom:1px solid #232321; }
+  .ing:last-of-type { border-bottom:none; }
+  .ing-nome { flex:1; font-size:13px; }
+  input[type=number] { width:82px; padding:9px; font-size:16px; text-align:right;
+                       background:#0d0d0c; color:#f2f0e9; border:1px solid #45443f;
+                       border-radius:8px; }
+  input[type=number]:focus { outline:none; border-color:#e8b04b; }
+  .un { font-size:12px; color:#8b877c; width:16px; }
+  .obs { width:100%; margin-top:10px; padding:9px; font-size:14px; background:#0d0d0c;
+         color:#f2f0e9; border:1px solid #45443f; border-radius:8px; font-family:inherit; }
+  .enviar { width:100%; margin-top:12px; padding:13px; font-size:15px; font-weight:600;
+            background:#c8102e; color:#fff; border:none; border-radius:10px; }
+  .enviar:disabled { opacity:.5; }
+  .msg { font-size:13px; margin-top:8px; text-align:center; min-height:18px; }
+  .msg.bom { color:#3fb950; }
+  .msg.ruim { color:#ff6b6b; }
+  .ajuda { background:#1a1a19; border-left:3px solid #e8b04b; border-radius:8px;
+           padding:12px 14px; font-size:13px; color:#c9c5b8; margin-bottom:16px; }
+</style>
+</head>
+<body>
+  <div class="marca">CIDADÃO DO MUNDO</div>
+  <h1>Conferir gramatura</h1>
+  <div class="sub">Oi, Lana! Aqui estão as fichas com o peso que está cadastrado hoje.</div>
+
+  <div class="ajuda">
+    <b>Como funciona:</b> toque numa ficha para abrir. Os pesos já vêm preenchidos —
+    <b>mude só o que estiver diferente</b> do que você pesou e toque em enviar.
+    Pode fazer aos poucos, uma ficha por vez.<br><br>
+    <b>Importante:</b> o peso é do ingrediente <b>já pronto</b> (batata frita, bacon frito),
+    não do que sai do pacote.
+  </div>
+
+  <div class="prog" id="prog"></div>
+  <div id="lista"></div>
+
+<script>
+const URL = "https://rtmgzsikwglsvpopbfbw.supabase.co";
+const KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ0bWd6c2lrd2dsc3Zwb3BiZmJ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU4NDgwMjcsImV4cCI6MjEwMTQyNDAyN30.-vwbQkcuAbbonmBVCeUWXjTg54uB5MNN94QmMlBxTA4";
+const QUEM = "Lana";
+const FICHAS = [{"f": "AYRTON SENNA", "c": "BURGERS CLASSICOS", "r": 399331.86, "i": [{"mp": "HAMBURGUER DE CARNE 150G RECEITA", "q": 1.0, "un": "un"}, {"mp": "PAO BRIOCHE", "q": 1.0, "un": "un"}, {"mp": "BACON EM CUBOS FRITO RECEITA", "q": 35.0, "un": "g"}, {"mp": "MOZARELA FATIA", "q": 10.0, "un": "g"}, {"mp": "MAIONESE DE CEBOLINHA LEITE RECEITA", "q": 30.0, "un": "g"}]}, {"f": "SILVIO SANTOS", "c": "PRATOS CLASSICOS", "r": 337470.97, "i": [{"mp": "BIFE DE CARNE GRELHADO RECEITA", "q": 1.0, "un": "un"}, {"mp": "BATATA FRITA RECEITA", "q": 125.0, "un": "g"}, {"mp": "FEIJAO PRATOS RECEITA", "q": 225.0, "un": "g"}, {"mp": "ARROZ PARBOILIZADO RECEITA", "q": 220.0, "un": "g"}, {"mp": "SALADA PRATOS", "q": 1.0, "un": "un"}]}, {"f": "JESSE PINKMAN", "c": "BURGERS ESPECIAIS", "r": 289426.62, "i": [{"mp": "HAMBURGUER DE CARNE 150G RECEITA", "q": 1.0, "un": "un"}, {"mp": "PAO BRIOCHE", "q": 1.0, "un": "un"}, {"mp": "ANEIS DE CEBOLA FRITO RECEITA", "q": 35.0, "un": "g"}, {"mp": "MOZARELA FATIA", "q": 10.0, "un": "g"}, {"mp": "MOLHO BARBECUE 3,5KG", "q": 30.0, "un": "g"}, {"mp": "MAIONESE DE CEBOLINHA LEITE RECEITA", "q": 30.0, "un": "g"}]}, {"f": "ALAIN PROST", "c": "BURGERS CLASSICOS", "r": 268026.98, "i": [{"mp": "HAMBURGUER DE CARNE 150G RECEITA", "q": 1.0, "un": "un"}, {"mp": "PAO BRIOCHE", "q": 1.0, "un": "un"}, {"mp": "PEPINO AGRIDOCE", "q": 15.0, "un": "g"}, {"mp": "MOZARELA FATIA", "q": 10.0, "un": "g"}, {"mp": "MAIONESE DE CEBOLINHA LEITE RECEITA", "q": 30.0, "un": "g"}, {"mp": "TOMATE", "q": 25.0, "un": "g"}, {"mp": "ALFACE AMERICANA", "q": 15.0, "un": "g"}]}, {"f": "CIDADAO DO MUNDO BURGER", "c": "BURGERS ESPECIAIS", "r": 218032.19, "i": [{"mp": "HAMBURGUER DE CARNE 150G RECEITA", "q": 1.0, "un": "un"}, {"mp": "DISCO DE MOZARELA EMPANADO 150G RECEITA", "q": 1.0, "un": "un"}, {"mp": "PAO BRIOCHE", "q": 1.0, "un": "un"}, {"mp": "MOLHO BARBECUE 3,5KG", "q": 30.0, "un": "g"}, {"mp": "MAIONESE DE CEBOLINHA LEITE RECEITA", "q": 30.0, "un": "g"}]}, {"f": "NELSON PIQUET", "c": "BURGERS CLASSICOS", "r": 142480.86, "i": [{"mp": "HAMBURGUER DE CARNE 150G RECEITA", "q": 1.0, "un": "un"}, {"mp": "PAO BRIOCHE", "q": 1.0, "un": "un"}, {"mp": "MOZARELA FATIA", "q": 10.0, "un": "g"}, {"mp": "MAIONESE DE CEBOLINHA LEITE RECEITA", "q": 30.0, "un": "g"}]}, {"f": "RUBENS BARRICHELLO", "c": "BURGERS CLASSICOS", "r": 119161.68, "i": [{"mp": "HAMBURGUER DE CARNE 150G RECEITA", "q": 1.0, "un": "un"}, {"mp": "CHEDDAR CREMOSO RECEITA", "q": 50.0, "un": "g"}, {"mp": "PAO BRIOCHE", "q": 1.0, "un": "un"}, {"mp": "BACON EM CUBOS FRITO RECEITA", "q": 35.0, "un": "g"}, {"mp": "MAIONESE DE CEBOLINHA LEITE RECEITA", "q": 30.0, "un": "g"}]}, {"f": "CALDO DE MANDIOQUINHA COM COSTELA", "c": "CALDOS", "r": 109636.15, "i": [{"mp": "COSTELA E ACEM DESFIADO RECEITA", "q": 70.0, "un": "g"}, {"mp": "CALDO DE MANDIOQUINHA RECEITA", "q": 300.0, "un": "g"}]}, {"f": "CANJA DE GALINHA", "c": "CALDOS", "r": 107264.91, "i": [{"mp": "CANJA DE GALINHA RECEITA", "q": 400.0, "un": "g"}]}, {"f": "MAHATMA GANDHI PTS", "c": "PRATOS VEGANOS", "r": 105319.29, "i": [{"mp": "QUEIJO VEGANO DE CASTANHA RECEITA", "q": 50.0, "un": "g"}, {"mp": "HAMBURGUER DE FEIJAO COM PTS 125G RECEITA", "q": 1.0, "un": "un"}, {"mp": "CEBOLA GRELHADA RECEITA", "q": 30.0, "un": "g"}, {"mp": "FAROFA RECEITA", "q": 45.0, "un": "g"}, {"mp": "FEIJAO PRATOS RECEITA", "q": 225.0, "un": "g"}, {"mp": "ARROZ PARBOILIZADO RECEITA", "q": 220.0, "un": "g"}, {"mp": "SALADA PRATOS", "q": 1.0, "un": "un"}]}, {"f": "HONOLULU BURGER", "c": "BURGERS ESPECIAIS", "r": 105269.04, "i": [{"mp": "HAMBURGUER DE CARNE 150G RECEITA", "q": 1.0, "un": "un"}, {"mp": "PAO BRIOCHE", "q": 1.0, "un": "un"}, {"mp": "GORGONZOLA", "q": 20.0, "un": "g"}, {"mp": "GELEIA DE ABACAXI COM PIMENTA", "q": 20.0, "un": "g"}, {"mp": "CATCHUP BACON COM CEBOLA", "q": 15.0, "un": "g"}, {"mp": "MAIONESE DE CEBOLINHA LEITE RECEITA", "q": 30.0, "un": "g"}, {"mp": "CEBOLA CRISPY RECEITA", "q": 15.0, "un": "g"}]}, {"f": "JOHN LENNON", "c": "BURGERS ESPECIAIS", "r": 103038.49, "i": [{"mp": "HAMBURGUER DE CARNE 150G RECEITA", "q": 1.0, "un": "un"}, {"mp": "PAO BRIOCHE", "q": 1.0, "un": "un"}, {"mp": "BACON EM CUBOS FRITO RECEITA", "q": 35.0, "un": "g"}, {"mp": "GORGONZOLA", "q": 20.0, "un": "g"}, {"mp": "GELEIA DE PIMENTA", "q": 20.0, "un": "g"}, {"mp": "MAIONESE DE CEBOLINHA LEITE RECEITA", "q": 30.0, "un": "g"}]}, {"f": "GAUDERIO BURGER", "c": "BURGERS ESPECIAIS", "r": 89791.03, "i": [{"mp": "HAMBURGUER DE CARNE 150G RECEITA", "q": 1.0, "un": "un"}, {"mp": "COSTELA E ACEM DESFIADO RECEITA", "q": 50.0, "un": "g"}, {"mp": "REQUEIJAO CREMOSO 1,5KG", "q": 40.0, "un": "g"}, {"mp": "PAO BRIOCHE", "q": 1.0, "un": "un"}, {"mp": "BACON EM CUBOS FRITO RECEITA", "q": 35.0, "un": "g"}, {"mp": "MAIONESE DE CEBOLINHA LEITE RECEITA", "q": 25.0, "un": "g"}]}, {"f": "LONDON (BATATA)", "c": "PORCOES", "r": 84776.94, "i": [{"mp": "BATATA FRITA RECEITA", "q": 200.0, "un": "g"}, {"mp": "SACHE DE SAL", "q": 2.0, "un": "un"}]}, {"f": "SHACK CITIZEN", "c": "SMASH BURGER", "r": 75883.93, "i": [{"mp": "SMASH BURGER 60G RECEITA", "q": 2.0, "un": "un"}, {"mp": "PAO BRIOCHE", "q": 1.0, "un": "un"}, {"mp": "CHEDDAR EM FATIAS 2,27KG", "q": 30.0, "un": "g"}, {"mp": "MOLHO ESPECIAL RECEITA", "q": 20.0, "un": "g"}, {"mp": "TOMATE", "q": 25.0, "un": "g"}, {"mp": "ALFACE AMERICANA", "q": 10.0, "un": "g"}]}, {"f": "LEWIS HAMILTON", "c": "BURGERS VEGANOS", "r": 75253.8, "i": [{"mp": "PAO DE GERGELIM", "q": 1.0, "un": "un"}, {"mp": "MAIONESE VEGANA", "q": 25.0, "un": "g"}, {"mp": "QUEIJO VEGANO DE CASTANHA RECEITA", "q": 45.0, "un": "g"}, {"mp": "ANEIS DE CEBOLA FRITO RECEITA", "q": 35.0, "un": "g"}, {"mp": "HAMBURGUER DE FEIJAO COM PTS 125G RECEITA", "q": 1.0, "un": "un"}, {"mp": "MOLHO BARBECUE 3,5KG", "q": 30.0, "un": "g"}]}, {"f": "CHEECH E CHONG", "c": "BURGERS ESPECIAIS", "r": 69318.36, "i": [{"mp": "HAMBURGUER DE CARNE 150G RECEITA", "q": 1.0, "un": "un"}, {"mp": "REQUEIJAO CREMOSO 1,5KG", "q": 40.0, "un": "g"}, {"mp": "PAO BRIOCHE", "q": 1.0, "un": "un"}, {"mp": "BACON EM CUBOS FRITO RECEITA", "q": 35.0, "un": "g"}, {"mp": "MAIONESE DE CEBOLINHA LEITE RECEITA", "q": 30.0, "un": "g"}, {"mp": "CEBOLA CRISPY RECEITA", "q": 15.0, "un": "g"}]}, {"f": "CHARLES CHAPLIN", "c": "BURGERS ESPECIAIS", "r": 69172.03, "i": [{"mp": "HAMBURGUER DE CARNE 150G RECEITA", "q": 1.0, "un": "un"}, {"mp": "CHEDDAR CREMOSO RECEITA", "q": 50.0, "un": "g"}, {"mp": "PAO BRIOCHE", "q": 1.0, "un": "un"}, {"mp": "CEBOLA GRELHADA RECEITA", "q": 55.0, "un": "g"}, {"mp": "MAIONESE DE CEBOLINHA LEITE RECEITA", "q": 30.0, "un": "g"}]}, {"f": "JAMES BROWN", "c": "BURGERS ESPECIAIS", "r": 68798.62, "i": [{"mp": "HAMBURGUER DE CARNE 150G RECEITA", "q": 1.0, "un": "un"}, {"mp": "PAO BRIOCHE", "q": 1.0, "un": "un"}, {"mp": "BACON EM CUBOS FRITO RECEITA", "q": 35.0, "un": "g"}, {"mp": "CEBOLA GRELHADA RECEITA", "q": 55.0, "un": "g"}, {"mp": "MOZARELA FATIA", "q": 10.0, "un": "g"}, {"mp": "MOLHO BARBECUE 3,5KG", "q": 30.0, "un": "g"}, {"mp": "MAIONESE DE CEBOLINHA LEITE RECEITA", "q": 30.0, "un": "g"}]}, {"f": "PF DE COSTELA BOVINA", "c": "PRATOS DEFUMADOS", "r": 68052.75, "i": [{"mp": "COSTELA E ACEM DESFIADO RECEITA", "q": 130.0, "un": "g"}, {"mp": "VINAGRETE PRATOS RECEITA", "q": 60.0, "un": "g"}, {"mp": "FAROFA RECEITA", "q": 45.0, "un": "g"}, {"mp": "FEIJAO PRATOS RECEITA", "q": 225.0, "un": "g"}, {"mp": "ARROZ PARBOILIZADO RECEITA", "q": 220.0, "un": "g"}]}];
+
+const feitas = JSON.parse(localStorage.getItem('conferidas') || '[]');
+
+function progresso() {
+  document.getElementById('prog').textContent =
+    feitas.length + ' de ' + FICHAS.length + ' fichas conferidas';
+}
+
+const lista = document.getElementById('lista');
+FICHAS.forEach((f, i) => {
+  const div = document.createElement('div');
+  div.className = 'ficha' + (feitas.includes(f.f) ? ' feita' : '');
+  div.innerHTML =
+    '<div class="cab"><div class="nome">' + f.f +
+      '<div class="cls">' + f.c + ' · ' + f.i.length + ' ingredientes</div></div>' +
+      '<span class="ok">' + (feitas.includes(f.f) ? '✓' : '') + '</span></div>' +
+    '<div class="corpo">' +
+      f.i.map((it, j) =>
+        '<div class="ing"><div class="ing-nome">' + it.mp + '</div>' +
+        '<input type="number" step="0.1" min="0" id="q' + i + '_' + j + '" value="' + it.q + '">' +
+        '<span class="un">' + it.un + '</span></div>').join('') +
+      '<input class="obs" id="o' + i + '" placeholder="alguma observação? (opcional)">' +
+      '<button class="enviar" id="b' + i + '">Enviar esta ficha</button>' +
+      '<div class="msg" id="m' + i + '"></div>' +
+    '</div>';
+  lista.appendChild(div);
+
+  div.querySelector('.cab').addEventListener('click', () => div.classList.toggle('aberta'));
+
+  div.querySelector('#b' + i).addEventListener('click', async () => {
+    const btn = div.querySelector('#b' + i);
+    const msg = div.querySelector('#m' + i);
+    btn.disabled = true; msg.className = 'msg'; msg.textContent = 'enviando...';
+    const obs = div.querySelector('#o' + i).value.trim() || null;
+    const corpo = f.i.map((it, j) => ({
+      ficha: f.f,
+      materia_prima: it.mp,
+      qtd_ficha: it.un === 'g' ? it.q / 1000 : it.q,
+      qtd_medida: (() => {
+        const v = Number(div.querySelector('#q' + i + '_' + j).value);
+        return it.un === 'g' ? v / 1000 : v;
+      })(),
+      un: it.un,
+      quem: QUEM,
+      observacao: obs,
+    }));
+    try {
+      const r = await fetch(URL + '/rest/v1/ft_conferencia', {
+        method: 'POST',
+        headers: { apikey: KEY, Authorization: 'Bearer ' + KEY,
+                   'Content-Type': 'application/json', Prefer: 'return=minimal' },
+        body: JSON.stringify(corpo),
+      });
+      if (!r.ok) throw new Error(await r.text());
+      msg.className = 'msg bom'; msg.textContent = 'Enviado, obrigado!';
+      div.classList.add('feita'); div.classList.remove('aberta');
+      div.querySelector('.ok').textContent = '✓';
+      if (!feitas.includes(f.f)) { feitas.push(f.f); localStorage.setItem('conferidas', JSON.stringify(feitas)); }
+      progresso();
+    } catch (e) {
+      msg.className = 'msg ruim';
+      msg.textContent = 'Não consegui enviar. Tente de novo em instantes.';
+      btn.disabled = false;
+    }
+  });
+});
+progresso();
+</script>
+</body>
+</html>
