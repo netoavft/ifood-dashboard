@@ -224,7 +224,15 @@
      aprovacao precisa mostrar o que esta sendo aprovado ali mesmo, senao a
      pessoa le "aprove a distribuicao" e nao tem como saber o que e' (22/08). */
   .plano-det { font-size:12.5px; color:#b9b7ae; margin-top:7px; line-height:1.55;
-    max-width:78ch; white-space:pre-wrap; }
+    max-width:78ch; }
+  .plano-txt { display:block; white-space:pre-wrap; }
+  .plano-tab { border-collapse:collapse; width:100%; margin:9px 0; font-size:12px; }
+  .plano-tab th { text-align:left; padding:5px 9px; color:#8a8a80; font-weight:700;
+    font-size:10.5px; letter-spacing:.6px; text-transform:uppercase;
+    border-bottom:1px solid #45443f; background:#1a1a18; }
+  .plano-tab td { padding:6px 9px; border-bottom:1px solid #2a2a27; vertical-align:top; }
+  .plano-tab tr:last-child td { border-bottom:none; }
+  .plano-tab td:first-child { color:#f2f0e9; font-weight:600; white-space:nowrap; }
   .plano-dep { font-size:11.5px; color:#f5a623; margin-top:5px; }
   /* cabecalho de fase: o "quando" vira sobrancelha e o titulo cresce */
   .plano-fase { margin:26px 0 12px; padding-top:18px; border-top:1px solid #34332f; }
@@ -6416,6 +6424,51 @@ async function planoMarcar(id, estado) {
   renderModuloPlano();
 }
 
+// O detalhe do item aceita TABELA: linha que comeca com "|" vira linha de
+// tabela, e "|---" marca o cabecalho. O resto e' texto, com quebra de linha
+// preservada. Nasceu em 22/08/2026 do item que pede aprovacao da distribuicao
+// dos grupos: em texto corrido eram dez pessoas numa parede de palavras e o
+// Neto disse, com razao, que assim nao se decide.
+function planoDetalhe(texto, esc) {
+  const linhas = String(texto).split('\n');
+  const saida = [];
+  let bloco = [];        // linhas de texto acumuladas
+  let tabela = null;     // {cab: [], linhas: [[]]}
+
+  const fechaTexto = () => {
+    if (bloco.length) { saida.push('<span class="plano-txt">' + esc(bloco.join('\n')) + '</span>'); bloco = []; }
+  };
+  const fechaTabela = () => {
+    if (!tabela) return;
+    const cab = tabela.cab
+      ? '<thead><tr>' + tabela.cab.map(c => '<th>' + esc(c) + '</th>').join('') + '</tr></thead>' : '';
+    const corpo = tabela.linhas
+      .map(l => '<tr>' + l.map(c => '<td>' + esc(c) + '</td>').join('') + '</tr>').join('');
+    saida.push('<table class="plano-tab">' + cab + '<tbody>' + corpo + '</tbody></table>');
+    tabela = null;
+  };
+
+  for (const linha of linhas) {
+    const t = linha.trim();
+    if (t.startsWith('|')) {
+      fechaTexto();
+      const celulas = t.replace(/^\|/, '').replace(/\|$/, '').split('|').map(x => x.trim());
+      if (celulas.every(x => /^-{2,}$/.test(x))) {          // separador: o que veio antes era cabecalho
+        if (tabela && tabela.linhas.length) { tabela.cab = tabela.linhas.shift(); }
+        continue;
+      }
+      if (!tabela) tabela = { cab: null, linhas: [] };
+      tabela.linhas.push(celulas);
+    } else {
+      fechaTabela();
+      bloco.push(linha);
+    }
+  }
+  fechaTabela();
+  fechaTexto();
+  return saida.join('');
+}
+
 function renderModuloPlano() {
   const alvo = document.getElementById('view-plano');
   if (!alvo || PLANO === null) return;
@@ -6447,7 +6500,7 @@ function renderModuloPlano() {
           <span class="plano-quem">${esc(i.quem || '—')}</span>
           ${selo}
         </div>
-        ${i.detalhe ? '<div class="plano-det">' + esc(i.detalhe) + '</div>' : ''}
+        ${i.detalhe ? '<div class="plano-det">' + planoDetalhe(i.detalhe, esc) + '</div>' : ''}
         ${i.dependencia ? '<div class="plano-dep">depende de: ' + esc(i.dependencia) + '</div>' : ''}
         <div class="plano-acoes">${botoes}${quando}</div>
         ${blocoRecados(i, esc, sess)}
