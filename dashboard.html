@@ -5439,6 +5439,7 @@ function renderModuloFrete(linhas) {
 // ======================================================================
 let RATEIO = null;
 let RATEIO_CANAL = 'IFOOD';
+let RATEIO_UNIDADE = 'AGUA VERDE';   // desde 22/08/2026 o rateio existe para as 3 lojas
 let RATEIO_BUSCA = '';
 
 async function entrarRateio() {
@@ -5447,12 +5448,13 @@ async function entrarRateio() {
   if (RATEIO === null) {
     alvo.innerHTML = '<div class="contexto">Carregando o resultado por canal...</div>';
     try {
-      const pct = await consultarTudo('vw_rateio_pct_canal_precificacao?select=*');
+      const U = encodeURIComponent(RATEIO_UNIDADE);
+      const pct = await consultarTudo(`vw_rateio_pct_canal_precificacao?select=*&unidade=eq.${U}`);
       const de = pct.length ? pct[0].de : '2026-01-01';
       const [resumo, linhas, preco, semCriterio] = await Promise.all([
-        consultarTudo('vw_rateio_resumo_canal?select=*&order=mes'),
-        consultarTudo(`mv_rateio_canal_mensal?select=mes,tipo,subtipo,metodo,canal,valor&mes=gte.${de}`),
-        consultarTudo('vw_rateio_preco_alvo?select=produto,classe,canal,custo_ficha,preco_alvo,preco_atual,fonte_preco,qtd_vendida,cmv_pct_atual,margem_atual_real,margem_atual_cheia,sobra_para_custo,ingredientes_sem_custo&preco_atual=not.is.null&order=margem_atual_cheia'),
+        consultarTudo(`vw_rateio_resumo_canal?select=*&unidade=eq.${U}&order=mes`),
+        consultarTudo(`mv_rateio_canal_mensal?select=mes,tipo,subtipo,metodo,canal,valor&unidade=eq.${U}&mes=gte.${de}`),
+        consultarTudo(`vw_rateio_preco_alvo?select=produto,classe,canal,custo_ficha,preco_alvo,preco_atual,fonte_preco,qtd_vendida,cmv_pct_atual,margem_atual_real,margem_atual_cheia,sobra_para_custo,ingredientes_sem_custo&unidade=eq.${U}&preco_atual=not.is.null&order=margem_atual_cheia`),
         // Conta de despesa que apareceu no dinheiro sem criterio decidido — cairia em
         // "por vendas" em silencio (foi assim que a Agencia Oito passou despercebida).
         consultarTudo('vw_rateio_sem_criterio?select=*').catch(() => []),
@@ -5467,6 +5469,12 @@ async function entrarRateio() {
 }
 
 function rateioCanal(c) { RATEIO_CANAL = c; renderModuloRateio(); }
+function rateioUnidade(u) { RATEIO_UNIDADE = u; RATEIO = null; RATEIO_CANAL = 'IFOOD'; entrarRateio(); }
+function rateioBarraUnidades() {
+  const nomes = { 'AGUA VERDE': 'Água Verde', 'AHU': 'Ahú', 'SÃO BRAZ': 'São Braz' };
+  return `<div style="display:flex; gap:8px; margin:0 0 12px;">${Object.keys(nomes).map(u =>
+    `<button onclick="rateioUnidade('${u}')" style="font:inherit; font-size:12.5px; padding:5px 12px; border-radius:999px; cursor:pointer; border:1px solid ${u === RATEIO_UNIDADE ? '#c8102e' : '#34332f'}; background:${u === RATEIO_UNIDADE ? '#c8102e' : '#1a1a19'}; color:#fff;">${nomes[u]}</button>`).join('')}</div>`;
+}
 function rateioBusca(v) { RATEIO_BUSCA = (v || '').toUpperCase(); renderRateioPreco(); }
 
 function renderModuloRateio() {
@@ -5491,7 +5499,7 @@ function renderModuloRateio() {
   });
   const canais = ordem.filter(c => porCanal[c]);
   if (!canais.length) {
-    alvo.innerHTML = '<div class="contexto" style="border-color:#c8102e;">Sem dado de rateio ainda — a materializada é recalculada na rotina das 07:30.</div>';
+    alvo.innerHTML = rateioBarraUnidades() + '<div class="contexto" style="border-color:#c8102e;">Sem dado de rateio ainda para esta loja — a materializada é recalculada na rotina das 07:30.</div>';
     return;
   }
   if (!porCanal[RATEIO_CANAL]) RATEIO_CANAL = canais[0];
@@ -5541,6 +5549,7 @@ function renderModuloRateio() {
 
   alvo.innerHTML = `
     <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Resultado por canal · ${mesNome(de)} a ${mesNome(ate)}</div>
+    ${rateioBarraUnidades()}
     <div class="contexto">Quanto de cada R$ 100 vendidos vai para <b>operar o canal</b> — entrega, taxas, folha, aluguel, impostos — <b>sem a matéria-prima</b> (ela entra pela ficha técnica). Leitura <b>cheia</b> considera a comissão do iFood de 9,5% que o benefício dos R$ 500 mil zera até dez/26–jan/27; é por ela que se precifica. Clique no canal para ver onde vai o dinheiro. O <b>pró-labore dos sócios fica fora</b> (decisão de 22/08/2026): é remuneração fixa, não muda com o resultado nem com o canal — sai da sobra, depois do resultado operacional.${canais.some(c => porCanal[c].provisorio) ? ' <span style="color:#a5a49a;">Parte da folha ainda cai na proporção geral (nomes sem setor).</span>' : ''}</div>
     ${(RATEIO.semCriterio || []).length ? `<div class="contexto" style="border-color:#c8102e;"><b>Conta nova sem critério de rateio</b> — está caindo em "por vendas" sem ninguém ter decidido: ${RATEIO.semCriterio.map(r => `${String(r.subtipo).toLowerCase()} (${reais(r.valor_3m)} em 3 meses)`).join(' · ')}. Decidir em rateio_criterios.</div>` : ''}
     <div class="cards">${cards}</div>
