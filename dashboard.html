@@ -5451,7 +5451,7 @@ async function entrarRateio() {
       const [resumo, linhas, preco] = await Promise.all([
         consultarTudo('vw_rateio_resumo_canal?select=*&order=mes'),
         consultarTudo(`mv_rateio_canal_mensal?select=mes,tipo,subtipo,metodo,canal,valor&mes=gte.${de}`),
-        consultarTudo('vw_rateio_preco_alvo?select=produto,classe,canal,custo_ficha,preco_alvo,preco_atual,cmv_pct_atual,margem_atual_real,margem_atual_cheia,sobra_para_custo,ingredientes_sem_custo&preco_atual=not.is.null&order=margem_atual_cheia'),
+        consultarTudo('vw_rateio_preco_alvo?select=produto,classe,canal,custo_ficha,preco_alvo,preco_atual,fonte_preco,qtd_vendida,cmv_pct_atual,margem_atual_real,margem_atual_cheia,sobra_para_custo,ingredientes_sem_custo&preco_atual=not.is.null&order=margem_atual_cheia'),
       ]);
       RATEIO = { pct, resumo, linhas, preco };
     } catch (e) {
@@ -5526,10 +5526,12 @@ function renderModuloRateio() {
   };
   const benefTr = x.beneficio > 0.5 ? `<tr><td>comissão do iFood que volta quando o benefício acabar</td><td style="color:#8a897e;">9,5% da venda − comissão real</td><td>${reais(x.beneficio)}</td><td>${pc(x.beneficio / x.receita)}</td></tr>` : '';
 
-  const precoBloco = RATEIO_CANAL === 'IFOOD' ? `
-    <div class="section-label">Preço alvo no iFood — com a comissão cheia e 10% de lucro</div>
-    <div class="contexto">Sobram <b>${pc(Number(pctMap['IFOOD'] ? 1 - pctMap['IFOOD'].pct_cheia - 0.078 - 0.10 : 0))}</b> do preço para o ingrediente (embalagem já está na ficha).
-      Margem abaixo de 10% fica âmbar; negativa, vermelha. Preço atual vem da planilha de preços do iFood.
+  const temPreco = RATEIO.preco.some(r => r.canal === RATEIO_CANAL);
+  const sobraRef = RATEIO.preco.find(r => r.canal === RATEIO_CANAL);
+  const precoBloco = temPreco ? `
+    <div class="section-label">Preço alvo · ${nome[RATEIO_CANAL] || RATEIO_CANAL} — com a comissão cheia e 10% de lucro</div>
+    <div class="contexto">Sobram <b>${pc(sobraRef ? sobraRef.sobra_para_custo : 0)}</b> do preço para o ingrediente (embalagem já está na ficha).
+      Margem abaixo de 10% fica âmbar; negativa, vermelha. Preço atual = preço médio praticado no Saipos neste canal nos 3 meses (a planilha do iFood só entra quando não houve venda).
       <input type="text" placeholder="buscar produto" oninput="rateioBusca(this.value)" value="${RATEIO_BUSCA}" style="margin-left:12px; background:#111110; color:#fff; border:1px solid #34332f; border-radius:6px; padding:4px 8px;"></div>
     <div id="tabelaRateioPreco"></div>` : '';
 
@@ -5549,7 +5551,7 @@ function renderModuloRateio() {
         <tr><td colspan="2" style="color:#ffffff; font-weight:700;">Sobra para ingrediente + lucro (cheia)</td><td style="font-weight:700;">${reais(x.receita - x.direto - x.rateado - x.beneficio)}</td><td style="font-weight:700;">${x.receita ? pc((x.receita - x.direto - x.rateado - x.beneficio) / x.receita) : '—'}</td></tr>
       </tbody></table></div>
     ${precoBloco}`;
-  if (RATEIO_CANAL === 'IFOOD') renderRateioPreco();
+  if (temPreco) renderRateioPreco();
 }
 
 function renderRateioPreco() {
@@ -5557,13 +5559,14 @@ function renderRateioPreco() {
   if (!el || !RATEIO) return;
   const reais = (v) => v == null ? '—' : 'R$ ' + fmt(Number(v));
   const pc = (v) => v == null ? '—' : (100 * Number(v)).toFixed(1).replace('.', ',') + '%';
-  let ls = RATEIO.preco.filter(r => r.canal === 'IFOOD');
+  let ls = RATEIO.preco.filter(r => r.canal === RATEIO_CANAL);
   if (RATEIO_BUSCA) ls = ls.filter(r => (r.produto || '').toUpperCase().includes(RATEIO_BUSCA));
   const cor = (m) => m == null ? '' : (m < 0 ? 'color:#e0523f;' : (m < 0.10 ? 'color:#d9a21b;' : ''));
   el.innerHTML = `<table>
-    <thead><tr><th>produto</th><th>custo ficha</th><th>preço atual</th><th>CMV</th><th>margem real</th><th>margem cheia</th><th>preço p/ 10%</th></tr></thead>
+    <thead><tr><th>produto</th><th>vendidos</th><th>custo ficha</th><th>preço atual</th><th>CMV</th><th>margem real</th><th>margem cheia</th><th>preço p/ 10%</th></tr></thead>
     <tbody>${ls.slice(0, 300).map(r => `<tr>
       <td>${r.produto.toLowerCase()}${Number(r.ingredientes_sem_custo) > 0 ? ' <span class="ficha-tag">ficha incompleta</span>' : ''}</td>
+      <td>${r.qtd_vendida != null ? Number(r.qtd_vendida).toLocaleString('pt-BR', {maximumFractionDigits:0}) : '<span style="color:#8a897e;">planilha</span>'}</td>
       <td>${reais(r.custo_ficha)}</td><td>${reais(r.preco_atual)}</td><td>${pc(r.cmv_pct_atual)}</td>
       <td style="${cor(r.margem_atual_real)}">${pc(r.margem_atual_real)}</td>
       <td style="${cor(r.margem_atual_cheia)}">${pc(r.margem_atual_cheia)}</td>
