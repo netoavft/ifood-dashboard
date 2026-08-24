@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex"><title>Conferir custos — Cidadão do Mundo</title>
+<style>
+body { background:#111110; color:#fff; font-family:'Segoe UI',system-ui,sans-serif; margin:0; padding:16px; font-size:15px; }
+.marca { color:#c8102e; font-weight:800; letter-spacing:.1em; font-size:12px; }
+h1 { font-size:22px; margin:4px 0 2px; }
+.sub { color:#a5a49a; font-size:14px; margin-bottom:14px; }
+.ajuda { background:#1a1a19; border-left:3px solid #e8b04b; border-radius:8px; padding:12px 14px; font-size:13px; color:#c9c5b8; margin-bottom:16px; }
+.prog { color:#a5a49a; font-size:13px; margin-bottom:10px; }
+.item { background:#1a1a19; border:1px solid #34332f; border-radius:12px; margin-bottom:10px; }
+.item.feito { opacity:.55; }
+.cab { padding:12px 14px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; }
+.nome { font-weight:700; }
+.det { color:#a5a49a; font-size:12.5px; margin-top:2px; }
+.ok { color:#3fb950; font-size:18px; }
+.corpo { display:none; padding:0 14px 14px; }
+.item.aberto .corpo { display:block; }
+.linha { display:flex; align-items:center; gap:8px; margin:8px 0; }
+.linha label { flex:1; color:#c9c5b8; font-size:13px; }
+input[type=number], input[type=text] { background:#111110; color:#fff; border:1px solid #34332f; border-radius:8px; padding:10px; font-size:16px; width:130px; text-align:right; }
+input.obs { width:100%; text-align:left; box-sizing:border-box; }
+button { background:#c8102e; color:#fff; border:0; border-radius:10px; padding:12px; font-size:15px; font-weight:700; width:100%; margin-top:8px; }
+button:disabled { opacity:.5; }
+.msg { font-size:13px; margin-top:8px; text-align:center; min-height:18px; }
+.msg.bom { color:#3fb950; } .msg.ruim { color:#ff6b6b; }
+</style></head><body>
+<div class="marca">CIDADÃO DO MUNDO</div>
+<h1>Conferir custos de compra</h1>
+<div class="sub">Oi, Rita! Estes são os insumos que mais pesam no custo, com o preço que está cadastrado hoje.</div>
+<div class="ajuda"><b>Como funciona:</b> toque num item para abrir. Confira com a última nota/compra:
+se o preço estiver certo, só toque em confirmar. Se mudou, corrija o valor (e o fornecedor, se trocou) e envie.
+O preço é o da <b>unidade de compra</b> indicada (caixa, pacote, kg...). Pode fazer aos poucos.</div>
+<div class="prog" id="prog"></div><div id="lista"></div>
+<script>
+const URL = "https://rtmgzsikwglsvpopbfbw.supabase.co";
+const KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ0bWd6c2lrd2dsc3Zwb3BiZmJ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU4NDgwMjcsImV4cCI6MjEwMTQyNDAyN30.-vwbQkcuAbbonmBVCeUWXjTg54uB5MNN94QmMlBxTA4";
+const QUEM = "Rita";
+const ITENS = [{"i": "PAO BRIOCHE", "unc": "UN", "qtd": 1.0, "preco": 1.33, "unu": "UN", "forn": "BOSS BAKKER", "imp": 32875.0}, {"i": "CASTANHA DE CAJU KG", "unc": "CX", "qtd": 10.0, "preco": 640.0, "unu": "KG", "forn": "CAJA/ MAIS GRAOS/PURO SABOR", "imp": 13373.0}, {"i": "CHOPP PILSEN BRAHMA", "unc": "LT", "qtd": 1.0, "preco": 13.4, "unu": "LT", "forn": "AMBEV", "imp": 8506.0}, {"i": "CHOPP MUTUM CAVALO IGNORUS", "unc": "LT", "qtd": 1.0, "preco": 21.26, "unu": "LT", "forn": "IGNORUS", "imp": 6450.0}, {"i": "PEPSI BLACK LATA 350ML", "unc": "CX", "qtd": 12.0, "preco": 25.2, "unu": "UN", "forn": "AMBEV", "imp": 5891.0}, {"i": "MOZARELA FATIA", "unc": "PCT", "qtd": 2.0, "preco": 63.0, "unu": "KG", "forn": "DELA VITA", "imp": 5780.0}, {"i": "PEPSI LATA 350ML", "unc": "CX", "qtd": 12.0, "preco": 31.2, "unu": "UN", "forn": "AMBEV", "imp": 5611.0}, {"i": "BROWNIE HELLEN", "unc": "UN", "qtd": 1.0, "preco": 6.0, "unu": "UN", "forn": "AMANDA", "imp": 5574.0}, {"i": "GUARANA ANTARTICA ZERO LATA 350ML", "unc": "UN", "qtd": 1.0, "preco": 2.22, "unu": "UN", "forn": "AMBEV", "imp": 5228.0}, {"i": "GUARANA ANTARTICA LATA 350ML", "unc": "UN", "qtd": 1.0, "preco": 1.88, "unu": "UN", "forn": "AMBEV", "imp": 4850.0}, {"i": "TORTA ALEMA", "unc": "UN", "qtd": 1.0, "preco": 9.0, "unu": "KG", "forn": "AMANDA", "imp": 3929.0}, {"i": "SORVETE DE CREME 10L", "unc": "CX", "qtd": 5.0, "preco": 206.36, "unu": "KG", "forn": "VENETO", "imp": 3745.0}, {"i": "CHOPP TROOPER BODEBROWN", "unc": "LT", "qtd": 1.0, "preco": 17.5, "unu": "LT", "forn": "BODEBROWN", "imp": 3735.0}, {"i": "PAO DE GERGELIM", "unc": "UN", "qtd": 1.0, "preco": 1.29, "unu": "UN", "forn": "DE MARCHI", "imp": 3727.0}, {"i": "ISCAS DE TILAPIA", "unc": "PC", "qtd": 0.3, "preco": 16.85, "unu": "KG", "forn": "COPACOL", "imp": 3707.0}, {"i": "REQUEIJAO CREMOSO 1,5KG", "unc": "BG", "qtd": 1.5, "preco": 52.6, "unu": "KG", "forn": "LACFRIOS", "imp": 3081.0}, {"i": "PEPINO AGRIDOCE", "unc": "BD", "qtd": 3.0, "preco": 97.0, "unu": "KG", "forn": "FALCON", "imp": 2904.0}, {"i": "MOLHO BARBECUE 3,5KG", "unc": "GL", "qtd": 3.5, "preco": 29.99, "unu": "KG", "forn": "LACFRIOS", "imp": 2651.0}, {"i": "CHEDDAR EM FATIAS 2,27KG", "unc": "PCT", "qtd": 2.27, "preco": 75.65, "unu": "KG", "forn": "BEM MAIS", "imp": 2533.0}, {"i": "CHOPP AVELA PORTER WAY BEER", "unc": "LT", "qtd": 1.0, "preco": 16.9, "unu": "LT", "forn": "WAY BIER", "imp": 2532.0}, {"i": "BATATA PALHA 1KG", "unc": "KG", "qtd": 1.0, "preco": 23.83, "unu": "KG", "forn": "GOLD/GRANFOOD/MEGA", "imp": 2420.0}, {"i": "GUARANA ANTARCTICA 2L", "unc": "UN", "qtd": 1.0, "preco": 7.46, "unu": "UN", "forn": "AMBEV", "imp": 2283.0}, {"i": "GORGONZOLA", "unc": "KG", "qtd": 1.0, "preco": 51.32, "unu": "KG", "forn": "LACFRIOS", "imp": 2097.0}, {"i": "MAIONESE VEGANA", "unc": "PT", "qtd": 0.45, "preco": 15.99, "unu": "KG", "forn": "MELI", "imp": 2017.0}, {"i": "PAO UFO BURGER", "unc": "UN", "qtd": 1.0, "preco": 2.5, "unu": "UN", "forn": "RIBEIRO E DIAS", "imp": 1703.0}, {"i": "CHOPP PILSEN BIRD BEER", "unc": "LT", "qtd": 1.0, "preco": 6.55, "unu": "LT", "forn": "BIRD BEER", "imp": 1686.0}, {"i": "CHOPP CURITIPA BIRD BEER", "unc": "LT", "qtd": 1.0, "preco": 12.15, "unu": "LT", "forn": "BIRD BEER", "imp": 1613.0}, {"i": "MORANGO CONGELADO 100G", "unc": "KG", "qtd": 1.0, "preco": 10.69, "unu": "KG", "forn": "BEM MAIS", "imp": 1506.0}, {"i": "TOMATE", "unc": "KG", "qtd": 1.0, "preco": 7.9, "unu": "KG", "forn": "AV HORTIFRUTI", "imp": 1391.0}, {"i": "PET GROWLER 1L", "unc": "CX", "qtd": 75.0, "preco": 286.5, "unu": "UN", "forn": "4S", "imp": 1280.0}, {"i": "PEPSI BLACK 2L", "unc": "CX", "qtd": 6.0, "preco": 33.16, "unu": "UN", "forn": "AMBEV", "imp": 1161.0}, {"i": "OVO", "unc": "BDJ", "qtd": 30.0, "preco": 19.9, "unu": "UN", "forn": "AV HORTIFRUTI", "imp": 1150.0}, {"i": "AGUA COM GAS 500ML", "unc": "UN", "qtd": 1.0, "preco": 1.21, "unu": "UN", "forn": "AMBEV", "imp": 1035.0}, {"i": "PEPSI 2 L", "unc": "CX", "qtd": 6.0, "preco": 33.16, "unu": "UN", "forn": "AMBEV", "imp": 1033.0}, {"i": "SORVETE CHOCOLATE BELGA 10L", "unc": "CX", "qtd": 5.0, "preco": 206.36, "unu": "KG", "forn": "VENETO", "imp": 972.0}, {"i": "GELEIA DE ABACAXI COM PIMENTA", "unc": "PT", "qtd": 0.32, "preco": 14.54, "unu": "KG", "forn": "YUCHEN", "imp": 915.0}, {"i": "XAROPE MONIN MACA VERDE 700ML", "unc": "GF", "qtd": 0.7, "preco": 45.9, "unu": "LT", "forn": "FANNY", "imp": 875.0}, {"i": "LINGUICA TOSCANA", "unc": "KG", "qtd": 1.0, "preco": 20.98, "unu": "KG", "forn": "SEGALAS", "imp": 831.0}, {"i": "PIMENTA JALAPENO 2KG DRENADO", "unc": "PT", "qtd": 2.0, "preco": 149.0, "unu": "KG", "forn": "BULLET PEPPER", "imp": 788.0}, {"i": "SORVETE DE MORANGO 10L", "unc": "CX", "qtd": 5.0, "preco": 206.36, "unu": "KG", "forn": "VENETO", "imp": 784.0}, {"i": "GELEIA DE PIMENTA", "unc": "BD", "qtd": 2.0, "preco": 68.0, "unu": "KG", "forn": "YUCHEN", "imp": 605.0}, {"i": "ALFACE AMERICANA", "unc": "UN", "qtd": 0.6, "preco": 3.3, "unu": "KG", "forn": "AV HORTIFRUTI", "imp": 568.0}, {"i": "XAROPE MONIN CRANBERRY 700ML", "unc": "GF", "qtd": 0.7, "preco": 45.9, "unu": "LT", "forn": "FANNY", "imp": 534.0}, {"i": "CATCHUP BACON COM CEBOLA", "unc": "GL", "qtd": 0.397, "preco": 12.18, "unu": "KG", "forn": "GOLD/GRANFOOD/MEGA", "imp": 463.0}, {"i": "ARROZ PARBOILIZADO 5KG", "unc": "PCT", "qtd": 5.0, "preco": 22.17, "unu": "KG", "forn": "GOLD/GRANFOOD/MEGA", "imp": 452.0}];
+const feitos = JSON.parse(localStorage.getItem('custosConferidos') || '[]');
+function progresso(){ document.getElementById('prog').textContent = feitos.length + ' de ' + ITENS.length + ' itens conferidos'; }
+const lista = document.getElementById('lista');
+ITENS.forEach((t, i) => {
+  const div = document.createElement('div');
+  div.className = 'item' + (feitos.includes(t.i) ? ' feito' : '');
+  div.innerHTML = '<div class="cab"><div><div class="nome">' + t.i + '</div>' +
+    '<div class="det">' + (t.forn || 'fornecedor não cadastrado') + ' · compra por ' + t.unc + (t.qtd && t.qtd !== 1 ? ' (rende ' + t.qtd + ' ' + t.unu + ')' : '') + '</div></div>' +
+    '<span class="ok">' + (feitos.includes(t.i) ? '✓' : '') + '</span></div>' +
+    '<div class="corpo">' +
+    '<div class="linha"><label>Preço cadastrado (por ' + t.unc + ')</label><input type="number" step="0.01" min="0" id="p' + i + '" value="' + t.preco.toFixed(2) + '"></div>' +
+    '<div class="linha"><label>Fornecedor mudou? escreva o novo</label><input type="text" id="f' + i + '" placeholder="' + (t.forn || '') + '"></div>' +
+    '<input class="obs" id="o' + i + '" placeholder="alguma observação? (opcional)">' +
+    '<button id="b' + i + '">Confirmar este item</button><div class="msg" id="m' + i + '"></div></div>';
+  lista.appendChild(div);
+  div.querySelector('.cab').addEventListener('click', () => div.classList.toggle('aberto'));
+  div.querySelector('#b' + i).addEventListener('click', async () => {
+    const btn = div.querySelector('#b' + i), msg = div.querySelector('#m' + i);
+    btn.disabled = true; msg.className='msg'; msg.textContent='enviando...';
+    const corpo = [{ insumo: t.i, un_compra: t.unc, qtd_un_compra: t.qtd,
+      preco_cadastrado: t.preco, preco_informado: Number(div.querySelector('#p' + i).value),
+      fornecedor_informado: div.querySelector('#f' + i).value.trim() || null,
+      quem: QUEM, observacao: div.querySelector('#o' + i).value.trim() || null }];
+    try {
+      const r = await fetch(URL + '/rest/v1/ft_conferencia_custo', { method:'POST',
+        headers:{ apikey:KEY, Authorization:'Bearer '+KEY, 'Content-Type':'application/json', Prefer:'return=minimal' },
+        body: JSON.stringify(corpo) });
+      if (!r.ok) throw new Error(await r.text());
+      msg.className='msg bom'; msg.textContent='Enviado, obrigada!';
+      div.classList.add('feito'); div.classList.remove('aberto'); div.querySelector('.ok').textContent='✓';
+      if (!feitos.includes(t.i)) { feitos.push(t.i); localStorage.setItem('custosConferidos', JSON.stringify(feitos)); }
+      progresso();
+    } catch(e) { msg.className='msg ruim'; msg.textContent='Não consegui enviar. Tente de novo.'; btn.disabled=false; }
+  });
+});
+progresso();
+</script></body></html>
