@@ -7611,6 +7611,8 @@ function renderModuloListas() {
 // Login = MESMA sessao Supabase Auth do modulo Reembolsos (rmbSessao):
 // uma senha so para os dois modulos. O papel vem do proprio banco via
 // rpc tr_meu_papel()/tr_minha_unidade() — a UI nunca decide papel.
+// 24/08/2026: o ciclo ganhou o FECHAMENTO DO MES (a lista nao vira mais
+// cobranca sozinha) e o papel FINANCEIRO (Hellen), que so ve contas a pagar.
 // ------------------------------------------------------------------
 let TR_OP = null;        // { papel, unidade } do usuario logado
 let trTela = null;       // tela ativa da operacao
@@ -7684,7 +7686,7 @@ async function entrarOperacaoListas() {
     }
     TR_OP = { papel: await rp.json(), unidade: ru.ok ? await ru.json() : null };
   }
-  if (!trTela) trTela = TR_OP.papel === 'SEPARACAO' ? 'separacao' : TR_OP.papel === 'FILIAL' ? 'pedido' : 'separacao';
+  if (!trTela) trTela = { SEPARACAO: 'separacao', FILIAL: 'pedido', FINANCEIRO: 'contas' }[TR_OP.papel] || 'separacao';
   trRenderOperacao();
 }
 
@@ -7696,6 +7698,7 @@ function trRenderOperacao() {
   if (papel === 'FILIAL' || papel === 'DONO') telas.push(['pedido', '📝 Novo pedido']);
   if (papel === 'SEPARACAO' || papel === 'DONO') telas.push(['separacao', '📦 Fila de separação']);
   if (papel === 'FILIAL' || papel === 'DONO') telas.push(['conferencia', '✅ Conferência']);
+  if (papel === 'SEPARACAO' || papel === 'DONO') telas.push(['fechamento', '🧾 Fechamento do mês']);
   telas.push(['contas', '💳 Contas a pagar']);
   telas.push(['cmv', '📈 CMV semanal']);
   alvo.innerHTML = `
@@ -7706,7 +7709,7 @@ function trRenderOperacao() {
     </div>
     <div id="trTelaConteudo"><div class="contexto">Carregando...</div></div>`;
   ({ pedido: trTelaPedido, separacao: trTelaSeparacao, conferencia: trTelaConferencia,
-     contas: trTelaContas, cmv: trTelaCmv }[trTela])();
+     fechamento: trTelaFechamento, contas: trTelaContas, cmv: trTelaCmv }[trTela])();
 }
 function trTelaSet(t) { trTela = t; trListaAberta = null; trRenderOperacao(); }
 
@@ -7895,9 +7898,10 @@ async function trFecharConferencia(id) {
   const rd = await trFetch(`vw_tr_divergencias?id_lista=eq.${id}`);
   const divs = rd.ok ? await rd.json() : [];
   msg.style.color = '#3fb950';
-  msg.textContent = divs.length
+  msg.textContent = (divs.length
     ? `Fechada com ${divs.length} diferença(s): ` + divs.slice(0, 4).map(d => `${d.item} (${d.diferenca > 0 ? 'sobrou' : 'faltou'} ${Math.abs(d.diferenca)})`).join(' · ')
-    : 'Fechada — recebimento bateu 100% com a separação. ✔';
+    : 'Fechada — recebimento bateu 100% com a separação. ✔')
+    + ' A cobrança não sai agora: entra no fechamento do mês.';
   trListaAberta = null;
   setTimeout(trTelaConferencia, 4000);
 }
@@ -7912,12 +7916,11 @@ async function trTelaContas() {
   const dono = TR_OP.papel === 'DONO';
   const abertas = contas.filter(c => c.status !== 'PAGA');
   alvo.innerHTML = `
-    ${dono ? `<div class="caption-label">Fechar o mês do Boqueirão:
-      <input type="month" id="trMesBoq" style="background:#232321; border:1px solid #34332f; border-radius:6px; color:#fff; padding:4px 6px;">
-      <button class="preset-btn" onclick="trFecharMesBoq()">fechar mês</button>
-      <span id="trContasMsg" style="font-size:12px; margin-left:6px;"></span></div>` : '<span id="trContasMsg"></span>'}
+    <div class="caption-label">Só entra aqui o fechamento que a Rita já validou.
+      ${TR_OP.papel === 'SEPARACAO' || dono ? 'O que está esperando validação fica em <b>Fechamento do mês</b>.' : ''}
+      <span id="trContasMsg" style="font-size:12px; margin-left:6px;"></span></div>
     <div id="tabelaTrOpContas"><table>
-      <tr><th>Filial</th><th>Tipo</th><th>Referência</th><th>Itens</th><th>Frete</th><th>Royalty</th><th>Total</th><th>Vencimento</th><th>Status</th>${dono ? '<th></th>' : ''}</tr>
+      <tr><th>Filial</th><th>Tipo</th><th>Referência</th><th>Itens</th><th>Frete</th><th>Royalty</th><th>Total</th><th>Vencimento</th><th>Status</th><th>Validou</th>${dono ? '<th></th>' : ''}</tr>
       ${contas.map(c => `<tr>
         <td>${c.unidade}</td><td>${c.tipo}</td>
         <td>${c.id_lista ? 'lista #' + c.id_lista : (c.mes_referencia || '').slice(0, 7)}</td>
@@ -7925,9 +7928,10 @@ async function trTelaContas() {
         <td>${Number(c.royalty) ? fmt(-Number(c.royalty)) : '—'}</td><td><b>${fmt(-Number(c.valor_total || 0))}</b></td>
         <td${c.vencida && c.status !== 'PAGA' ? ' style="color:#ff6b6b; font-weight:bold;"' : ''}>${c.vencimento ? c.vencimento.slice(8,10)+'/'+c.vencimento.slice(5,7) : '—'}${c.vencida && c.status !== 'PAGA' ? ' VENCIDA' : ''}</td>
         <td>${c.status}${c.pago_em ? ' em ' + c.pago_em.slice(8,10)+'/'+c.pago_em.slice(5,7) : ''}</td>
+        <td>${c.validado_por ? c.validado_por + (c.validado_em ? ' em ' + c.validado_em.slice(8,10)+'/'+c.validado_em.slice(5,7) : '') : '—'}</td>
         ${dono ? `<td>${c.status !== 'PAGA' ? `<button class="preset-btn" onclick="trBaixar(${c.id})">baixar (pago hoje)</button>` : ''}</td>` : ''}</tr>`).join('')}
       <tr class="liq"><td>TOTAL EM ABERTO</td><td></td><td>${abertas.length} cobrança(s)</td><td></td><td></td><td></td>
-        <td><b>${fmt(-abertas.reduce((s, c) => s + Number(c.valor_total || 0), 0))}</b></td><td></td><td></td>${dono ? '<td></td>' : ''}</tr>
+        <td><b>${fmt(-abertas.reduce((s, c) => s + Number(c.valor_total || 0), 0))}</b></td><td></td><td></td><td></td>${dono ? '<td></td>' : ''}</tr>
     </table></div>`;
 }
 async function trBaixar(id) {
@@ -7937,14 +7941,78 @@ async function trBaixar(id) {
   msg.textContent = 'Baixada.'; msg.style.color = '#3fb950';
   trTelaContas();
 }
-async function trFecharMesBoq() {
-  const msg = document.getElementById('trContasMsg');
-  const m = document.getElementById('trMesBoq').value;
-  if (!m) { msg.textContent = 'Escolha o mês.'; msg.style.color = '#f5a623'; return; }
-  const r = await trRpc('tr_fechar_mes_boqueirao', { p_mes: m + '-01' });
+// ---- tela: fechamento do mes (SEPARACAO = Rita, e DONO) ----
+// Mudou em 22/08/2026: a lista conferida NAO vira mais cobranca sozinha. As
+// listas do mes fecham num documento so por unidade, no inicio do mes seguinte,
+// e ele nasce EM VALIDACAO — a Rita confere o consolidado e valida; so entao
+// vira conta a pagar na mesa da Hellen. Vencimento: dia 5 para AHU/SÃO BRAZ
+// (vespera da folha da AV) e dia 20 para o Boqueirao, pela regra da unidade.
+async function trTelaFechamento() {
+  const alvo = document.getElementById('trTelaConteudo');
+  const [rv, ru] = await Promise.all([
+    trFetch('vw_tr_fechamento_validar?order=unidade'),
+    trFetch('tr_regras_unidade?select=unidade,dia_pagamento&order=unidade'),
+  ]);
+  if (!rv.ok) { alvo.innerHTML = `<div class="contexto" style="border-color:#ff6b6b;">${await trErroDe(rv)}</div>`; return; }
+  const esperando = await rv.json();
+  const regras = ru.ok ? await ru.json() : [];
+  const mesPassado = (() => { const h = trHoje(); const d = new Date(h.slice(0,4), Number(h.slice(5,7)) - 1, 1);
+    d.setMonth(d.getMonth() - 1); return d.toISOString().slice(0, 7); })();
+
+  alvo.innerHTML = `
+    <div class="contexto" style="max-width:620px;">
+      <b>Fechar o mês de uma filial</b> — só fecha se todas as listas do mês estiverem conferidas item a item.
+      <div style="margin-top:8px;">
+        <select id="trFechUn" style="background:#232321; border:1px solid #34332f; border-radius:6px; color:#fff; padding:5px 8px;">
+          ${regras.map(g => `<option value="${g.unidade}">${g.unidade} — vence dia ${g.dia_pagamento || '?'}</option>`).join('')}
+        </select>
+        <input type="month" id="trFechMes" value="${mesPassado}" style="background:#232321; border:1px solid #34332f; border-radius:6px; color:#fff; padding:4px 6px; margin-left:6px;">
+        <button class="preset-btn" onclick="trFecharMes()">fechar mês</button>
+      </div>
+      <div id="trFechMsg" style="font-size:12px; margin-top:8px;"></div>
+    </div>
+
+    <div class="section-label">Esperando validação</div>
+    ${!esperando.length ? '<div class="contexto">Nada esperando. Todo mês fechado já virou conta a pagar.</div>' : `
+    <div class="caption-label">Confira o total e as diferenças antes de validar. Depois de validado vira conta a pagar
+      e aparece para a Hellen — a regra atual cobra o que <b>saiu</b> da Água Verde; diferença é acerto do dono.</div>
+    <div id="tabelaTrFech"><table>
+      <tr><th>Filial</th><th>Mês</th><th>Listas</th><th>Itens</th><th>Frete</th><th>Royalty</th><th>Total</th><th>Vence</th><th>Diferenças</th><th></th></tr>
+      ${esperando.map(f => `<tr>
+        <td>${f.unidade}</td><td>${(f.mes_referencia || '').slice(0, 7)}</td>
+        <td>${f.qtd_listas} lista(s)<br><span style="color:#8a897e; font-size:11px;">${f.itens} itens</span></td>
+        <td>${fmt(-Number(f.valor_itens || 0))}</td>
+        <td>${Number(f.frete) ? fmt(-Number(f.frete)) : '—'}</td>
+        <td>${Number(f.royalty) ? fmt(-Number(f.royalty)) : '—'}</td>
+        <td><b>${fmt(-Number(f.valor_total || 0))}</b></td>
+        <td>${f.vencimento ? f.vencimento.slice(8,10)+'/'+f.vencimento.slice(5,7) : '—'}</td>
+        <td${Number(f.itens_divergentes) ? ' style="color:#f5a623;"' : ''}>${Number(f.itens_divergentes)
+            ? f.itens_divergentes + ' item(ns) · ' + fmt(Number(f.valor_divergencia || 0))
+            : 'bateu 100%'}</td>
+        <td><button class="preset-btn" onclick="trValidarFechamento(${f.id})">validar</button></td></tr>`).join('')}
+    </table></div>`}`;
+}
+
+async function trFecharMes() {
+  const msg = document.getElementById('trFechMsg');
+  const un = document.getElementById('trFechUn').value;
+  const m = document.getElementById('trFechMes').value;
+  if (!un || !m) { msg.textContent = 'Escolha a filial e o mês.'; msg.style.color = '#f5a623'; return; }
+  msg.textContent = 'Fechando...'; msg.style.color = '#8a897e';
+  const r = await trRpc('tr_fechar_mes', { p_unidade: un, p_mes: m + '-01' });
   if (!r.ok) { msg.textContent = 'Não deu: ' + await trErroDe(r); msg.style.color = '#ff6b6b'; return; }
-  msg.textContent = 'Mês fechado — a cobrança mensal nasceu.'; msg.style.color = '#3fb950';
-  trTelaContas();
+  msg.textContent = 'Mês fechado — agora confira abaixo e valide para virar conta a pagar.';
+  msg.style.color = '#3fb950';
+  setTimeout(trTelaFechamento, 1200);
+}
+
+async function trValidarFechamento(id) {
+  const msg = document.getElementById('trFechMsg');
+  msg.textContent = 'Validando...'; msg.style.color = '#8a897e';
+  const r = await trRpc('tr_validar_fechamento', { p_id: id });
+  if (!r.ok) { msg.textContent = 'Não deu: ' + await trErroDe(r); msg.style.color = '#ff6b6b'; return; }
+  msg.textContent = 'Validado — já está em Contas a pagar.'; msg.style.color = '#3fb950';
+  setTimeout(trTelaFechamento, 1200);
 }
 
 // ---- tela: CMV semanal ----
