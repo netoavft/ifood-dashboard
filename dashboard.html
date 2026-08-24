@@ -233,6 +233,26 @@
   .plano-tab td { padding:6px 9px; border-bottom:1px solid #2a2a27; vertical-align:top; }
   .plano-tab tr:last-child td { border-bottom:none; }
   .plano-tab td:first-child { color:#f2f0e9; font-weight:600; white-space:nowrap; }
+  /* aprovacao linha a linha: quem le a distribuicao aprova ali mesmo, e quando
+     discorda escreve a mudanca na propria linha — sem ter que descrever de novo
+     de qual linha esta falando (pedido do Neto, 24/08). */
+  .plano-tab td.plano-apr { white-space:normal; vertical-align:middle; }
+  .plano-apr-bts { display:flex; gap:5px; }
+  .plano-apr-bt { font-size:11px; padding:2px 9px; border-radius:999px; cursor:pointer;
+    background:transparent; color:#8a8a80; border:1px solid #45443f; white-space:nowrap; }
+  .plano-apr-bt:hover { border-color:#8a8a80; }
+  .plano-apr-bt.ok  { color:#3fb950; border-color:#3fb950; font-weight:700; }
+  .plano-apr-bt.mud { color:#f5a623; border-color:#f5a623; font-weight:700; }
+  .plano-apr textarea { width:100%; min-width:150px; box-sizing:border-box; resize:vertical;
+    background:#0f0f0e; color:#e8e6df; border:1px solid #45443f; border-radius:6px;
+    padding:5px 7px; font:inherit; font-size:11.5px; line-height:1.45; }
+  .plano-apr textarea:focus { outline:none; border-color:#f5a623; }
+  .plano-apr-carimbo { font-size:10.5px; color:#6f6e68; margin-top:3px; }
+  .plano-apr-vazio { font-size:11px; color:#6f6e68; }
+  .plano-apr-solta { display:flex; align-items:flex-start; gap:10px; flex-wrap:wrap;
+    padding:7px 0; border-bottom:1px solid #2a2a27; }
+  .plano-apr-solta > b { font-size:12px; color:#f2f0e9; min-width:150px; }
+  .plano-apr-solta > div { flex:1; min-width:190px; }
   .plano-dep { font-size:11.5px; color:#f5a623; margin-top:5px; }
   /* cabecalho de fase: o "quando" vira sobrancelha e o titulo cresce */
   .plano-fase { margin:26px 0 12px; padding-top:18px; border-top:1px solid #34332f; }
@@ -6308,6 +6328,7 @@ let LISTAS = null;
 let PLANO = null;
 let PLANO_DONO = null;   // filtro por pessoa
 let PLANO_RECADOS = null;   // recados de todos os itens, numa lista so
+let PLANO_APROVACOES = null;  // aprovacao linha a linha (tabela dentro do detalhe)
 let PLANO_ITEM_ABERTO = null;   // qual item esta com os recados abertos
 let PLANO_EDITANDO = null;      // item cujo texto esta aberto para ajuste
 
@@ -6337,6 +6358,11 @@ async function entrarPlano() {
     const rr = await fetch(`${SUPABASE_URL}/rest/v1/transicao_recados?select=*&order=criado_em`,
                            { headers: rmbHeaders() });
     PLANO_RECADOS = rr.ok ? await rr.json() : [];
+  }
+  if (PLANO_APROVACOES === null && Array.isArray(PLANO) && PLANO.length) {
+    const ra = await fetch(`${SUPABASE_URL}/rest/v1/transicao_aprovacoes?select=*&order=ordem`,
+                           { headers: rmbHeaders() });
+    PLANO_APROVACOES = ra.ok ? await ra.json() : [];
   }
   // Lista vazia AQUI nunca e' "nao ha o que fazer": o plano tem 61 itens. E o
   // banco dizendo que esta pessoa nao esta na lista de quem ve o Plano
@@ -6631,21 +6657,94 @@ async function planoMarcar(id, estado) {
 // preservada. Nasceu em 22/08/2026 do item que pede aprovacao da distribuicao
 // dos grupos: em texto corrido eram dez pessoas numa parede de palavras e o
 // Neto disse, com razao, que assim nao se decide.
-function planoDetalhe(texto, esc) {
+// Celula de aprovacao de UMA linha. Fica colada na propria linha de proposito:
+// aprovar num campo separado obriga a pessoa a repetir de qual linha esta falando,
+// e foi por isso que a aprovacao anterior travou (pedido do Neto, 24/08).
+function planoAprCelulas(apr, esc) {
+  if (!apr) return '<td class="plano-apr"></td><td class="plano-apr"></td>';
+  const ok  = apr.estado === 'aprovado';
+  const mud = apr.estado === 'mudar';
+  const carimbo = apr.atualizado_em
+    ? '<div class="plano-apr-carimbo">' + esc((apr.atualizado_por || '').split('@')[0])
+      + ' \u00b7 ' + new Date(apr.atualizado_em).toLocaleDateString('pt-BR') + '</div>'
+    : '';
+  return '<td class="plano-apr">'
+     + '<div class="plano-apr-bts">'
+     + '<button class="plano-apr-bt' + (ok ? ' ok' : '') + '" onclick="planoAprovarLinha(\'' + esc(apr.id) + '\',\'aprovado\')">'
+     + (ok ? '\u2713 aprovado' : 'aprovar') + '</button>'
+     + '<button class="plano-apr-bt' + (mud ? ' mud' : '') + '" onclick="planoAprovarLinha(\'' + esc(apr.id) + '\',\'mudar\')">mudar</button>'
+     + '</div>' + carimbo
+     + '</td><td class="plano-apr">'
+     + '<textarea id="apr-' + esc(apr.id) + '" rows="2" placeholder="o que mudar" '
+     + 'onblur="planoSalvarMudanca(\'' + esc(apr.id) + '\')">' + esc(apr.mudanca || '') + '</textarea>'
+     + '</td>';
+}
+
+async function planoAprovarLinha(id, estado) {
+  const campo = document.getElementById('apr-' + id);
+  const corpo = { estado: estado, atualizado_em: new Date().toISOString(),
+                  atualizado_por: (rmbSessao() || {}).email || '' };
+  if (estado === 'aprovado') corpo.mudanca = null;
+  else if (campo) corpo.mudanca = campo.value.trim() || null;
+  const r = await fetch(SUPABASE_URL + '/rest/v1/transicao_aprovacoes?id=eq.' + encodeURIComponent(id), {
+    method: 'PATCH',
+    headers: Object.assign({}, rmbHeaders(), { 'Content-Type': 'application/json', Prefer: 'return=representation' }),
+    body: JSON.stringify(corpo)
+  });
+  if (!r.ok) { alert('Nao consegui gravar (' + r.status + ').'); return; }
+  const volta = await r.json();
+  const i = (PLANO_APROVACOES || []).findIndex(a => a.id === id);
+  if (i >= 0 && volta.length) PLANO_APROVACOES[i] = volta[0];
+  renderModuloPlano();
+}
+
+// Grava o texto ao sair do campo, e escrever ja marca a linha como "mudar":
+// quem digita uma mudanca esta discordando, nao precisa clicar em dois lugares.
+async function planoSalvarMudanca(id) {
+  const campo = document.getElementById('apr-' + id);
+  if (!campo) return;
+  const atual = (PLANO_APROVACOES || []).find(a => a.id === id);
+  const txt = campo.value.trim();
+  if (!atual || (atual.mudanca || '') === txt) return;
+  await planoAprovarLinha(id, txt ? 'mudar' : 'pendente');
+}
+
+// mesma celula, para aprovacao que nao tem linha de tabela
+function planoAprCelulasSoltas(apr, esc) {
+  return '<table style="border:0;width:100%"><tr>'
+       + planoAprCelulas(apr, esc).replace(/class="plano-apr"/g,
+           'class="plano-apr" style="border:0;padding:0 6px 0 0"')
+       + '</tr></table>';
+}
+
+function planoDetalhe(texto, esc, aprovacoes) {
   const linhas = String(texto).split('\n');
   const saida = [];
   let bloco = [];        // linhas de texto acumuladas
   let tabela = null;     // {cab: [], linhas: [[]]}
+  const aprs = Array.isArray(aprovacoes) ? aprovacoes.slice() : [];
+  const usadas = new Set();
+  const achaApr = (rotulo) => {
+    const chave = String(rotulo || '').trim().toLowerCase();
+    const a = aprs.find(x => !usadas.has(x.id) && String(x.linha).trim().toLowerCase() === chave);
+    if (a) usadas.add(a.id);
+    return a;
+  };
 
   const fechaTexto = () => {
     if (bloco.length) { saida.push('<span class="plano-txt">' + esc(bloco.join('\n')) + '</span>'); bloco = []; }
   };
   const fechaTabela = () => {
     if (!tabela) return;
+    // so ganha colunas de aprovacao se ALGUMA linha casar com um rotulo do banco
+    const pares = tabela.linhas.map(l => achaApr(l[0]));
+    const temApr = aprs.length && pares.some(Boolean);
     const cab = tabela.cab
-      ? '<thead><tr>' + tabela.cab.map(c => '<th>' + esc(c) + '</th>').join('') + '</tr></thead>' : '';
+      ? '<thead><tr>' + tabela.cab.map(c => '<th>' + esc(c) + '</th>').join('')
+        + (temApr ? '<th>Aprova?</th><th>O que mudar</th>' : '') + '</tr></thead>' : '';
     const corpo = tabela.linhas
-      .map(l => '<tr>' + l.map(c => '<td>' + esc(c) + '</td>').join('') + '</tr>').join('');
+      .map((l, n) => '<tr>' + l.map(c => '<td>' + esc(c) + '</td>').join('')
+                   + (temApr ? planoAprCelulas(pares[n], esc) : '') + '</tr>').join('');
     saida.push('<table class="plano-tab">' + cab + '<tbody>' + corpo + '</tbody></table>');
     tabela = null;
   };
@@ -6668,6 +6767,14 @@ function planoDetalhe(texto, esc) {
   }
   fechaTabela();
   fechaTexto();
+  // Aprovacao sem linha de tabela (os blocos de texto: o que morre, o que fica
+  // fora) tambem precisa de sim/nao — senao fica decidida por omissao.
+  const sobra = aprs.filter(a => !usadas.has(a.id));
+  if (sobra.length) {
+    saida.push('<div style="margin-top:10px;">' + sobra.map(a =>
+      '<div class="plano-apr-solta"><b>' + esc(a.linha) + '</b>'
+      + '<div>' + planoAprCelulasSoltas(a, esc) + '</div></div>').join('') + '</div>');
+  }
   return saida.join('');
 }
 
@@ -6702,7 +6809,7 @@ function renderModuloPlano() {
           <span class="plano-quem">${esc(i.quem || '—')}</span>
           ${selo}
         </div>
-        ${i.detalhe ? '<div class="plano-det">' + planoDetalhe(i.detalhe, esc) + '</div>' : ''}
+        ${i.detalhe ? '<div class="plano-det">' + planoDetalhe(i.detalhe, esc, (PLANO_APROVACOES || []).filter(a => a.item_id === i.id)) + '</div>' : ''}
         ${i.dependencia ? '<div class="plano-dep">depende de: ' + esc(i.dependencia) + '</div>' : ''}
         <div class="plano-acoes">${botoes}${quando}</div>
         ${blocoRecados(i, esc, sess)}
