@@ -394,6 +394,8 @@
 
   /* modulo Fluxo de Caixa (DFC) — tabela com blocos expansiveis */
   #tabelaDFC { overflow-x:auto; max-width:100%; }
+  #tabelaBeneficio table { border-collapse:collapse; width:100%; font-size:12.5px; }
+  #tabelaBeneficio th, #tabelaBeneficio td { border:1px solid #34332f; padding:6px 10px; white-space:nowrap; text-align:left; }
   #tabelaDFC table { border-collapse:collapse; width:100%; font-size:12.5px; }
   #tabelaDFC table td { vertical-align:top; }
   #tabelaDFC th, #tabelaDFC td { border:1px solid #34332f; padding:5px 10px; text-align:right; white-space:nowrap; }
@@ -10200,6 +10202,7 @@ function renderModuloDRE() {
 // recebimentos REAIS. O que nao foi lancado no Saipos nao aparece aqui.
 // ------------------------------------------------------------------
 let PROJ_PAGAR = null;    // vw_fin_contas_pagar
+let PROJ_BENEF = null;    // benefício iFood semanal (quadro da Hellen)
 let PROJ_RECEB = null;    // vw_fin_receitas_diarias (ultimas semanas)
 let PROJ_ANCORA = null;   // vw_fin_saldo_banco_atual: saldo REAL do banco (OFX diario)
 let PROJ_VENC = null;     // vw_fin_vencidas_status: vencida ja saiu do banco ou nao
@@ -10214,14 +10217,20 @@ async function entrarProjecao() {
   if (PROJ_PAGAR === null) alvo.innerHTML = '<div class="contexto">Carregando projeção...</div>';
   const corte = new Date(); corte.setDate(corte.getDate() - 35);
   const corteIso = corte.toISOString().slice(0, 10);
-  const [pagar, receb, ancora, vencStatus, recebSub] = await Promise.all([
+  const [pagar, receb, ancora, vencStatus, recebSub, benefSem, benefXp, benefCobr] = await Promise.all([
     consultarTudo('vw_fin_contas_pagar?select=vencimento,conta,subtipo,tipo,natureza,descricao,credito,debito&order=vencimento'),
     consultarTudo(`vw_fin_receitas_diarias?select=data,recebido&data=gte.${corteIso}&order=data`),
     consultarTudo('vw_fin_saldo_banco_atual?select=conta,data_saldo,saldo_banco,idade_dias,saldo_saipos,diferenca'),
     consultarTudo('vw_fin_vencidas_status?select=vencimento,conta,subtipo,tipo,descricao,debito,dias_vencida,data_debito_banco,achou_no_banco'),
     consultarTudo(`vw_fin_receitas_diarias_subtipo?select=data,subtipo,recebido&data=gte.${corteIso}&order=data`),
+    // Benefício do iFood (comissão zero): quadro semanal para a Hellen acompanhar
+    // e mandar para a XP toda quarta (regra do Fabio: não é dinheiro do fluxo).
+    consultarTudo('vw_beneficio_semanal?select=*&order=semana'),
+    consultarTudo('vw_beneficio_xp_pendente?select=semana,valor'),
+    consultarTudo('tr_cobrancas?select=unidade,tipo,valor_total,vencimento,status&tipo=in.(BENEFICIO,ACERTO)'),
     garantirDadosFin(),
   ]);
+  PROJ_BENEF = { sem: benefSem || [], xp: benefXp || [], cobr: benefCobr || [] };
   PROJ_RECEB_SUB = recebSub;
   PROJ_RECEB_SUB.forEach(r => { r.recebido = Number(r.recebido); });
   PROJ_ANCORA = ancora;
@@ -10232,6 +10241,43 @@ async function entrarProjecao() {
   PROJ_RECEB = receb;
   PROJ_RECEB.forEach(r => { r.recebido = Number(r.recebido); });
   renderModuloProjecao();
+}
+
+// Quadro semanal do benefício do iFood (comissão zero) — feito para a Hellen:
+// quanto cada loja "deixou de pagar" na semana, o que as filiais devem à AV e
+// o total que a AV manda para a XP na quarta. Regra do Fabio: não é dinheiro do fluxo.
+function blocoBeneficio() {
+  if (!PROJ_BENEF || !PROJ_BENEF.sem.length) return '';
+  const reais = (v) => 'R$ ' + fmt(Number(v || 0));
+  const ddmm = (iso) => iso.slice(8, 10) + '/' + iso.slice(5, 7);
+  const semanas = [...new Set(PROJ_BENEF.sem.map(r => r.semana))].sort();
+  const pendentes = new Set(PROJ_BENEF.xp.map(r => r.semana));
+  const totalXp = PROJ_BENEF.xp.reduce((a, r) => a + Number(r.valor), 0);
+  const cobrAbertas = PROJ_BENEF.cobr.filter(c => c.status === 'EM ABERTO');
+  const linhas = semanas.map(sem => {
+    const rs = PROJ_BENEF.sem.filter(r => r.semana === sem);
+    const v = (u) => Number((rs.find(r => r.unidade === u) || {}).beneficio || 0);
+    const tot = v('AGUA VERDE') + v('AHU') + v('SÃO BRAZ');
+    const fechada = rs.every(r => r.semana_fechada);
+    const status = !fechada ? '<span style="color:#8a897e">em andamento</span>'
+      : (pendentes.has(sem) ? '<span style="color:#e8b04b;font-weight:700">pendente → XP</span>'
+                            : '<span style="color:#3fb950">enviada à XP</span>');
+    return `<tr><td>${ddmm(sem)} a ${ddmm(new Date(new Date(sem + 'T12:00:00').getTime() + 6 * 86400000).toISOString())}</td>
+      <td style="text-align:right">${reais(v('AGUA VERDE'))}</td><td style="text-align:right">${reais(v('AHU'))}</td>
+      <td style="text-align:right">${reais(v('SÃO BRAZ'))}</td><td style="text-align:right;font-weight:700">${reais(tot)}</td>
+      <td>${status}</td></tr>`;
+  }).join('');
+  return `
+  <div class="section-label">Benefício do iFood (comissão zero) — semana a semana</div>
+  <div class="contexto">Quanto o iFood deixou de cobrar (9,5% do líquido) em cada loja. Pela regra do Fabio,
+    <b>não é dinheiro do fluxo</b>: as filiais pagam a parte delas à Água Verde (cobranças abaixo) e a AV manda o
+    total para a XP toda quarta. ${totalXp > 0 ? `<b style="color:#e8b04b">Pendente para a XP agora: ${reais(totalXp)}.</b>` : '<b style="color:#3fb950">Nada pendente para a XP.</b>'}</div>
+  <div id="tabelaBeneficio" style="overflow-x:auto"><table>
+    <thead><tr><th>Semana</th><th style="text-align:right">Água Verde</th><th style="text-align:right">Ahú</th>
+    <th style="text-align:right">São Braz</th><th style="text-align:right">Total</th><th>Situação</th></tr></thead>
+    <tbody>${linhas}</tbody></table></div>
+  ${cobrAbertas.length ? `<div class="contexto" style="margin-top:8px">Cobranças das filiais em aberto: ${cobrAbertas.map(c =>
+    `${c.unidade} ${reais(c.valor_total)} (vence ${ddmm(c.vencimento)})`).join(' · ')}.</div>` : ''}`;
 }
 
 function renderModuloProjecao() {
@@ -10524,8 +10570,10 @@ function renderModuloProjecao() {
   <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Fluxo de Caixa Projetado — Água Verde</div>
   <div class="caption-label" style="text-align:center;">
     Próximos ${HORIZONTE} dias, dia a dia: contas a pagar lançadas no Saipos + receita projetada
-    (média por dia da semana das últimas 4 semanas). <b>O que não está lançado no Saipos não aparece aqui.</b>
+    (média por dia da semana das últimas 4 semanas). <b>O que não está lançado no Saipos não aparece aqui</b> —
+    com duas exceções que entram sozinhas: as cobranças das filiais (listas e benefício) e o envio do benefício para a XP.
   </div>
+  ${blocoBeneficio()}
   ${temAncora && idadeMax > 1 ? `<div class="contexto" style="border-color:#f5a623;">
     Extrato do banco com <b>${idadeMax} dia(s) de atraso</b> em pelo menos uma conta — baixar o OFX
     para a âncora voltar a ser de hoje.</div>` : ''}
