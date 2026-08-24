@@ -11218,6 +11218,54 @@ function renderChartWaterfall(m, a, ant) {
 // ------------------------------------------------------------------
 // Boot
 // ------------------------------------------------------------------
+// ------------------------------------------------------------------
+// ACESSO POR PESSOA (24/08/2026). A tabela painel_acesso diz quais modulos
+// cada pessoa ve; quem nao esta la ve tudo (Neto, Fabio, Hellen seguem iguais).
+// Liberar mais tarde e um update no banco, sem deploy.
+//
+// ISTO ORGANIZA A TELA, NAO E COFRE: 121 das 125 views rodam com o privilegio
+// do dono da view e todo logado e o mesmo papel `authenticated`, entao o
+// PostgREST entrega qualquer view a quem montar a URL na mao. Resolve o dia a
+// dia (a pessoa abre e so tem o que e dela); nao resolve acesso deliberado.
+// Fechar de verdade = role separado no JWT ou RLS restritiva + security_invoker.
+// ------------------------------------------------------------------
+let MEUS_MODULOS = null;   // null = sem restricao
+
+async function carregarAcesso() {
+  try {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/meus_modulos`, {
+      method: 'POST', headers: { ...cabecalhoLeitura(), 'Content-Type': 'application/json' },
+      body: '{}' });
+    if (!r.ok) return null;
+    const m = await r.json();
+    return (Array.isArray(m) && m.length) ? m : null;
+  } catch (e) { return null; }   // na duvida, nao tranca ninguem fora
+}
+
+// Esconde o que a pessoa nao pode abrir. Le o proprio onclick do botao em vez
+// de repetir o mapa de modulos — assim modulo novo nao precisa ser cadastrado
+// aqui para continuar aparecendo para quem ve tudo.
+function aplicarAcesso() {
+  if (!MEUS_MODULOS) return;
+  const pode = new Set(MEUS_MODULOS);
+  document.querySelectorAll('.sidebar-btn').forEach(btn => {
+    const m = (btn.getAttribute('onclick') || '').match(/mostrarModulo\('([^']+)'\)/);
+    if (!m) { btn.style.display = 'none'; return; }   // atalhos (promos.html) tambem somem
+    if (!pode.has(m[1])) btn.style.display = 'none';
+  });
+  document.querySelectorAll('.sidebar-grupo').forEach(g => {
+    const vivos = [...g.querySelectorAll('.sidebar-btn')].filter(b => b.style.display !== 'none');
+    const secao = g.previousElementSibling;
+    if (!vivos.length) {
+      g.style.display = 'none';
+      if (secao && secao.classList.contains('sidebar-secao')) secao.style.display = 'none';
+    }
+  });
+  // a barra de atalhos do topo aponta para os modulos de venda; sem eles, some
+  const topo = document.getElementById('topnav');
+  if (topo && !pode.has('estasemana')) topo.style.display = 'none';
+}
+
 async function iniciar() {
   try {
     await carregar();
@@ -11228,9 +11276,14 @@ async function iniciar() {
     renderAll();
     document.getElementById('loadingMsg').style.display = 'none';
     document.getElementById('painel').style.display = 'block';
+    MEUS_MODULOS = await carregarAcesso();
+    aplicarAcesso();
     // A home "Esta semana" e o modulo inicial; carrega depois que o painel
     // aparece para nao segurar o boot (ela busca avaliacoes/negociacoes/metas).
-    entrarEstaSemana();
+    // Quem tem acesso restrito abre direto no que e dele — cair numa home que
+    // nao pode ver parece painel quebrado.
+    if (MEUS_MODULOS && !MEUS_MODULOS.includes('estasemana')) mostrarModulo(MEUS_MODULOS[0]);
+    else entrarEstaSemana();
   } catch (err) {
     document.getElementById('loadingMsg').style.display = 'none';
     const erroEl = document.getElementById('erroMsg');
