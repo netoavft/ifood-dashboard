@@ -4290,7 +4290,7 @@ async function entrarConcbanco() {
   alvo.innerHTML = '<div class="contexto">Carregando a conciliação...</div>';
   try {
     const [placar, pend, saldoDia, pessoas, marcadas, naoConf, saldoConf, aFazer,
-           diaSaldo, duvidas] = await Promise.all([
+           diaSaldo, duvidas, matur] = await Promise.all([
       consultarTudo('vw_fin_conciliacao_placar?select=*&order=data.desc'),
       consultarTudo('vw_fin_conciliacao_pendencias?select=*&order=dias.desc'),
       consultarTudo('mv_fin_conciliacao_saldo_dia?select=*&order=data.desc'),
@@ -4302,9 +4302,13 @@ async function entrarConcbanco() {
       consultarTudo('vw_fin_conciliacao_dia_saldo?select=*&data=gte.'
         + new Date(Date.now() - 40 * 86400000).toISOString().slice(0, 10)),
       consultarTudo('vw_fin_conciliacao_duvidas?select=*'),
+      // MATURIDADE: so as familias com volume, ordenadas por movimento. Sem o
+      // corte, 490 das 600 familias sao contraparte que apareceu 3 vezes em 90
+      // dias — barulho que esconde as 30 que decidem alguma coisa.
+      consultarTudo('vw_fin_conciliacao_maturidade?select=*&linhas=gte.10&order=linhas.desc'),
     ]);
     CONCB = { placar, pend, saldoDia, pessoas, marcadas, naoConf, saldoConf, aFazer,
-              diaSaldo, duvidas };
+              diaSaldo, duvidas, matur };
   } catch (e) {
     alvo.innerHTML = '<div class="contexto">Não consegui carregar a conciliação: ' + e.message + '</div>';
     return;
@@ -5197,6 +5201,73 @@ function renderConcbanco() {
         'e o Saipos lança uma só. Não é trabalho.</div></details>'
       : '');
 
+  // ---- MATURIDADE: o que ja da para entregar a um robo ----
+  // Pedido do dono, 24/08/2026: "ir avaliando o que ja esta maduro para
+  // automacao". Vem FECHADO: quem abre esta tela de manha esta conciliando, nao
+  // decidindo automacao. Sao duas cabecas diferentes e misturar as duas na mesma
+  // altura da tela faz a pessoa perder o fio do trabalho do dia.
+  //
+  // OS DOIS TOQUES HUMANOS DIZEM COISAS OPOSTAS e a tela precisa separar:
+  // "já estava" e REGRA FALTANDO — o lancamento existia e o comparador nao soube
+  // casar, entao a familia nao esta madura, esta mal entendida. "lancei" e
+  // trabalho de verdade: e justamente o que o robo faria, e quanto mais, mais
+  // vale automatizar. Uma tela que somasse os dois num numero so diria o
+  // contrario do que os dados dizem.
+  const matur = daLoja(cru.matur || []);
+  // `porVeredicto`, nao `conta`: nesta base "conta" e conta BANCARIA, e um
+  // ajudante com esse nome no meio de um modulo financeiro so pode confundir
+  // quem ler depois.
+  const porVeredicto = (v) => matur.filter(m => m.veredicto === v);
+  const CORVER = { 'O ROBO JA PODERIA': '#3f7d3f', 'QUASE': '#b8860b',
+                   'REGRA FALTANDO': '#c8102e', 'AINDA NAO': 'inherit' };
+  const rotuloVer = { 'O ROBO JA PODERIA': 'o robô já poderia', 'QUASE': 'quase lá',
+                      'REGRA FALTANDO': 'falta regra', 'AINDA NAO': 'ainda não' };
+  // 'REGRA FALTANDO' e 'AINDA NAO' vem por ULTIMO na ordem de leitura, mas sao os
+  // que mais importam. A ordem aqui e a do farol — verde primeiro — porque a
+  // pergunta da tela e "o que ja da para entregar ao robo", nao "o que esta ruim".
+  const ordemVer = ['O ROBO JA PODERIA', 'QUASE', 'AINDA NAO', 'REGRA FALTANDO'];
+  const MATUR_TETO = 40;
+  const blocoMaturidade = !matur.length ? '' :
+    '<details style="margin-top:14px"><summary style="cursor:pointer;font-size:13px">' +
+      '<b>O que já está maduro para automação</b> — ' +
+      ordemVer.filter(v => porVeredicto(v).length).map(v =>
+        porVeredicto(v).length + ' ' + rotuloVer[v]).join(', ') +
+    '</summary>' +
+    '<div class="contexto">Cada linha é um <b>tipo</b> de movimento, medido nos últimos ' +
+      '90 dias. <b>Fecha sozinho</b> é o quanto o comparador resolve sem ninguém. ' +
+      '<b>Passou por gente</b> é o trabalho que um robô faria. ' +
+      '<b>Falta regra</b> é o contrário de maturidade: o lançamento já existia e o ' +
+      'comparador não soube casar — antes de automatizar, é preciso ensinar.</div>' +
+    '<table style="width:100%"><thead><tr>' +
+      '<th style="text-align:left">Tipo de movimento</th><th style="text-align:left">Conta</th>' +
+      '<th>Linhas</th><th>Fecha sozinho</th><th>Passou por gente</th>' +
+      '<th>Falta regra</th><th>Na fila</th><th style="text-align:left">Situação</th>' +
+    '</tr></thead><tbody>' +
+    ordemVer.flatMap(v => porVeredicto(v)).slice(0, MATUR_TETO).map(m =>
+      '<tr><td>' + esc(m.contraparte) + '</td><td style="opacity:.8">' +
+        esc(m.conta_exibida || m.conta) + '</td>' +
+      '<td style="text-align:right">' + n(m.linhas) + '</td>' +
+      // inteiro, nao 97,90% — casa decimal aqui nao muda decisao nenhuma e o
+      // olho tropeca nela
+      '<td style="text-align:right">' + Math.round(n(m.pct_sozinho)) + '%</td>' +
+      '<td style="text-align:right">' + (n(m.trabalho_humano) || '—') + '</td>' +
+      '<td style="text-align:right">' + (n(m.regra_faltando) || '—') + '</td>' +
+      '<td style="text-align:right">' + (n(m.abertas) || '—') + '</td>' +
+      '<td style="color:' + (CORVER[m.veredicto] || 'inherit') + '">' +
+        (rotuloVer[m.veredicto] || esc(m.veredicto)) + '</td></tr>').join('') +
+    '</tbody></table>' +
+    // CORTE DECLARADO. Sao 110 tipos com volume e a tela nao aguenta todos sem
+    // virar rolagem. Cortar em silencio seria pior do que cortar: quem le uma
+    // lista que termina acha que acabou.
+    (matur.length > MATUR_TETO
+      ? '<div class="contexto">Mostrando os ' + MATUR_TETO + ' de maior movimento. ' +
+        'Outros ' + (matur.length - MATUR_TETO) + ' tipos ficaram abaixo do corte.</div>'
+      : '') +
+    '<div class="contexto">Fora desta lista há ' +
+      'tipo de movimento com menos de 10 linhas em 90 dias: pouco histórico para ' +
+      'decidir qualquer coisa, e fingir que tem é como se inventa automação errada.' +
+    '</div></details>';
+
   alvo.innerHTML = seletorLojaFin() +
     '<div class="section-label" style="border-top:none;margin-top:0;padding-top:0;' +
       'display:flex;align-items:center;gap:12px">' +
@@ -5253,7 +5324,7 @@ function renderConcbanco() {
         'e da próxima vez ela vem pronta.</div>' +
         blocosConferir
       : '') +
-    detalhe;
+    detalhe + blocoMaturidade;
 
   alvo.querySelectorAll('.concb-dia').forEach(b => b.addEventListener('click', () => {
     CONCB_DIA_ESCOLHIDO = b.dataset.dia;
