@@ -3230,10 +3230,18 @@ function renderModuloContestacoes() {
 // As rotinas gravam inicio/fim em rotinas_execucao (ver rotinas/REGISTRO-EXECUCAO.md),
 // entao o painel responde "ja rodou?" sem precisar perguntar no chat.
 const ROTINAS_CONHECIDAS = [
-  { id: 'extracao-diaria-pedidos',           nome: 'Extração de pedidos',    quando: 'Todo dia 09:00' },
-  { id: 'contestacao-diaria-cancelamentos',  nome: 'Contestação',            quando: 'Todo dia 10:30' },
-  { id: 'extracao-semanal-cardapio',         nome: 'Extração de cardápio',   quando: 'Segunda 07:00' },
-  { id: 'resumo-semanal-ifood',              nome: 'Resumo semanal',         quando: 'Segunda 12:00' },
+  // Grade vigente (24/08/2026) — fonte: contexto/project_cronograma_rotinas.md
+  { id: 'manutencao-mensal-banco',           nome: 'Manutenção do banco',    quando: 'Dia 1º, 03:20' },
+  { id: 'importacao-diaria-apis',            nome: 'Importação de APIs',     quando: 'Todo dia 08:00' },
+  { id: 'extracao-diaria-pedidos',           nome: 'Extração de pedidos',    quando: 'Todo dia 10:00' },
+  { id: 'contestacao-diaria-cancelamentos',  nome: 'Contestação',            quando: 'Todo dia 11:30' },
+  { id: 'conciliacao-bancaria-diaria',       nome: 'Conciliação bancária',   quando: 'Seg–sex 11:45 (PC do dono)' },
+  { id: 'extracao-diaria-promocoes',         nome: 'Extração de promoções',  quando: 'Todo dia 12:30' },
+  { id: 'extracao-semanal-cardapio',         nome: 'Extração de cardápio',   quando: 'Segunda 14:00' },
+  { id: 'resumo-semanal-ifood',              nome: 'Resumo semanal',         quando: 'Segunda 17:00' },
+  { id: 'extracao-semanal-relatorios-rede',  nome: 'Relatórios da rede',     quando: 'Terça 14:00' },
+  { id: 'extracao-semanal-conciliacao',      nome: 'Conciliação iFood',      quando: 'Quinta 14:00' },
+  { id: 'extracao-mensal-clientes',          nome: 'Extração de clientes',   quando: 'Dia 03, 13:30' },
 ];
 let ROTINAS_TIMER = null;
 
@@ -8415,10 +8423,12 @@ function renderEstaSemana() {
          (prazoMin ? ' — prazo mais curto ' + ddmm(prazoMin) : '') });
   if (rotinasRuins.length) agora.push({ cor: '#ff6b6b', link: 'rotinas',
     txt: '<b>Rotina com problema:</b> ' + rotinasRuins.map(r => r.rotina + ' (' + r.status + ')').join(', ') });
-  if (idade(maxAv) !== null && idade(maxAv) > 4) agora.push({ cor: '#f5a623', link: 'avaliacoes',
-    txt: '<b>Fonte parada:</b> avaliações vão só até ' + ddmm(maxAv) + ' — baixar "comentários e avaliações" no Portal de Redes' });
-  if (idade(maxNeg) !== null && idade(maxNeg) > 4) agora.push({ cor: '#f5a623', link: 'negociacoes',
-    txt: '<b>Fonte parada:</b> negociações vão só até ' + ddmm(maxNeg) + ' — baixar "negociações e chamados" (período começando no dia 01 do mês!)' });
+  // Corte 9: avaliações/negociações entram pela rotina de TERÇA 14:00 (semana fechada),
+  // então até 8 dias de idade é o normal na segunda. 9+ = a rotina de terça falhou.
+  if (idade(maxAv) !== null && idade(maxAv) > 9) agora.push({ cor: '#f5a623', link: 'avaliacoes',
+    txt: '<b>Fonte parada:</b> avaliações vão só até ' + ddmm(maxAv) + ' — a rotina de terça 14:00 não trouxe; ver Sistema → Rotinas' });
+  if (idade(maxNeg) !== null && idade(maxNeg) > 9) agora.push({ cor: '#f5a623', link: 'negociacoes',
+    txt: '<b>Fonte parada:</b> negociações vão só até ' + ddmm(maxNeg) + ' — a rotina de terça 14:00 não trouxe; ver Sistema → Rotinas' });
 
   const blocoAgora = agora.length
     ? agora.map(a => '<div class="contexto" style="border-color:' + a.cor + '; margin-bottom:8px;' + (a.link ? ' cursor:pointer;' : '') + '"' +
@@ -8465,7 +8475,7 @@ function renderEstaSemana() {
       '<div class="caption-label" style="text-align:center;">Fonte: pedidos importados toda manhã (dados até ontem). ' +
       'Cores nos cards = farol da meta correspondente; cinza = sem meta para este número.</div>';
   } else {
-    blocoEmCurso = '<div class="contexto">A semana começou hoje — os primeiros números entram amanhã, depois da extração das 09:00.</div>';
+    blocoEmCurso = '<div class="contexto">A semana começou hoje — os primeiros números entram amanhã, depois da extração das 10:00.</div>';
   }
 
   // ---------- FAIXA C: placar da ultima semana fechada ----------
