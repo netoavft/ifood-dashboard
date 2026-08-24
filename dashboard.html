@@ -269,6 +269,18 @@
     text-transform:uppercase; color:#f6c63e; margin-bottom:3px; }
   .plano-fase-titulo { display:block; font-size:19px; font-weight:700; color:#ffffff;
     letter-spacing:-.2px; }
+  /* o que ja foi resolvido fica recolhido no topo, para o que esta andando aparecer */
+  .plano-feitos { margin:14px 0 4px; border:1px solid #2a2a27; border-radius:10px;
+    background:#1c1c1a; padding:10px 14px; }
+  .plano-feitos > summary { cursor:pointer; font-size:13px; color:#8a8a80; list-style:none;
+    display:flex; align-items:center; gap:8px; }
+  .plano-feitos > summary::-webkit-details-marker { display:none; }
+  .plano-feitos > summary::before { content:'▸'; color:#6f6e68; font-size:11px; }
+  .plano-feitos[open] > summary::before { content:'▾'; }
+  .plano-feitos > summary b { color:#3fb950; }
+  .plano-feitos > summary:hover { color:#f2f0e9; }
+  /* dentro do recolhido a primeira fase nao precisa da linha de cima */
+  .plano-feitos .plano-fase:first-child { margin-top:6px; padding-top:0; border-top:none; }
   .plano-acoes { display:flex; gap:6px; align-items:center; margin-top:9px; flex-wrap:wrap; }
   .plano-bt { font-size:11.5px; padding:3px 10px; border-radius:999px; cursor:pointer;
     background:transparent; color:#8a8a80; border:1px solid #45443f; }
@@ -6799,10 +6811,21 @@ function renderModuloPlano() {
   const feitos = lista.filter(i => i.estado === 'feito' || i.estado === 'na').length;
   const pct = lista.length ? feitos / lista.length * 100 : 0;
 
-  const fases = {};
-  lista.forEach(i => { (fases[i.fase_ordem] = fases[i.fase_ordem] || { quando: i.fase_quando, titulo: i.fase_titulo, itens: [] }).itens.push(i); });
+  // O QUE JA FOI FEITO SAI DA FRENTE (pedido do dono, 24/08/2026): fica num
+  // bloco recolhido no topo, que abre com um clique. Com 1 em cada 4 itens
+  // resolvido, deixar tudo na mesma lista fazia o que esta ANDANDO se perder
+  // no meio do que ja acabou.
+  const estaFeito = (i) => i.estado === 'feito' || i.estado === 'na';
+  const emAberto = lista.filter(i => !estaFeito(i));
+  const jaFeitos = lista.filter(estaFeito);
 
-  const blocos = Object.keys(fases).sort((a,b) => a-b).map(k => {
+  const porFase = (arr) => {
+    const f = {};
+    arr.forEach(i => { (f[i.fase_ordem] = f[i.fase_ordem] || { quando: i.fase_quando, titulo: i.fase_titulo, itens: [] }).itens.push(i); });
+    return f;
+  };
+
+  const montarBlocos = (fases) => Object.keys(fases).sort((a,b) => a-b).map(k => {
     const f = fases[k];
     const linhas = f.itens.map(i => {
       const cor = (PLANO_ESTADOS.find(e => e[0] === i.estado) || [])[2];
@@ -6831,6 +6854,13 @@ function renderModuloPlano() {
       </div>${linhas}`;
   }).join('');
 
+  const blocos = montarBlocos(porFase(emAberto));
+  const blocoFeitos = jaFeitos.length ? `
+    <details class="plano-feitos">
+      <summary><b>${jaFeitos.length}</b> ${jaFeitos.length === 1 ? 'item já resolvido' : 'itens já resolvidos'} — clique para ver</summary>
+      <div style="margin-top:10px;">${montarBlocos(porFase(jaFeitos))}</div>
+    </details>` : '';
+
   const chips = donos.map(d => {
     const n = PLANO.filter(i => i.quem === d).length;
     const ok = PLANO.filter(i => i.quem === d && (i.estado === 'feito' || i.estado === 'na')).length;
@@ -6852,7 +6882,8 @@ function renderModuloPlano() {
       <button class="preset-btn ${PLANO_DONO ? '' : 'active'}" onclick="planoFiltrar(null)">todos ${PLANO.length}</button>
       ${chips}
     </div>
-    ${blocos}`;
+    ${blocoFeitos}
+    ${blocos || (jaFeitos.length ? '<div class="contexto">Tudo o que está nesta lista já foi resolvido.</div>' : '<div class="contexto">Nada aqui.</div>')}`;
 }
 
 // ============ ENGENHARIA DE CARDÁPIO ============
