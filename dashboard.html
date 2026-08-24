@@ -682,7 +682,7 @@
       <label>Até <input type="date" id="fDataFim"></label>
     </div>
 
-    <div style="display:flex; flex-wrap:wrap; justify-content:center; align-items:flex-start; gap:8px;">
+    <div id="filtrosTopo" style="display:flex; flex-wrap:wrap; justify-content:center; align-items:flex-start; gap:8px;">
       <div class="topnav" id="topnav" style="margin-bottom:0;"></div>
       <details class="lojadrop" style="margin-bottom:0;">
         <summary id="lojaSummary">Marcas (loja): todas</summary>
@@ -1383,7 +1383,8 @@ function toggleGrupo(id) {
 function abrirGrupoDoModulo(nome) {
   const grupoDe = { plano: 'gComecar', estasemana: 'gComecar', indicadores: 'gComecar',
                     consolidada: 'gResultado', dre: 'gResultado',
-                    engcard: 'gResultado', fichas: 'gResultado',
+                    engcard: 'gResultado', fichas: 'gResultado', rateio: 'gResultado',
+                    site: 'gSite',
                     atrasos: 'gEntrega', frete: 'gEntrega', logfin: 'gEntrega',
                     fluxo: 'gFinanceiro', projecao: 'gFinanceiro', despesas: 'gFinanceiro',
                     concbanco: 'gFinanceiro', rede: 'gFinanceiro',
@@ -1403,11 +1404,25 @@ function abrirGrupoDoModulo(nome) {
 const MODULOS_COM_RODAPE = new Set(['estasemana', 'resumo', 'cancelamentos',
   'promocoes', 'negociacoes', 'avaliacoes', 'relatorios', 'contestacoes']);
 
+// O CABECALHO DE UNIDADE/MARCAS SO APARECE ONDE ELE MUDA ALGUMA COISA
+// (24/08/2026). Levantado funcao a funcao: destes modulos, e so destes, o
+// desenho passa por computeMetrics/DADOS/activeUnidades. Nos outros o filtro
+// ficava na tela sem efeito nenhum — e em tres deles (Resultado por canal,
+// Atrasos, Financeiro da logistica) competia com o seletor de unidade DO
+// PROPRIO modulo, o que e pior: a pessoa mexe no de cima e nada acontece.
+// DRE e Engenharia de cardapio fixam AGUA VERDE na consulta, entao o filtro
+// tambem nao valia ali. Modulo novo entra escondido — se precisar do filtro,
+// e so por o nome aqui.
+const MODULOS_COM_FILTRO_TOPO = new Set(['estasemana', 'resumo', 'cancelamentos',
+  'promocoes', 'qualidade', 'rede', 'site']);
+
 function mostrarModulo(nome) {
   MODULO_ATUAL = nome; // usado pelo setPerimetro para reentrar no modulo atual
   abrirGrupoDoModulo(nome);
   const rodape = document.querySelector('.footer');
   if (rodape) rodape.style.display = MODULOS_COM_RODAPE.has(nome) ? '' : 'none';
+  const filtros = document.getElementById('filtrosTopo');
+  if (filtros) filtros.style.display = MODULOS_COM_FILTRO_TOPO.has(nome) ? 'flex' : 'none';
   const modulos = {
     estasemana: ['modulo-estasemana', 'navBtnEstaSemana'],
     resumo: ['modulo-resumo', 'navBtnResumo'],
@@ -1437,6 +1452,9 @@ function mostrarModulo(nome) {
     logfin: ['modulo-logfin', 'navBtnLogfin'],
     frete: ['modulo-frete', 'navBtnFrete'],
     listas: ['modulo-listas', 'navBtnListas'],
+    // rateio ficou de fora do mapa quando o modulo nasceu (22/08): entrarRateio()
+    // buscava os dados e o div nunca era exibido — a tela abria vazia.
+    rateio: ['modulo-rateio', 'navBtnRateio'],
     fichas: ['modulo-fichas', 'navBtnFichas'],
     engcard: ['modulo-engcard', 'navBtnEngcard'],
     plano: ['modulo-plano', 'navBtnPlano'],
@@ -11303,9 +11321,9 @@ function aplicarAcesso() {
       if (secao && secao.classList.contains('sidebar-secao')) secao.style.display = 'none';
     }
   });
-  // a barra de atalhos do topo aponta para os modulos de venda; sem eles, some
-  const topo = document.getElementById('topnav');
-  if (topo && !pode.has('estasemana')) topo.style.display = 'none';
+  // o cabecalho de unidade/marcas serve aos modulos de venda; sem eles, some
+  const topo = document.getElementById('filtrosTopo');
+  if (topo && ![...pode].some(m => MODULOS_COM_FILTRO_TOPO.has(m))) topo.style.display = 'none';
 }
 
 async function iniciar() {
