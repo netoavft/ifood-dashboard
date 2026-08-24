@@ -5926,7 +5926,7 @@ function renderModuloRateio() {
   const precoBloco = temPreco ? `
     <div class="section-label">Preço alvo · ${nome[RATEIO_CANAL] || RATEIO_CANAL} — com a comissão cheia e 10% de lucro</div>
     <div class="contexto">Sobram <b>${pc(sobraRef ? sobraRef.sobra_para_custo : 0)}</b> do preço para o ingrediente (embalagem já está na ficha).
-      Margem abaixo de 10% fica âmbar; negativa, vermelha. <b>Preço atual</b> = o preço que <b>mais apareceu</b> nas vendas do Saipos neste canal nos últimos 30 dias — não é média (24/08/2026: a média misturava adicional, promoção e preço antigo, e mostrava bebida de R$ 8 como R$ 26). O <span style="color:#d9a21b;">⚠</span> marca produto cujo preço variou mais de 15% no período; a planilha do iFood (<span style="color:#8a897e;">≈</span>) só entra quando não houve venda nenhuma.
+      Margem abaixo de 10% fica âmbar; negativa, vermelha. <b>Preço atual</b> = o preço que <b>mais apareceu</b> nas vendas do Saipos neste canal nos últimos 30 dias — não é média (24/08/2026: a média misturava adicional, promoção e preço antigo, e mostrava bebida de R$ 8 como R$ 26). O <span style="color:#d9a21b;">⚠</span> marca produto cujo preço variou mais de 15% no período. Produto sem venda no canal aparece <b>sem preço</b>: a planilha do iFood saiu de vez em 24/08 (errava em 15 de 15 itens conferidos, R$ 11,47 de diferença média) — em branco é melhor que errado.
       <input type="text" placeholder="buscar produto" oninput="rateioBusca(this.value)" value="${RATEIO_BUSCA}" style="margin-left:12px; background:#111110; color:#fff; border:1px solid #34332f; border-radius:6px; padding:4px 8px;"></div>
     <div id="tabelaRateioPreco"></div>` : '';
 
@@ -5957,9 +5957,11 @@ function renderRateioPreco() {
       <td>${r.produto.toLowerCase()}${Number(r.ingredientes_sem_custo) > 0 ? ' <span class="ficha-tag">ficha incompleta</span>' : ''}</td>
       <td>${r.qtd_vendida != null ? Number(r.qtd_vendida).toLocaleString('pt-BR', {maximumFractionDigits:0}) : '<span style="color:#8a897e;">planilha</span>'}</td>
       <td>${reais(r.custo_ficha)}</td>
-      <td>${reais(r.preco_atual)}${r.preco_instavel
+      <td>${r.preco_atual == null
+          ? '<span style="color:#8a897e;" title="Sem venda deste produto no canal nos últimos 90 dias — e a planilha do iFood saiu de vez em 24/08 por errar em 15 de 15 itens. Preço em branco é melhor que preço errado.">sem venda</span>'
+          : reais(r.preco_atual)}${r.preco_instavel
           ? ` <span title="Neste produto o preço variou de ${reais(r.preco_min)} a ${reais(r.preco_max)} nos últimos ${r.preco_dias} dias — tem adicional ou promoção no meio. O valor mostrado é o preço que mais apareceu." style="color:#d9a21b; cursor:help;">⚠</span>`
-          : ''}${r.fonte_preco === 'PLANILHA IFOOD' ? ' <span title="Sem venda no Saipos: veio da planilha do iFood, que pode estar velha." style="color:#8a897e; cursor:help;">≈</span>' : ''}</td>
+          : ''}</td>
       <td>${pc(r.cmv_pct_atual)}</td>
       <td style="${cor(r.margem_atual_real)}">${pc(r.margem_atual_real)}</td>
       <td style="${cor(r.margem_atual_cheia)}">${pc(r.margem_atual_cheia)}</td>
