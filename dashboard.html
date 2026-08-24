@@ -7685,6 +7685,17 @@ async function entrarOperacaoListas() {
       return;
     }
     TR_OP = { papel: await rp.json(), unidade: ru.ok ? await ru.json() : null };
+    // Papel nulo = login existe no painel mas nao esta em tr_usuarios (hoje e o
+    // caso do Fabio). Sem isto a tela caia na fila de separacao, que ele nao
+    // pode operar — melhor dizer o que falta do que abrir uma tela quebrada.
+    if (!TR_OP.papel) {
+      alvo.innerHTML = `<div class="contexto">Você está logado como <b>${sessao.email}</b>, mas este login
+        ainda não tem papel na operação das listas — por isso não dá para pedir, separar nem conferir.
+        As tabelas acima continuam valendo. Para ganhar acesso, é o Neto cadastrar o e-mail em
+        <b>tr_usuarios</b>. <button class="preset-btn" onclick="trSair()">sair</button></div>`;
+      TR_OP = null;
+      return;
+    }
   }
   if (!trTela) trTela = { SEPARACAO: 'separacao', FILIAL: 'pedido', FINANCEIRO: 'contas' }[TR_OP.papel] || 'separacao';
   trRenderOperacao();
