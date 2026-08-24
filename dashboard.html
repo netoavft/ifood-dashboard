@@ -9727,6 +9727,8 @@ async function entrarDre() {
       consultarTudo('mv_conciliacao_agregado?select=data,grupo,valor&unidade=eq.AGUA%20VERDE'),
       garantirDadosFin(),   // DFC (caixa) para a ponte DRE x DFC do mes fechado
     ]);
+    // "Pra onde foi o dinheiro": do resultado à variação real do caixa operacional
+    DRE_PONTE = await consultarTudo('vw_fin_ponte_mensal?select=*&order=mes');
     aplicarLojaFin();   // deriva DRE_FIN e DRE_VENDAS da loja escolhida
     DRE_METAS = {};
     metas.forEach(m => { DRE_METAS[m.chave] = { sentido: m.sentido, meta: Number(m.pct_meta) }; });
@@ -9746,6 +9748,40 @@ function dreRangeSet() {
   dreAte = document.getElementById('dreSelAte').value;
   drePeriodo = 'custom';
   renderModuloDRE();
+}
+
+// "Pra onde foi o dinheiro" (pedido do dono, 24/08/2026): do resultado do mês
+// até a variação REAL do caixa operacional (bancos + cofres, fora XP/cartões),
+// degrau a degrau — investimento, retirada, empréstimo, aporte e o que foi para
+// a XP (inclusive o benefício do iFood). Fonte: vw_fin_ponte_mensal.
+let DRE_PONTE = null;
+function blocoCaixaReal(mesF, rotuloMes) {
+  const rows = (DRE_PONTE || []).filter(r => r.mes === mesF &&
+    (LOJA_FIN === 'REDE' || r.unidade === LOJA_FIN));
+  if (!rows.length) return '';
+  const s = (c) => rows.reduce((a, r) => a + Number(r[c] || 0), 0);
+  const linhas = [
+    ['Resultado apurado do mês', s('resultado_apurado'), 'o número do fechamento (competência)'],
+    ['± Ajuste de competência', s('ajuste_competencia'), 'conta do mês paga noutro mês (capital de giro)'],
+    ['− Investimentos', s('investimentos'), 'obras, máquinas, tecnologia — vira patrimônio, não some'],
+    ['− Retiradas dos sócios', s('retiradas'), 'distribuição de lucros e gastos dos sócios'],
+    ['± Empréstimos', s('emprestimos'), 'entradas e saídas de empréstimos com sócios'],
+    ['+ Aportes e lucros das filiais', s('aportes'), 'dinheiro das filiais que entra fora da operação'],
+    ['+ Rendimentos', s('aplicacoes'), 'rendimento das aplicações'],
+    ['± Foi para XP / cartões', s('transferencias_liquidas'), 'transferências para fora do caixa operacional — inclui o benefício do iFood'],
+    ['± Sem classificação', s('sem_classificacao'), 'lançamento sem conta — deveria ser zero'],
+  ].filter(([, v]) => Math.abs(v) > 0.005);
+  const varCaixa = s('variacao_caixa');
+  return `
+  <div class="section-label" style="margin-top:26px;">Pra onde foi o dinheiro — ${rotuloMes(mesF)}</div>
+  <div class="caption-label" style="text-align:center;">Do resultado do fechamento até o que de fato sobrou (ou faltou)
+    nos bancos e cofres do dia a dia. Cada linha é um destino do dinheiro.</div>
+  <div id="tabelaPonte"><table>
+    <tr><th>Degrau</th><th>R$</th><th style="text-align:left">O que é</th></tr>
+    ${linhas.map(([n, v, d]) => `<tr><td>${n}</td><td class="${v < -0.005 ? 'negativo' : ''}">${v >= 0 ? '' : '−'} ${fmt(Math.abs(v))}</td><td style="text-align:left; white-space:normal; color:#8a897e;">${d}</td></tr>`).join('')}
+    <tr class="liq"><td>= Caixa operacional no mês</td><td class="${varCaixa < 0 ? 'negativo' : ''}">${varCaixa >= 0 ? '+' : '−'} ${fmt(Math.abs(varCaixa))}</td>
+      <td style="text-align:left; white-space:normal;">${varCaixa >= 0 ? 'o caixa do dia a dia cresceu isso no mês' : 'o caixa do dia a dia encolheu isso no mês'}</td></tr>
+  </table></div>`;
 }
 
 function renderModuloDRE() {
@@ -10064,7 +10100,7 @@ function renderModuloDRE() {
                 : difTot > 0 ? 'o caixa rendeu mais que o papel: entrou dinheiro de meses anteriores ou ficou conta para depois'
                 : 'o caixa rendeu menos que o papel: o mês pagou contas antigas ou tem venda ainda por cair'}</td></tr>
           </table>
-        </div>`;
+        </div>` + blocoCaixaReal(mesF, rotuloMes);
       }
       const iA = iF - 1;
       const custo = gruposVals[0][3], pessoal = gruposVals[1][3], venda = gruposVals[2][3], admin = gruposVals[3][3];
