@@ -4732,7 +4732,21 @@ function renderConcbanco() {
   // E a conciliação é feita DIA A DIA, em ordem: fecha o 19 antes de ir ao 20.
   // Por isso a tela mostra UM dia, o mais antigo em aberto, com setas para
   // navegar — não uma pilha de dias misturados.
-  const pendentes = [...new Set(aFazer.filter(x => !x.em_dia)
+  //
+  // E ELA SÓ VALE PARA CONTA QUE TEM FECHAMENTO PRÓPRIO. Conta que nunca fechou
+  // desde o marco zero fica com `dia_a_conciliar` preso no próprio marco (a view
+  // usa GREATEST(ultimo_ok + 1, marco)), e como esse é o dia mais antigo da
+  // lista, ele sequestra a tela. Em 24/08/2026 a fila zerou pela primeira vez e a
+  // tela voltou para 17/08 por causa da SANTANDER e da PARTICIPAÇÕES — o dono viu
+  // na hora: era segunda, e o trabalho do dia era a sexta, 21/08. É a MESMA
+  // armadilha do parágrafo acima, que entrou de novo pela porta do fallback: lá
+  // ela foi resolvida preferindo a fila, e a fila vazia devolveu o problema.
+  // O saldo dessas duas contas continua aparecendo na coluna Saldo, que é onde
+  // ele se resolve.
+  const diaSeguinte = (d) => new Date(Date.parse(d + 'T00:00:00Z') + 864e5)
+    .toISOString().slice(0, 10);
+  const pendentes = [...new Set(aFazer
+    .filter(x => !x.em_dia && x.ultimo_ok && x.dia_a_conciliar === diaSeguinte(x.ultimo_ok))
     .map(x => x.dia_a_conciliar))].sort();
   // O DIA PADRÃO É O MAIS ANTIGO COM LINHA NA FILA. Tentei antes usar "o mais
   // antigo em aberto pelo saldo", mas conta que nunca fecha mantém o dia dela em
