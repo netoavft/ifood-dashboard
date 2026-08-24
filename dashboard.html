@@ -3233,6 +3233,9 @@ const ROTINAS_CONHECIDAS = [
   // Grade vigente (24/08/2026) — fonte: contexto/project_cronograma_rotinas.md
   { id: 'manutencao-mensal-banco',           nome: 'Manutenção do banco',    quando: 'Dia 1º, 03:20' },
   { id: 'importacao-diaria-apis',            nome: 'Importação de APIs',     quando: 'Todo dia 08:00' },
+  // Lembrete, nao execucao: avisa o dono de trocar Anuncios e Campanha Inteligente.
+  // Nao toca o portal, por isso pode rodar antes das 10:00 sem ferir a regra do dono.
+  { id: 'alerta-troca-promocoes',            nome: 'Aviso de troca de promos', quando: 'Seg e sex 09:00' },
   { id: 'extracao-diaria-pedidos',           nome: 'Extração de pedidos',    quando: 'Todo dia 10:00' },
   { id: 'contestacao-diaria-cancelamentos',  nome: 'Contestação',            quando: 'Todo dia 11:30' },
   { id: 'conciliacao-bancaria-diaria',       nome: 'Conciliação bancária',   quando: 'Seg–sex 11:45 (PC do dono)' },
