@@ -236,7 +236,12 @@
   /* aprovacao linha a linha: quem le a distribuicao aprova ali mesmo, e quando
      discorda escreve a mudanca na propria linha — sem ter que descrever de novo
      de qual linha esta falando (pedido do Neto, 24/08). */
-  .plano-tab td.plano-apr { white-space:normal; vertical-align:middle; }
+  .plano-tab td.plano-apr { white-space:normal; vertical-align:top; padding-top:9px; }
+  /* tabela com aprovacao tem 6 colunas: os 78ch de leitura do detalhe espremem a
+     coluna de grupos numa tira vertical. Aqui a largura de leitura sai da frente. */
+  .plano-det:has(.plano-tab-apr) { max-width:none; }
+  .plano-tab-apr td:first-child { white-space:nowrap; }
+  .plano-tab-apr td.plano-apr { width:1%; }
   .plano-apr-bts { display:flex; gap:5px; }
   .plano-apr-bt { font-size:11px; padding:2px 9px; border-radius:999px; cursor:pointer;
     background:transparent; color:#8a8a80; border:1px solid #45443f; white-space:nowrap; }
@@ -6745,7 +6750,7 @@ function planoDetalhe(texto, esc, aprovacoes) {
     const corpo = tabela.linhas
       .map((l, n) => '<tr>' + l.map(c => '<td>' + esc(c) + '</td>').join('')
                    + (temApr ? planoAprCelulas(pares[n], esc) : '') + '</tr>').join('');
-    saida.push('<table class="plano-tab">' + cab + '<tbody>' + corpo + '</tbody></table>');
+    saida.push('<table class="plano-tab' + (temApr ? ' plano-tab-apr' : '') + '">' + cab + '<tbody>' + corpo + '</tbody></table>');
     tabela = null;
   };
 
