@@ -4467,6 +4467,30 @@ async function concbCategorias() {
   return CONCB_CATEGORIAS;
 }
 
+// AS LISTAS QUE O DONO MANDOU USAR (24/08/2026). Forma de pagamento sai do
+// SAIPOS — "o tipo de pagamento pode pegar da lista do Saipos mesmo" — e nao de
+// uma lista paralela nossa, que envelheceria sozinha. Contas de origem/destino
+// somam as contas do Saipos com o vocabulario que o receituario ja usa (REDE,
+// PIX), porque transferencia sai de lugar que nem sempre e conta bancaria: ele
+// descreveu o caminho do iFood como "uma TEF do iFood Online para o Santander".
+let CONCB_METODOS = null;
+async function concbMetodos() {
+  if (CONCB_METODOS) return CONCB_METODOS;
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/vw_fin_metodos_pagamento`
+    + '?select=metodo&order=usos.desc', { headers: rmbHeaders() });
+  CONCB_METODOS = r.ok ? (await r.json()).map(x => x.metodo).filter(Boolean) : [];
+  return CONCB_METODOS;
+}
+
+let CONCB_CONTAS_REGRA = null;
+async function concbContasRegra() {
+  if (CONCB_CONTAS_REGRA) return CONCB_CONTAS_REGRA;
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/vw_fin_contas_para_regra`
+    + '?select=conta&order=usos.desc', { headers: rmbHeaders() });
+  CONCB_CONTAS_REGRA = r.ok ? (await r.json()).map(x => x.conta).filter(Boolean) : [];
+  return CONCB_CONTAS_REGRA;
+}
+
 async function concbFormEnsinar(d) {
   const antigo = document.getElementById('concbFormEnsinar');
   if (antigo) antigo.remove();
@@ -4484,15 +4508,28 @@ async function concbFormEnsinar(d) {
   // lancamento numa conta que nao move DRE nem DFC. A saida "nao esta na lista"
   // existe para nao travar quem esta conciliando, mas marca a licao como DUVIDA
   // para alguem olhar, em vez de virar cadastro sozinha.
-  const lista = (id, rotulo, itens) =>
+  // `aberta` decide se a lista tem a saida "nao esta na lista". Categoria, forma
+  // de pagamento e conta tem: o cadastro do Saipos cresce e travar quem esta
+  // conciliando e pior. TIPO DE LANCAMENTO nao tem, e de proposito — sao tres e
+  // sao esses (dono, 24/08/2026: "deve ser despesa, receita ou transferencias").
+  // Uma quarta opcao ali nao seria caso novo, seria erro de digitacao virando cadastro.
+  const lista = (id, rotulo, itens, aberta = true) =>
     '<div style="margin-bottom:10px"><label style="display:block;font-size:11px;'
     + 'opacity:.8;margin-bottom:3px">' + rotulo + '</label>'
     + '<select id="' + id + '" style="width:100%;padding:6px 8px;font-size:13px;'
     + 'border:1px solid #8a887e;border-radius:4px;background:#1c1b19;color:inherit;'
     + 'box-sizing:border-box"><option value="">\u2014 escolha \u2014</option>'
     + itens.map(v => '<option>' + seguro(v) + '</option>').join('')
-    + '<option value="__OUTRA__">n\u00e3o est\u00e1 na lista\u2026</option></select></div>';
+    + (aberta ? '<option value="__OUTRA__">n\u00e3o est\u00e1 na lista\u2026</option>' : '')
+    + '</select></div>';
   const categorias = await concbCategorias();
+  const metodos = await concbMetodos();
+  const contasRegra = await concbContasRegra();
+  // caixa de marcar + campo que so vale quando ela esta marcada
+  const marca = (id, rotulo) =>
+    '<label style="display:flex;align-items:center;gap:6px;font-size:12px;'
+    + 'margin-bottom:6px;cursor:pointer"><input type="checkbox" id="' + id + '" '
+    + 'style="width:14px;height:14px;cursor:pointer">' + rotulo + '</label>';
   const cx = document.createElement('div');
   cx.id = 'concbFormEnsinar';
   cx.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;'
@@ -4504,7 +4541,20 @@ async function concbFormEnsinar(d) {
     + seguro(d.nome || d.memo || '') + '</b></div>'
     + campo('ensQue', 'O que é', 'ex.: compra de tinta para manutenção')
     + campo('ensDesc', 'Descrição no Saipos (o histórico a digitar)', 'ex.: TINTAS VERGINIA')
-    + lista('ensCat', 'Categoria', categorias)
+    // TIPO DE LANCAMENTO primeiro: e ele que decide se a tela pergunta contas
+    // (transferencia) ou categoria (despesa/receita). Os tres valores sao os que
+    // o dono ditou em 24/08/2026, e sao os mesmos que o receituario ja usava.
+    + lista('ensTipo', 'Tipo de lançamento', ['DESPESA', 'RECEITA', 'TRANSFERENCIA'], false)
+    + lista('ensMet', 'Forma de pagamento', metodos)
+    + '<div id="ensBlocoTransf" style="display:none">'
+    +   lista('ensOri', 'Sai de qual conta', contasRegra)
+    +   lista('ensDest', 'Entra em qual conta', contasRegra)
+    + '</div>'
+    + '<div id="ensBlocoCat">' + lista('ensCat', 'Categoria', categorias) + '</div>'
+    + marca('ensAgrupa', 'O banco manda várias linhas e o Saipos lança uma só')
+    + '<div id="ensBlocoPalavra" style="display:none">'
+    +   campo('ensPalavra', 'Palavra que agrupa', 'ex.: REDECARD')
+    + '</div>'
     + '<div style="text-align:right;margin-top:14px">'
     + '<button id="ensCancela" style="font-size:12px;padding:5px 12px;margin-right:6px;'
     + 'cursor:pointer;border:1px solid #8a887e;background:transparent;color:inherit;'
@@ -4513,6 +4563,21 @@ async function concbFormEnsinar(d) {
     + 'border:1px solid #c8102e;background:transparent;color:#c8102e;border-radius:4px">'
     + 'guardar</button></div></div>';
   document.body.appendChild(cx);
+  // A TELA PERGUNTA SO O QUE CABE. Transferencia nao tem categoria e
+  // despesa/receita nao tem conta de origem e destino — palavras do dono,
+  // 24/08/2026: "a diferenca vai ser que nao tem conta que entra e sai, mas
+  // mantem todas as outras". Mostrar os dois ao mesmo tempo convida a preencher
+  // o que nao existe, e campo preenchido a toa vira cadastro errado.
+  const ehTransf = () => document.getElementById('ensTipo').value === 'TRANSFERENCIA';
+  const arruma = () => {
+    document.getElementById('ensBlocoTransf').style.display = ehTransf() ? '' : 'none';
+    document.getElementById('ensBlocoCat').style.display = ehTransf() ? 'none' : '';
+    document.getElementById('ensBlocoPalavra').style.display =
+      document.getElementById('ensAgrupa').checked ? '' : 'none';
+  };
+  document.getElementById('ensTipo').addEventListener('change', arruma);
+  document.getElementById('ensAgrupa').addEventListener('change', arruma);
+  arruma();
   document.getElementById('ensQue').focus();
   const fecha = () => cx.remove();
   cx.addEventListener('click', e => { if (e.target === cx) fecha(); });
@@ -4524,7 +4589,14 @@ async function concbFormEnsinar(d) {
     // dono preencheu tudo e nada chegou (21/08/2026).
     const oQue = document.getElementById('ensQue').value.trim();
     const desc = document.getElementById('ensDesc').value.trim();
-    let cat = document.getElementById('ensCat').value.trim();
+    const tipoLanc = document.getElementById('ensTipo').value.trim();
+    const transf = tipoLanc === 'TRANSFERENCIA';
+    let met = document.getElementById('ensMet').value.trim();
+    const agrupa = document.getElementById('ensAgrupa').checked;
+    const palavra = document.getElementById('ensPalavra').value.trim();
+    const ori = transf ? document.getElementById('ensOri').value.trim() : '';
+    const dest = transf ? document.getElementById('ensDest').value.trim() : '';
+    let cat = transf ? '' : document.getElementById('ensCat').value.trim();
     // "nao esta na lista" nao vira cadastro sozinho: e' justamente o caso que
     // alguem precisa olhar antes de virar regra.
     let revisar = false;
@@ -4532,13 +4604,36 @@ async function concbFormEnsinar(d) {
       cat = (prompt('Qual categoria? Vou guardar para alguém conferir.') || '').trim();
       revisar = true;
     }
+    // Mesma trava da categoria, pelo mesmo motivo: fora da lista nao vira
+    // cadastro sozinho, vira DUVIDA para alguem olhar antes.
+    if (met === '__OUTRA__') {
+      met = (prompt('Qual forma de pagamento? Vou guardar para alguém conferir.') || '').trim();
+      revisar = true;
+    }
+    let contas = { origem: ori, destino: dest };
+    for (const lado of ['origem', 'destino']) {
+      if (contas[lado] === '__OUTRA__') {
+        contas[lado] = (prompt('Qual conta ' + (lado === 'origem' ? 'sai' : 'entra')
+          + '? Vou guardar para alguém conferir.') || '').trim();
+        revisar = true;
+      }
+    }
+    // MARCOU QUE AGRUPA E NAO DISSE A PALAVRA: sem ela o agrupamento nao existe,
+    // e gravar assim faria a pessoa achar que ensinou algo que nao vai valer.
+    if (agrupa && !palavra) {
+      alert('Você marcou que o banco manda várias linhas. Escreva a palavra que aparece em todas elas.');
+      return;
+    }
     // A descricao e o unico campo obrigatorio: e ela que vira o par de de-para e
     // faz a linha casar sozinha da proxima vez. Os outros dois enriquecem.
     if (!desc) { alert('A descrição do Saipos é o que faz a linha casar. Preencha ela.'); return; }
     fecha();
     await concbGravarLicao({ tipo: revisar ? 'DUVIDA' : 'NOME', conta: d.conta, fitid: d.fitid,
       memo_banco: d.memo || null, nome_banco: d.nome || null, texto: desc,
-      o_que_e: oQue || null, categoria: cat || null });
+      o_que_e: oQue || null, categoria: cat || null,
+      tipo_lancamento: tipoLanc || null, metodo_pagamento: met || null,
+      conta_origem: contas.origem || null, conta_destino: contas.destino || null,
+      agrupa: agrupa, palavra_chave: palavra || null });
   });
 }
 
@@ -4927,11 +5022,14 @@ function renderConcbanco() {
     + ' data-conta="' + String(p.conta).replace(/"/g, '&quot;')
     + '" data-fitid="' + String(p.fitid).replace(/"/g, '&quot;')
     + '" style="width:16px;height:16px;cursor:pointer">'
-    // ENSINAR: quando a linha nao tem descricao, e porque eu nao sei quem e.
-    // Quem sabe esta olhando para a tela. Antes isso virava mensagem no chat e
-    // dependia de alguem traduzir em cadastro; agora vira cadastro na hora.
-    + (p.descricao_lancar ? '' :
-       '<br><button class="concb-ensina" data-conta="' + String(p.conta).replace(/"/g, '&quot;')
+    // ENSINAR EM TODA LINHA — pedido do dono, 24/08/2026: "ele deve aparecer
+    // dentro do painel ao lado de cada linha onde ainda tem duvida". Ate aqui o
+    // botao so aparecia quando a linha vinha SEM descricao, que e o caso mais
+    // raro: linha COM descricao tambem pode estar com a categoria errada, com a
+    // forma de pagamento faltando ou pertencendo a um agrupamento que ninguem
+    // cadastrou. Toda linha que chega nesta fila ainda tem duvida — e por isso
+    // que ela esta aqui.
+    + ('<br><button class="concb-ensina" data-conta="' + String(p.conta).replace(/"/g, '&quot;')
        + '" data-fitid="' + String(p.fitid).replace(/"/g, '&quot;')
        + '" data-nome="' + String(p.nome || '').replace(/"/g, '&quot;')
        + '" data-memo="' + String(p.memo || '').replace(/"/g, '&quot;')
