@@ -242,6 +242,10 @@
   .plano-det:has(.plano-tab-apr) { max-width:none; }
   .plano-tab-apr td:first-child { white-space:nowrap; }
   .plano-tab-apr td.plano-apr { width:1%; }
+  /* em tela estreita a coluna "o que mudar" saia pela direita e sumia; aqui ela
+     rola dentro do proprio bloco em vez de vazar a pagina. */
+  .plano-tab-rolo { overflow-x:auto; margin:9px 0; }
+  .plano-tab-rolo .plano-tab { margin:0; min-width:760px; }
   .plano-apr-bts { display:flex; gap:5px; }
   .plano-apr-bt { font-size:11px; padding:2px 9px; border-radius:999px; cursor:pointer;
     background:transparent; color:#8a8a80; border:1px solid #45443f; white-space:nowrap; }
@@ -6750,7 +6754,8 @@ function planoDetalhe(texto, esc, aprovacoes) {
     const corpo = tabela.linhas
       .map((l, n) => '<tr>' + l.map(c => '<td>' + esc(c) + '</td>').join('')
                    + (temApr ? planoAprCelulas(pares[n], esc) : '') + '</tr>').join('');
-    saida.push('<table class="plano-tab' + (temApr ? ' plano-tab-apr' : '') + '">' + cab + '<tbody>' + corpo + '</tbody></table>');
+    const tab = '<table class="plano-tab' + (temApr ? ' plano-tab-apr' : '') + '">' + cab + '<tbody>' + corpo + '</tbody></table>';
+    saida.push(temApr ? '<div class="plano-tab-rolo">' + tab + '</div>' : tab);
     tabela = null;
   };
 
