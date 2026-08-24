@@ -4756,7 +4756,15 @@ function renderConcbanco() {
   // coluna Saldo, que é onde ele se resolve, e não arrasta a tela junto.
   const comTrabalho = [...new Set(pend.filter(p => p.classe === 'ABERTA')
     .map(p => p.data).filter(d => d && d <= ontem))].sort();
-  const diaAlvo = CONCB_DIA_ESCOLHIDO || comTrabalho[0] || pendentes[0] || ontem;
+  // O ÚLTIMO RECURSO NÃO PODE SER "ONTEM": o banco não movimenta sábado e
+  // domingo (dono, 24/08/2026 — "tudo que acontece nesses dias aparece somente no
+  // extrato de segunda"), então numa segunda "ontem" é domingo e a tela abre
+  // vazia, como se nada tivesse acontecido. O último dia com movimento é fato;
+  // "ontem" é suposição — a mesma troca que o parágrafo acima já fez.
+  const ultimoComMov = [...new Set(placar.map(r => r.data))]
+    .filter(d => d && d <= ontem).sort().pop();
+  const diaAlvo = CONCB_DIA_ESCOLHIDO || comTrabalho[0] || pendentes[0]
+    || ultimoComMov || ontem;
   const dias = [diaAlvo];
   const umDiaSo = true;
   const diasNavega = [...new Set(comTrabalho.concat([diaAlvo])
