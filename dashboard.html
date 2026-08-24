@@ -5850,7 +5850,7 @@ function blocoDreCanal(x, reais, pc) {
       ${linhaTipo('TAXAS IFOOD')}
       ${sobreVenda ? `<tr class="dre-soma"><td>= receita líquida</td><td>${reais(receitaLiq)}</td><td>${pctDa(receitaLiq)}</td></tr>` : ''}
       <tr class="dre-tipo"><td>(−) matéria prima <span style="color:#8a897e; font-weight:400;">(da ficha técnica)</span></td><td>${reais(cmv)}</td><td>${pctDa(cmv)}</td></tr>
-      ${semFicha > 1 ? `<tr class="dre-item"><td colspan="3" style="color:#d9a21b;">⚠ ${semFicha.toFixed(0)}% da venda deste canal saiu de item <b>sem ficha</b> — a matéria prima acima está menor do que a real, e tudo abaixo dela, maior.</td></tr>` : ''}
+      ${semFicha > 1 ? `<tr class="dre-item"><td colspan="3" style="color:#d9a21b;">⚠ ${semFicha.toFixed(0)}% da venda deste canal saiu de item <b>sem custo de ficha</b> — a matéria prima acima está menor do que a real, e tudo abaixo dela, maior. São duas causas: item que ainda não tem ficha, e <b>combo cujo custo cai porque uma escolha adicional não tem de/para</b> (este segundo depende de aplicar no CMV a regra de 19/08 — combo compõe só o obrigatório).</td></tr>` : ''}
       <tr class="dre-soma"><td>= margem de contribuição</td><td>${reais(margemContrib)}</td><td>${pctDa(margemContrib)}</td></tr>
       ${depois.map(linhaTipo).join('')}
       <tr class="dre-forte"><td>= resultado operacional</td><td>${reais(operacional)}</td><td>${pctDa(operacional)}</td></tr>
