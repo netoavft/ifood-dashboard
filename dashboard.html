@@ -10592,7 +10592,7 @@ async function entrarProjecao() {
     // Benefício do iFood (comissão zero): quadro semanal para a Hellen acompanhar
     // e mandar para a XP toda quarta (regra do Fabio: não é dinheiro do fluxo).
     consultarTudo('vw_beneficio_semanal?select=*&order=semana'),
-    consultarTudo('vw_beneficio_xp_pendente?select=semana,valor'),
+    consultarTudo('vw_beneficio_xp_pendente?select=semana,valor,falta'),
     consultarTudo('tr_cobrancas?select=unidade,tipo,valor_total,vencimento,status&tipo=in.(BENEFICIO,ACERTO)'),
     garantirDadosFin(),
   ]);
@@ -10620,7 +10620,10 @@ function blocoBeneficio() {
   const ddmm = (iso) => iso.slice(8, 10) + '/' + iso.slice(5, 7);
   const semanas = [...new Set(PROJ_BENEF.sem.map(r => r.semana))].sort();
   const pendentes = new Set(PROJ_BENEF.xp.map(r => r.semana));
-  const totalXp = PROJ_BENEF.xp.reduce((a, r) => a + Number(r.valor), 0);
+  // `falta` e o que sobrou da semana depois da TEF que ja saiu; `valor` e a
+  // semana inteira. Somar `valor` mostrava a mais quando uma TEF cobriu
+  // parte de uma semana — foi o caso de 29/07, que pagou 478,59 da seguinte.
+  const totalXp = PROJ_BENEF.xp.reduce((a, r) => a + Number(r.falta ?? r.valor), 0);
   const cobrAbertas = PROJ_BENEF.cobr.filter(c => c.status === 'EM ABERTO');
   const linhas = semanas.map(sem => {
     const rs = PROJ_BENEF.sem.filter(r => r.semana === sem);
