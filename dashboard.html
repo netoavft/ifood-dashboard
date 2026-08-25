@@ -604,7 +604,7 @@
     <div class="sidebar-grupo" id="gResultado">
       <button class="sidebar-btn" id="navBtnConsolidada" onclick="mostrarModulo('consolidada')"><span class="mico">📊</span>Visão consolidada</button>
       <button class="sidebar-btn" id="navBtnDre" onclick="mostrarModulo('dre')"><span class="mico">📑</span>DRE</button>
-      <button class="sidebar-btn" id="navBtnRateio" onclick="mostrarModulo('rateio')"><span class="mico">🧭</span>Resultado por canal</button>
+      <button class="sidebar-btn" id="navBtnRateio" onclick="mostrarModulo('rateio')"><span class="mico">🎯</span>Preço alvo por produto</button>
       <!-- Link, nao modulo: mini DRE interativa gerada por script (dados embutidos),
            pedida pelo dono 25/08/2026 para o Fabio ler facil. -->
       <button class="sidebar-btn" onclick="window.open('dre-turno.html','_blank')"><span class="mico">⏰</span>Mini DRE por turno ↗</button>
@@ -5756,22 +5756,18 @@ async function entrarRateio() {
   const alvo = document.getElementById('view-rateio');
   if (!alvo) return;
   if (RATEIO === null) {
-    alvo.innerHTML = '<div class="contexto">Carregando o resultado por canal...</div>';
+    alvo.innerHTML = '<div class="contexto">Carregando o preço alvo...</div>';
     try {
       const U = encodeURIComponent(RATEIO_UNIDADE);
       const pct = await consultarTudo(`vw_rateio_pct_canal_precificacao?select=*&unidade=eq.${U}`);
-      const de = pct.length ? pct[0].de : '2026-01-01';
-      const [resumo, linhas, preco, semCriterio, cmv] = await Promise.all([
+      const [resumo, preco, semCriterio] = await Promise.all([
         consultarTudo(`vw_rateio_resumo_canal?select=*&unidade=eq.${U}&order=mes`),
-        consultarTudo(`mv_rateio_canal_mensal?select=mes,tipo,subtipo,metodo,canal,valor&unidade=eq.${U}&mes=gte.${de}`),
         consultarTudo(`vw_rateio_preco_alvo?select=produto,classe,canal,custo_ficha,preco_alvo,preco_atual,fonte_preco,qtd_vendida,cmv_pct_atual,margem_atual_real,margem_atual_cheia,sobra_para_custo,ingredientes_sem_custo&unidade=eq.${U}&preco_atual=not.is.null&order=margem_atual_cheia`),
         // Conta de despesa que apareceu no dinheiro sem criterio decidido — cairia em
         // "por vendas" em silencio (foi assim que a Agencia Oito passou despercebida).
         consultarTudo('vw_rateio_sem_criterio?select=*').catch(() => []),
-        // materia prima do canal: vem da ficha, nao do rateio (la ela e FORA)
-        consultarTudo(`mv_rateio_cmv_canal?select=*&unidade=eq.${U}&mes=gte.${de}`).catch(() => []),
       ]);
-      RATEIO = { pct, resumo, linhas, preco, semCriterio, cmv };
+      RATEIO = { pct, resumo, preco, semCriterio };
     } catch (e) {
       alvo.innerHTML = `<div class="contexto" style="border-color:#c8102e;">Não consegui ler o rateio: ${e.message || e}</div>`;
       return;
@@ -5789,87 +5785,11 @@ function rateioBarraUnidades() {
 }
 function rateioBusca(v) { RATEIO_BUSCA = (v || '').toUpperCase(); renderRateioPreco(); }
 
-// A CONTA DO CANAL NA ORDEM DA DRE (24/08/2026, pedido do dono: "poderia
-// seguir a mesma linha da DRE"). Antes a tabela agrupava por METODO DE RATEIO
-// — "custo direto" x "custo comum" —, que e divisao interna e nao diz nada a
-// quem le, e fechava numa linha "sobra para ingrediente + pro-labore + lucro":
-// tres coisas empilhadas que nao existem em DRE nenhuma.
-// Agora sai receita → deducoes → materia prima → despesas por tipo →
-// RESULTADO OPERACIONAL, exatamente como no modulo DRE.
-// A materia prima NAO vem do rateio (la ela e FORA, de proposito): vem da
-// ficha tecnica, por mv_rateio_cmv_canal — e por isso e subestimada enquanto
-// houver item vendido sem ficha. O aviso na tela diz o tamanho disso.
-// TAXAS IFOOD nao existe na DRE da empresa (nasceu no rateio), mas e comissao
-// sobre a venda: entra junto das deducoes, antes da materia prima. Deixa-la de
-// fora inflava o resultado do canal — pego na conferencia antes de publicar.
-const DRE_ORDEM = ['DEDUÇOES DA RECEITA', 'TAXAS IFOOD', 'USO E CONSUMO', 'PESSOAL',
-  'DESPESAS COMERCIAIS', 'DESPESAS LOGISTICA', 'DESPESAS MARKETING',
-  'DESPESAS ADMINISTRATIVAS', 'DESPESAS MANUTENÇÃO', 'IMPOSTOS E TAXAS',
-  'DESPESAS FINANCEIRAS'];
-// Tipo que aparecer no dado e nao estiver na lista acima entra assim mesmo, no
-// fim e visivel: dinheiro nunca pode sumir da conta porque a categoria e nova.
-function dreTiposDoCanal(porTipo) {
-  const conhecidos = DRE_ORDEM.filter(t => porTipo[t]);
-  const novos = Object.keys(porTipo).filter(t => !DRE_ORDEM.includes(t)).sort();
-  return { conhecidos, novos };
-}
-
-function blocoDreCanal(x, reais, pc) {
-  const linhas = RATEIO.linhas.filter(l => l.canal === RATEIO_CANAL &&
-                                           l.mes >= x._de && l.mes <= x._ate);
-  const porTipo = {};
-  linhas.forEach(l => {
-    const t = porTipo[l.tipo] || (porTipo[l.tipo] = { total: 0, itens: {} });
-    t.total += Number(l.valor || 0);
-    t.itens[l.subtipo] = (t.itens[l.subtipo] || 0) + Number(l.valor || 0);
-  });
-
-  const cmvLinhas = (RATEIO.cmv || []).filter(r => r.canal === RATEIO_CANAL &&
-                                                   r.mes >= x._de && r.mes <= x._ate);
-  const cmv = cmvLinhas.reduce((s, r) => s + Number(r.cmv || 0), 0);
-  const semFicha = cmvLinhas.length
-    ? cmvLinhas.reduce((s, r) => s + Number(r.pct_receita_sem_ficha || 0), 0) / cmvLinhas.length : 0;
-
-  const pctDa = (v) => x.receita ? pc(v / x.receita) : '—';
-  const linhaTipo = (tipo) => {
-    const t = porTipo[tipo];
-    if (!t || Math.abs(t.total) < 0.5) return '';
-    const itens = Object.entries(t.itens).sort((a, b) => b[1] - a[1]);
-    const top = itens.slice(0, 8), resto = itens.slice(8).reduce((a, i) => a + i[1], 0);
-    return `<tr class="dre-tipo"><td>(−) ${tipo.toLowerCase()}</td><td>${reais(t.total)}</td><td>${pctDa(t.total)}</td></tr>
-      ${top.map(([s, v]) => `<tr class="dre-item"><td>${s.toLowerCase()}</td><td>${reais(v)}</td><td>${pctDa(v)}</td></tr>`).join('')}
-      ${resto > 0.5 ? `<tr class="dre-item"><td>outros (${itens.length - 8})</td><td>${reais(resto)}</td><td>${pctDa(resto)}</td></tr>` : ''}`;
-  };
-
-  const { novos } = dreTiposDoCanal(porTipo);
-  const soma = (t) => porTipo[t] ? porTipo[t].total : 0;
-  // sobre a venda, antes da materia prima: impostos e comissao do canal
-  const sobreVenda = soma('DEDUÇOES DA RECEITA') + soma('TAXAS IFOOD');
-  const receitaLiq = x.receita - sobreVenda;
-  const margemContrib = receitaLiq - cmv;
-  // tudo o que sobrou: os tipos conhecidos que vêm depois, mais os novos
-  const depois = DRE_ORDEM.filter(t => !['DEDUÇOES DA RECEITA','TAXAS IFOOD'].includes(t)).concat(novos);
-  const despesas = depois.reduce((s, t) => s + soma(t), 0);
-  const operacional = margemContrib - despesas;
-
-  return `<div id="tabelaRateio"><table class="dre-canal">
-    <thead><tr><th>a conta, na ordem da DRE</th><th>R$ no período</th><th>% da venda</th></tr></thead>
-    <tbody>
-      <tr class="dre-forte"><td>Venda do canal</td><td>${reais(x.receita)}</td><td>100%</td></tr>
-      ${linhaTipo('DEDUÇOES DA RECEITA')}
-      ${linhaTipo('TAXAS IFOOD')}
-      ${sobreVenda ? `<tr class="dre-soma"><td>= receita líquida</td><td>${reais(receitaLiq)}</td><td>${pctDa(receitaLiq)}</td></tr>` : ''}
-      <tr class="dre-tipo"><td>(−) matéria prima <span style="color:#8a897e; font-weight:400;">(da ficha técnica)</span></td><td>${reais(cmv)}</td><td>${pctDa(cmv)}</td></tr>
-      ${semFicha > 1 ? `<tr class="dre-item"><td colspan="3" style="color:#d9a21b;">⚠ ${semFicha.toFixed(0)}% da venda deste canal saiu de item <b>sem custo de ficha</b> — a matéria prima acima está menor do que a real, e tudo abaixo dela, maior. São duas causas: item que ainda não tem ficha, e <b>combo cujo custo cai porque uma escolha adicional não tem de/para</b> (este segundo depende de aplicar no CMV a regra de 19/08 — combo compõe só o obrigatório).</td></tr>` : ''}
-      <tr class="dre-soma"><td>= margem de contribuição</td><td>${reais(margemContrib)}</td><td>${pctDa(margemContrib)}</td></tr>
-      ${depois.map(linhaTipo).join('')}
-      <tr class="dre-forte"><td>= resultado operacional</td><td>${reais(operacional)}</td><td>${pctDa(operacional)}</td></tr>
-      ${x.beneficio > 0.5 ? `<tr class="dre-item"><td>quanto disto some quando o benefício do iFood acabar</td><td>${reais(x.beneficio)}</td><td>${pctDa(x.beneficio)}</td></tr>
-      <tr class="dre-soma"><td>= resultado operacional com a comissão cheia</td><td>${reais(operacional - x.beneficio)}</td><td>${pctDa(operacional - x.beneficio)}</td></tr>` : ''}
-    </tbody></table>
-    <div class="caption-label" style="text-align:left; margin-top:8px;">O <b>pró-labore dos sócios fica fora</b> desta conta (decisão de 22/08/2026): é remuneração fixa, não muda com o canal — sai depois do resultado operacional.</div></div>`;
-}
-
+// A conta do canal na ordem da DRE morava aqui ate 25/08/2026. Saiu porque a
+// leitura de RESULTADO (por canal, turno e dia) unificou na Mini DRE por turno
+// (docs/dre-turno.html, gerada por script/gerar_dre_turno.py) — este modulo
+// ficou so com o que e dele: PRECO (markup do canal x custo da ficha) e o
+// alerta de despesa sem criterio. Atacado e Filiais da AV seguem nos cartoes.
 function renderModuloRateio() {
   const alvo = document.getElementById('view-rateio');
   if (!alvo || !RATEIO) return;
@@ -5910,45 +5830,26 @@ function renderModuloRateio() {
     </div>`;
   }).join('');
 
-  // ---------- onde vai o dinheiro no canal escolhido ----------
-  const x = porCanal[RATEIO_CANAL];
-  const agrup = {};
-  RATEIO.linhas.filter(l => l.canal === RATEIO_CANAL && l.mes >= de && l.mes <= ate).forEach(l => {
-    const k = l.subtipo;
-    const g = agrup[k] || (agrup[k] = { subtipo: k, tipo: l.tipo, metodo: l.metodo, valor: 0 });
-    g.valor += Number(l.valor || 0);
-  });
-  const lista = Object.values(agrup).sort((a, b) => b.valor - a.valor);
-  const diretos = lista.filter(l => ['DIRETO', 'DELIVERY', 'OPERACAO'].includes(l.metodo));
-  const rateados = lista.filter(l => ['VENDAS', 'FOLHA'].includes(l.metodo));
-  const metodoTxt = { DIRETO: 'só este canal', DELIVERY: 'parte do delivery', OPERACAO: 'parte da cozinha de pedidos', VENDAS: 'proporcional às vendas', FOLHA: 'pela folha por setor' };
-  const linhaTr = (l) => `<tr><td>${l.subtipo.toLowerCase()}</td><td style="color:#8a897e;">${metodoTxt[l.metodo] || l.metodo}</td><td>${reais(l.valor)}</td><td>${x.receita ? pc(l.valor / x.receita) : '—'}</td></tr>`;
-  const bloco = (titulo, ls, total) => {
-    const top = ls.slice(0, 12), resto = ls.slice(12).reduce((a, l) => a + l.valor, 0);
-    return `<tr><td colspan="2" style="color:#ffffff; font-weight:700;">${titulo}</td><td style="font-weight:700;">${reais(total)}</td><td style="font-weight:700;">${x.receita ? pc(total / x.receita) : '—'}</td></tr>
-      ${top.map(linhaTr).join('')}
-      ${resto > 0.5 ? `<tr><td>outros (${ls.length - 12})</td><td></td><td>${reais(resto)}</td><td>${pc(resto / x.receita)}</td></tr>` : ''}`;
-  };
-  const benefTr = x.beneficio > 0.5 ? `<tr><td>comissão do iFood que volta quando o benefício acabar</td><td style="color:#8a897e;">9,5% da venda − comissão real</td><td>${reais(x.beneficio)}</td><td>${pc(x.beneficio / x.receita)}</td></tr>` : '';
-
   const temPreco = RATEIO.preco.some(r => r.canal === RATEIO_CANAL);
   const sobraRef = RATEIO.preco.find(r => r.canal === RATEIO_CANAL);
+  // O markup do canal, do jeito que o dono pensa (25/08/2026): o custo de operar
+  // vira um multiplicador sobre o custo da ficha. E 1/sobra — varia um pouco por
+  // produto (embalagem), entao o numero aqui e referencia, nao regra por item.
+  const mult = sobraRef && Number(sobraRef.sobra_para_custo) > 0
+    ? (1 / Number(sobraRef.sobra_para_custo)).toFixed(1).replace('.', ',') : null;
   const precoBloco = temPreco ? `
     <div class="section-label">Preço alvo · ${nome[RATEIO_CANAL] || RATEIO_CANAL} — com a comissão cheia e 10% de lucro</div>
-    <div class="contexto">Sobram <b>${pc(sobraRef ? sobraRef.sobra_para_custo : 0)}</b> do preço para o ingrediente (embalagem já está na ficha).
+    <div class="contexto">Sobram <b>${pc(sobraRef ? sobraRef.sobra_para_custo : 0)}</b> do preço para o ingrediente (embalagem já está na ficha)${mult ? ` — na prática, o preço alvo é o <b>custo da ficha × ~${mult}</b> neste canal` : ''}.
       Margem abaixo de 10% fica âmbar; negativa, vermelha. <b>Preço atual</b> = o preço que <b>mais apareceu</b> nas vendas do Saipos neste canal nos últimos 30 dias — não é média (24/08/2026: a média misturava adicional, promoção e preço antigo, e mostrava bebida de R$ 8 como R$ 26). O <span style="color:#d9a21b;">⚠</span> marca produto cujo preço variou mais de 15% no período. Produto sem venda no canal aparece <b>sem preço</b>: a planilha do iFood saiu de vez em 24/08 (errava em 15 de 15 itens conferidos, R$ 11,47 de diferença média) — em branco é melhor que errado.
       <input type="text" placeholder="buscar produto" oninput="rateioBusca(this.value)" value="${RATEIO_BUSCA}" style="margin-left:12px; background:#111110; color:#fff; border:1px solid #34332f; border-radius:6px; padding:4px 8px;"></div>
     <div id="tabelaRateioPreco"></div>` : '';
 
   alvo.innerHTML = `
-    <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Resultado por canal · ${mesNome(de)} a ${mesNome(ate)}</div>
+    <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Preço alvo por produto · ${mesNome(de)} a ${mesNome(ate)}</div>
     ${rateioBarraUnidades()}
-    <div class="contexto">Quanto de cada R$ 100 vendidos vai para <b>operar o canal</b> — entrega, taxas, folha, aluguel, impostos — <b>sem a matéria-prima</b> (ela entra pela ficha técnica). Leitura <b>cheia</b> considera a comissão do iFood de 9,5% que o benefício dos R$ 500 mil zera até dez/26–jan/27; é por ela que se precifica. Clique no canal para ver onde vai o dinheiro. O <b>pró-labore dos sócios fica fora</b> (decisão de 22/08/2026): é remuneração fixa, não muda com o resultado nem com o canal — sai da sobra, depois do resultado operacional.${canais.some(c => porCanal[c].provisorio) ? ' <span style="color:#a5a49a;">Parte da folha ainda cai na proporção geral (nomes sem setor).</span>' : ''}</div>
+    <div class="contexto">Aqui é <b>preço</b>: o custo de operar cada canal vira um <b>markup</b> sobre o custo da ficha, e o markup × CMV dá o preço alvo de cada produto. Os cartões mostram quanto de cada R$ 100 vendidos vai para operar o canal — <b>sem a matéria-prima</b> (ela entra pela ficha) — na leitura <b>cheia</b> (comissão de 9,5% do iFood que o benefício zera até dez/26–jan/27; é por ela que se precifica). Clique no canal para ver o preço alvo dele. Para ler <b>resultado</b> (quanto sobrou por canal, turno e dia), use a <b>Mini DRE por turno</b> aqui do menu.${canais.some(c => porCanal[c].provisorio) ? ' <span style="color:#a5a49a;">Parte da folha ainda cai na proporção geral (nomes sem setor).</span>' : ''}</div>
     ${(RATEIO.semCriterio || []).length ? `<div class="contexto" style="border-color:#c8102e;"><b>Conta nova sem critério de rateio</b> — está caindo em "por vendas" sem ninguém ter decidido: ${RATEIO.semCriterio.map(r => `${String(r.subtipo).toLowerCase()} (${reais(r.valor_3m)} em 3 meses)`).join(' · ')}. Decidir em rateio_criterios.</div>` : ''}
     <div class="cards">${cards}</div>
-
-    <div class="section-label">A conta do canal · ${nome[RATEIO_CANAL] || RATEIO_CANAL}</div>
-    ${blocoDreCanal(x, reais, pc)}
     ${precoBloco}`;
   if (temPreco) renderRateioPreco();
 }
@@ -7767,6 +7668,7 @@ function renderLucroUni() {
   alvo.innerHTML = `
     <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">
       Lucro por unidade · ${mesTxt(fechados[0])} a ${mesTxt(fechados[fechados.length - 1])}</div>
+    <div class="contexto">Esta tela é o <b>dinheiro real lançado</b>: lucro contábil, caixa conta a conta e a ponte do lucro até o caixa (retiradas, investimentos, repasses entre as casas). A <b>Mini DRE por turno</b> é o modelo por canal, turno e dia (ficha + rateio) — quando os dois batem, o modelo está confiável; quando divergem, tem o que investigar.</div>
 
     <div class="hero" style="border-color:${pctBenef >= 30 ? '#e8b04b' : '#3fb950'};">
       <div class="hero-lbl">De cada real de lucro da rede, quanto veio do benefício do iFood</div>
