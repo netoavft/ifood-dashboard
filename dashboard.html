@@ -9445,6 +9445,7 @@ function aplicarLojaFin() {
     DRE_VENDAS = porLojaFin(DRE_VENDAS_RAW, ['mes', 'canal'], ['vendas', 'receita']);
     DRE_VENDAS.forEach(r => { r.receita = Number(r.receita); r.vendas = Number(r.vendas); });
   }
+  if (DRE_BENEF_RAW) aplicarBenefLoja();
 }
 
 function seletorLojaFin() {
@@ -9870,7 +9871,19 @@ const DRE_GRUPOS = [
 // Quando acabar, os 9,5% voltam de uma vez — o painel avisa antes.
 // Fonte: vw_beneficio_ifood_farol (uma linha) e vw_beneficio_ifood_semana.
 let BENEF_FAROL = null;   // { f, semanas }
-let DRE_BENEF = null;     // vw_fin_dre_beneficio: mes -> beneficio_ifood
+let DRE_BENEF = null;     // mes -> beneficio_ifood JA FILTRADO pela loja escolhida
+let DRE_BENEF_RAW = null; // vw_fin_dre_beneficio cru: uma linha por mes E unidade
+
+// O beneficio segue a loja do seletor: em REDE soma as tres, senao pega so a
+// dela. Antes de 24/08/2026 isso nao existia e o mapa era montado sobrescrevendo
+// o mes — sobrava o beneficio de uma unidade qualquer.
+function aplicarBenefLoja() {
+  DRE_BENEF = {};
+  (DRE_BENEF_RAW || []).forEach(b => {
+    if (LOJA_FIN !== 'REDE' && b.unidade !== LOJA_FIN) return;
+    DRE_BENEF[b.mes] = (DRE_BENEF[b.mes] || 0) + (Number(b.beneficio_ifood) || 0);
+  });
+}
 
 async function carregarBeneficioIfood() {
   const [farol, semanas] = await Promise.all([
@@ -9962,17 +9975,27 @@ async function entrarDre() {
       consultarTudo('vw_vendas_canal_mensal?select=unidade,mes,canal,vendas,receita&order=mes'),
       consultarTudo('fin_metas_dre?select=chave,sentido,pct_meta&order=ordem'),
       carregarBeneficioIfood(),
-      consultarTudo('vw_fin_dre_beneficio?select=mes,beneficio_ifood&order=mes'),
+      // com unidade: a view tem UMA LINHA POR MES E UNIDADE, e sem ela o
+      // DRE_BENEF sobrescrevia o mes e mostrava o beneficio de uma loja so
+      // (achado 24/08/2026 — a linha do beneficio ficava menor que a verdade
+      // no consolidado e trocada de loja quando o dono filtrava).
+      consultarTudo('vw_fin_dre_beneficio?select=mes,unidade,beneficio_ifood&order=mes'),
       consultarTudo('mv_conciliacao_agregado?select=data,grupo,valor&unidade=eq.AGUA%20VERDE'),
       garantirDadosFin(),   // DFC (caixa) para a ponte DRE x DFC do mes fechado
     ]);
     // "Pra onde foi o dinheiro": do resultado à variação real do caixa operacional
     DRE_PONTE = await consultarTudo('vw_fin_ponte_mensal?select=*&order=mes');
+    // Mercadoria que a filial compra da AV: desde 24/08/2026 o repasse em
+    // dinheiro nao e mais receita nem investimento (virou APORTE VALORES), entao
+    // o custo entra por COMPETENCIA — pela lista fechada do mes. Sem esta linha
+    // a AV fica sem a receita da venda e a filial sem o custo da compra.
+    DRE_LISTAS = await consultarTudo(
+      'vw_tr_conta_listas_mensal?select=unidade,mes,total_devido&unidade=in.(AHU,"SÃO BRAZ")&order=mes');
     aplicarLojaFin();   // deriva DRE_FIN e DRE_VENDAS da loja escolhida
     DRE_METAS = {};
     metas.forEach(m => { DRE_METAS[m.chave] = { sentido: m.sentido, meta: Number(m.pct_meta) }; });
-    DRE_BENEF = {};
-    benefMes.forEach(b => { DRE_BENEF[b.mes] = Number(b.beneficio_ifood) || 0; });
+    DRE_BENEF_RAW = benefMes;
+    aplicarBenefLoja();
   }
   renderModuloDRE();
 }
@@ -9994,6 +10017,7 @@ function dreRangeSet() {
 // degrau a degrau — investimento, retirada, empréstimo, aporte e o que foi para
 // a XP (inclusive o benefício do iFood). Fonte: vw_fin_ponte_mensal.
 let DRE_PONTE = null;
+let DRE_LISTAS = null;   // vw_tr_conta_listas_mensal: mercadoria AV -> filial, por competencia
 function blocoCaixaReal(mesF, rotuloMes) {
   const rows = (DRE_PONTE || []).filter(r => r.mes === mesF &&
     (LOJA_FIN === 'REDE' || r.unidade === LOJA_FIN));
@@ -10103,11 +10127,28 @@ function renderModuloDRE() {
   const lucroBruto = menos(recLiq, gruposVals[0][3]);
   const ebitda = gruposVals.slice(1).reduce((acc, g) => menos(acc, g[3]), lucroBruto).map((v, i) => v - outrasDesp[i]);
 
+  // Mercadoria entre unidades, por competencia (24/08/2026). Na Agua Verde a
+  // lista fechada do mes e RECEITA (ela vendeu); na filial e CUSTO (ela comprou).
+  // Na REDE as duas se anulam — o ajuste da ~zero e a linha some sozinha, que e
+  // exatamente o certo: mercadoria que anda dentro de casa nao e lucro de ninguem.
+  const ajusteLista = Array(nM).fill(0);
+  (DRE_LISTAS || []).forEach(r => {
+    const i = idxMes[r.mes];
+    if (i === undefined) return;
+    const v = Number(r.total_devido) || 0;
+    if (LOJA_FIN === 'AGUA VERDE' || LOJA_FIN === 'REDE') ajusteLista[i] += v;
+    if (LOJA_FIN === r.unidade || LOJA_FIN === 'REDE') ajusteLista[i] -= v;
+  });
+  const temAjusteLista = ajusteLista.some(v => Math.abs(v) > 0.005);
+  const ebitdaAj = ebitda.map((v, i) => v + ajusteLista[i]);
+
   const despFin = somar(r => r.tipo === 'DESPESAS FINANCEIRAS', -1);
   const recFin  = somar(r => r.natureza === 'APLICAÇÕES' && r.subtipo === 'RENDIMENTOS');
   const resFin  = menos(recFin, despFin);
   const semClass = somar(r => r.natureza === 'SEM CLASSIFICACAO');
-  const resultadoAntes = ebitda.map((v, i) => v + resFin[i] + semClass[i]);
+  // ebitdaAj (e nao ebitda): quando a loja compra ou vende mercadoria dentro do
+  // grupo, o resultado dela so fecha com a competencia da lista somada.
+  const resultadoAntes = ebitdaAj.map((v, i) => v + resFin[i] + semClass[i]);
   const resultado = resultadoAntes.map((v, i) => v - irpj[i]);
 
   // abaixo da linha (nao entram no resultado — sao destino do lucro, nao custo dele)
@@ -10241,6 +10282,18 @@ function renderModuloDRE() {
   }
   corpo += linha('dfc-resultado', '(=) RESULTADO OPERACIONAL (EBITDA gerencial)', ebitda, { kind: 'ganho', metaChave: 'EBITDA' });
 
+  // Mercadoria entre unidades: linha DERIVADA da lista fechada do mes, mesmo
+  // padrao da linha do beneficio. Nao ha lancamento correspondente porque o
+  // repasse em dinheiro e outra coisa (e caixa, e vai em FLUXO NAO OPERACIONAL);
+  // aqui entra a COMPETENCIA da mercadoria, que e o que forma o resultado.
+  if (temAjusteLista) {
+    corpo += linha('dfc-linha', LOJA_FIN === 'AGUA VERDE'
+      ? '(+) Venda de mercadoria às filiais (lista fechada do mês)'
+      : '(−) Mercadoria comprada da Água Verde (lista fechada do mês)',
+      ajusteLista, { kind: 'ganho' });
+    corpo += linha('dfc-resultado', '(=) RESULTADO OPERACIONAL AJUSTADO', ebitdaAj, { kind: 'ganho' });
+  }
+
   // Linha do beneficio iFood (aplicado da fila em 16/08/2026): o beneficio nao
   // e receita nova — e comissao que o iFood deixou de cobrar, diluida em
   // RECEITAS ONLINE. Lancar seria duplicar; por isso e linha DERIVADA de
@@ -10249,7 +10302,7 @@ function renderModuloDRE() {
   const benefVals = meses.map(m => DRE_BENEF ? (DRE_BENEF[m] || 0) : 0);
   if (benefVals.some(v => v > 0.005)) {
     corpo += linha('dfc-linha', '(−) Benefício iFood embutido acima (comissão isenta)', benefVals, { kind: 'custo' });
-    corpo += linha('dfc-resultado', '(=) RESULTADO RECORRENTE (pagando comissão cheia)', ebitda.map((v, i) => v - benefVals[i]), { kind: 'ganho' });
+    corpo += linha('dfc-resultado', '(=) RESULTADO RECORRENTE (pagando comissão cheia)', ebitdaAj.map((v, i) => v - benefVals[i]), { kind: 'ganho' });
   }
 
   corpo += linha('dfc-bloco', '(±) RESULTADO FINANCEIRO (rendimentos − juros/tarifas)', resFin, { chave: 'FIN', kind: 'ganho' });
@@ -10352,7 +10405,7 @@ function renderModuloDRE() {
       const primeArr = meses.map((_, i) => custo[i] + pessoal[i]);
       const primePct = sobre(primeArr, iF);
       const cmvPct = sobre(custo, iF), folhaPct = sobre(pessoal, iF), cfPct = sobre(cfArr, iF);
-      const ebitdaPct = sobre(ebitda, iF);
+      const ebitdaPct = sobre(ebitdaAj, iF);
       const resPct = sobre(resultado, iF);
       const pe = mcPct > 0.5 ? estrutura / (mcPct / 100) : null;
       const folga = pe ? (baseAV[iF] / pe - 1) * 100 : null;
