@@ -4376,7 +4376,7 @@ async function entrarConcbanco() {
   alvo.innerHTML = '<div class="contexto">Carregando a conciliação...</div>';
   try {
     const [placar, pend, saldoDia, pessoas, marcadas, naoConf, saldoConf, aFazer,
-           diaSaldo, duvidas, matur] = await Promise.all([
+           diaSaldo, duvidas, sresiduo, matur] = await Promise.all([
       consultarTudo('vw_fin_conciliacao_placar?select=*&order=data.desc'),
       consultarTudo('vw_fin_conciliacao_pendencias?select=*&order=dias.desc'),
       consultarTudo('mv_fin_conciliacao_saldo_dia?select=*&order=data.desc'),
@@ -4388,12 +4388,13 @@ async function entrarConcbanco() {
       consultarTudo('vw_fin_conciliacao_dia_saldo?select=*&data=gte.'
         + new Date(Date.now() - 40 * 86400000).toISOString().slice(0, 10)),
       consultarTudo('vw_fin_conciliacao_duvidas?select=*'),
+      consultarTudo('fin_conciliacao_saipos_residuo?select=conta,data,valor,subtipo,descricao&order=data'),
       // MATURIDADE: so as familias com volume, ordenadas por movimento. Sem o
       // corte, 490 das 600 familias sao contraparte que apareceu 3 vezes em 90
       // dias — barulho que esconde as 30 que decidem alguma coisa.
       consultarTudo('vw_fin_conciliacao_maturidade?select=*&linhas=gte.10&order=linhas.desc'),
     ]);
-    CONCB = { placar, pend, saldoDia, pessoas, marcadas, naoConf, saldoConf, aFazer,
+    CONCB = { placar, pend, saldoDia, pessoas, marcadas, naoConf, saldoConf, aFazer, sresiduo,
               diaSaldo, duvidas, matur };
   } catch (e) {
     alvo.innerHTML = '<div class="contexto">Não consegui carregar a conciliação: ' + e.message + '</div>';
@@ -5108,6 +5109,46 @@ function renderConcbanco() {
 
   const quando = umDiaSo ? (dias[0] === ontem ? 'ontem' : 'em ' + ddmm(dias[0]))
                          : 'nestes dias';
+  // A CONTA DA DIFERENCA, por conta que nao fechou no dia. E a resposta do
+  // dono em 25/08: "a ideia do modulo e voce me ACHAR essas diferencas". As
+  // entradas sao a propria fila (banco tem, Saipos nao); as saidas tem DOIS
+  // lados, e o segundo — lancado no Saipos sem debito no banco — nunca aparecia
+  // na tela. Aqui os dois fecham no centavo com o numero do cabecalho.
+  const blocoDiferenca = naoFecharam.map(conta => {
+    const c = contas[conta];
+    if (Math.abs(c.difEnt) < CONCB_TOL_CENTAVOS && Math.abs(c.difSai) < CONCB_TOL_CENTAVOS) return '';
+    const filaDia = abertas.filter(p => p.conta === conta && dias.includes(p.data));
+    const fe = filaDia.filter(p => n(p.valor) > 0).reduce((s, p) => s + n(p.valor), 0);
+    const fs = filaDia.filter(p => n(p.valor) < 0).reduce((s, p) => s - n(p.valor), 0);
+    const sres = (cru.sresiduo || []).filter(r => r.conta === conta && dias.includes(r.data));
+    const srSai = sres.filter(r => n(r.valor) < 0);
+    const srTot = srSai.reduce((s, r) => s - n(r.valor), 0);
+    const linhaSr = srSai.map(r =>
+      '<tr><td style="text-align:left">' + esc(r.descricao || '') + '</td>' +
+      '<td style="text-align:left">' + esc(r.subtipo || '') + '</td>' +
+      '<td style="text-align:right">' + rs(Math.abs(n(r.valor))) + '</td></tr>').join('');
+    return '<div class="section-label">A conta da diferença — ' + esc(nomeConta(conta)) + '</div>' +
+      '<div class="contexto" style="font-variant-numeric:tabular-nums">' +
+      (Math.abs(c.difEnt) >= CONCB_TOL_CENTAVOS
+        ? '<b>Entradas:</b> o banco tem <b style="color:#2e7d32">' + rs(fe) + '</b> que o Saipos não tem' +
+          ' — são as linhas de entrada na fila abaixo. Diferença: <b>' + rs(Math.abs(c.difEnt)) + '</b>.<br>' : '') +
+      (Math.abs(c.difSai) >= CONCB_TOL_CENTAVOS
+        ? '<b>Saídas:</b> banco sem Saipos <b style="color:#c8102e">' + rs(fs) + '</b> (fila abaixo)' +
+          ' − Saipos sem banco <b>' + rs(srTot) + '</b> (tabela) = <b>' + rs(Math.abs(c.difSai)) + '</b>.' : '') +
+      '</div>' +
+      (srSai.length
+        ? '<div id="tabelaConcbSres' + esc(conta).replace(/\W/g, '') + '" style="overflow-x:auto"><table style="width:100%">' +
+          '<thead><tr><th style="text-align:left">Lançado no Saipos, sem débito no banco no dia</th>' +
+          '<th style="text-align:left">Categoria</th><th style="text-align:right">Valor</th></tr></thead>' +
+          '<tbody>' + linhaSr +
+          '<tr><td style="text-align:left"><b>Total</b></td><td></td><td style="text-align:right"><b>' +
+          rs(srTot) + '</b></td></tr></tbody></table></div>' +
+          '<div class="caption-label" style="text-align:left">Lançado adiantado, valor divergente, ' +
+          'ou movimento que nunca saiu do banco. Não é para lançar de novo — é para conferir se o ' +
+          'lançamento está certo.</div>'
+        : '');
+  }).join('');
+
   const resumo = naoFecharam.length
     ? '<b style="color:#c8102e">' + naoFecharam.length
       + (naoFecharam.length === 1 ? ' conta não fechou ' : ' contas não fecharam ')
@@ -5414,6 +5455,7 @@ function renderConcbanco() {
       '<th style="text-align:left">Saldo</th></tr></thead><tbody>' +
       naoFecharam.map(cartao).join('') + fecharam.map(cartao).join('') + semMov.map(cartao).join('') +
     '</tbody></table></div>' +
+    blocoDiferenca +
     trava +
     (blocosConferir
       ? '<div class="section-label">O que conferir no Saipos</div>' +
