@@ -10635,7 +10635,7 @@ function blocoCaixaDoDia() {
     <select id="projCaixaConta" style="${sel}" onchange="projCaixaFiltrar('conta', this.value)">
       <option value="">todas</option>${contas.map(r => `<option value="${r.conta}"${PROJ_FILTRO.conta === r.conta ? ' selected' : ''}>${r.conta_exibida}</option>`).join('')}</select>
   </div>
-  <div style="overflow-x:auto"><table>
+  <div id="tabelaCaixaDia" style="overflow-x:auto"><table>
     <thead><tr><th>Conta</th><th style="text-align:right">Saldo</th><th style="text-align:right">Vencido</th>
       <th style="text-align:right">Vence hoje</th><th style="text-align:right">Sobra hoje</th>
       <th style="text-align:right">Sobra em 7 dias</th></tr></thead>
