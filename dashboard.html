@@ -605,6 +605,9 @@
       <button class="sidebar-btn" id="navBtnConsolidada" onclick="mostrarModulo('consolidada')"><span class="mico">📊</span>Visão consolidada</button>
       <button class="sidebar-btn" id="navBtnDre" onclick="mostrarModulo('dre')"><span class="mico">📑</span>DRE</button>
       <button class="sidebar-btn" id="navBtnRateio" onclick="mostrarModulo('rateio')"><span class="mico">🧭</span>Resultado por canal</button>
+      <!-- Link, nao modulo: mini DRE interativa gerada por script (dados embutidos),
+           pedida pelo dono 25/08/2026 para o Fabio ler facil. -->
+      <button class="sidebar-btn" onclick="window.open('dre-turno.html','_blank')"><span class="mico">⏰</span>Mini DRE por turno ↗</button>
       <button class="sidebar-btn" id="navBtnLucrouni" onclick="mostrarModulo('lucrouni')"><span class="mico">🏦</span>Lucro por unidade</button>
       <button class="sidebar-btn" id="navBtnEngcard" onclick="mostrarModulo('engcard')"><span class="mico">🍔</span>Engenharia de cardápio</button>
       <button class="sidebar-btn" id="navBtnFichas" onclick="mostrarModulo('fichas')"><span class="mico">📋</span>Fichas técnicas</button>
@@ -10535,6 +10538,8 @@ let PROJ_RECEB = null;    // vw_fin_receitas_diarias (ultimas semanas)
 let PROJ_ANCORA = null;   // vw_fin_saldo_banco_atual: saldo REAL do banco (OFX diario)
 let PROJ_VENC = null;     // vw_fin_vencidas_status: vencida ja saiu do banco ou nao
 let PROJ_RECEB_SUB = null; // vw_fin_receitas_diarias_subtipo: a mesma media, aberta por tipo
+let PROJ_CAIXA = null;    // vw_fin_caixa_do_dia: saldo x o que vence, conta a conta
+let PROJ_FILTRO = { unidade: '', conta: '' };  // filtros do quadro de pagamento
 
 // contas que nao sao caixa operacional (investimentos, pessoais e cartoes)
 const PROJ_FORA_CAIXA = ['XP INVESTIMENTOS', 'PARTICIPACOES', 'FABIO PESSOAL'];
@@ -10545,11 +10550,12 @@ async function entrarProjecao() {
   if (PROJ_PAGAR === null) alvo.innerHTML = '<div class="contexto">Carregando projeção...</div>';
   const corte = new Date(); corte.setDate(corte.getDate() - 35);
   const corteIso = corte.toISOString().slice(0, 10);
-  const [pagar, receb, ancora, vencStatus, recebSub, benefSem, benefXp, benefCobr] = await Promise.all([
+  const [pagar, receb, ancora, vencStatus, caixaDia, recebSub, benefSem, benefXp, benefCobr] = await Promise.all([
     consultarTudo('vw_fin_contas_pagar?select=vencimento,conta,subtipo,tipo,natureza,descricao,credito,debito&order=vencimento'),
     consultarTudo(`vw_fin_receitas_diarias?select=data,recebido&data=gte.${corteIso}&order=data`),
     consultarTudo('vw_fin_saldo_banco_atual?select=conta,data_saldo,saldo_banco,idade_dias,saldo_saipos,diferenca'),
     consultarTudo('vw_fin_vencidas_status?select=vencimento,conta,subtipo,tipo,descricao,debito,dias_vencida,data_debito_banco,achou_no_banco'),
+    consultarTudo('vw_fin_caixa_do_dia?select=*&order=ordem'),
     consultarTudo(`vw_fin_receitas_diarias_subtipo?select=data,subtipo,recebido&data=gte.${corteIso}&order=data`),
     // Benefício do iFood (comissão zero): quadro semanal para a Hellen acompanhar
     // e mandar para a XP toda quarta (regra do Fabio: não é dinheiro do fluxo).
@@ -10563,6 +10569,8 @@ async function entrarProjecao() {
   PROJ_RECEB_SUB.forEach(r => { r.recebido = Number(r.recebido); });
   PROJ_ANCORA = ancora;
   PROJ_VENC = vencStatus;
+  PROJ_CAIXA = (caixaDia || []).map(r => Object.fromEntries(Object.entries(r).map(
+    ([k, v]) => [k, ['conta','conta_exibida','unidade'].includes(k) ? v : Number(v)])));
   PROJ_VENC.forEach(r => { r.debito = Number(r.debito); });
   PROJ_PAGAR = pagar;
   PROJ_PAGAR.forEach(r => { r.credito = Number(r.credito); r.debito = Number(r.debito); });
