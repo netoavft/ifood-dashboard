@@ -605,6 +605,7 @@
       <button class="sidebar-btn" id="navBtnConsolidada" onclick="mostrarModulo('consolidada')"><span class="mico">📊</span>Visão consolidada</button>
       <button class="sidebar-btn" id="navBtnDre" onclick="mostrarModulo('dre')"><span class="mico">📑</span>DRE</button>
       <button class="sidebar-btn" id="navBtnRateio" onclick="mostrarModulo('rateio')"><span class="mico">🧭</span>Resultado por canal</button>
+      <button class="sidebar-btn" id="navBtnLucrouni" onclick="mostrarModulo('lucrouni')"><span class="mico">🏦</span>Lucro por unidade</button>
       <button class="sidebar-btn" id="navBtnEngcard" onclick="mostrarModulo('engcard')"><span class="mico">🍔</span>Engenharia de cardápio</button>
       <button class="sidebar-btn" id="navBtnFichas" onclick="mostrarModulo('fichas')"><span class="mico">📋</span>Fichas técnicas</button>
     </div>
@@ -836,6 +837,10 @@
 
     <div id="modulo-rateio" class="modulo" style="display:none;">
       <div id="view-rateio"></div>
+    </div>
+
+    <div id="modulo-lucrouni" class="modulo" style="display:none;">
+      <div id="view-lucrouni"></div>
     </div>
 
     <div id="modulo-projecao" class="modulo" style="display:none;">
@@ -1467,6 +1472,7 @@ function mostrarModulo(nome) {
     // rateio ficou de fora do mapa quando o modulo nasceu (22/08): entrarRateio()
     // buscava os dados e o div nunca era exibido — a tela abria vazia.
     rateio: ['modulo-rateio', 'navBtnRateio'],
+    lucrouni: ['modulo-lucrouni', 'navBtnLucrouni'],
     fichas: ['modulo-fichas', 'navBtnFichas'],
     engcard: ['modulo-engcard', 'navBtnEngcard'],
     plano: ['modulo-plano', 'navBtnPlano'],
@@ -1525,6 +1531,7 @@ function mostrarModulo(nome) {
   if (nome === 'fluxo') entrarFluxo();
   if (nome === 'dre') entrarDre();
   if (nome === 'rateio') entrarRateio();
+  if (nome === 'lucrouni') entrarLucroUni();
   if (nome === 'projecao') entrarProjecao();
   if (nome === 'despesas') entrarDespesas();
   if (nome === 'conciliacao') entrarConciliacao();
@@ -7615,6 +7622,236 @@ function renderModuloFichas() {
   if (FICHA_EDIT) alvo.insertAdjacentHTML('afterbegin', fichaFormulario());
 
   FICHA_MSG = null;
+}
+
+// ------------------------------------------------------------------
+// LUCRO POR UNIDADE (24/08/2026) — nasceu de uma pergunta do dono: "o saldo
+// inicial da XP menos o final e o que sobrou no ano; quanto disso e bonificacao
+// de comissao zero do iFood e quanto e lucro, por unidade?".
+//
+// A XP sozinha responde errado por dois motivos, e a tela mostra os dois:
+//   1. a XP subiu MAIS do que a rede sobrou — as filiais esvaziaram a conta
+//      delas para alimentar a matriz. So o caixa somado das 3 diz a verdade.
+//   2. caixa nao e lucro: investimento, retirada de socio e rendimento
+//      financeiro entram no meio do caminho. Por isso a ponte no fim da tela.
+//
+// O lucro vem de vw_fin_resultado_unidade, que ja elimina o intercompany: o
+// repasse em dinheiro nao conta (virou FLUXO NAO OPERACIONAL no plano de contas
+// em 24/08) e o custo da mercadoria entra por COMPETENCIA, pela lista fechada
+// do mes. Antes disso o Ahu aparecia com 45% de margem tendo R$ 43,9 mil de
+// materia prima em 7 meses — porque a compra dele na AV estava em INVESTIMENTOS.
+// ------------------------------------------------------------------
+let LUCROUNI = null;
+
+async function entrarLucroUni() {
+  const alvo = document.getElementById('view-lucrouni');
+  if (!alvo) return;
+  if (LUCROUNI === null) {
+    alvo.innerHTML = '<div class="contexto">Carregando o resultado por unidade...</div>';
+    const [res, contas, saldos, dfc] = await Promise.all([
+      consultarTudo('vw_fin_resultado_unidade?select=*&order=mes'),
+      consultarTudo('fin_contas?select=conta,unidade,saldo_inicial,data_saldo_inicial,ativa'),
+      // saldo por MES (nao o saldo de hoje): o caixa precisa parar no mesmo mes
+      // em que o lucro para, senao a ponte compara sete meses de lucro com oito
+      // de caixa e a diferenca que sobra parece erro quando e' so a janela.
+      consultarTudo('vw_fin_saldo_conta_mensal?select=mes,conta,movimento'),
+      consultarTudo('vw_fin_dfc_mensal?select=mes,unidade,natureza,subtipo,credito,debito'),
+    ]);
+    LUCROUNI = { res, contas, saldos, dfc };
+  }
+  renderLucroUni();
+}
+
+function renderLucroUni() {
+  const alvo = document.getElementById('view-lucrouni');
+  if (!alvo || LUCROUNI === null) return;
+  const { res, contas, saldos, dfc } = LUCROUNI;
+  const nu = (v) => Number(v) || 0;
+  const mesTxt = (m) => MESES_ABREV[Number(m.slice(5, 7)) - 1] + '/' + m.slice(2, 4);
+  const rs = (v) => 'R$ ' + fmt(v);
+  // fin_* grava a unidade sem acento; a tela do dono mostra o nome escrito certo
+  const UN_NOME = { 'AGUA VERDE': 'ÁGUA VERDE', 'AHU': 'AHÚ', 'SAO BRAZ': 'SÃO BRAZ' };
+  const un = (u) => UN_NOME[u] || u;
+
+  if (!res.length) {
+    alvo.innerHTML = '<div class="contexto">Sem resultado calculado — confira <b>vw_fin_resultado_unidade</b>.</div>';
+    return;
+  }
+
+  // O mes corrente e SEMPRE parcial (nota fiscal e folha do mes ainda nao
+  // lancadas), e mes parcial inflado vira decisao errada. Ele aparece na tabela
+  // marcado, mas fica fora de todo total desta tela.
+  const meses = [...new Set(res.map(r => r.mes))].sort();
+  const mesAberto = meses[meses.length - 1];
+  const fechados = meses.filter(m => m < mesAberto);
+  const unidades = [...new Set(res.map(r => r.unidade))].sort();
+
+  const somaU = (u, campo) => res.reduce((s, r) =>
+    s + (r.unidade === u && fechados.includes(r.mes) ? nu(r[campo]) : 0), 0);
+  const somaRede = (campo) => unidades.reduce((s, u) => s + somaU(u, campo), 0);
+
+  const lucroRede = somaRede('resultado');
+  const benefRede = somaRede('beneficio_ifood');
+  const semBenRede = lucroRede - benefRede;
+  const pctBenef = lucroRede > 0 ? benefRede / lucroRede * 100 : 0;
+
+  // ---- caixa: onde o dinheiro esta hoje. Cartao de credito fica de fora — e
+  // divida a pagar, nao caixa, e misturar os dois embaralha a leitura.
+  const ehCartao = (c) => /^(CREDITO|CARTAO)/.test(c);
+  // movimento acumulado ATE o ultimo mes fechado — mesma janela do lucro
+  const movAte = {};
+  saldos.forEach(s => {
+    if (s.mes > fechados[fechados.length - 1]) return;
+    movAte[s.conta] = (movAte[s.conta] || 0) + nu(s.movimento);
+  });
+  const caixaU = {};
+  contas.filter(c => !ehCartao(c.conta)).forEach(c => {
+    const a = caixaU[c.unidade] || (caixaU[c.unidade] = { ini: 0, fim: 0 });
+    a.ini += nu(c.saldo_inicial);
+    a.fim += nu(c.saldo_inicial) + (movAte[c.conta] || 0);
+  });
+  const xp = contas.find(c => c.conta === 'XP INVESTIMENTOS');
+  const xpIni = xp ? nu(xp.saldo_inicial) : 0;
+  const xpFim = xpIni + (movAte['XP INVESTIMENTOS'] || 0);
+  const caixaIni = Object.values(caixaU).reduce((s, a) => s + a.ini, 0);
+  const caixaFim = Object.values(caixaU).reduce((s, a) => s + a.fim, 0);
+
+  // ---- a ponte: do lucro ate o caixa. Os mesmos meses fechados, lidos do DFC
+  // (que e caixa por natureza) para nao comparar competencia com pagamento.
+  const dfcU = (u, natureza) => dfc.reduce((s, r) => s + (
+    r.unidade === u && fechados.includes(r.mes) && r.natureza === natureza
+      ? nu(r.credito) - nu(r.debito) : 0), 0);
+  const dfcRede = (natureza) => unidades.reduce((s, u) => s + dfcU(u, natureza), 0);
+  const invest = dfcRede('INVESTIMENTOS');
+  const retiradas = dfcRede('DISTRIBUICAO DE LUCROS');
+  const rendimentos = dfcRede('APLICAÇÕES');
+  const aporte = dfcRede('APORTE VALORES');   // repasse entre as unidades: soma ~0 na rede
+
+  const cardsUni = unidades.map(u => {
+    const l = somaU(u, 'resultado'), b = somaU(u, 'beneficio_ifood');
+    const p = l > 0 ? b / l * 100 : 0;
+    return `<div class="card ${p >= 30 ? 'neg' : 'neutral'}">
+      <div class="card-lbl">${un(u)}</div>
+      <div class="card-val">${rs(l)}</div>
+      <div class="card-pct">de lucro no período</div>
+      <div class="card-delta" style="color:${p >= 30 ? '#ff6b6b' : '#a5a49a'};">
+        ${rs(b)} vieram do benefício iFood — ${pct(p)}% do lucro</div>
+    </div>`;
+  }).join('');
+
+  const linhaTab = (r) => {
+    const l = nu(r.resultado), b = nu(r.beneficio_ifood);
+    const aberto = r.mes === mesAberto;
+    return `<tr${aberto ? ' style="opacity:.55;"' : ''}>
+      <td>${mesTxt(r.mes)}${aberto ? ' <span style="color:#e8b04b;">· mês em aberto</span>' : ''}</td>
+      <td>${un(r.unidade)}</td>
+      <td>${rs(nu(r.receita))}</td>
+      <td>${nu(r.custo_lista_av) ? rs(nu(r.custo_lista_av)) : '—'}</td>
+      <td class="${l < 0 ? 'negativo' : ''}"><b>${rs(l)}</b></td>
+      <td>${rs(b)}</td>
+      <td class="${l - b < 0 ? 'negativo' : ''}">${rs(l - b)}</td>
+      <td>${l > 0 ? pct(b / l * 100) + '%' : '—'}</td>
+    </tr>`;
+  };
+
+  const linhaPonte = (rotulo, v, nota) => `<tr>
+    <td>${rotulo}${nota ? `<div style="color:#6f6e64; font-size:10.5px;">${nota}</div>` : ''}</td>
+    <td class="${v < 0 ? 'negativo' : ''}">${rs(v)}</td></tr>`;
+
+  const chegou = lucroRede + invest + retiradas + rendimentos + aporte;
+  const sobrouCaixa = caixaFim - caixaIni;
+
+  alvo.innerHTML = `
+    <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">
+      Lucro por unidade · ${mesTxt(fechados[0])} a ${mesTxt(fechados[fechados.length - 1])}</div>
+
+    <div class="hero" style="border-color:${pctBenef >= 30 ? '#e8b04b' : '#3fb950'};">
+      <div class="hero-lbl">De cada real de lucro da rede, quanto veio do benefício do iFood</div>
+      <div class="hero-val">${pct(pctBenef)}%</div>
+      <div class="hero-delta" style="color:#a5a49a;">
+        ${rs(lucroRede)} de lucro · ${rs(benefRede)} de benefício · ${rs(semBenRede)} seriam o lucro pagando comissão cheia</div>
+      <div class="hero-frase">
+        O benefício não é dinheiro que entrou a mais: é comissão que o iFood <b>deixou de cobrar</b>,
+        já diluída na receita. Ele acaba quando os R$ 500 mil forem consumidos — por isso o número
+        que interessa para decidir preço é o da direita.</div>
+    </div>
+
+    <div class="cards cards-3">${cardsUni}</div>
+
+    <div class="section-label">Mês a mês</div>
+    <div id="tabelaLucroUni"><table>
+      <thead><tr><th>Mês</th><th>Unidade</th><th>Receita</th><th>Mercadoria da AV</th>
+        <th>Lucro</th><th>Benefício iFood</th><th>Lucro sem o benefício</th><th>% do lucro</th></tr></thead>
+      <tbody>${res.filter(r => r.mes >= fechados[0]).map(linhaTab).join('')}</tbody>
+    </table></div>
+    <div class="contexto">
+      <b>Mercadoria da AV</b> é o que a filial comprou da Água Verde no mês, pela lista fechada —
+      e a mesma lista entra como receita da Água Verde. O dinheiro que a filial repassa além disso
+      é lucro subindo para a XP, e por isso não aparece como receita de ninguém: contaria duas vezes.
+    </div>
+
+    <div class="section-label">O que sobrou em caixa, e por quê</div>
+    <div class="cards cards-3">
+      <div class="card blue">
+        <div class="card-lbl">XP · reserva</div>
+        <div class="card-val">${rs(xpFim - xpIni)}</div>
+        <div class="card-pct">${rs(xpIni)} → ${rs(xpFim)}</div>
+      </div>
+      <div class="card ${sobrouCaixa >= 0 ? 'pos' : 'neg'}">
+        <div class="card-lbl">Caixa da rede inteira</div>
+        <div class="card-val">${rs(sobrouCaixa)}</div>
+        <div class="card-pct">${rs(caixaIni)} → ${rs(caixaFim)}</div>
+      </div>
+      <div class="card neutral">
+        <div class="card-lbl">Lucro do período</div>
+        <div class="card-val">${rs(lucroRede)}</div>
+        <div class="card-pct">nos meses fechados</div>
+      </div>
+    </div>
+    <div class="contexto">
+      ${(() => {
+        const caiu = unidades.filter(u => caixaU[u] && caixaU[u].fim < caixaU[u].ini);
+        if (!caiu.length) return 'Todas as unidades terminaram o período com mais dinheiro em conta do que começaram.';
+        const nomes = caiu.map(un).join(' e ');
+        return `A XP subiu <b>mais</b> do que a rede sobrou: ${nomes} ${caiu.length > 1 ? 'terminaram' : 'terminou'}
+          com menos dinheiro em conta do que ${caiu.length > 1 ? 'começaram' : 'começou'}, porque o caixa
+          das filiais foi para a matriz. Olhar só a XP superestima o que a rede ganhou.`;
+      })()}
+    </div>
+
+    <div id="tabelaPonteLucro" style="max-width:640px; margin:14px auto 0;"><table>
+      <thead><tr><th>Do lucro até o caixa (rede)</th><th>Valor</th></tr></thead>
+      <tbody>
+        ${linhaPonte('Lucro do período', lucroRede)}
+        ${linhaPonte('(−) Investimentos', invest, 'obra, máquina, equipamento — vira ativo, não some')}
+        ${linhaPonte('(−) Retiradas dos sócios', retiradas)}
+        ${linhaPonte('(+) Rendimento financeiro da XP', rendimentos, 'não é operação: é o dinheiro parado rendendo')}
+        ${Math.abs(aporte) > 0.005 ? linhaPonte('(±) Repasse entre as unidades', aporte, 'soma perto de zero na rede — só muda de bolso') : ''}
+        <tr class="sub"><td><b>= deveria ter sobrado</b></td><td><b>${rs(chegou)}</b></td></tr>
+        <tr class="liq"><td>Sobrou de verdade no caixa</td><td>${rs(sobrouCaixa)}</td></tr>
+        <tr><td style="color:#8a897e;">Diferença de competência × caixa
+              <div style="color:#6f6e64; font-size:10.5px;">nota lançada num mês, dinheiro que andou em outro</div></td>
+            <td style="color:#8a897e;">${rs(sobrouCaixa - chegou)}</td></tr>
+      </tbody>
+    </table></div>
+    <div class="contexto">
+      A diferença que sobra vem de competência × caixa: o lucro conta a nota do mês em que ela
+      aconteceu, o caixa conta o dia em que o dinheiro andou. Cartão de crédito fica fora do caixa
+      (é dívida, não dinheiro).
+    </div>
+
+    <div class="footer">
+      Lucro por competência, só o realizado (previsão do Saipos fica de fora). Benefício iFood
+      calculado pela régua de 9,5% do valor líquido dos pedidos concluídos desde 02/04/2026, sem
+      Boqueirão e sem Comida Brasileira AV — é estimativa validada contra a transferência real,
+      não extrato do iFood. Fonte: vw_fin_resultado_unidade, vw_fin_saldo_conta_mensal, vw_fin_dfc_mensal.
+    </div>`;
+  // encaixarTabela recebe o ELEMENTO (nao o id) — mede o fundo atras da tabela
+  // e marca .rolavel para a coluna fixa ganhar sombra so quando de fato rola.
+  ['tabelaLucroUni', 'tabelaPonteLucro'].forEach(id => {
+    const d = document.getElementById(id);
+    if (d && typeof encaixarTabela === 'function') encaixarTabela(d);
+  });
 }
 
 async function entrarListas() {
