@@ -10616,6 +10616,95 @@ function blocoBeneficio() {
     `${c.unidade} ${reais(c.valor_total)} (vence ${ddmm(c.vencimento)})`).join(' · ')}.</div>` : ''}`;
 }
 
+// ------------------------------------------------------------------
+// PAGAR AS CONTAS DO DIA — a hora da Hellen.
+// A rotina dela e: concilia, bate os saldos, e AI vai pagar. Nesse momento ela
+// precisa de tres respostas que o Projetado agrupava demais (pedido do dono,
+// 25/08/2026): o que ja venceu, o que vence hoje, e se o saldo da conta cobre
+// isso — para saber se sobra dinheiro para mandar a XP.
+// A conta e feita no banco (vw_fin_caixa_do_dia), nao aqui: dia virado pelo
+// horario de Sao Paulo, e `sobra` = saldo - vencido - vence hoje.
+// SOBRA NEGATIVA NAO E SOBRA MENOR, e falta de caixa — por isso ela grita.
+// ------------------------------------------------------------------
+function projCaixaLinhas() {
+  if (!PROJ_CAIXA) return [];
+  return PROJ_CAIXA.filter(r =>
+    (!PROJ_FILTRO.unidade || r.unidade === PROJ_FILTRO.unidade) &&
+    (!PROJ_FILTRO.conta   || r.conta   === PROJ_FILTRO.conta));
+}
+
+function projCaixaFiltrar(campo, valor) {
+  PROJ_FILTRO[campo] = valor;
+  // trocar de unidade limpa a conta: conta de outra loja nao existe na lista
+  if (campo === 'unidade') PROJ_FILTRO.conta = '';
+  const alvo = document.getElementById('projCaixaCorpo');
+  if (alvo) alvo.outerHTML = projCaixaTabela();
+}
+
+function projCaixaTabela() {
+  const reais = (v) => 'R$ ' + fmt(Number(v || 0));
+  const linhas = projCaixaLinhas();
+  if (!linhas.length) return '<tbody id="projCaixaCorpo"><tr><td colspan="6" style="opacity:.7">Nenhuma conta com esse filtro.</td></tr></tbody>';
+  const soma = (c) => linhas.reduce((s, r) => s + Number(r[c] || 0), 0);
+  const corpo = linhas.map(r => {
+    const falta = r.sobra_hoje < -0.005;
+    const venc  = r.vencido > 0.005;
+    return `<tr>
+      <td><b>${r.conta_exibida}</b><div class="caption-label" style="text-align:left">${r.unidade || ''}</div></td>
+      <td style="text-align:right">${reais(r.saldo)}</td>
+      <td style="text-align:right;${venc ? 'color:#f85149;font-weight:700' : 'opacity:.55'}">${venc ? reais(r.vencido) + ` <span style="font-weight:400">(${r.qtd_vencida})</span>` : '—'}</td>
+      <td style="text-align:right;${r.vence_hoje > 0.005 ? 'color:#e8b04b;font-weight:700' : 'opacity:.55'}">${r.vence_hoje > 0.005 ? reais(r.vence_hoje) + ` <span style="font-weight:400">(${r.qtd_hoje})</span>` : '—'}</td>
+      <td style="text-align:right;font-weight:700;${falta ? 'color:#f85149' : (r.sobra_hoje > 0.005 ? 'color:#3fb950' : '')}">${reais(r.sobra_hoje)}</td>
+      <td style="text-align:right;${r.sobra_7_dias < -0.005 ? 'color:#f85149' : 'opacity:.8'}">${reais(r.sobra_7_dias)}</td></tr>`;
+  }).join('');
+  return `<tbody id="projCaixaCorpo">${corpo}
+    <tr style="border-top:2px solid #45443f">
+      <td><b>Total</b></td>
+      <td style="text-align:right"><b>${reais(soma('saldo'))}</b></td>
+      <td style="text-align:right;${soma('vencido') > 0.005 ? 'color:#f85149' : ''}"><b>${reais(soma('vencido'))}</b></td>
+      <td style="text-align:right"><b>${reais(soma('vence_hoje'))}</b></td>
+      <td style="text-align:right;${soma('sobra_hoje') < -0.005 ? 'color:#f85149' : ''}"><b>${reais(soma('sobra_hoje'))}</b></td>
+      <td style="text-align:right"><b>${reais(soma('sobra_7_dias'))}</b></td></tr></tbody>`;
+}
+
+function blocoCaixaDoDia() {
+  if (!PROJ_CAIXA || !PROJ_CAIXA.length) return '';
+  const reais = (v) => 'R$ ' + fmt(Number(v || 0));
+  const totVenc = PROJ_CAIXA.reduce((s, r) => s + Number(r.vencido || 0), 0);
+  const qtdVenc = PROJ_CAIXA.reduce((s, r) => s + Number(r.qtd_vencida || 0), 0);
+  const totHoje = PROJ_CAIXA.reduce((s, r) => s + Number(r.vence_hoje || 0), 0);
+  const qtdHoje = PROJ_CAIXA.reduce((s, r) => s + Number(r.qtd_hoje || 0), 0);
+  const faltando = PROJ_CAIXA.filter(r => r.sobra_hoje < -0.005);
+  const unidades = [...new Set(PROJ_CAIXA.map(r => r.unidade).filter(Boolean))].sort();
+  const contas = PROJ_CAIXA.filter(r => !PROJ_FILTRO.unidade || r.unidade === PROJ_FILTRO.unidade);
+  const sel = 'background:#232321;border:1px solid #45443f;color:inherit;border-radius:6px;padding:5px 8px;font-size:13px';
+  return `
+  <div class="section-label">Pagar as contas de hoje</div>
+  <div class="contexto">
+    ${qtdVenc ? `<b style="color:#f85149">${qtdVenc} conta(s) vencida(s), ${reais(totVenc)}.</b>` : '<b style="color:#3fb950">Nada vencido.</b>'}
+    ${qtdHoje ? ` Vencendo hoje: <b style="color:#e8b04b">${qtdHoje} conta(s), ${reais(totHoje)}</b>.` : ' Nada vence hoje.'}
+    ${faltando.length ? `<br><b style="color:#f85149">Sem saldo para pagar:</b> ${faltando.map(r =>
+      `${r.conta_exibida} (falta ${reais(Math.abs(r.sobra_hoje))})`).join(' · ')}.` : ''}
+  </div>
+  <div style="display:flex;gap:10px;align-items:center;margin:8px 0;flex-wrap:wrap">
+    <span class="caption-label" style="text-align:left">Unidade</span>
+    <select style="${sel}" onchange="projCaixaFiltrar('unidade', this.value); document.getElementById('projCaixaConta').selectedIndex=0">
+      <option value="">todas</option>${unidades.map(u => `<option${PROJ_FILTRO.unidade === u ? ' selected' : ''}>${u}</option>`).join('')}</select>
+    <span class="caption-label" style="text-align:left">Conta</span>
+    <select id="projCaixaConta" style="${sel}" onchange="projCaixaFiltrar('conta', this.value)">
+      <option value="">todas</option>${contas.map(r => `<option value="${r.conta}"${PROJ_FILTRO.conta === r.conta ? ' selected' : ''}>${r.conta_exibida}</option>`).join('')}</select>
+  </div>
+  <div style="overflow-x:auto"><table>
+    <thead><tr><th>Conta</th><th style="text-align:right">Saldo</th><th style="text-align:right">Vencido</th>
+      <th style="text-align:right">Vence hoje</th><th style="text-align:right">Sobra hoje</th>
+      <th style="text-align:right">Sobra em 7 dias</th></tr></thead>
+    ${projCaixaTabela()}</table></div>
+  <div class="caption-label" style="text-align:left">
+    <b>Sobra hoje</b> = saldo menos o que já venceu e o que vence hoje. É o que pode ir para a XP.
+    <b>Sobra em 7 dias</b> considera também o que vence e o que entra na semana.
+  </div>`;
+}
+
 function renderModuloProjecao() {
   const alvo = document.getElementById('view-projecao');
   const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
@@ -10909,6 +10998,7 @@ function renderModuloProjecao() {
     (média por dia da semana das últimas 4 semanas). <b>O que não está lançado no Saipos não aparece aqui</b> —
     com duas exceções que entram sozinhas: as cobranças das filiais (listas e benefício) e o envio do benefício para a XP.
   </div>
+  ${blocoCaixaDoDia()}
   ${blocoBeneficio()}
   ${temAncora && idadeMax > 1 ? `<div class="contexto" style="border-color:#f5a623;">
     Extrato do banco com <b>${idadeMax} dia(s) de atraso</b> em pelo menos uma conta — baixar o OFX
