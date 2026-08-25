@@ -4961,7 +4961,7 @@ function renderConcbanco() {
   const contas = {};
   placar.forEach(r => {
     const c = contas[r.conta] || (contas[r.conta] = { ontemMov: 0, gapEnt: 0, gapSai: 0,
-      entrou: 0, saiu: 0, temOntem: false, temOfx: false });
+      entrou: 0, saiu: 0, difEnt: 0, difSai: 0, temOntem: false, temOfx: false });
     if (dias.includes(r.data)) {
       c.temOntem = true;
       if (r.tem_ofx) c.temOfx = true;
@@ -4973,6 +4973,12 @@ function renderConcbanco() {
       c.ontemMov += Math.abs(n(r.banco_entrou)) + Math.abs(n(r.banco_saiu));
       c.gapEnt += n(r.falta_entrada);
       c.gapSai += n(r.falta_saida);
+      // A DIFERENCA POR LADO (soma do banco - soma do Saipos no dia). O placar
+      // sempre teve as duas colunas e a tela nao mostrava nenhuma — o dono
+      // conferiu no extrato e cobrou (25/08/2026): "a diferenca de 4.742,47 nas
+      // entradas o modulo nao esta me mostrando".
+      c.difEnt += n(r.dif_dia_entrada);
+      c.difSai += n(r.dif_dia_saida);
     }
   });
   Object.values(contas).forEach(c => {
@@ -5004,9 +5010,17 @@ function renderConcbanco() {
     const semExtrato = c.temOntem && !c.temOfx && !fechou;
     const cor = !c.temOntem ? '#a5a49a' : fechou ? '#2e7d32' : semExtrato ? '#b8860b' : '#c8102e';
     const marca = !c.temOntem ? '—' : fechou ? '✓' : semExtrato ? '?' : '✗';
-    const lado = (v, cor) => !c.temOntem || Math.abs(v) < CONCB_TOL_CENTAVOS
-      ? '<span style="opacity:.4">—</span>'
-      : '<span style="color:' + cor + '">' + rs(Math.abs(v)) + '</span>';
+    // total do banco em cima; embaixo, quando os totais do dia nao batem, a
+    // diferenca contra o Saipos daquele lado — e o numero que diz ONDE procurar
+    // (entrada ou saida) antes de abrir os quadros linha a linha.
+    const lado = (v, cor, dif) => {
+      if (!c.temOntem || Math.abs(v) < CONCB_TOL_CENTAVOS)
+        return '<span style="opacity:.4">—</span>';
+      const difTxt = Math.abs(dif || 0) >= CONCB_TOL_CENTAVOS
+        ? '<div style="font-size:11px;color:#c8102e">Saipos difere ' + rs(Math.abs(dif)) + '</div>'
+        : '';
+      return '<span style="color:' + cor + '">' + rs(Math.abs(v)) + '</span>' + difTxt;
+    };
 
     // A COLUNA SALDO MOSTRA O SALDO DO BANCO NO DIA — regra do dono, 19/08/2026:
     // "o objetivo é ela ter tudo o que precisa do banco na tela do painel, sem
@@ -5087,8 +5101,8 @@ function renderConcbanco() {
     const td = 'style="text-align:left;font-size:12px"';
     return '<tr><td style="text-align:left;font-size:18px;color:' + cor + '">' + marca + '</td>'
       + '<td style="text-align:left"><b>' + esc(nomeConta(conta)) + '</b></td>'
-      + '<td ' + td + '>' + lado(c.entrou, '#2e7d32') + '</td>'
-      + '<td ' + td + '>' + lado(c.saiu, '#c8102e') + '</td>'
+      + '<td ' + td + '>' + lado(c.entrou, '#2e7d32', c.difEnt) + '</td>'
+      + '<td ' + td + '>' + lado(c.saiu, '#c8102e', c.difSai) + '</td>'
       + '<td ' + td + ' title="' + esc(saldoTitulo) + '">' + saldoTxt + '</td></tr>';
   };
 
