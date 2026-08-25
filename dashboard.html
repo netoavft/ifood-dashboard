@@ -5751,8 +5751,9 @@ let RATEIO = null;
 let RATEIO_CANAL = 'IFOOD';
 let RATEIO_UNIDADE = 'AGUA VERDE';   // desde 22/08/2026 o rateio existe para as 3 lojas
 let RATEIO_BUSCA = '';
-let RATEIO_MARGEM = 0.10;   // margem alvo escolhida na tela (o 10% e o padrao da view)
+let RATEIO_MARGEM = 0.10;   // lucro final desejado, escolhido na tela (10% e o padrao)
 let RATEIO_ORDEM = 'margem';
+let RATEIO_ABERTO = null;   // indice (em RATEIO.preco) do produto com a conta aberta
 
 async function entrarRateio() {
   const alvo = document.getElementById('view-rateio');
@@ -5762,14 +5763,21 @@ async function entrarRateio() {
     try {
       const U = encodeURIComponent(RATEIO_UNIDADE);
       const pct = await consultarTudo(`vw_rateio_pct_canal_precificacao?select=*&unidade=eq.${U}`);
-      const [resumo, preco, semCriterio] = await Promise.all([
+      const [resumo, preco, semCriterio, linhas, criterios, benefLinhas, pl] = await Promise.all([
         consultarTudo(`vw_rateio_resumo_canal?select=*&unidade=eq.${U}&order=mes`),
-        consultarTudo(`vw_rateio_preco_alvo?select=produto,classe,canal,custo_ficha,preco_alvo,preco_atual,fonte_preco,qtd_vendida,cmv_pct_atual,margem_atual_real,margem_atual_cheia,sobra_para_custo,margem_alvo,ingredientes_sem_custo,preco_instavel,preco_min,preco_max,preco_dias&unidade=eq.${U}&preco_atual=not.is.null&order=margem_atual_cheia`),
+        consultarTudo(`vw_rateio_preco_alvo?select=produto,classe,canal,custo_ficha,preco_alvo,preco_atual,fonte_preco,qtd_vendida,cmv_pct_atual,margem_atual_real,margem_atual_cheia,sobra_para_custo,margem_alvo,pct_embalagem,ingredientes_sem_custo,preco_instavel,preco_min,preco_max,preco_dias&unidade=eq.${U}&preco_atual=not.is.null&order=margem_atual_cheia`),
         // Conta de despesa que apareceu no dinheiro sem criterio decidido — cairia em
         // "por vendas" em silencio (foi assim que a Agencia Oito passou despercebida).
         consultarTudo('vw_rateio_sem_criterio?select=*').catch(() => []),
+        // decomposicao da conta do produto: as mesmas pecas da view de precificacao
+        consultarTudo(`mv_rateio_canal_mensal?select=canal,mes,tipo,subtipo,valor&unidade=eq.${U}`),
+        consultarTudo('rateio_criterios?select=subtipo,ja_na_ficha'),
+        consultarTudo(`vw_rateio_taxa_ifood_linhas?select=canal,mes,valor&unidade=eq.${U}&beneficio=is.true`),
+        // pro-labore DA PROPRIA LOJA (decisao do dono 25/08: o lucro final paga o
+        // pro-labore). Fora do rateio por criterio FORA; a fonte e o financeiro.
+        consultarTudo(`vw_fin_dfc_mensal?select=mes,debito,credito&unidade=eq.${U}&subtipo=like.PRO%20LABORE*`).catch(() => []),
       ]);
-      RATEIO = { pct, resumo, preco, semCriterio };
+      RATEIO = { pct, resumo, preco, semCriterio, linhas, criterios, benefLinhas, pl };
     } catch (e) {
       alvo.innerHTML = `<div class="contexto" style="border-color:#c8102e;">Não consegui ler o rateio: ${e.message || e}</div>`;
       return;
@@ -5778,8 +5786,8 @@ async function entrarRateio() {
   renderModuloRateio();
 }
 
-function rateioCanal(c) { RATEIO_CANAL = c; renderModuloRateio(); }
-function rateioUnidade(u) { RATEIO_UNIDADE = u; RATEIO = null; RATEIO_CANAL = 'IFOOD'; entrarRateio(); }
+function rateioCanal(c) { RATEIO_CANAL = c; RATEIO_ABERTO = null; renderModuloRateio(); }
+function rateioUnidade(u) { RATEIO_UNIDADE = u; RATEIO = null; RATEIO_CANAL = 'IFOOD'; RATEIO_ABERTO = null; entrarRateio(); }
 function rateioBarraUnidades() {
   const nomes = { 'AGUA VERDE': 'Água Verde', 'AHU': 'Ahú', 'SÃO BRAZ': 'São Braz' };
   return `<div style="display:flex; gap:8px; margin:0 0 12px;">${Object.keys(nomes).map(u =>
@@ -5788,12 +5796,48 @@ function rateioBarraUnidades() {
 function rateioBusca(v) { RATEIO_BUSCA = (v || '').toUpperCase(); renderRateioPreco(); }
 function rateioMargem(m) { RATEIO_MARGEM = m; renderModuloRateio(); }
 function rateioOrdem(v) { RATEIO_ORDEM = v; renderRateioPreco(); }
-// preco alvo com a margem escolhida na tela. A view calcula com 10%; aqui a
-// conta refaz por linha: sobra_para_custo ja desconta os 10%, entao a sobra
-// com margem m e (sobra + margem_alvo_da_view - m).
+function rateioAbrir(i) { RATEIO_ABERTO = RATEIO_ABERTO === i ? null : i; renderRateioPreco(); }
+// % do pro-labore DA LOJA sobre a venda total (todos os canais, mesma janela da
+// precificacao). Decisao do dono 25/08/2026: o preco tem que pagar o pro-labore,
+// e a margem escolhida e lucro FINAL. Rateia por vendas (mesmo criterio VENDAS),
+// o que da o mesmo % em todo canal. No Ahu nao ha pro-labore local — la e zero.
+function rateioPlPct() {
+  const p0 = RATEIO.pct[0] || {};
+  const de = p0.de, ate = p0.ate;
+  const recTotal = RATEIO.pct.reduce((s, r) => s + Number(r.receita || 0), 0);
+  const pl = (RATEIO.pl || []).reduce((s, r) =>
+    s + (r.mes >= de && r.mes <= ate ? Number(r.debito || 0) - Number(r.credito || 0) : 0), 0);
+  return recTotal > 0 ? pl / recTotal : 0;
+}
+// preco alvo com a margem escolhida na tela — margem = lucro final, DEPOIS do
+// pro-labore. A view calcula com 10% e sem PL; aqui a conta refaz por linha:
+// sobra_para_custo ja desconta os 10%, entao a sobra com margem m e
+// (sobra + margem_alvo_da_view - m - pl).
 function rateioAlvo(r, m) {
-  const denom = Number(r.sobra_para_custo) + Number(r.margem_alvo || 0.10) - m;
+  const denom = Number(r.sobra_para_custo) + Number(r.margem_alvo || 0.10) - m - rateioPlPct();
   return denom > 0 ? Number(r.custo_ficha) / denom : null;
+}
+// % por grande conta do canal escolhido, na janela e com as exclusoes da view de
+// precificacao (mv sem subtipos ja_na_ficha + beneficio do iFood). E a mesma
+// soma do pct_cheia, so que aberta em linhas — a conta do produto usa isto.
+function rateioLinhasCanal() {
+  const p = RATEIO.pct.find(r => r.canal === RATEIO_CANAL) || {};
+  const de = p.de, ate = p.ate, rec = Number(p.receita || 0);
+  const naFicha = new Set((RATEIO.criterios || []).filter(c => c.ja_na_ficha).map(c => c.subtipo));
+  const G = { 'DEDUÇOES DA RECEITA': 'impostos', 'IMPOSTOS E TAXAS': 'impostos',
+              'TAXAS IFOOD': 'ifood', 'DESPESAS LOGISTICA': 'entrega',
+              'PESSOAL': 'equipe', 'DESPESAS MARKETING': 'marketing' };
+  const v = { impostos: 0, ifood: 0, entrega: 0, equipe: 0, marketing: 0, estrutura: 0 };
+  (RATEIO.linhas || []).forEach(l => {
+    if (l.canal !== RATEIO_CANAL || l.mes < de || l.mes > ate || naFicha.has(l.subtipo)) return;
+    v[G[l.tipo] || 'estrutura'] += Number(l.valor || 0);
+  });
+  (RATEIO.benefLinhas || []).forEach(l => {
+    if (l.canal === RATEIO_CANAL && l.mes >= de && l.mes <= ate) v.ifood += Number(l.valor || 0);
+  });
+  const out = {};
+  for (const k in v) out[k] = rec > 0 ? v[k] / rec : 0;
+  return out;
 }
 
 // A conta do canal na ordem da DRE morava aqui ate 25/08/2026. Saiu porque a
@@ -5834,7 +5878,7 @@ function renderModuloRateio() {
   const multDe = (c) => {
     const ref = RATEIO.preco.find(r => r.canal === c);
     if (!ref) return null;
-    const denom = Number(ref.sobra_para_custo) + Number(ref.margem_alvo || 0.10) - RATEIO_MARGEM;
+    const denom = Number(ref.sobra_para_custo) + Number(ref.margem_alvo || 0.10) - RATEIO_MARGEM - rateioPlPct();
     return denom > 0 ? (1 / denom).toFixed(1).replace('.', ',') : null;
   };
   const cards = canais.map(c => {
@@ -5843,11 +5887,12 @@ function renderModuloRateio() {
     const cheia = x.receita ? (x.direto + x.rateado + x.beneficio) / x.receita : 0;
     const sobra = 1 - cheia;
     const m = multDe(c);
+    const plp = rateioPlPct();
     return `<div class="card rateio-card ${c === RATEIO_CANAL ? 'ativo' : ''}" onclick="rateioCanal('${c}')">
       <div class="card-lbl">${nome[c] || c}</div>
       <div class="card-val">${m ? `ficha × ${m}` : pc(cheia)}</div>
       <div class="card-pct">${m ? `é o preço alvo aqui · ${pc(cheia)} de custo` : 'de cada R$ 100 vai para operar'}${x.beneficio ? ` · real ${pc(real)}` : ''}</div>
-      <div class="card-pct" style="color:#8a897e; font-size:12px;">vendeu ${reais(x.receita)} · sobram ${pc(sobra)} para ingrediente, pró-labore e lucro</div>
+      <div class="card-pct" style="color:#8a897e; font-size:12px;">vendeu ${reais(x.receita)} · sobram ${pc(sobra - plp)} para ingrediente e lucro${plp > 0.0005 ? ` (pró-labore de ${pc(plp)} já descontado)` : ' (sem pró-labore local)'}</div>
     </div>`;
   }).join('');
 
@@ -5856,10 +5901,13 @@ function renderModuloRateio() {
   const mult = multDe(RATEIO_CANAL);
   const pctM = Math.round(100 * RATEIO_MARGEM);
   const pill = (m) => `<button onclick="rateioMargem(${m})" style="font:inherit; font-size:12px; padding:3px 10px; border-radius:999px; cursor:pointer; border:1px solid ${Math.abs(m - RATEIO_MARGEM) < 0.001 ? '#c8102e' : '#34332f'}; background:${Math.abs(m - RATEIO_MARGEM) < 0.001 ? '#c8102e' : '#1a1a19'}; color:#fff;">${Math.round(100 * m)}%</button>`;
+  const plPct = rateioPlPct();
   const precoBloco = temPreco ? `
-    <div class="section-label">Preço alvo · ${nome[RATEIO_CANAL] || RATEIO_CANAL} — comissão cheia e a margem que você escolher</div>
-    <div class="contexto">Lucro desejado: ${[0.05, 0.10, 0.15, 0.20].map(pill).join(' ')} &nbsp;·&nbsp; com ${pctM}%, o preço alvo neste canal é o <b>custo da ficha × ~${mult || '—'}</b>.
-      Margem abaixo de ${pctM}% fica âmbar; negativa, vermelha. <b>Preço atual</b> = o preço que <b>mais apareceu</b> nas vendas do Saipos neste canal nos últimos 30 dias — não é média (24/08/2026: a média misturava adicional, promoção e preço antigo, e mostrava bebida de R$ 8 como R$ 26). O <span style="color:#d9a21b;">⚠</span> marca produto cujo preço variou mais de 15% no período. Produto sem venda no canal aparece <b>sem preço</b>: a planilha do iFood saiu de vez em 24/08 (errava em 15 de 15 itens conferidos, R$ 11,47 de diferença média) — em branco é melhor que errado. O <b>ganho</b> é quanto entraria a mais em 30 dias levando o produto ao alvo e <b>vendendo a mesma quantidade</b> — subir preço pode derrubar volume; o número é o teto, não a promessa.
+    <div class="section-label">Preço alvo · ${nome[RATEIO_CANAL] || RATEIO_CANAL} — comissão cheia, pró-labore pago e o lucro que você escolher</div>
+    <div class="contexto">Lucro final desejado: ${[0.05, 0.10, 0.15, 0.20].map(pill).join(' ')} &nbsp;·&nbsp; com ${pctM}%, o preço alvo neste canal é o <b>custo da ficha × ~${mult || '—'}</b>.
+      ${plPct > 0.0005 ? `O <b>pró-labore da própria loja (${pc(plPct)} da venda) já está dentro da conta</b> — o lucro mostrado é depois de pagar os sócios.` : '<b>Esta loja não tem pró-labore local</b> — a linha é zero e o lucro mostrado já é o final.'}
+      <b>Clique num produto para abrir a conta dele</b>, linha a linha, no preço de hoje.
+      Lucro abaixo de ${pctM}% fica âmbar; negativo, vermelho. <b>Preço atual</b> = o preço que <b>mais apareceu</b> nas vendas do Saipos neste canal nos últimos 30 dias — não é média (24/08/2026: a média misturava adicional, promoção e preço antigo, e mostrava bebida de R$ 8 como R$ 26). O <span style="color:#d9a21b;">⚠</span> marca produto cujo preço variou mais de 15% no período. Produto sem venda no canal aparece <b>sem preço</b>: a planilha do iFood saiu de vez em 24/08 (errava em 15 de 15 itens conferidos, R$ 11,47 de diferença média) — em branco é melhor que errado. O <b>ganho</b> é quanto entraria a mais em 30 dias levando o produto ao alvo e <b>vendendo a mesma quantidade</b> — subir preço pode derrubar volume; o número é o teto, não a promessa.
       <span style="margin-left:12px; white-space:nowrap;">ordenar:
       <select onchange="rateioOrdem(this.value)" style="font:inherit; font-size:12.5px; background:#111110; color:#fff; border:1px solid #34332f; border-radius:6px; padding:3px 6px;">
         <option value="margem" ${RATEIO_ORDEM === 'margem' ? 'selected' : ''}>pior margem primeiro</option>
@@ -5885,9 +5933,12 @@ function renderRateioPreco() {
   if (!el || !RATEIO) return;
   const reais = (v) => v == null ? '—' : 'R$ ' + fmt(Number(v));
   const pc = (v) => v == null ? '—' : (100 * Number(v)).toFixed(1).replace('.', ',') + '%';
-  let ls = RATEIO.preco.filter(r => r.canal === RATEIO_CANAL);
-  if (RATEIO_BUSCA) ls = ls.filter(r => (r.produto || '').toUpperCase().includes(RATEIO_BUSCA));
+  const plPct = rateioPlPct();
+  let ls = RATEIO.preco.map((r, i) => ({ r, i })).filter(x => x.r.canal === RATEIO_CANAL);
+  if (RATEIO_BUSCA) ls = ls.filter(x => (x.r.produto || '').toUpperCase().includes(RATEIO_BUSCA));
   const cor = (m) => m == null ? '' : (m < 0 ? 'color:#e0523f;' : (m < RATEIO_MARGEM ? 'color:#d9a21b;' : ''));
+  // lucro final = margem da view menos o pro-labore da loja (decisao 25/08)
+  const lucroDe = (m) => m == null ? null : Number(m) - plPct;
   // ganho em 30 dias se o produto for pro alvo VENDENDO O MESMO — teto, nao promessa
   const ganhoDe = (r) => {
     const alvo = rateioAlvo(r, RATEIO_MARGEM);
@@ -5895,15 +5946,50 @@ function renderRateioPreco() {
     return Math.max(0, Number(r.qtd_vendida) * (alvo - Number(r.preco_atual)));
   };
   const semNulo = (v, pior) => v == null ? pior : Number(v);
-  if (RATEIO_ORDEM === 'ganho') ls = [...ls].sort((a, b) => ganhoDe(b) - ganhoDe(a));
-  else if (RATEIO_ORDEM === 'vendidos') ls = [...ls].sort((a, b) => semNulo(b.qtd_vendida, -1) - semNulo(a.qtd_vendida, -1));
-  else if (RATEIO_ORDEM === 'nome') ls = [...ls].sort((a, b) => (a.produto || '').localeCompare(b.produto || ''));
-  else ls = [...ls].sort((a, b) => semNulo(a.margem_atual_cheia, 9) - semNulo(b.margem_atual_cheia, 9));
+  if (RATEIO_ORDEM === 'ganho') ls = [...ls].sort((a, b) => ganhoDe(b.r) - ganhoDe(a.r));
+  else if (RATEIO_ORDEM === 'vendidos') ls = [...ls].sort((a, b) => semNulo(b.r.qtd_vendida, -1) - semNulo(a.r.qtd_vendida, -1));
+  else if (RATEIO_ORDEM === 'nome') ls = [...ls].sort((a, b) => (a.r.produto || '').localeCompare(b.r.produto || ''));
+  else ls = [...ls].sort((a, b) => semNulo(a.r.margem_atual_cheia, 9) - semNulo(b.r.margem_atual_cheia, 9));
   const pctM = Math.round(100 * RATEIO_MARGEM);
+
+  // a conta do produto, linha a linha, no formato da planilha antiga do dono
+  // (aba iFood de "Formacao de precos.xlsx"): preco → variaveis → margem de
+  // contribuicao → fixos → pro-labore → lucro final
+  const contaDoProduto = (r) => {
+    const L = rateioLinhasCanal();
+    const alvoM = rateioAlvo(r, RATEIO_MARGEM);
+    const P = r.preco_atual != null ? Number(r.preco_atual) : alvoM;
+    if (!P) return '<div class="contexto">Sem preço para abrir a conta.</div>';
+    const emb = Number(r.pct_embalagem || 0) * P;
+    const li = (nome2, v, forte) => `<tr${forte ? ' style="font-weight:700;"' : ''}><td style="padding:3px 10px;">${nome2}</td><td style="text-align:right; padding:3px 10px;">${reais(v)}</td><td style="text-align:right; padding:3px 10px;">${(100 * v / P).toFixed(1).replace('.', ',')}%</td></tr>`;
+    const variaveis = Number(r.custo_ficha) + emb + P * (L.impostos + L.ifood + L.entrega);
+    const contrib = P - variaveis;
+    const fixos = P * (L.equipe + L.estrutura + L.marketing);
+    const resultado = contrib - fixos;
+    const pl = P * plPct;
+    const lucro = resultado - pl;
+    return `<table style="font-size:12.5px; background:#161615; margin:4px 0 8px 22px; max-width:440px;">
+      <tbody>
+        ${li(`Preço ${r.preco_atual != null ? 'de hoje' : 'alvo (sem venda no canal)'}`, P, true)}
+        ${li('(−) ingrediente (ficha)', Number(r.custo_ficha))}
+        ${emb > 0.005 ? li('(−) embalagem (ficha)', emb) : ''}
+        ${li('(−) impostos', P * L.impostos)}
+        ${L.ifood > 0.0005 ? li('(−) iFood: comissão cheia, anúncios, pagamento', P * L.ifood) : ''}
+        ${L.entrega > 0.0005 ? li('(−) entrega (motoboys)', P * L.entrega) : ''}
+        ${li('= margem de contribuição', contrib, true)}
+        ${li('(−) equipe', P * L.equipe)}
+        ${li('(−) estrutura (aluguel, energia, gás, sistema…)', P * L.estrutura)}
+        ${L.marketing > 0.0005 ? li('(−) marketing', P * L.marketing) : ''}
+        ${plPct > 0.0005 ? li('(−) pró-labore', pl) : ''}
+        ${li('= lucro final', lucro, true)}
+      </tbody></table>
+      <div class="caption-label" style="text-align:left; margin:0 0 8px 22px;">Promoção e combo precisam pagar ao menos a <b>margem de contribuição</b> — vender abaixo dela é pagar para vender. Os fixos e o pró-labore correm de qualquer jeito.</div>`;
+  };
+
   el.innerHTML = `<table>
-    <thead><tr><th>produto</th><th>vendidos 30d</th><th>custo ficha</th><th>preço atual</th><th>CMV</th><th>margem real</th><th>margem cheia</th><th>preço p/ ${pctM}%</th><th>ganho 30d no alvo</th></tr></thead>
-    <tbody>${ls.slice(0, 300).map(r => { const alvoM = rateioAlvo(r, RATEIO_MARGEM); const ganho = ganhoDe(r); return `<tr>
-      <td>${r.produto.toLowerCase()}${Number(r.ingredientes_sem_custo) > 0 ? ' <span class="ficha-tag">ficha incompleta</span>' : ''}</td>
+    <thead><tr><th>produto</th><th>vendidos 30d</th><th>custo ficha</th><th>preço atual</th><th>CMV</th><th>lucro real</th><th>lucro cheio</th><th>preço p/ ${pctM}%</th><th>ganho 30d no alvo</th></tr></thead>
+    <tbody>${ls.slice(0, 300).map(({ r, i }) => { const alvoM = rateioAlvo(r, RATEIO_MARGEM); const ganho = ganhoDe(r); return `<tr onclick="rateioAbrir(${i})" style="cursor:pointer;">
+      <td>${RATEIO_ABERTO === i ? '▾ ' : ''}${r.produto.toLowerCase()}${Number(r.ingredientes_sem_custo) > 0 ? ' <span class="ficha-tag">ficha incompleta</span>' : ''}</td>
       <td>${r.qtd_vendida != null ? Number(r.qtd_vendida).toLocaleString('pt-BR', {maximumFractionDigits:0}) : '<span style="color:#8a897e;">planilha</span>'}</td>
       <td>${reais(r.custo_ficha)}</td>
       <td>${r.preco_atual == null
@@ -5912,10 +5998,10 @@ function renderRateioPreco() {
           ? ` <span title="Neste produto o preço variou de ${reais(r.preco_min)} a ${reais(r.preco_max)} nos últimos ${r.preco_dias} dias — tem adicional ou promoção no meio. O valor mostrado é o preço que mais apareceu." style="color:#d9a21b; cursor:help;">⚠</span>`
           : ''}</td>
       <td>${pc(r.cmv_pct_atual)}</td>
-      <td style="${cor(r.margem_atual_real)}">${pc(r.margem_atual_real)}</td>
-      <td style="${cor(r.margem_atual_cheia)}">${pc(r.margem_atual_cheia)}</td>
+      <td style="${cor(lucroDe(r.margem_atual_real))}">${pc(lucroDe(r.margem_atual_real))}</td>
+      <td style="${cor(lucroDe(r.margem_atual_cheia))}">${pc(lucroDe(r.margem_atual_cheia))}</td>
       <td>${reais(alvoM)}</td>
-      <td>${ganho >= 1 ? '<b>' + reais(ganho) + '</b>' : '—'}</td></tr>`; }).join('')}</tbody></table>
+      <td>${ganho >= 1 ? '<b>' + reais(ganho) + '</b>' : '—'}</td></tr>${RATEIO_ABERTO === i ? `<tr><td colspan="9">${contaDoProduto(r)}</td></tr>` : ''}`; }).join('')}</tbody></table>
     ${ls.length > 300 ? `<div class="contexto">Mostrando 300 de ${ls.length} — use a busca.</div>` : ''}`;
 }
 
