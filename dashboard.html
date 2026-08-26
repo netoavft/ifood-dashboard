@@ -10627,6 +10627,7 @@ let PROJ_ANCORA = null;   // vw_fin_saldo_banco_atual: saldo REAL do banco (OFX 
 let PROJ_VENC = null;     // vw_fin_vencidas_status: vencida ja saiu do banco ou nao
 let PROJ_RECEB_SUB = null; // vw_fin_receitas_diarias_subtipo: a mesma media, aberta por tipo
 let PROJ_CAIXA = null;    // vw_fin_caixa_do_dia: saldo x o que vence, conta a conta
+let PROJ_COM_ATACADO = null; // vw_comissao_atacado_semanal: 7,5% Jane + 7,5% Fabio sobre a revenda
 let PROJ_FILTRO = { unidade: '', conta: '' };  // filtros do quadro de pagamento
 
 // contas que nao sao caixa operacional (investimentos, pessoais e cartoes)
@@ -10638,12 +10639,13 @@ async function entrarProjecao() {
   if (PROJ_PAGAR === null) alvo.innerHTML = '<div class="contexto">Carregando projeção...</div>';
   const corte = new Date(); corte.setDate(corte.getDate() - 35);
   const corteIso = corte.toISOString().slice(0, 10);
-  const [pagar, receb, ancora, vencStatus, caixaDia, recebSub, benefSem, benefXp, benefCobr] = await Promise.all([
+  const [pagar, receb, ancora, vencStatus, caixaDia, comAtacado, recebSub, benefSem, benefXp, benefCobr] = await Promise.all([
     consultarTudo('vw_fin_contas_pagar?select=vencimento,conta,conta_exibida,unidade,situacao,dias_vencida,sentido,subtipo,tipo,natureza,descricao,credito,debito&order=vencimento'),
     consultarTudo(`vw_fin_receitas_diarias?select=data,recebido&data=gte.${corteIso}&order=data`),
     consultarTudo('vw_fin_saldo_banco_atual?select=conta,data_saldo,saldo_banco,idade_dias,saldo_saipos,diferenca'),
     consultarTudo('vw_fin_vencidas_status?select=vencimento,conta,subtipo,tipo,descricao,debito,dias_vencida,data_debito_banco,achou_no_banco'),
     consultarTudo('vw_fin_caixa_do_dia?select=*&order=ordem'),
+    consultarTudo('vw_comissao_atacado_semanal?select=*&order=semana_ini.desc&limit=6'),
     consultarTudo(`vw_fin_receitas_diarias_subtipo?select=data,subtipo,recebido&data=gte.${corteIso}&order=data`),
     // Benefício do iFood (comissão zero): quadro semanal para a Hellen acompanhar
     // e mandar para a XP toda quarta (regra do Fabio: não é dinheiro do fluxo).
@@ -10657,6 +10659,7 @@ async function entrarProjecao() {
   PROJ_RECEB_SUB.forEach(r => { r.recebido = Number(r.recebido); });
   PROJ_ANCORA = ancora;
   PROJ_VENC = vencStatus;
+  PROJ_COM_ATACADO = comAtacado || [];
   PROJ_CAIXA = (caixaDia || []).map(r => Object.fromEntries(Object.entries(r).map(
     ([k, v]) => [k, ['conta','conta_exibida','unidade'].includes(k) ? v : Number(v)])));
   PROJ_VENC.forEach(r => { r.debito = Number(r.debito); });
@@ -10807,6 +10810,38 @@ function projListaContas() {
   <div id="tabelaContasDia" style="overflow-x:auto"><table>
     <thead><tr><th>Descrição</th><th>Categoria</th><th>Conta</th><th style="text-align:right">Valor</th></tr></thead>
     <tbody>${corpo}</tbody></table></div>`;
+}
+
+// COMISSAO DO ATACADO — rotina que o dono passou em 26/08/2026: somar o que
+// entrou no banco como RECEITAS REVENDA na semana (quinta a quarta), calcular
+// 7,5% para a Jane e 7,5% para o Fabio, pagamento no dia seguinte (quinta).
+// As linhas semanais fixas no Saipos sao PROVISAO pelo ultimo valor pago; o
+// numero daqui e o REAL, que a Hellen lanca por cima — e que o robo vai lancar
+// sozinho quando a automacao chegar.
+function blocoComissaoAtacado() {
+  if (!PROJ_COM_ATACADO || !PROJ_COM_ATACADO.length) return '';
+  const reais = (v) => 'R$ ' + fmt(Number(v || 0));
+  const ddmm = (iso) => iso ? iso.slice(8, 10) + '/' + iso.slice(5, 7) : '';
+  const fech = PROJ_COM_ATACADO.filter(r => r.semana_fechada);
+  const aberta = PROJ_COM_ATACADO.find(r => !r.semana_fechada);
+  const ult = fech[0];
+  if (!ult && !aberta) return '';
+  const linhas = PROJ_COM_ATACADO.slice(0, 5).map(r => `<tr>
+      <td>${ddmm(r.semana_ini)} a ${ddmm(r.semana_fim)}${r.semana_fechada ? '' : ' <span style="color:#8a897e">(em andamento)</span>'}</td>
+      <td style="text-align:right">${reais(r.base_revenda)}</td>
+      <td style="text-align:right;font-weight:${r.semana_fechada ? 700 : 400}">${reais(r.comissao_jane)}</td>
+      <td style="text-align:right;font-weight:${r.semana_fechada ? 700 : 400}">${reais(r.comissao_fabio)}</td>
+      <td>${ddmm(r.pagamento)}</td></tr>`).join('');
+  return `
+  <div class="section-label">Comissão do atacado — 7,5% Jane + 7,5% Fabio sobre a revenda</div>
+  <div class="contexto">Base: o que entrou no banco como <b>Receitas Revenda</b> na semana (quinta a quarta).
+    ${ult ? `Última semana fechada (${ddmm(ult.semana_ini)} a ${ddmm(ult.semana_fim)}):
+    <b>lançar ${reais(ult.comissao_jane)} para a Jane e ${reais(ult.comissao_fabio)} para o Fabio</b>,
+    vencimento ${ddmm(ult.pagamento)}. A linha de provisão daquela semana no Saipos deve ser ajustada para esse valor.` : ''}</div>
+  <div id="tabelaComAtacado" style="overflow-x:auto"><table>
+    <thead><tr><th>Semana</th><th style="text-align:right">Base revenda</th>
+    <th style="text-align:right">Jane (7,5%)</th><th style="text-align:right">Fabio (7,5%)</th><th>Pagar em</th></tr></thead>
+    <tbody>${linhas}</tbody></table></div>`;
 }
 
 function blocoCaixaDoDia() {
@@ -11142,6 +11177,7 @@ function renderModuloProjecao() {
     com duas exceções que entram sozinhas: as cobranças das filiais (listas e benefício) e o envio do benefício para a XP.
   </div>
   <div id="projCaixaWrap">${blocoCaixaDoDia()}</div>
+  ${blocoComissaoAtacado()}
   ${blocoBeneficio()}
   ${temAncora && idadeMax > 1 ? `<div class="contexto" style="border-color:#f5a623;">
     Extrato do banco com <b>${idadeMax} dia(s) de atraso</b> em pelo menos uma conta — baixar o OFX
