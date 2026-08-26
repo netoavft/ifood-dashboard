@@ -10835,6 +10835,8 @@ function blocoComissaoAtacado() {
   return `
   <div class="section-label">Comissão do atacado — 7,5% Jane + 7,5% Fabio sobre a revenda</div>
   <div class="contexto">Base: o que entrou no banco como <b>Receitas Revenda</b> na semana (quinta a quarta).
+    <b>O número de uma semana só é final na quinta</b> — os valores do último dia entram
+    durante a tarde de quarta, e é por isso que o pagamento é na quinta.
     ${ult ? `Última semana fechada (${ddmm(ult.semana_ini)} a ${ddmm(ult.semana_fim)}):
     <b>lançar ${reais(ult.comissao_jane)} para a Jane e ${reais(ult.comissao_fabio)} para o Fabio</b>,
     vencimento ${ddmm(ult.pagamento)}. A linha de provisão daquela semana no Saipos deve ser ajustada para esse valor.` : ''}</div>
