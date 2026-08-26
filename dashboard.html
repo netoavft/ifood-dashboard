@@ -10772,7 +10772,12 @@ function projListaContas() {
     .filter(r => ['VENCIDA', 'VENCE HOJE', 'PROXIMOS 7 DIAS'].includes(r.situacao))
     .filter(r => (!PROJ_FILTRO.unidade || r.unidade === PROJ_FILTRO.unidade) &&
                  (!PROJ_FILTRO.conta   || r.conta   === PROJ_FILTRO.conta))
-    .sort((a, b) => (a.vencimento || '').localeCompare(b.vencimento || ''));
+    // dentro do dia: por CONTA e, na conta, do maior para o menor valor —
+    // pedido do dono, 26/08/2026: e a ordem em que se paga (abre uma conta no
+    // banco, liquida as maiores primeiro), nao a ordem em que se lancou.
+    .sort((a, b) => (a.vencimento || '').localeCompare(b.vencimento || '')
+      || (a.conta_exibida || a.conta || '').localeCompare(b.conta_exibida || b.conta || '')
+      || Number(b.debito) - Number(a.debito));
   if (!linhas.length) return `<div class="contexto" style="margin-top:10px">Nada a pagar com esse filtro.</div>`;
   const total = linhas.reduce((s, r) => s + Number(r.debito), 0);
   let dataAtual = null;
