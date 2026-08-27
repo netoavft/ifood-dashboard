@@ -267,6 +267,28 @@
     padding:7px 0; border-bottom:1px solid #2a2a27; }
   .plano-apr-solta > b { font-size:12px; color:#f2f0e9; min-width:150px; }
   .plano-apr-solta > div { flex:1; min-width:190px; }
+  /* Telas do painel: mesma familia visual do Plano, so mais denso — sao 35 linhas
+     e a leitura e' de varredura, nao de leitura corrida. */
+  .telas-tab { border-collapse:collapse; width:100%; font-size:12px; margin:0; }
+  .telas-tab th { text-align:left; padding:6px 8px; color:#8a8a80; font-weight:700;
+    font-size:10px; letter-spacing:.6px; text-transform:uppercase;
+    border-bottom:1px solid #45443f; background:#1a1a18; }
+  .telas-tab td { padding:5px 8px; border-bottom:1px solid #2a2a27; vertical-align:top; }
+  .telas-tab td:first-child { color:#f2f0e9; font-weight:600; white-space:nowrap; }
+  .telas-grupo td { background:#171716; color:#8a8a80; font-size:10px; font-weight:700;
+    letter-spacing:.8px; text-transform:uppercase; padding:7px 8px; }
+  .telas-campo { width:100%; box-sizing:border-box; background:transparent; color:#c9c7bd;
+    border:1px solid transparent; border-radius:5px; padding:3px 5px; font:inherit;
+    font-size:11.5px; line-height:1.4; resize:vertical; }
+  .telas-campo:hover { border-color:#34332f; }
+  .telas-campo:focus { outline:none; border-color:#e8b04b; background:#0f0f0e; color:#f2f0e9; }
+  .telas-dest { display:flex; gap:4px; flex-wrap:wrap; }
+  .telas-dest button { font-size:10.5px; padding:2px 7px; border-radius:999px; cursor:pointer;
+    background:transparent; color:#6f6e68; border:1px solid #34332f; white-space:nowrap; }
+  .telas-dest button:hover { border-color:#8a8a80; color:#8a8a80; }
+  .telas-dest button.sel { font-weight:700; }
+  .telas-rolo { overflow-x:auto; border:1px solid #34332f; border-radius:8px; }
+  .telas-rolo .telas-tab { min-width:900px; }
   .plano-dep { font-size:11.5px; color:#f5a623; margin-top:5px; }
   /* cabecalho de fase: o "quando" vira sobrancelha e o titulo cresce */
   .plano-fase { margin:26px 0 12px; padding-top:18px; border-top:1px solid #34332f; }
@@ -667,6 +689,7 @@
       <button class="sidebar-btn" id="navBtnRelatorios" onclick="mostrarModulo('relatorios')"><span class="mico">🗞️</span>Resumos semanais</button>
       <button class="sidebar-btn" id="navBtnConciliacao" onclick="mostrarModulo('conciliacao')"><span class="mico">✅</span>Conferência da base</button>
       <button class="sidebar-btn" id="navBtnRotinas" onclick="mostrarModulo('rotinas')"><span class="mico">🤖</span>Rotinas</button>
+      <button class="sidebar-btn" id="navBtnTelas" onclick="mostrarModulo('telas')"><span class="mico">🗺️</span>Telas do painel</button>
       <!-- Link, nao modulo: pagina publica do site, aberta em aba nova. Decisao
            do dono (13/08/2026): fica sem a trava de senha do painel — e a versao
            que o Fabio abre sem conta. promos.html TEM verbas em R$; aprovado assim. -->
@@ -757,6 +780,10 @@
 
     <div id="modulo-rotinas" class="modulo" style="display:none;">
       <div id="view-rotinas"></div>
+    </div>
+
+    <div id="modulo-telas" class="modulo" style="display:none;">
+      <div id="view-telas"></div>
     </div>
 
     <div id="modulo-qualidade" class="modulo" style="display:none;">
@@ -1471,6 +1498,7 @@ function mostrarModulo(nome) {
     conciliacao: ['modulo-conciliacao', 'navBtnConciliacao'],
     indicadores: ['modulo-indicadores', 'navBtnIndicadores'],
     rotinas: ['modulo-rotinas', 'navBtnRotinas'],
+    telas: ['modulo-telas', 'navBtnTelas'],
     qualidade: ['modulo-qualidade', 'navBtnQualidade'],
     consolidada: ['modulo-consolidada', 'navBtnConsolidada'],
     atrasos: ['modulo-atrasos', 'navBtnAtrasos'],
@@ -1531,6 +1559,7 @@ function mostrarModulo(nome) {
   if (nome === 'fichas') entrarFichas();
   if (nome === 'engcard') entrarEngcard();
   if (nome === 'plano') entrarPlano();
+  if (nome === 'telas') entrarTelas();
   if (nome === 'concbanco') entrarConcbanco();
   if (nome === 'rede') entrarRede();
   if (nome === 'reembolsos') entrarReembolsos();
@@ -6815,6 +6844,143 @@ async function planoRecadoVisto(id) {
   const [atualizado] = await r.json();
   PLANO_RECADOS = (PLANO_RECADOS || []).map(x => x.id === id ? (atualizado || x) : x);
   renderModuloPlano();
+}
+
+// ---------------------------------------------------------------- Telas do painel
+// Onde mora o acompanhamento dos modulos. O Plano diz o que FAZER; esta tela diz o
+// que EXISTE, o que cada coisa responde e para onde ela vai quando o Neto sair.
+// `destino` e' a unica decisao aqui — e boa parte fica com ele na consultoria.
+let TELAS = null;
+let TELAS_FILTRO = null;
+
+const TELAS_DESTINOS = [
+  ['equipe',      'passa',       '#3fb950'],
+  ['consultoria', 'consultoria', '#58a6ff'],
+  ['morre',       'morre',       '#8a8a80'],
+  ['a definir',   'a definir',   ''],
+];
+
+async function entrarTelas() {
+  const alvo = document.getElementById('view-telas');
+  if (!alvo) return;
+  if (!rmbSessao()) {
+    alvo.innerHTML = '<div class="contexto">Entre pelo <b>Plano</b> para ver esta tela — ela usa o mesmo login.</div>';
+    return;
+  }
+  if (TELAS === null) {
+    alvo.innerHTML = '<div class="contexto">Carregando as telas...</div>';
+    const r = await fetch(SUPABASE_URL + '/rest/v1/painel_telas?select=*&order=ordem',
+                          { headers: rmbHeaders() });
+    if (!r.ok) {
+      alvo.innerHTML = '<div class="contexto" style="border-color:#ff6b6b;">Nao consegui carregar (' + r.status + ').</div>';
+      return;
+    }
+    TELAS = await r.json();
+  }
+  renderModuloTelas();
+}
+
+async function telasGravar(chave, campos) {
+  const corpo = Object.assign({}, campos, {
+    atualizado_em: new Date().toISOString(),
+    atualizado_por: (rmbSessao() || {}).email || ''
+  });
+  const r = await fetch(SUPABASE_URL + '/rest/v1/painel_telas?chave=eq.' + encodeURIComponent(chave), {
+    method: 'PATCH',
+    headers: Object.assign({}, rmbHeaders(), { 'Content-Type': 'application/json', Prefer: 'return=representation' }),
+    body: JSON.stringify(corpo)
+  });
+  if (!r.ok) { alert('Nao consegui gravar (' + r.status + ').'); return null; }
+  const volta = await r.json();
+  const i = TELAS.findIndex(t => t.chave === chave);
+  if (i >= 0 && volta.length) TELAS[i] = volta[0];
+  return volta[0] || null;
+}
+
+async function telasDestino(chave, destino) {
+  await telasGravar(chave, { destino: destino });
+  renderModuloTelas();
+}
+
+// Salva ao sair do campo, e NAO redesenha: quem edita uma linha costuma editar a de
+// baixo em seguida, e redesenhar a tabela rouba o foco. O aviso e' a borda verde.
+async function telasCampo(chave, campo, el) {
+  const atual = TELAS.find(t => t.chave === chave);
+  const txt = el.value.trim();
+  if (!atual || (atual[campo] || '') === txt) return;
+  const d = {};
+  d[campo] = txt || null;
+  const volta = await telasGravar(chave, d);
+  if (volta) {
+    el.style.borderColor = '#3fb950';
+    setTimeout(function () { el.style.borderColor = ''; }, 900);
+  }
+}
+
+function telasFiltrar(d) {
+  TELAS_FILTRO = (TELAS_FILTRO === d) ? null : d;
+  renderModuloTelas();
+}
+
+function renderModuloTelas() {
+  const alvo = document.getElementById('view-telas');
+  if (!alvo || TELAS === null) return;
+  const esc = (x) => String(x == null ? '' : x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/'/g, '&#39;');
+  const campo = (t, nome, ph, linhas) =>
+    '<textarea class="telas-campo" rows="' + linhas + '" placeholder="' + ph + '" '
+    + 'onblur="telasCampo(&#39;' + esc(t.chave) + '&#39;,&#39;' + nome + '&#39;,this)">'
+    + esc(t[nome] || '') + '</textarea>';
+
+  const lista = TELAS_FILTRO ? TELAS.filter(t => t.destino === TELAS_FILTRO) : TELAS;
+  const decididas = TELAS.filter(t => t.destino !== 'a definir').length;
+  const pct = TELAS.length ? decididas / TELAS.length * 100 : 0;
+
+  let grupo = null;
+  const linhas = lista.map(t => {
+    let cab = '';
+    if (t.grupo !== grupo) {
+      grupo = t.grupo;
+      cab = '<tr class="telas-grupo"><td colspan="6">' + esc(grupo) + '</td></tr>';
+    }
+    const dest = TELAS_DESTINOS.map(([v, rot, cor]) =>
+      '<button class="' + (t.destino === v ? 'sel' : '') + '" '
+      + 'style="' + (t.destino === v && cor ? 'color:' + cor + ';border-color:' + cor + ';' : '') + '" '
+      + 'onclick="telasDestino(&#39;' + esc(t.chave) + '&#39;,&#39;' + v + '&#39;)">' + rot + '</button>').join('');
+    const carimbo = t.atualizado_em
+      ? '<div style="font-size:10px;color:#6f6e68;margin-top:3px;">'
+        + esc((t.atualizado_por || '').split('@')[0]) + ' · '
+        + new Date(t.atualizado_em).toLocaleDateString('pt-BR') + '</div>'
+      : '';
+    return cab + '<tr>'
+      + '<td>' + esc(t.rotulo) + '</td>'
+      + '<td style="min-width:230px;">' + campo(t, 'responde', 'o que esta tela responde', 2) + '</td>'
+      + '<td style="min-width:110px;">' + campo(t, 'quem', 'quem olha', 1) + '</td>'
+      + '<td style="min-width:95px;">' + campo(t, 'cadencia', 'frequencia', 1) + '</td>'
+      + '<td style="min-width:155px;"><div class="telas-dest">' + dest + '</div>' + carimbo + '</td>'
+      + '<td style="min-width:150px;">' + campo(t, 'nota', '', 2) + '</td>'
+      + '</tr>';
+  }).join('');
+
+  const chips = TELAS_DESTINOS.map(([v, rot]) => {
+    const n = TELAS.filter(t => t.destino === v).length;
+    return '<button class="preset-btn ' + (TELAS_FILTRO === v ? 'active' : '') + '" '
+         + 'onclick="telasFiltrar(&#39;' + v + '&#39;)">' + rot + ' ' + n + '</button>';
+  }).join(' ');
+
+  alvo.innerHTML =
+      '<div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Telas do painel</div>'
+    + '<div class="caption-label" style="text-align:center;">O Plano diz o que <b>fazer</b>; esta tela diz o que <b>existe</b>. '
+    + 'Uma linha por tela: o que ela responde, quem olha, com que frequencia — e para onde ela vai quando o Neto sair. '
+    + 'Escrever num campo salva sozinho.</div>'
+    + '<div class="plano-barra">'
+    + '<div class="plano-contagem"><b>' + decididas + '</b> de ' + TELAS.length + ' com destino definido</div>'
+    + '<div class="plano-trilho"><div class="plano-preenche" style="width:' + pct.toFixed(1) + '%;"></div></div></div>'
+    + '<div style="text-align:center; margin:10px 0;">'
+    + '<button class="preset-btn ' + (TELAS_FILTRO ? '' : 'active') + '" onclick="telasFiltrar(null)">todas ' + TELAS.length + '</button> '
+    + chips + '</div>'
+    + '<div class="telas-rolo"><table class="telas-tab"><thead><tr>'
+    + '<th>Tela</th><th>O que responde</th><th>Quem olha</th><th>Cadencia</th><th>Destino</th><th>Nota</th>'
+    + '</tr></thead><tbody>' + linhas + '</tbody></table></div>';
 }
 
 function renderPlanoSemAcesso() {
