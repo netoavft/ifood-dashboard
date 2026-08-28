@@ -11685,7 +11685,7 @@ function renderModuloCaixa() {
       const r = porDia[iso];
       const aberto = iso === hoje;
       let situacaoHtml, cor;
-      if (!r) { situacaoHtml = '<span style="color:#9aa4af;">sem movimento</span>'; cor = ''; }
+      if (!r || r.situacao === 'SEM MOVIMENTO') { situacaoHtml = '<span style="color:#9aa4af;">sem movimento</span>'; cor = ''; }
       else if (aberto) { situacaoHtml = '<span style="color:#9aa4af;">dia em aberto</span>'; cor = ''; }
       else if (r.situacao === 'OK') { situacaoHtml = '<span style="color:#3f9c5a;">✔ fechou</span>'; cor = ''; }
       else if (r.situacao === 'SEM FECHAMENTO') { situacaoHtml = '<b style="color:#ff6b6b;">sem fechamento</b>'; cor = 'background:rgba(255,107,107,.07);'; }
