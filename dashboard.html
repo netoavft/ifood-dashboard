@@ -4139,7 +4139,12 @@ async function entrarConcartao() {
   if (!alvo) return;
   if (CONCARTAO_DADOS === null) {
     alvo.innerHTML = '<div class="contexto">Carregando conciliação de cartão (PDV × maquininhas)...</div>';
-    CONCARTAO_DADOS = await consultarTudo('vw_cartao_conciliacao_dia?select=*&order=dia');
+    const [dias, motoboy, semCobranca] = await Promise.all([
+      consultarTudo('vw_cartao_conciliacao_dia?select=*&order=dia'),
+      consultarTudo('vw_cartao_motoboy_mensal?select=*&sem_cobranca=gt.0&order=mes.desc,valor_sem_cobranca.desc&limit=60'),
+      consultarTudo('vw_cartao_entrega_cobranca?select=dia,unidade,entregador,tipo,valor,entrega&cobrado=eq.false&order=dia.desc&limit=40'),
+    ]);
+    CONCARTAO_DADOS = { dias, motoboy, semCobranca };
   }
   renderConcartao();
 }
@@ -4152,7 +4157,7 @@ function renderConcartao() {
 
   // organiza: unidade -> dia -> {CARTAO:{...}, VOUCHER:{...}}
   const porLoja = {};
-  CONCARTAO_DADOS.forEach(r => {
+  CONCARTAO_DADOS.dias.forEach(r => {
     const l = (porLoja[r.unidade] = porLoja[r.unidade] || {});
     const d = (l[r.dia] = l[r.dia] || {});
     d[r.grupo] = r;
@@ -4212,7 +4217,50 @@ function renderConcartao() {
       sobra pequena que morre no dia seguinte (a Rede fecha o dia com um dia de atraso). Fora daqui: pagamento
       online (iFood/site), Pix, dinheiro e Boqueirão (máquinas fora do credenciamento por enquanto).</div>
     ${blocos}
+    ${renderConcartaoMotoboy()}
     <div id="concartao-dia"></div>`;
+}
+
+// Controle por motoboy (ideia do dono, 28/08/2026): entrega com cartão/vale no
+// PDV sem transação igual na maquininha até 45 min da entrega. É INDÍCIO para
+// conferir com o motoboy — conta dividida e centavos também caem aqui — nunca
+// acusação pronta.
+function renderConcartaoMotoboy() {
+  const { motoboy, semCobranca } = CONCARTAO_DADOS;
+  if (!semCobranca || semCobranca.length === 0) return '';
+  const reaisCc = v => 'R$ ' + Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const dBr = d => d.split('-').reverse().slice(0, 2).join('/');
+  const linhas = semCobranca.map(r => `<tr>
+      <td style="padding:4px 8px;">${dBr(r.dia)}</td>
+      <td style="padding:4px 8px;">${r.unidade}</td>
+      <td style="padding:4px 8px; font-weight:600;">${r.entregador || '(sem nome no Foody)'}</td>
+      <td style="padding:4px 8px;">${r.tipo}</td>
+      <td style="padding:4px 8px; text-align:right;">${reaisCc(r.valor)}</td>
+      <td style="padding:4px 8px; color:#8a897e;">${(r.entrega || '').slice(11, 16)}</td></tr>`).join('');
+  const mesLinhas = (motoboy || []).slice(0, 15).map(m => `<tr>
+      <td style="padding:4px 8px;">${new Date(m.mes + 'T12:00:00').toLocaleDateString('pt-BR', { month: 'short' })}</td>
+      <td style="padding:4px 8px;">${m.unidade}</td>
+      <td style="padding:4px 8px; font-weight:600;">${m.entregador || '(sem nome)'}</td>
+      <td style="padding:4px 8px; text-align:right; color:#8a897e;">${m.entregas_cartao}</td>
+      <td style="padding:4px 8px; text-align:right;">${m.sem_cobranca}</td>
+      <td style="padding:4px 8px; text-align:right; font-weight:600;">${reaisCc(m.valor_sem_cobranca)}</td></tr>`).join('');
+  return `<div class="card" style="margin:14px 0; border:1px solid #6b5b2e; overflow-x:auto;">
+    <div style="font-size:15px; font-weight:700; margin-bottom:4px;">🛵 Cartão na entrega sem cobrança encontrada</div>
+    <div style="font-size:12px; color:#8a897e; margin-bottom:8px;">Entregas em que o PDV diz "cartão/vale na entrega" e a maquininha não tem transação
+      do mesmo valor até 45 min da entrega. É um <b>indício para conferir com o motoboy</b> (o esquecimento clássico da pressa) — conta dividida e
+      diferença de centavos também caem aqui, então confirme antes de qualquer conversa.</div>
+    <table style="border-collapse:collapse; font-size:12px; min-width:520px;">
+      <tr style="color:#a5a49a; text-transform:uppercase; font-size:11px;">
+        <td style="padding:4px 8px;">dia</td><td style="padding:4px 8px;">loja</td><td style="padding:4px 8px;">motoboy</td>
+        <td style="padding:4px 8px;">forma</td><td style="padding:4px 8px; text-align:right;">valor</td><td style="padding:4px 8px;">entrega</td></tr>
+      ${linhas}</table>
+    ${mesLinhas ? `<div style="font-size:12px; color:#a5a49a; text-transform:uppercase; margin:12px 0 4px;">Por motoboy, no mês</div>
+    <table style="border-collapse:collapse; font-size:12px; min-width:520px;">
+      <tr style="color:#a5a49a; text-transform:uppercase; font-size:11px;">
+        <td style="padding:4px 8px;">mês</td><td style="padding:4px 8px;">loja</td><td style="padding:4px 8px;">motoboy</td>
+        <td style="padding:4px 8px; text-align:right;">entregas c/ cartão</td><td style="padding:4px 8px; text-align:right;">sem cobrança</td>
+        <td style="padding:4px 8px; text-align:right;">valor</td></tr>
+      ${mesLinhas}</table>` : ''}</div>`;
 }
 
 // Transações de um dia, lado a lado, com pareamento simples por valor + hora
@@ -4279,6 +4327,28 @@ async function abrirDiaConcartao(unidade, dia) {
   semParS = semParS.filter(t => !t._composto);
   semParR = semParR.filter(t => !t._composto);
 
+  // Última regra (dono, 28/08/2026): diferença de centavos/arredondamento.
+  // Medido em 01–09/08 AV: 7 de 9 quase-pares tinham até R$ 0,06 de diferença
+  // com hora colada — arredondamento de verdade. Régua adotada: até R$ 0,10 e
+  // 30 min = "arredondamento"; de R$ 0,10 a R$ 2,00 = "quase par — conferir"
+  // (fica para avaliação humana, nunca some sozinho). Nos DOIS casos a
+  // diferença continua no saldo do dia — a régua-mestra nada engole.
+  const arredond = [], conferir = [];
+  [...semParS].forEach(s => {
+    let melhor = null, nota = Infinity;
+    semParR.filter(r => !r._quase).forEach(r => {
+      const dv = Math.abs(+r.valor - +s.valor), dt = Math.abs(min(r.hora) - min(s.hora));
+      if (dv > 0 && dv <= 2.00 && dt <= 30 && dv * 1000 + dt < nota) { nota = dv * 1000 + dt; melhor = r; }
+    });
+    if (melhor) {
+      melhor._quase = s._quase = true;
+      const dv = +melhor.valor - +s.valor;
+      (Math.abs(dv) <= 0.10 ? arredond : conferir).push({ s, r: melhor, dv });
+    }
+  });
+  semParS = semParS.filter(t => !t._quase);
+  semParR = semParR.filter(t => !t._quase);
+
   const linha = (t, cor) => `<tr style="color:${cor};">
     <td style="padding:3px 8px;">${(t.hora || '').slice(0, 5)}</td>
     <td style="padding:3px 8px;">${t.detalhe || ''}</td>
@@ -4290,10 +4360,14 @@ async function abrirDiaConcartao(unidade, dia) {
 
   cont.innerHTML = `<div class="card" style="margin:14px 0;">
     <div style="font-size:15px; font-weight:700; margin-bottom:4px;">${unidade} — ${dia.split('-').reverse().join('/')}</div>
-    <div style="font-size:12px; color:#8a897e;">${casados.length} pagamento(s) com par na maquininha${compostos.length ? ', ' + compostos.length + ' resolvidos como conta dividida' : ''}; ${semParS.length} do PDV e ${semParR.length} da maquininha ficaram sem par.
+    <div style="font-size:12px; color:#8a897e;">${casados.length} pagamento(s) com par na maquininha${compostos.length ? ', ' + compostos.length + ' resolvidos como conta dividida' : ''}${arredond.length ? ', ' + arredond.length + ' por arredondamento' : ''}${conferir.length ? ', ' + conferir.length + ' quase-par para conferir' : ''}; ${semParS.length} do PDV e ${semParR.length} da maquininha ficaram sem par.
       Sem par dos DOIS lados com o mesmo valor = provável desencontro maior que 3 h. Sem par de um lado só = investigar.</div>
     ${compostos.length ? `<div style="margin:10px 0;"><div style="font-size:12px; color:#a5a49a; text-transform:uppercase; margin-bottom:4px;">Conta dividida (soma fecha)</div>
       ${compostos.map(c => `<div style="font-size:12px; padding:2px 0;">${c.rotulo}: <b>${reaisCc(c.alvo.valor)}</b> (${(c.alvo.hora || '').slice(0, 5)}, ${c.alvo.detalhe}) = ${c.itens.map(t => reaisCc(t.valor) + ' (' + (t.hora || '').slice(0, 5) + ')').join(' + ')}</div>`).join('')}</div>` : ''}
+    ${arredond.length ? `<div style="margin:10px 0;"><div style="font-size:12px; color:#a5a49a; text-transform:uppercase; margin-bottom:4px;">Arredondamento (até R$ 0,10)</div>
+      ${arredond.map(q => `<div style="font-size:12px; padding:2px 0;">PDV <b>${reaisCc(q.s.valor)}</b> (${(q.s.hora || '').slice(0, 5)}, ${q.s.detalhe}) × maquininha <b>${reaisCc(q.r.valor)}</b> (${(q.r.hora || '').slice(0, 5)}) — diferença ${q.dv > 0 ? '+' : ''}${(q.dv).toFixed(2).replace('.', ',')}</div>`).join('')}</div>` : ''}
+    ${conferir.length ? `<div style="margin:10px 0;"><div style="font-size:12px; color:#f5a623; text-transform:uppercase; margin-bottom:4px;">Quase par — conferir (R$ 0,10 a R$ 2,00)</div>
+      ${conferir.map(q => `<div style="font-size:12px; padding:2px 0; color:#f5a623;">PDV <b>${reaisCc(q.s.valor)}</b> (${(q.s.hora || '').slice(0, 5)}, ${q.s.detalhe}) × maquininha <b>${reaisCc(q.r.valor)}</b> (${(q.r.hora || '').slice(0, 5)}) — diferença ${q.dv > 0 ? '+' : ''}${(q.dv).toFixed(2).replace('.', ',')}</div>`).join('')}</div>` : ''}
     <div style="display:flex; flex-wrap:wrap; gap:18px;">
       ${tabela('PDV sem par', semParS, '#ff6b6b')}
       ${tabela('Maquininha sem par', semParR, '#f5a623')}
