@@ -4139,12 +4139,13 @@ async function entrarConcartao() {
   if (!alvo) return;
   if (CONCARTAO_DADOS === null) {
     alvo.innerHTML = '<div class="contexto">Carregando conciliação de cartão (PDV × maquininhas)...</div>';
-    const [dias, motoboy, semCobranca] = await Promise.all([
+    const [dias, motoboy, semCobranca, pixSem] = await Promise.all([
       consultarTudo('vw_cartao_conciliacao_dia?select=*&order=dia'),
       consultarTudo('vw_cartao_motoboy_mensal?select=*&sem_cobranca=gt.0&order=mes.desc,valor_sem_cobranca.desc&limit=60'),
       consultarTudo('vw_cartao_entrega_cobranca?select=dia,unidade,entregador,tipo,valor,entrega&cobrado=eq.false&aguardando=eq.false&order=dia.desc&limit=40'),
+      consultarTudo('vw_pix_conciliacao?select=dia,unidade,canal,entregador,tipo,valor&recebido=eq.false&aguardando=eq.false&order=dia.desc&limit=40'),
     ]);
-    CONCARTAO_DADOS = { dias, motoboy, semCobranca };
+    CONCARTAO_DADOS = { dias, motoboy, semCobranca, pixSem };
   }
   renderConcartao();
 }
@@ -4214,8 +4215,10 @@ function renderConcartao() {
       A régua é o <b>saldo</b>: diferença que aparece num dia e desaparece no outro é desencontro de horário
       (madrugada, comanda fechada depois do cartão) e se resolve sozinha; diferença que aparece <b>e fica</b> é
       venda sem par — clique no dia para abrir as transações lado a lado. O dia de ontem quase sempre mostra uma
-      sobra pequena que morre no dia seguinte (a Rede fecha o dia com um dia de atraso). Fora daqui: pagamento
-      online (iFood/site), Pix, dinheiro e Boqueirão (máquinas fora do credenciamento por enquanto).</div>
+      sobra pequena que morre no dia seguinte (a Rede fecha o dia com um dia de atraso). O <b>PIX tem outro par</b>:
+      QRCode da maquininha e chave CNPJ são conferidos contra o crédito no <b>extrato bancário</b> ("PIX QRS"/"PIX TRANSF"),
+      na caixa lá embaixo. Fora daqui: pagamento online (iFood/site), dinheiro e Boqueirão (máquinas fora do credenciamento
+      por enquanto).</div>
     ${blocos}
     ${renderConcartaoMotoboy()}
     <div id="concartao-dia"></div>`;
@@ -4226,10 +4229,17 @@ function renderConcartao() {
 // conferir com o motoboy — conta dividida e centavos também caem aqui — nunca
 // acusação pronta.
 function renderConcartaoMotoboy() {
-  const { motoboy, semCobranca } = CONCARTAO_DADOS;
-  if (!semCobranca || semCobranca.length === 0) return '';
+  const { motoboy, semCobranca, pixSem } = CONCARTAO_DADOS;
+  if ((!semCobranca || !semCobranca.length) && (!pixSem || !pixSem.length)) return '';
   const reaisCc = v => 'R$ ' + Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const dBr = d => d.split('-').reverse().slice(0, 2).join('/');
+  const pixLinhas = (pixSem || []).map(r => `<tr>
+      <td style="padding:4px 8px;">${dBr(r.dia)}</td>
+      <td style="padding:4px 8px;">${r.unidade}</td>
+      <td style="padding:4px 8px; color:#8a897e;">${r.canal || ''}</td>
+      <td style="padding:4px 8px; font-weight:600;">${r.entregador || '—'}</td>
+      <td style="padding:4px 8px;">${r.tipo}</td>
+      <td style="padding:4px 8px; text-align:right;">${reaisCc(r.valor)}</td></tr>`).join('');
   const linhas = semCobranca.map(r => `<tr>
       <td style="padding:4px 8px;">${dBr(r.dia)}</td>
       <td style="padding:4px 8px;">${r.unidade}</td>
@@ -4245,7 +4255,7 @@ function renderConcartaoMotoboy() {
       <td style="padding:4px 8px; text-align:right;">${m.sem_cobranca}</td>
       <td style="padding:4px 8px; text-align:right; font-weight:600;">${reaisCc(m.valor_sem_cobranca)}</td></tr>`).join('');
   return `<div class="card" style="margin:14px 0; border:1px solid #6b5b2e; overflow-x:auto;">
-    <div style="font-size:15px; font-weight:700; margin-bottom:4px;">🛵 Cartão na entrega sem cobrança encontrada</div>
+    <div style="font-size:15px; font-weight:700; margin-bottom:4px;">🛵 Cartão, vale e PIX — cobranças sem par encontrado</div>
     <div style="font-size:12px; color:#8a897e; margin-bottom:8px;">Entregas em que o PDV diz "cartão/vale na entrega" e a maquininha não tem transação
       do mesmo valor (cartão: até 45 min da entrega; <b>vale: até 7 dias</b> — voucher demora até dias para aparecer na Rede, e vale entregue há menos
       de 8 dias nem entra nesta lista). É um <b>indício para conferir com o motoboy</b> (o esquecimento clássico da pressa) — conta dividida e
@@ -4255,11 +4265,18 @@ function renderConcartaoMotoboy() {
         <td style="padding:4px 8px;">dia</td><td style="padding:4px 8px;">loja</td><td style="padding:4px 8px;">motoboy</td>
         <td style="padding:4px 8px;">forma</td><td style="padding:4px 8px; text-align:right;">valor</td><td style="padding:4px 8px;">entrega</td></tr>
       ${linhas}</table>
+    ${pixLinhas ? `<div style="font-size:12px; color:#a5a49a; text-transform:uppercase; margin:12px 0 4px;">PIX registrado no PDV sem crédito no banco</div>
+    <div style="font-size:11px; color:#8a897e; margin-bottom:4px;">QRCode da maquininha e chave CNPJ, conferidos contra o extrato (crédito "PIX" de mesmo valor, do dia da venda a 2 dias depois). PIX de menos de 3 dias fica de fora — o extrato ainda pode sincronizar. Se o motoboy esqueceu a máquina e o cliente pagou na chave, o dinheiro chega do mesmo jeito e a linha NÃO aparece aqui.</div>
+    <table style="border-collapse:collapse; font-size:12px; min-width:520px;">
+      <tr style="color:#a5a49a; text-transform:uppercase; font-size:11px;">
+        <td style="padding:4px 8px;">dia</td><td style="padding:4px 8px;">loja</td><td style="padding:4px 8px;">canal</td>
+        <td style="padding:4px 8px;">motoboy</td><td style="padding:4px 8px;">forma</td><td style="padding:4px 8px; text-align:right;">valor</td></tr>
+      ${pixLinhas}</table>` : ''}
     ${mesLinhas ? `<div style="font-size:12px; color:#a5a49a; text-transform:uppercase; margin:12px 0 4px;">Por motoboy, no mês</div>
     <table style="border-collapse:collapse; font-size:12px; min-width:520px;">
       <tr style="color:#a5a49a; text-transform:uppercase; font-size:11px;">
         <td style="padding:4px 8px;">mês</td><td style="padding:4px 8px;">loja</td><td style="padding:4px 8px;">motoboy</td>
-        <td style="padding:4px 8px; text-align:right;">entregas c/ cartão</td><td style="padding:4px 8px; text-align:right;">sem cobrança</td>
+        <td style="padding:4px 8px; text-align:right;">entregas c/ cartão ou PIX</td><td style="padding:4px 8px; text-align:right;">sem cobrança</td>
         <td style="padding:4px 8px; text-align:right;">valor</td></tr>
       ${mesLinhas}</table>` : ''}</div>`;
 }
