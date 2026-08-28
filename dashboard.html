@@ -11884,20 +11884,56 @@ function renderModuloDespesas() {
 // Passos 2 e 3 (digitar o valor contado e lancar a diferenca via robo do mini
 // PC) vem depois. Serie comeca em 01/08/2026 (antes nao ha coluna dinheiro).
 // ------------------------------------------------------------------
-let CAIXA_DIAS = null;
+let CAIXA_DIAS = null, CAIXA_CONTAGENS = null, CAIXA_RESP = null;
 
 async function entrarCaixa() {
   const alvo = document.getElementById('view-caixa');
   if (CAIXA_DIAS === null) {
     alvo.innerHTML = '<div class="contexto">Carregando fechamento de caixa...</div>';
-    CAIXA_DIAS = await consultarTudo('vw_caixa_fechamento_dia?select=*&order=data.desc');
+    [CAIXA_DIAS, CAIXA_CONTAGENS, CAIXA_RESP] = await Promise.all([
+      consultarTudo('vw_caixa_fechamento_dia?select=*&order=data.desc'),
+      consultarTudo('caixa_contagem?select=*&order=data.desc'),
+      consultarTudo('caixa_responsaveis?select=email,unidade'),
+    ]);
     CAIXA_DIAS.forEach(r => {
       r.dinheiro_pdv = Number(r.dinheiro_pdv); r.lancado_cofre = Number(r.lancado_cofre);
       r.diferenca = Number(r.diferenca); r.quebra_registrada = Number(r.quebra_registrada);
-      r.saidas_cofre = Number(r.saidas_cofre);
+      r.saidas_cofre = Number(r.saidas_cofre); r.movimento_book = Number(r.movimento_book);
     });
+    CAIXA_CONTAGENS.forEach(c => { c.contado = Number(c.contado); });
   }
   renderModuloCaixa();
+}
+
+// Salva (ou corrige) a contagem do dia. Upsert por (unidade, data): contagem
+// errada se corrige por cima, nunca se apaga. A policy do banco confere o
+// e-mail do JWT contra caixa_responsaveis — o painel só esconde o formulário,
+// quem manda é o banco.
+async function caixaSalvar(unidade, idBase) {
+  const dia = document.getElementById(idBase + 'Data').value;
+  const valor = document.getElementById(idBase + 'Valor').value;
+  const obs = document.getElementById(idBase + 'Obs').value.trim();
+  const s = rmbSessao();
+  if (!s || !s.email) { alert('Sessão expirada — faça login de novo para registrar.'); return; }
+  if (!dia) { alert('Escolha o dia da contagem.'); return; }
+  if (valor === '' || Number(valor) < 0) { alert('Digite o valor contado (0 vale, se a gaveta estava vazia).'); return; }
+  const bt = document.getElementById(idBase + 'Btn');
+  bt.disabled = true; bt.textContent = 'salvando...';
+  try {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/caixa_contagem?on_conflict=unidade,data`, {
+      method: 'POST',
+      headers: rmbHeaders({ Prefer: 'resolution=merge-duplicates' }),
+      body: JSON.stringify({ unidade, data: dia, contado: Number(valor),
+                             observacao: obs || null, quem: s.email,
+                             atualizado_em: new Date().toISOString() }),
+    });
+    if (!r.ok) throw new Error((await r.text()).slice(0, 160));
+    CAIXA_DIAS = null;              // recarrega tudo: a quebra aparece na hora
+    await entrarCaixa();
+  } catch (e) {
+    alert('Não consegui salvar a contagem: ' + e.message);
+    bt.disabled = false; bt.textContent = 'Registrar contagem';
+  }
 }
 
 function renderModuloCaixa() {
@@ -11922,7 +11958,27 @@ function renderModuloCaixa() {
 
   for (const [unidade, rotulo] of LOJAS_CAIXA) {
     const porDia = {};
-    CAIXA_DIAS.filter(r => r.unidade === unidade).forEach(r => { porDia[r.data] = r; });
+    const diasLoja = CAIXA_DIAS.filter(r => r.unidade === unidade);
+    diasLoja.forEach(r => { porDia[r.data] = r; });
+
+    // Contagens da gaveta (passo 2, 28/08/2026). O esperado de cada contagem é:
+    // contado_anterior + Σ(movimento do livro − frente de caixa do livro +
+    // dinheiro real do PDV) no intervalo — âncora na CONTAGEM anterior, como o
+    // OFX ancora o Fluxo Projetado; a primeira contagem é o ponto de partida.
+    const conts = CAIXA_CONTAGENS.filter(c => c.unidade === unidade)
+      .slice().sort((a, b) => (a.data < b.data ? -1 : 1));
+    const movEntre = (d1, d2) => diasLoja.filter(r => r.data > d1 && r.data <= d2)
+      .reduce((s, r) => s + r.movimento_book - r.lancado_cofre + r.dinheiro_pdv, 0);
+    conts.forEach((c, i) => {
+      if (i === 0) { c.esperado = null; c.quebra = null; return; }
+      const ant = conts[i - 1];
+      c.esperado = Math.round((ant.contado + movEntre(ant.data, c.data)) * 100) / 100;
+      c.quebra = Math.round((c.contado - c.esperado) * 100) / 100;
+    });
+    const eu = ((rmbSessao() || {}).email || '').toLowerCase();
+    const podeDigitar = (CAIXA_RESP || []).some(r =>
+      r.unidade === unidade && String(r.email).toLowerCase() === eu);
+    const idBase = 'cx' + unidade.replace(/[^A-Za-z]/g, '');
 
     // hoje nao conta como alerta: o caixa do dia ainda esta aberto
     const fechados = dias.filter(d => d < hoje).map(d => porDia[d]).filter(Boolean);
@@ -11958,6 +12014,56 @@ function renderModuloCaixa() {
         <td style="padding:3px 8px;">${situacaoHtml}</td></tr>`;
     }).join('');
 
+    let contagemHtml = '';
+    if (podeDigitar) {
+      contagemHtml += `
+      <div style="margin-top:10px; padding-top:8px; border-top:1px solid rgba(154,164,175,.25);">
+        <b>Contagem da gaveta</b> — digite só o valor contado; o painel calcula o resto.
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:6px; align-items:center;">
+          <input type="date" id="${idBase}Data" value="${hoje}" max="${hoje}" style="padding:4px;">
+          <input type="number" step="0.01" min="0" id="${idBase}Valor" placeholder="contado (R$)" style="padding:4px; width:140px;">
+          <input type="text" id="${idBase}Obs" placeholder="observação (se deu diferença, o que achou)" style="padding:4px; flex:1; min-width:180px;">
+          <button id="${idBase}Btn" onclick="caixaSalvar('${unidade}', '${idBase}')">Registrar contagem</button>
+        </div>
+      </div>`;
+    }
+    if (conts.length) {
+      const ultimas = conts.slice(-10).reverse();
+      contagemHtml += `
+      <div style="margin-top:10px;">
+        <b>Contagens registradas</b>
+        <div style="overflow-x:auto;"><table style="border-collapse:collapse; width:100%; font-size:13px;">
+          <tr style="color:#9aa4af; text-align:left;">
+            <th style="padding:3px 8px; font-weight:normal;">dia</th>
+            <th style="padding:3px 8px; font-weight:normal; text-align:right;">contado</th>
+            <th style="padding:3px 8px; font-weight:normal; text-align:right;">esperado</th>
+            <th style="padding:3px 8px; font-weight:normal;">quebra</th>
+            <th style="padding:3px 8px; font-weight:normal;">obs</th>
+            <th style="padding:3px 8px; font-weight:normal;">quem</th>
+          </tr>
+          ${ultimas.map(c => {
+            let q;
+            if (c.esperado === null) q = '<span style="color:#9aa4af;">ponto de partida</span>';
+            else if (Math.abs(c.quebra) < 0.005) q = '<span style="color:#3f9c5a;">✔ bateu</span>';
+            else q = `<b style="color:#ff6b6b;">R$ ${fmt(c.quebra)} — investigar</b>`;
+            return `<tr>
+              <td style="padding:3px 8px;">${fmtDia(c.data)}</td>
+              <td style="padding:3px 8px; text-align:right;">R$ ${fmt(c.contado)}</td>
+              <td style="padding:3px 8px; text-align:right;">${c.esperado === null ? '—' : 'R$ ' + fmt(c.esperado)}</td>
+              <td style="padding:3px 8px;">${q}</td>
+              <td style="padding:3px 8px; color:#9aa4af;">${c.observacao || ''}</td>
+              <td style="padding:3px 8px; color:#9aa4af;">${String(c.quem || '').split('@')[0]}</td>
+            </tr>`;
+          }).join('')}
+        </table></div>
+      </div>`;
+    } else if (podeDigitar) {
+      contagemHtml += `
+      <div style="margin-top:6px; font-size:12px; color:#9aa4af;">
+        Nenhuma contagem ainda — a primeira vira o ponto de partida (não gera quebra; as próximas comparam com ela).
+      </div>`;
+    }
+
     blocos += `
     <div class="section-label">${rotulo}</div>
     <div class="contexto" style="border-color:${corBorda}; text-align:left;">
@@ -11970,6 +12076,7 @@ function renderModuloCaixa() {
           <th style="padding:3px 8px; font-weight:normal; text-align:right;">diferença</th>
           <th style="padding:3px 8px; font-weight:normal;">situação</th>
         </tr>${linhas}</table></div>
+      ${contagemHtml}
     </div>`;
   }
 
@@ -11984,8 +12091,10 @@ function renderModuloCaixa() {
         : '<div style="margin-top:8px; color:#3f9c5a;"><b>Nenhum dia sem fechamento nas três lojas.</b></div>'}
       <div style="font-size:12px; color:#9aa4af; margin-top:6px;">
         "Sem movimento" = não houve venda em dinheiro nem lançamento — dia legítimo de cartão/Pix apenas.
-        A série começa em 01/08/2026. O próximo passo desta frente é registrar o valor <b>contado</b> na
-        gaveta (hoje ninguém mede a quebra real); depois, lançar a diferença no Saipos pela fila do robô.
+        A série começa em 01/08/2026. A <b>contagem da gaveta</b> se registra aqui embaixo, na loja de cada
+        responsável (Arissa: Água Verde e Ahú · Diego: São Braz). Regra do dono: <b>caixa bom não tem
+        quebra</b> — qualquer diferença, de qualquer valor, aparece e pede investigação (conte na observação
+        o que achou). O lançamento da quebra no Saipos vem depois, pela fila do robô.
       </div>
     </div>
     ${blocos}`;
