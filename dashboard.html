@@ -4417,7 +4417,10 @@ async function entrarConcbanco() {
       consultarTudo('vw_fin_conciliacao_dia_saldo?select=*&data=gte.'
         + new Date(Date.now() - 40 * 86400000).toISOString().slice(0, 10)),
       consultarTudo('vw_fin_conciliacao_duvidas?select=*'),
-      consultarTudo('fin_conciliacao_saipos_residuo?select=conta,data,valor,subtipo,descricao&order=data'),
+      // A VIEW, nao a tabela crua: ela esconde o residuo que o dono ja validou
+      // no chat (marcacao 'saipos|...' com nao_vigiar) — caso Flavio/Viviane de
+      // 28/08/2026, que reaparecia como alarme depois de validado.
+      consultarTudo('vw_fin_conciliacao_saipos_residuo?select=conta,data,valor,subtipo,descricao&order=data'),
       // MATURIDADE: so as familias com volume, ordenadas por movimento. Sem o
       // corte, 490 das 600 familias sao contraparte que apareceu 3 vezes em 90
       // dias — barulho que esconde as 30 que decidem alguma coisa.
