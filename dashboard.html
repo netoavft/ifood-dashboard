@@ -675,6 +675,7 @@
       <button class="sidebar-btn" id="navBtnConcbanco" onclick="mostrarModulo('concbanco')"><span class="mico">🏦</span>Conciliação bancária</button>
       <button class="sidebar-btn" id="navBtnCaixa" onclick="mostrarModulo('caixa')"><span class="mico">🗃️</span>Fechamento de caixa</button>
       <button class="sidebar-btn" id="navBtnRede" onclick="mostrarModulo('rede')"><span class="mico">🏧</span>Cartão &amp; maquininha</button>
+      <button class="sidebar-btn" id="navBtnConcartao" onclick="mostrarModulo('concartao')"><span class="mico">🔁</span>Conciliação de cartão</button>
       <button class="sidebar-btn" id="navBtnDespesas" onclick="mostrarModulo('despesas')"><span class="mico">🧾</span>Análise de despesas</button>
       <button class="sidebar-btn" id="navBtnReembolsos" onclick="mostrarModulo('reembolsos')"><span class="mico">💸</span>Reembolsos</button>
       <button class="sidebar-btn" id="navBtnRh" onclick="mostrarModulo('rh')"><span class="mico">💳</span>Descontos em folha</button>
@@ -813,6 +814,10 @@
 
     <div id="modulo-rede" class="modulo" style="display:none;">
       <div id="view-rede"></div>
+    </div>
+
+    <div id="modulo-concartao" class="modulo" style="display:none;">
+      <div id="view-concartao"></div>
     </div>
 
     <div id="modulo-reembolsos" class="modulo" style="display:none;">
@@ -1445,6 +1450,7 @@ function abrirGrupoDoModulo(nome) {
                     atrasos: 'gEntrega', frete: 'gEntrega', logfin: 'gEntrega',
                     fluxo: 'gFinanceiro', projecao: 'gFinanceiro', despesas: 'gFinanceiro',
                     concbanco: 'gFinanceiro', rede: 'gFinanceiro', caixa: 'gFinanceiro',
+                    concartao: 'gFinanceiro',
                     reembolsos: 'gFinanceiro', rh: 'gFinanceiro',
                     listas: 'gProducao',
                     qualidade: 'gIfood',
@@ -1521,6 +1527,7 @@ function mostrarModulo(nome) {
     rh: ['modulo-rh', 'navBtnRh'],
     concbanco: ['modulo-concbanco', 'navBtnConcbanco'],
     rede: ['modulo-rede', 'navBtnRede'],
+    concartao: ['modulo-concartao', 'navBtnConcartao'],
     caixa: ['modulo-caixa', 'navBtnCaixa'],
   };
   Object.entries(modulos).forEach(([chave, [idDiv, idBtn]]) => {
@@ -1569,6 +1576,7 @@ function mostrarModulo(nome) {
   if (nome === 'concbanco') entrarConcbanco();
   if (nome === 'caixa') entrarCaixa();
   if (nome === 'rede') entrarRede();
+  if (nome === 'concartao') entrarConcartao();
   if (nome === 'reembolsos') entrarReembolsos();
   if (nome === 'rh') entrarRh();
   if (nome === 'rotinas') entrarRotinas();
@@ -4117,6 +4125,144 @@ async function carregarReembolsos() {
 // por bandeira, direto da fonte. Views: vw_rede_taxas_efetivas (venda x MDR) e
 // vw_rede_aluguel (cobranca de aluguel por loja/mes). Ambas ja medidas seguras
 // no timeout de 3s do anon (rede_vendas ~15k linhas, nada perto de fato_pedidos).
+// ===================== CONCILIAÇÃO DE CARTÃO (fluxo da Arissa) =============
+// Saipos (o que o PDV registrou de cartão e vale) × Rede (o que passou nas
+// maquininhas), dia a dia, por loja. Método validado pelo dono em 28/08/2026:
+// a régua é o SALDO ACUMULADO — diferença que aparece num dia e desaparece no
+// outro é desencontro de horário (madrugada, comanda fechada depois); a que
+// aparece e FICA é venda sem par, dinheiro para caçar. O vale-refeição
+// (VR/Ticket/Alelo/Pluxee) também passa na maquininha da Rede, então entra.
+let CONCARTAO_DADOS = null;
+
+async function entrarConcartao() {
+  const alvo = document.getElementById('view-concartao');
+  if (!alvo) return;
+  if (CONCARTAO_DADOS === null) {
+    alvo.innerHTML = '<div class="contexto">Carregando conciliação de cartão (PDV × maquininhas)...</div>';
+    CONCARTAO_DADOS = await consultarTudo('vw_cartao_conciliacao_dia?select=*&order=dia');
+  }
+  renderConcartao();
+}
+
+function renderConcartao() {
+  const alvo = document.getElementById('view-concartao');
+  if (!alvo || CONCARTAO_DADOS === null) return;
+  const reaisCc = v => 'R$ ' + Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const diaBr = d => new Date(d + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' });
+
+  // organiza: unidade -> dia -> {CARTAO:{...}, VOUCHER:{...}}
+  const porLoja = {};
+  CONCARTAO_DADOS.forEach(r => {
+    const l = (porLoja[r.unidade] = porLoja[r.unidade] || {});
+    const d = (l[r.dia] = l[r.dia] || {});
+    d[r.grupo] = r;
+  });
+
+  const blocos = Object.keys(porLoja).sort().map(u => {
+    const dias = Object.keys(porLoja[u]).sort().reverse();      // mais novo primeiro
+    const ult = porLoja[u][dias[0]] || {};
+    const saldoC = ult.CARTAO ? +ult.CARTAO.saldo_acumulado : 0;
+    const saldoV = ult.VOUCHER ? +ult.VOUCHER.saldo_acumulado : 0;
+    const corSaldo = s => Math.abs(s) < 0.01 ? '#7bc47f' : '#f5a623';
+
+    const linhas = dias.slice(0, 30).map(dia => {
+      const c = porLoja[u][dia].CARTAO || {}, v = porLoja[u][dia].VOUCHER || {};
+      const cel = (r, campo) => r[campo] === undefined ? '—' : reaisCc(r[campo]);
+      const corDif = r => !r.diferenca || Math.abs(+r.diferenca) < 0.01 ? '#8a897e' : '#e8e6dc';
+      const corSal = r => r.saldo_acumulado === undefined ? '#8a897e'
+        : Math.abs(+r.saldo_acumulado) < 0.01 ? '#7bc47f' : '#f5a623';
+      return `<tr style="cursor:pointer;" onclick="abrirDiaConcartao('${u.replace(/'/g, "\\'")}', '${dia}')" title="clique para abrir as transações do dia">
+        <td style="padding:5px 8px; white-space:nowrap;">${diaBr(dia)}</td>
+        <td style="padding:5px 8px; text-align:right;">${cel(c, 'saipos')}</td>
+        <td style="padding:5px 8px; text-align:right;">${cel(c, 'rede')}</td>
+        <td style="padding:5px 8px; text-align:right; color:${corDif(c)};">${cel(c, 'diferenca')}</td>
+        <td style="padding:5px 8px; text-align:right; font-weight:600; color:${corSal(c)};">${cel(c, 'saldo_acumulado')}</td>
+        <td style="padding:5px 8px; text-align:right; border-left:1px solid #3a392f;">${cel(v, 'saipos')}</td>
+        <td style="padding:5px 8px; text-align:right;">${cel(v, 'rede')}</td>
+        <td style="padding:5px 8px; text-align:right; color:${corDif(v)};">${cel(v, 'diferenca')}</td>
+        <td style="padding:5px 8px; text-align:right; font-weight:600; color:${corSal(v)};">${cel(v, 'saldo_acumulado')}</td></tr>`;
+    }).join('');
+
+    return `<div class="card" style="margin:14px 0; overflow-x:auto;">
+      <div style="display:flex; flex-wrap:wrap; gap:16px; align-items:baseline; margin-bottom:8px;">
+        <div style="font-size:16px; font-weight:700;">${u}</div>
+        <div style="font-size:13px;">saldo cartão: <b style="color:${corSaldo(saldoC)};">${reaisCc(saldoC)}</b></div>
+        <div style="font-size:13px;">saldo vale: <b style="color:${corSaldo(saldoV)};">${reaisCc(saldoV)}</b></div>
+      </div>
+      <table style="border-collapse:collapse; font-size:12px; min-width:640px;">
+        <tr style="color:#a5a49a; text-transform:uppercase; font-size:11px;">
+          <td style="padding:5px 8px;">dia</td>
+          <td style="padding:5px 8px; text-align:right;">PDV cartão</td>
+          <td style="padding:5px 8px; text-align:right;">maquininha</td>
+          <td style="padding:5px 8px; text-align:right;">diferença</td>
+          <td style="padding:5px 8px; text-align:right;">saldo</td>
+          <td style="padding:5px 8px; text-align:right; border-left:1px solid #3a392f;">PDV vale</td>
+          <td style="padding:5px 8px; text-align:right;">maquininha</td>
+          <td style="padding:5px 8px; text-align:right;">diferença</td>
+          <td style="padding:5px 8px; text-align:right;">saldo</td></tr>
+        ${linhas}</table></div>`;
+  }).join('');
+
+  alvo.innerHTML = `
+    <div class="contexto">Compara, dia a dia, o <b>cartão e o vale-refeição registrados no PDV (Saipos)</b> com o que
+      <b>passou nas maquininhas da Rede</b> — inclusive VR, Ticket, Alelo e Pluxee, que rodam na mesma máquina.
+      A régua é o <b>saldo</b>: diferença que aparece num dia e desaparece no outro é desencontro de horário
+      (madrugada, comanda fechada depois do cartão) e se resolve sozinha; diferença que aparece <b>e fica</b> é
+      venda sem par — clique no dia para abrir as transações lado a lado. O dia de ontem quase sempre mostra uma
+      sobra pequena que morre no dia seguinte (a Rede fecha o dia com um dia de atraso). Fora daqui: pagamento
+      online (iFood/site), Pix, dinheiro e Boqueirão (máquinas fora do credenciamento por enquanto).</div>
+    ${blocos}
+    <div id="concartao-dia"></div>`;
+}
+
+// Transações de um dia, lado a lado, com pareamento simples por valor + hora
+// mais próxima (até 3 h — relógio de maquininha e comanda de salão atrasam).
+// O que importa para a Arissa é o que SOBRA sem par: aparece primeiro, em cima.
+async function abrirDiaConcartao(unidade, dia) {
+  const cont = document.getElementById('concartao-dia');
+  if (!cont) return;
+  cont.innerHTML = '<div class="contexto">Carregando transações do dia...</div>';
+  const trs = await consultarTudo('vw_cartao_transacoes?select=*&dia=eq.' + dia +
+    '&unidade=eq.' + encodeURIComponent(unidade) + '&order=hora');
+  const reaisCc = v => 'R$ ' + Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const min = h => { const p = (h || '0:0:0').split(':'); return (+p[0]) * 60 + (+p[1]); };
+
+  const saipos = trs.filter(t => t.origem === 'SAIPOS').map(t => ({ ...t, par: null }));
+  const rede = trs.filter(t => t.origem === 'REDE').map(t => ({ ...t, usado: false }));
+  saipos.forEach(s => {
+    let melhor = null, dist = 181;                       // tolerância: 3 h
+    rede.forEach(r => {
+      if (r.usado || Math.abs(+r.valor - +s.valor) > 0.005) return;
+      const d = Math.abs(min(r.hora) - min(s.hora));
+      if (d < dist) { dist = d; melhor = r; }
+    });
+    if (melhor) { melhor.usado = true; s.par = melhor; s.dist = dist; }
+  });
+  const semParS = saipos.filter(s => !s.par);
+  const semParR = rede.filter(r => !r.usado);
+  const casados = saipos.filter(s => s.par);
+
+  const linha = (t, cor) => `<tr style="color:${cor};">
+    <td style="padding:3px 8px;">${(t.hora || '').slice(0, 5)}</td>
+    <td style="padding:3px 8px;">${t.detalhe || ''}</td>
+    <td style="padding:3px 8px; text-align:right;">${reaisCc(t.valor)}</td>
+    <td style="padding:3px 8px; color:#8a897e; font-size:11px;">${t.referencia || ''}</td></tr>`;
+  const tabela = (titulo, lista, cor) => lista.length === 0 ? '' :
+    `<div style="min-width:280px; flex:1;"><div style="font-size:12px; color:#a5a49a; text-transform:uppercase; margin:8px 0 4px;">${titulo}</div>
+     <table style="border-collapse:collapse; font-size:12px; width:100%;">${lista.map(t => linha(t, cor)).join('')}</table></div>`;
+
+  cont.innerHTML = `<div class="card" style="margin:14px 0;">
+    <div style="font-size:15px; font-weight:700; margin-bottom:4px;">${unidade} — ${dia.split('-').reverse().join('/')}</div>
+    <div style="font-size:12px; color:#8a897e;">${casados.length} pagamento(s) com par na maquininha; ${semParS.length} do PDV e ${semParR.length} da maquininha ficaram sem par.
+      Sem par dos DOIS lados com o mesmo valor = provável desencontro maior que 3 h. Sem par de um lado só = investigar.</div>
+    <div style="display:flex; flex-wrap:wrap; gap:18px;">
+      ${tabela('PDV sem par', semParS, '#ff6b6b')}
+      ${tabela('Maquininha sem par', semParR, '#f5a623')}
+      ${tabela('Casados (PDV, com par confirmado)', casados, '#5f5e54')}
+    </div></div>`;
+  cont.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
 let REDE_DADOS = null;
 
 async function carregarRede() {
