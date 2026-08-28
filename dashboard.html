@@ -4142,7 +4142,7 @@ async function entrarConcartao() {
     const [dias, motoboy, semCobranca] = await Promise.all([
       consultarTudo('vw_cartao_conciliacao_dia?select=*&order=dia'),
       consultarTudo('vw_cartao_motoboy_mensal?select=*&sem_cobranca=gt.0&order=mes.desc,valor_sem_cobranca.desc&limit=60'),
-      consultarTudo('vw_cartao_entrega_cobranca?select=dia,unidade,entregador,tipo,valor,entrega&cobrado=eq.false&order=dia.desc&limit=40'),
+      consultarTudo('vw_cartao_entrega_cobranca?select=dia,unidade,entregador,tipo,valor,entrega&cobrado=eq.false&aguardando=eq.false&order=dia.desc&limit=40'),
     ]);
     CONCARTAO_DADOS = { dias, motoboy, semCobranca };
   }
@@ -4247,7 +4247,8 @@ function renderConcartaoMotoboy() {
   return `<div class="card" style="margin:14px 0; border:1px solid #6b5b2e; overflow-x:auto;">
     <div style="font-size:15px; font-weight:700; margin-bottom:4px;">🛵 Cartão na entrega sem cobrança encontrada</div>
     <div style="font-size:12px; color:#8a897e; margin-bottom:8px;">Entregas em que o PDV diz "cartão/vale na entrega" e a maquininha não tem transação
-      do mesmo valor até 45 min da entrega. É um <b>indício para conferir com o motoboy</b> (o esquecimento clássico da pressa) — conta dividida e
+      do mesmo valor (cartão: até 45 min da entrega; <b>vale: até 7 dias</b> — voucher demora até dias para aparecer na Rede, e vale entregue há menos
+      de 8 dias nem entra nesta lista). É um <b>indício para conferir com o motoboy</b> (o esquecimento clássico da pressa) — conta dividida e
       diferença de centavos também caem aqui, então confirme antes de qualquer conversa.</div>
     <table style="border-collapse:collapse; font-size:12px; min-width:520px;">
       <tr style="color:#a5a49a; text-transform:uppercase; font-size:11px;">
