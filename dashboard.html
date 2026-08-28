@@ -673,6 +673,7 @@
       <button class="sidebar-btn" id="navBtnFluxo" onclick="mostrarModulo('fluxo')"><span class="mico">💵</span>Fluxo de caixa</button>
       <button class="sidebar-btn" id="navBtnProjecao" onclick="mostrarModulo('projecao')"><span class="mico">🔮</span>Fluxo projetado</button>
       <button class="sidebar-btn" id="navBtnConcbanco" onclick="mostrarModulo('concbanco')"><span class="mico">🏦</span>Conciliação bancária</button>
+      <button class="sidebar-btn" id="navBtnCaixa" onclick="mostrarModulo('caixa')"><span class="mico">🗃️</span>Fechamento de caixa</button>
       <button class="sidebar-btn" id="navBtnRede" onclick="mostrarModulo('rede')"><span class="mico">🏧</span>Cartão &amp; maquininha</button>
       <button class="sidebar-btn" id="navBtnDespesas" onclick="mostrarModulo('despesas')"><span class="mico">🧾</span>Análise de despesas</button>
       <button class="sidebar-btn" id="navBtnReembolsos" onclick="mostrarModulo('reembolsos')"><span class="mico">💸</span>Reembolsos</button>
@@ -888,6 +889,10 @@
 
     <div id="modulo-conciliacao" class="modulo" style="display:none;">
       <div id="view-conciliacao"></div>
+    </div>
+
+    <div id="modulo-caixa" class="modulo" style="display:none;">
+      <div id="view-caixa"></div>
     </div>
 
     <div id="modulo-indicadores" class="modulo" style="display:none;">
@@ -1439,7 +1444,7 @@ function abrirGrupoDoModulo(nome) {
                     site: 'gSite',
                     atrasos: 'gEntrega', frete: 'gEntrega', logfin: 'gEntrega',
                     fluxo: 'gFinanceiro', projecao: 'gFinanceiro', despesas: 'gFinanceiro',
-                    concbanco: 'gFinanceiro', rede: 'gFinanceiro',
+                    concbanco: 'gFinanceiro', rede: 'gFinanceiro', caixa: 'gFinanceiro',
                     reembolsos: 'gFinanceiro', rh: 'gFinanceiro',
                     listas: 'gProducao',
                     qualidade: 'gIfood',
@@ -1516,6 +1521,7 @@ function mostrarModulo(nome) {
     rh: ['modulo-rh', 'navBtnRh'],
     concbanco: ['modulo-concbanco', 'navBtnConcbanco'],
     rede: ['modulo-rede', 'navBtnRede'],
+    caixa: ['modulo-caixa', 'navBtnCaixa'],
   };
   Object.entries(modulos).forEach(([chave, [idDiv, idBtn]]) => {
     // Tolerante a botao/div ausente: o menu e mexido com frequencia e um id
@@ -1561,6 +1567,7 @@ function mostrarModulo(nome) {
   if (nome === 'plano') entrarPlano();
   if (nome === 'telas') entrarTelas();
   if (nome === 'concbanco') entrarConcbanco();
+  if (nome === 'caixa') entrarCaixa();
   if (nome === 'rede') entrarRede();
   if (nome === 'reembolsos') entrarReembolsos();
   if (nome === 'rh') entrarRh();
@@ -4405,7 +4412,7 @@ async function entrarConcbanco() {
   alvo.innerHTML = '<div class="contexto">Carregando a conciliação...</div>';
   try {
     const [placar, pend, saldoDia, pessoas, marcadas, naoConf, saldoConf, aFazer,
-           diaSaldo, duvidas, sresiduo, matur] = await Promise.all([
+           diaSaldo, duvidas, sresiduo, matur, avisos] = await Promise.all([
       consultarTudo('vw_fin_conciliacao_placar?select=*&order=data.desc'),
       consultarTudo('vw_fin_conciliacao_pendencias?select=*&order=dias.desc'),
       consultarTudo('mv_fin_conciliacao_saldo_dia?select=*&order=data.desc'),
@@ -4425,9 +4432,13 @@ async function entrarConcbanco() {
       // corte, 490 das 600 familias sao contraparte que apareceu 3 vezes em 90
       // dias — barulho que esconde as 30 que decidem alguma coisa.
       consultarTudo('vw_fin_conciliacao_maturidade?select=*&linhas=gte.10&order=linhas.desc'),
+      // Aviso da rotina unificada (28/08/2026): a rotina de conciliacao+lancamento
+      // grava aqui quando termina cada passada; o banner diz a Hellen a hora de
+      // agir. So leitura — quem escreve e a rotina, via conexao do servidor.
+      consultarTudo('fin_conciliacao_aviso?select=*&order=criado_em.desc&limit=5'),
     ]);
     CONCB = { placar, pend, saldoDia, pessoas, marcadas, naoConf, saldoConf, aFazer, sresiduo,
-              diaSaldo, duvidas, matur };
+              diaSaldo, duvidas, matur, avisos };
   } catch (e) {
     alvo.innerHTML = '<div class="contexto">Não consegui carregar a conciliação: ' + e.message + '</div>';
     return;
@@ -5441,6 +5452,23 @@ function renderConcbanco() {
       'decidir qualquer coisa, e fingir que tem é como se inventa automação errada.' +
     '</div></details>';
 
+  // Banner do aviso da rotina unificada (28/08/2026): mostra so o aviso MAIS
+  // RECENTE e so se for de hoje (hora local) — aviso de ontem e historia, e
+  // banner permanente e banner que ninguem le.
+  const hojeLocalAviso = new Date(Date.now() - new Date().getTimezoneOffset() * 60000)
+    .toISOString().slice(0, 10);
+  const avisoHoje = (cru.avisos || []).find(a =>
+    new Date(new Date(a.criado_em).getTime() - new Date().getTimezoneOffset() * 60000)
+      .toISOString().slice(0, 10) === hojeLocalAviso);
+  const bannerAviso = avisoHoje
+    ? '<div style="margin:10px 0;padding:10px 14px;border-radius:6px;border:1px solid '
+      + (avisoHoje.fase === 'FINAL' ? '#2e7d32' : '#b8860b') + ';color:'
+      + (avisoHoje.fase === 'FINAL' ? '#2e7d32' : '#b8860b') + ';font-size:13px">'
+      + '<b>' + (avisoHoje.fase === 'FINAL' ? 'Rotina concluída' : 'Robô avisou') + ' às '
+      + new Date(avisoHoje.criado_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+      + ':</b> ' + String(avisoHoje.texto).replace(/</g, '&lt;') + '</div>'
+    : '';
+
   alvo.innerHTML = seletorLojaFin() +
     '<div class="section-label" style="border-top:none;margin-top:0;padding-top:0;' +
       'display:flex;align-items:center;gap:12px">' +
@@ -5477,6 +5505,7 @@ function renderConcbanco() {
       '<button id="concbEnviarOfx" style="font-size:11px;padding:3px 10px;cursor:pointer;' +
       'border:1px solid #8a887e;background:transparent;color:inherit;border-radius:4px;' +
       'font-weight:normal">enviar extrato (OFX)</button></div>' +
+    bannerAviso +
     '<div class="contexto">' + resumo + '</div>' + blocoDuvidas +
     '<div id="tabelaConcbOntem"><table style="width:100%">' +
       '<colgroup><col style="width:34px"><col style="width:130px"><col style="width:110px">' +
@@ -11582,6 +11611,125 @@ function renderModuloDespesas() {
     },
     plugins: [pluginRotulosBarra((i) => 'R$ ' + fmt(topForn[i][1]))],
   });
+}
+
+// ------------------------------------------------------------------
+// Modulo Fechamento de caixa (28/08/2026) — o cofre e' um caixa operacional
+// paralelo: dinheiro de venda entra ali e paga despesa direto, sem passar
+// pelo banco. Diagnostico de julho (medido): 17 dias sem lancamento de frente
+// de caixa, R$ 3.810 sem registro, e ninguem percebeu por semanas — um dia
+// esquecido era indistinguivel de um dia sem venda em dinheiro. Este modulo
+// e' o passo 1 do plano (so leitura): compara o dinheiro VENDIDO no PDV
+// (vendas_saipos.dinheiro, capturado do payments[] da API desde 28/08) com o
+// que foi LANCADO no cofre (fin_lancamentos, RECEITAS DINHEIRO), dia a dia.
+// Passos 2 e 3 (digitar o valor contado e lancar a diferenca via robo do mini
+// PC) vem depois. Serie comeca em 01/08/2026 (antes nao ha coluna dinheiro).
+// ------------------------------------------------------------------
+let CAIXA_DIAS = null;
+
+async function entrarCaixa() {
+  const alvo = document.getElementById('view-caixa');
+  if (CAIXA_DIAS === null) {
+    alvo.innerHTML = '<div class="contexto">Carregando fechamento de caixa...</div>';
+    CAIXA_DIAS = await consultarTudo('vw_caixa_fechamento_dia?select=*&order=data.desc');
+    CAIXA_DIAS.forEach(r => {
+      r.dinheiro_pdv = Number(r.dinheiro_pdv); r.lancado_cofre = Number(r.lancado_cofre);
+      r.diferenca = Number(r.diferenca); r.quebra_registrada = Number(r.quebra_registrada);
+      r.saidas_cofre = Number(r.saidas_cofre);
+    });
+  }
+  renderModuloCaixa();
+}
+
+function renderModuloCaixa() {
+  const alvo = document.getElementById('view-caixa');
+  // data local de verdade (toISOString e' UTC e vira amanha depois das 21h)
+  const hoje = new Date().toLocaleDateString('en-CA');
+  const LOJAS_CAIXA = [['AGUA VERDE', 'Água Verde'], ['AHU', 'Ahú'], ['SÃO BRAZ', 'São Braz']];
+  const DIAS_JANELA = 30;
+  const dias = [];
+  for (let i = 0; i < DIAS_JANELA; i++) {
+    const d = new Date(hoje + 'T12:00:00');
+    d.setDate(d.getDate() - i);
+    const iso = d.toLocaleDateString('en-CA');
+    if (iso < '2026-08-01') break;         // a serie comeca aqui
+    dias.push(iso);
+  }
+  const DIAS_SEMANA = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+  const fmtDia = (iso) => `${iso.slice(8, 10)}/${iso.slice(5, 7)} (${DIAS_SEMANA[new Date(iso + 'T12:00:00').getDay()]})`;
+
+  let blocos = '';
+  let semFechamentoTotal = 0, valorPerdidoTotal = 0;
+
+  for (const [unidade, rotulo] of LOJAS_CAIXA) {
+    const porDia = {};
+    CAIXA_DIAS.filter(r => r.unidade === unidade).forEach(r => { porDia[r.data] = r; });
+
+    // hoje nao conta como alerta: o caixa do dia ainda esta aberto
+    const fechados = dias.filter(d => d < hoje).map(d => porDia[d]).filter(Boolean);
+    const semFech = fechados.filter(r => r.situacao === 'SEM FECHAMENTO');
+    const divergentes = fechados.filter(r => r.situacao === 'DIVERGENTE');
+    const perdido = semFech.reduce((s, r) => s + r.diferenca, 0)
+                  + divergentes.reduce((s, r) => s + Math.max(r.diferenca, 0), 0);
+    semFechamentoTotal += semFech.length;
+    valorPerdidoTotal += perdido;
+
+    const corBorda = semFech.length ? '#ff6b6b' : (divergentes.length ? '#f5a623' : '#3f9c5a');
+    const resumo = semFech.length || divergentes.length
+      ? `<b>${semFech.length}</b> dia(s) com venda em dinheiro e nada lançado no cofre`
+        + (divergentes.length ? ` e <b>${divergentes.length}</b> dia(s) em que o lançado não bate com o vendido` : '')
+        + ` — <b class="negativo">R$ ${fmt(perdido)}</b> sem registro nos últimos ${dias.length} dias.`
+      : `Todos os dias com venda em dinheiro foram lançados no cofre nos últimos ${dias.length} dias.`;
+
+    const linhas = dias.map(iso => {
+      const r = porDia[iso];
+      const aberto = iso === hoje;
+      let situacaoHtml, cor;
+      if (!r) { situacaoHtml = '<span style="color:#9aa4af;">sem movimento</span>'; cor = ''; }
+      else if (aberto) { situacaoHtml = '<span style="color:#9aa4af;">dia em aberto</span>'; cor = ''; }
+      else if (r.situacao === 'OK') { situacaoHtml = '<span style="color:#3f9c5a;">✔ fechou</span>'; cor = ''; }
+      else if (r.situacao === 'SEM FECHAMENTO') { situacaoHtml = '<b style="color:#ff6b6b;">sem fechamento</b>'; cor = 'background:rgba(255,107,107,.07);'; }
+      else { situacaoHtml = '<b style="color:#f5a623;">não bate</b>'; cor = 'background:rgba(245,166,35,.07);'; }
+      const num = (v) => v ? 'R$ ' + fmt(v) : '<span style="color:#9aa4af;">—</span>';
+      return `<tr style="${cor}">
+        <td style="padding:3px 8px;">${fmtDia(iso)}</td>
+        <td style="padding:3px 8px; text-align:right;">${r ? num(r.dinheiro_pdv) : '<span style="color:#9aa4af;">—</span>'}</td>
+        <td style="padding:3px 8px; text-align:right;">${r ? num(r.lancado_cofre) : '<span style="color:#9aa4af;">—</span>'}</td>
+        <td style="padding:3px 8px; text-align:right;">${r && Math.abs(r.diferenca) >= 0.01 && !aberto ? '<b>R$ ' + fmt(r.diferenca) + '</b>' : '<span style="color:#9aa4af;">—</span>'}</td>
+        <td style="padding:3px 8px;">${situacaoHtml}</td></tr>`;
+    }).join('');
+
+    blocos += `
+    <div class="section-label">${rotulo}</div>
+    <div class="contexto" style="border-color:${corBorda}; text-align:left;">
+      <div style="margin-bottom:8px;">${resumo}</div>
+      <div style="overflow-x:auto;"><table style="border-collapse:collapse; width:100%; font-size:13px;">
+        <tr style="color:#9aa4af; text-align:left;">
+          <th style="padding:3px 8px; font-weight:normal;">dia</th>
+          <th style="padding:3px 8px; font-weight:normal; text-align:right;">vendido em dinheiro (PDV)</th>
+          <th style="padding:3px 8px; font-weight:normal; text-align:right;">lançado no cofre</th>
+          <th style="padding:3px 8px; font-weight:normal; text-align:right;">diferença</th>
+          <th style="padding:3px 8px; font-weight:normal;">situação</th>
+        </tr>${linhas}</table></div>
+    </div>`;
+  }
+
+  alvo.innerHTML = `
+    <div class="section-label">Fechamento de caixa — dinheiro do PDV × cofre</div>
+    <div class="contexto" style="text-align:left;">
+      Cada venda paga em <b>dinheiro</b> no PDV tem de virar um lançamento de frente de caixa
+      no cofre. Em julho, 17 dias da Água Verde ficaram sem lançamento (R$ 3.810) e ninguém
+      viu — esta tela existe para o dia esquecido aparecer <b>no dia seguinte</b>, não semanas depois.
+      ${semFechamentoTotal
+        ? `<div style="margin-top:8px;">Agora: <b class="negativo">${semFechamentoTotal} dia(s) sem fechamento</b> nas lojas, R$ ${fmt(valorPerdidoTotal)} vendidos em dinheiro sem registro no cofre.</div>`
+        : '<div style="margin-top:8px; color:#3f9c5a;"><b>Nenhum dia sem fechamento nas três lojas.</b></div>'}
+      <div style="font-size:12px; color:#9aa4af; margin-top:6px;">
+        "Sem movimento" = não houve venda em dinheiro nem lançamento — dia legítimo de cartão/Pix apenas.
+        A série começa em 01/08/2026. O próximo passo desta frente é registrar o valor <b>contado</b> na
+        gaveta (hoje ninguém mede a quebra real); depois, lançar a diferença no Saipos pela fila do robô.
+      </div>
+    </div>
+    ${blocos}`;
 }
 
 // ------------------------------------------------------------------
