@@ -4238,9 +4238,46 @@ async function abrirDiaConcartao(unidade, dia) {
     });
     if (melhor) { melhor.usado = true; s.par = melhor; s.dist = dist; }
   });
-  const semParS = saipos.filter(s => !s.par);
-  const semParR = rede.filter(r => !r.usado);
+  let semParS = saipos.filter(s => !s.par);
+  let semParR = rede.filter(r => !r.usado);
   const casados = saipos.filter(s => s.par);
+
+  // Conta dividida (regra do dono, 28/08/2026): uma transação de um lado
+  // composta pela soma de 2–3 do outro, componentes até 45 min entre si.
+  // Medido em 01–07/08 AV: o caso real foi a maquininha cheia = soma de
+  // partes do PDV (mesa dividida no PDV, um cartão pagou tudo); o inverso
+  // não apareceu mas custa o mesmo — os dois sentidos rodam.
+  const combina = (alvo, pool) => {
+    for (const n of [2, 3]) {
+      const combos = [];
+      (function gera(ini, atual) {
+        if (atual.length === n) { combos.push([...atual]); return; }
+        for (let i = ini; i < pool.length; i++) { atual.push(pool[i]); gera(i + 1, atual); atual.pop(); }
+      })(0, []);
+      for (const itens of combos) {
+        const soma = itens.reduce((a, t) => a + +t.valor, 0);
+        const ms = itens.map(t => min(t.hora));
+        if (Math.abs(soma - +alvo.valor) < 0.005 && Math.max(...ms) - Math.min(...ms) <= 45
+            && ms.some(m => Math.abs(m - min(alvo.hora)) <= 180)) return itens;
+      }
+    }
+    return null;
+  };
+  const compostos = [];
+  [{alvos: semParS, pool: () => semParR, rotulo: 'PDV cheio = soma na maquininha'},
+   {alvos: semParR, pool: () => semParS, rotulo: 'maquininha cheia = soma no PDV'}].forEach(p => {
+    [...p.alvos].forEach(alvo => {
+      if (alvo._composto) return;
+      const itens = combina(alvo, p.pool().filter(t => !t._composto));
+      if (itens) {
+        itens.forEach(t => t._composto = true);
+        alvo._composto = true;
+        compostos.push({ alvo, itens, rotulo: p.rotulo });
+      }
+    });
+  });
+  semParS = semParS.filter(t => !t._composto);
+  semParR = semParR.filter(t => !t._composto);
 
   const linha = (t, cor) => `<tr style="color:${cor};">
     <td style="padding:3px 8px;">${(t.hora || '').slice(0, 5)}</td>
@@ -4253,8 +4290,10 @@ async function abrirDiaConcartao(unidade, dia) {
 
   cont.innerHTML = `<div class="card" style="margin:14px 0;">
     <div style="font-size:15px; font-weight:700; margin-bottom:4px;">${unidade} — ${dia.split('-').reverse().join('/')}</div>
-    <div style="font-size:12px; color:#8a897e;">${casados.length} pagamento(s) com par na maquininha; ${semParS.length} do PDV e ${semParR.length} da maquininha ficaram sem par.
+    <div style="font-size:12px; color:#8a897e;">${casados.length} pagamento(s) com par na maquininha${compostos.length ? ', ' + compostos.length + ' resolvidos como conta dividida' : ''}; ${semParS.length} do PDV e ${semParR.length} da maquininha ficaram sem par.
       Sem par dos DOIS lados com o mesmo valor = provável desencontro maior que 3 h. Sem par de um lado só = investigar.</div>
+    ${compostos.length ? `<div style="margin:10px 0;"><div style="font-size:12px; color:#a5a49a; text-transform:uppercase; margin-bottom:4px;">Conta dividida (soma fecha)</div>
+      ${compostos.map(c => `<div style="font-size:12px; padding:2px 0;">${c.rotulo}: <b>${reaisCc(c.alvo.valor)}</b> (${(c.alvo.hora || '').slice(0, 5)}, ${c.alvo.detalhe}) = ${c.itens.map(t => reaisCc(t.valor) + ' (' + (t.hora || '').slice(0, 5) + ')').join(' + ')}</div>`).join('')}</div>` : ''}
     <div style="display:flex; flex-wrap:wrap; gap:18px;">
       ${tabela('PDV sem par', semParS, '#ff6b6b')}
       ${tabela('Maquininha sem par', semParR, '#f5a623')}
