@@ -5050,10 +5050,31 @@ async function concbFormEnsinar(d) {
 
 async function concbEnsinar(d) { await concbFormEnsinar(d); }
 
+// QUEM RESPONDE PELO FINANCEIRO HOJE — vem da tabela, nunca escrito aqui.
+// Ate 31/08/2026 este arquivo dizia "Vou avisar o Neto", com o nome dele no
+// codigo. O dono comecou a preparar a propria saida e isso vira beco sem saida:
+// ninguem vai lembrar de procurar um nome solto em 12 mil linhas. Agora o papel
+// e o endereco e a pessoa e o conteudo — trocar quem responde e um UPDATE em
+// fin_papel. Cache por sessao; se a leitura falhar, cai no papel genErico, que
+// continua verdadeiro.
+let concbRespCache = null;
+async function concbResponsavel() {
+  if (concbRespCache) return concbRespCache;
+  try {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/fin_papel`
+      + `?papel=eq.RESPONSAVEL_FINANCEIRO&select=nome`, { headers: rmbHeaders() });
+    const j = r.ok ? await r.json() : [];
+    concbRespCache = (j[0] && j[0].nome) || 'o responsável financeiro';
+  } catch (e) {
+    concbRespCache = 'o responsável financeiro';
+  }
+  return concbRespCache;
+}
+
 // Registrar a duvida sem exigir explicacao: quem nao sabe o que e a linha
 // tambem nao sabe descrever o problema. O texto e opcional de proposito.
 async function concbDuvida(d) {
-  const texto = prompt('Vou avisar o Neto sobre esta linha.\n\n'
+  const texto = prompt('Vou avisar ' + (await concbResponsavel()) + ' sobre esta linha.\n\n'
     + 'No banco: ' + (d.nome || d.memo || '') + '\n\n'
     + 'Quer dizer alguma coisa? (pode deixar em branco)');
   if (texto === null) return;
