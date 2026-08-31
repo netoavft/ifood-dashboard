@@ -110,11 +110,34 @@
     </ul>
     <p><b>A r&eacute;gua de leitura</b> &mdash; entregas <b>acima de 3 km</b> num fim de semana (sex/s&aacute;b/dom), rede sem Boqueir&atilde;o:</p>
     <table>
-      <tr><th class="rotulo">Sem cobertura nenhuma (21&ndash;23/08)</th><td><b>238</b></td></tr>
-      <tr><th class="rotulo">M&eacute;dia hist&oacute;rica com cobertura</th><td><b>415</b> <small class="na">(faixa normal: 330 a 480)</small></td></tr>
+      <tr><th class="rotulo">Sem cobertura nenhuma (21&ndash;23/08)</th><td><b>230</b></td></tr>
+      <tr><th class="rotulo">M&eacute;dia hist&oacute;rica com cobertura</th><td><b>402</b> <small class="na">(faixa normal: 324 a 463)</small></td></tr>
+      <tr class="troca"><th class="rotulo">Com o frete gr&aacute;tis at&eacute; 9,99 (28&ndash;30/08)</th><td><b>342</b> <small class="na">passou a r&eacute;gua</small></td></tr>
     </table>
     <div class="aviso"><b>Leitura na segunda seguinte:</b> subiu para <b>330 ou mais</b> &rarr; funcionou, mant&eacute;m e o assunto fecha com dado real. Ficou perto de <b>240</b> &rarr; n&atilde;o era o frete, desliga e a economia fica limpa. <b>Entre 240 e 330</b> &rarr; repete mais um fim de semana antes de decidir. Custo do teste: cerca de <b>R$ 2,3 mil</b> no fim de semana.</div>
+    <div class="aviso" style="border-left:3px solid #c8102e;"><b>Os n&uacute;meros desta r&eacute;gua foram recalculados em 31/08.</b> Eram 238 e 415, medidos pelo <b>pre&ccedil;o do frete</b> (&ge; R$ 10,99 = acima de 3 km) &mdash; e esse corte <b>quebrou em 27/08</b>, quando a faixa de 3&ndash;5 km passou a custar R$ 9,99: pela r&eacute;gua velha o fim de semana daria <b>85</b> em vez de 342. A r&eacute;gua agora acompanha o pre&ccedil;o da faixa (&ge; 10,99 at&eacute; 26/08, &ge; 9,99 depois). <b>N&atilde;o usar o <code>dist_km</code> do Foody para isso:</b> ele mede em linha reta e d&aacute; menos que a dist&acirc;ncia que o iFood cobra &mdash; 75% dos pedidos que pagaram R$ 9,99 apareciam nele como "at&eacute; 3 km", e a resposta saía invertida.</div>
     <div class="aviso"><b>De onde vem a estimativa, para ningu&eacute;m confundir com medi&ccedil;&atilde;o:</b> a margem que a promo&ccedil;&atilde;o "traz" sup&otilde;e que o frete gr&aacute;tis aumenta o volume de longe em <b>74%</b> &mdash; n&uacute;mero medido em <b>um</b> fim de semana (415 com cobertura contra 238 sem) e aplicado a esse grupo de clientes. &Eacute; a premissa mais fr&aacute;gil da conta, e &eacute; exatamente o que o teste mede. Vale lembrar tamb&eacute;m que o frete gr&aacute;tis por pedido m&iacute;nimo &eacute; integral: um pedido de 8 km custa R$ 15,99 &mdash; j&aacute; est&aacute; na m&eacute;dia, mas existe.</div>
+  </div>
+
+  <h2>4b. O que o fim de semana 28&ndash;30/08 respondeu</h2>
+  <div class="card">
+    <p>Primeiro fim de semana com o <b>frete gr&aacute;tis at&eacute; R$ 9,99</b> ligado (faixa de 3 a 5 km). A configura&ccedil;&atilde;o foi aplicada em <b>todas as lojas</b> &mdash; conferido pedido a pedido.</p>
+    <table>
+      <tr><th class="rotulo">Pedidos</th><th>21&ndash;23/08 <small class="na">sem cobertura</small></th><th class="troca">28&ndash;30/08 <small class="na">com o 9,99</small></th><th>varia&ccedil;&atilde;o</th></tr>
+      <tr><td class="rotulo">Acima de 3 km</td><td>230</td><td class="troca"><b>342</b></td><td><b>+49%</b></td></tr>
+      <tr><td class="rotulo">At&eacute; 3 km <small class="na">(o controle)</small></td><td>813</td><td>870</td><td>+7%</td></tr>
+    </table>
+    <div class="aviso"><b>N&atilde;o foi mar&eacute;.</b> O cliente de perto subiu 7% e o de longe subiu 49%, no mesmo fim de semana e nas mesmas lojas. Se fosse mercado ou clima, os dois teriam subido junto. <b>Recuperou 65% do buraco</b> aberto em 21&ndash;23/08 e passou a r&eacute;gua combinada de antem&atilde;o (&ge;330).</div>
+    <p><b>A conta contra o fim de semana sem cobertura:</b></p>
+    <table>
+      <tr><th class="rotulo">Venda de longe</th><td>R$ 19.276 &rarr; <b>R$ 23.344</b> <small class="na">(+R$ 4.068)</small></td></tr>
+      <tr><th class="rotulo">Nosso incentivo de frete no longe</th><td>R$ 320 &rarr; <b>R$ 2.493</b> <small class="na">(+R$ 2.173 &mdash; a estimativa era R$ 2,3 mil)</small></td></tr>
+      <tr><th class="rotulo">Margem que os R$ 4.068 trazem</th><td>&asymp; R$ 1.778 <small class="na">(43,7%, a mesma premissa do bloco 4)</small></td></tr>
+      <tr><th class="rotulo">Saldo</th><td><b>empate apertado</b> &mdash; igual ao que o teto de 12,99 tinha dado</td></tr>
+    </table>
+    <div class="aviso" style="border-left:3px solid #c8102e;"><b>Quem decide n&atilde;o &eacute; essa compara&ccedil;&atilde;o, &eacute; a com o regime antigo.</b> Nos 4 fins de semana com o teto de R$ 12,99 gast&aacute;vamos <b>R$ 4.514</b> de incentivo pr&oacute;prio para trazer <b>R$ 25.993</b> de venda de longe &mdash; R$ 5,92 de venda por real gasto. Com o 9,99: <b>R$ 2.493</b> para <b>R$ 23.344</b> &mdash; <b>R$ 9,36 por real</b>. Ou seja, <b>45% menos incentivo para 10% menos venda</b>. O 9,99 &eacute; a vers&atilde;o barata do que o teto de 12,99 fazia.</div>
+    <div class="aviso"><b>Decis&atilde;o do dono (31/08): fica, mas s&oacute; no fim de semana.</b> O volume de longe que paga a conta existe sex&ndash;dom; de segunda a quinta o mesmo incentivo compra muito menos pedido. Por isso a promo de 9,99 entrou no checklist de troca dos dois dias.</div>
+    <div class="aviso"><b>Um buraco de dado achado no caminho:</b> <b>S&Atilde;O BRAZ n&atilde;o manda entrega para o Foody desde 26/08 e AH&Uacute; desde 29/08.</b> Enquanto durar, os m&oacute;dulos de atraso, turno e dimensionamento de motoboy est&atilde;o cegos nessas duas unidades. Esta leitura escapou porque foi refeita no dado do iFood.</div>
   </div>
 
   <h2>5. Verbas por loja (R$/dia)</h2>
