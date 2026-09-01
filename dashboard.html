@@ -5717,8 +5717,13 @@ function renderConcbanco() {
     if (Math.abs(n(r.diferenca)) < CONCB_TOL_CENTAVOS) o.ok++;
     if (!o.ultima || r.data > o.ultima.data) o.ultima = r;
   });
+  // "Histórico: quantos dias cada conta fechou" DESLIGADO em 01/09/2026 (dono):
+  // "elas perderam o sentido com tudo que construímos até agora". Quando ele foi
+  // escrito, saber se a conta fechava era pergunta aberta; hoje o Passo 6.5 diz
+  // no dia, com conta, valor e dia de nascimento, e a fila mostra o que falta.
+  // Contador de dias no rodapé virou paisagem.
   const detalhe =
-    (Object.keys(histSaldo).length
+    (false && Object.keys(histSaldo).length
       ? '<details style="margin-top:16px"><summary style="cursor:pointer;font-weight:600">Histórico: quantos dias cada conta fechou</summary>' +
         '<div id="tabelaConcbSaldo"><table><thead><tr><th>Conta</th><th>Dias que fecharam</th>' +
         '<th>Último dia</th><th>Saldo do banco</th><th>Saldo pelo Saipos</th></tr></thead><tbody>' +
@@ -5762,7 +5767,12 @@ function renderConcbanco() {
   // pergunta da tela e "o que ja da para entregar ao robo", nao "o que esta ruim".
   const ordemVer = ['O ROBO JA PODERIA', 'QUASE', 'AINDA NAO', 'REGRA FALTANDO'];
   const MATUR_TETO = 40;
-  const blocoMaturidade = !matur.length ? '' :
+  // "O que já está maduro para automação" DESLIGADO em 01/09/2026 (dono, mesma
+  // frase). Ele nasceu em 24/08 para responder "o que dá para entregar ao robô".
+  // A resposta hoje é outra: o robô já lança tudo que tem regra, e o que falta
+  // aparece na fila como "sem regra", na linha, com botão de ensinar. O bloco
+  // respondia uma pergunta que o sistema já não faz mais.
+  const blocoMaturidade = true ? '' :
     '<details style="margin-top:14px"><summary style="cursor:pointer;font-size:13px">' +
       '<b>O que já está maduro para automação</b> — ' +
       ordemVer.filter(v => porVeredicto(v).length).map(v =>
@@ -5811,7 +5821,14 @@ function renderConcbanco() {
   const avisoHoje = (cru.avisos || []).find(a =>
     new Date(new Date(a.criado_em).getTime() - new Date().getTimezoneOffset() * 60000)
       .toISOString().slice(0, 10) === hojeLocalAviso);
-  const bannerAviso = avisoHoje
+  // BANNER DESLIGADO EM 01/09/2026, a pedido do dono: "esse bloco de texto não
+  // funciona, ninguém para pra ler esse texto nesse formato — o passo a passo tem
+  // que estar descrito dentro dos blocos de lançamentos da tela". Um parágrafo
+  // corrido com 8 nomes e 5 valores é exatamente o tipo de aviso que a pessoa
+  // pula. O que ela precisa saber tem que aparecer NA LINHA que ela vai tratar.
+  // O aviso continua sendo gravado em `fin_conciliacao_aviso` (é o registro do
+  // que a rotina fez); só deixou de virar parede de texto na tela.
+  const bannerAviso = false
     ? '<div style="margin:10px 0;padding:10px 14px;border-radius:6px;border:1px solid '
       + (avisoHoje.fase === 'FINAL' ? '#2e7d32' : '#b8860b') + ';color:'
       + (avisoHoje.fase === 'FINAL' ? '#2e7d32' : '#b8860b') + ';font-size:13px">'
