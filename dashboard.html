@@ -4898,13 +4898,30 @@ async function concbRodarComparador(bt) {
 // categorias nossas. Por isso a lista sai de categoria_nossa, distinta.
 // Pendencia conhecida: quando o robo for digitar no Saipos, ele vai precisar do
 // nome de LA, e o caminho de volta ainda nao esta resolvido.
+// LISTA VAZIA NAO PODE PASSAR EM SILENCIO (01/09/2026). As tres funcoes abaixo
+// faziam `r.ok ? await r.json() : []` — requisicao negada virava lista vazia, o
+// select nascia sem opcao nenhuma e ninguem sabia por que. O dono tentou ensinar
+// a regra do FABIO NUNES e a janela abriu com forma de pagamento e categoria em
+// branco; o backend estava inteiro (367 categorias, 5 metodos, 23 contas, todos
+// visiveis para `authenticated`), o que fica de pe como causa e a sessao caida.
+// Pior: a lista vazia era MEMOIZADA — uma falha de rede contaminava a pagina ate
+// dar F5. Agora avisa e nao guarda.
+async function concbAvisaLista(nome, r) {
+  const detalhe = await r.text().catch(() => '');
+  console.error('lista ' + nome + ' falhou', r.status, detalhe);
+  alert('Não consegui carregar a lista de ' + nome + ' (erro ' + r.status + ').\n\n'
+      + 'Quase sempre é a sessão que expirou: recarregue a página (F5) e entre de novo.\n'
+      + 'Se continuar, me chame — a lista vazia aqui esconderia o erro.');
+}
+
 let CONCB_CATEGORIAS = null;
 async function concbCategorias() {
   if (CONCB_CATEGORIAS) return CONCB_CATEGORIAS;
   const r = await fetch(`${SUPABASE_URL}/rest/v1/fin_de_para_categoria`
     + '?usar=is.true&select=categoria_nossa&order=categoria_nossa.asc',
     { headers: rmbHeaders() });
-  const linhas = r.ok ? await r.json() : [];
+  if (!r.ok) { await concbAvisaLista('categorias', r); return []; }  // sem memoizar
+  const linhas = await r.json();
   // varias grafias do Saipos apontam para a mesma categoria nossa: a lista
   // mostra cada uma UMA vez, senao nasce com repetido — que foi exatamente a
   // confusao que esta proposta veio resolver
@@ -4923,7 +4940,8 @@ async function concbMetodos() {
   if (CONCB_METODOS) return CONCB_METODOS;
   const r = await fetch(`${SUPABASE_URL}/rest/v1/vw_fin_metodos_pagamento`
     + '?select=metodo&order=usos.desc', { headers: rmbHeaders() });
-  CONCB_METODOS = r.ok ? (await r.json()).map(x => x.metodo).filter(Boolean) : [];
+  if (!r.ok) { await concbAvisaLista('formas de pagamento', r); return []; }
+  CONCB_METODOS = (await r.json()).map(x => x.metodo).filter(Boolean);
   return CONCB_METODOS;
 }
 
@@ -4932,7 +4950,8 @@ async function concbContasRegra() {
   if (CONCB_CONTAS_REGRA) return CONCB_CONTAS_REGRA;
   const r = await fetch(`${SUPABASE_URL}/rest/v1/vw_fin_contas_para_regra`
     + '?select=conta&order=usos.desc', { headers: rmbHeaders() });
-  CONCB_CONTAS_REGRA = r.ok ? (await r.json()).map(x => x.conta).filter(Boolean) : [];
+  if (!r.ok) { await concbAvisaLista('contas', r); return []; }
+  CONCB_CONTAS_REGRA = (await r.json()).map(x => x.conta).filter(Boolean);
   return CONCB_CONTAS_REGRA;
 }
 
