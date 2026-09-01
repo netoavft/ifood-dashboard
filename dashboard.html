@@ -4989,6 +4989,9 @@ async function concbFormEnsinar(d) {
   const categorias = await concbCategorias();
   const metodos = await concbMetodos();
   const contasRegra = await concbContasRegra();
+  // CPF/CNPJ direto do memo do OFX — o formato do banco varia, o documento não.
+  const docLinha = (String(d.memo || '').match(
+    /\d{3}\.\d{3}\.\d{3}-\d{2}|\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}/) || [''])[0];
   // caixa de marcar + campo que so vale quando ela esta marcada
   const marca = (id, rotulo) =>
     '<label style="display:flex;align-items:center;gap:6px;font-size:12px;'
@@ -5002,7 +5005,18 @@ async function concbFormEnsinar(d) {
     + 'border-radius:8px;max-width:460px;width:92%;border:1px solid #8a887e">'
     + '<div style="font-weight:700;margin-bottom:4px">Ensinar esta linha</div>'
     + '<div style="font-size:12px;opacity:.8;margin-bottom:14px">No banco: <b>'
-    + seguro(d.nome || d.memo || '') + '</b></div>'
+    + seguro(d.nome || d.memo || '') + '</b>'
+    // O CPF/CNPJ QUE O OFX TRAZ (01/09/2026, ideia do dono: "o que não casar por
+    // nome, casa por CPF/CNPJ"). Medido: 94% das linhas do OFX de agosto trazem a
+    // chave, e as que não trazem são as que não têm contraparte (lote SISPAG,
+    // rendimento, tarifa). Mostrar aqui serve para duas coisas: quem ensina
+    // confere que é a pessoa certa, e o par passa a casar por chave exata — que
+    // não sofre com o banco mudando o formato do histórico de um dia para o outro.
+    + (docLinha ? '<br><span style="opacity:.75">CPF/CNPJ: <b>' + seguro(docLinha)
+        + '</b> — a regra vai casar por este número, não pela grafia do nome.</span>'
+        : '<br><span style="opacity:.6">Sem CPF/CNPJ nesta linha — a regra vai '
+        + 'casar pelo nome.</span>')
+    + '</div>'
     + campo('ensQue', 'O que é', 'ex.: compra de tinta para manutenção')
     + campo('ensDesc', 'Descrição no Saipos (o histórico a digitar)', 'ex.: TINTAS VERGINIA')
     // TIPO DE LANCAMENTO primeiro: e ele que decide se a tela pergunta contas
@@ -5094,7 +5108,7 @@ async function concbFormEnsinar(d) {
     fecha();
     await concbGravarLicao({ tipo: revisar ? 'DUVIDA' : 'NOME', conta: d.conta, fitid: d.fitid,
       memo_banco: d.memo || null, nome_banco: d.nome || null, texto: desc,
-      o_que_e: oQue || null, categoria: cat || null,
+      o_que_e: oQue || null, categoria: cat || null, documento: docLinha || null,
       tipo_lancamento: tipoLanc || null, metodo_pagamento: met || null,
       conta_origem: contas.origem || null, conta_destino: contas.destino || null,
       agrupa: agrupa, palavra_chave: palavra || null });
