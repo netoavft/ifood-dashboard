@@ -3376,7 +3376,11 @@ const ROTINAS_CONHECIDAS = [
   { id: 'alerta-troca-promocoes',            nome: 'Aviso de troca de promos', quando: 'Seg e sex 09:00' },
   { id: 'extracao-diaria-pedidos',           nome: 'Extração de pedidos',    quando: 'Todo dia 10:00' },
   { id: 'contestacao-diaria-cancelamentos',  nome: 'Contestação',            quando: 'Todo dia 11:30' },
-  { id: 'conciliacao-bancaria-diaria',       nome: 'Conciliação bancária',   quando: 'Seg–sex 11:45 (PC do dono)' },
+  // 01/09/2026: o id estava em 'conciliacao-bancaria-diaria', rotina REVOGADA em
+  // 28/08 quando ela e a de lançamento viraram uma só. Resultado: a linha da
+  // conciliação aparecia como "nunca registrada" e a rotina que roda de verdade
+  // não aparecia — cinco dias de execuções invisíveis nesta tela.
+  { id: 'conciliacao-e-lancamento-diario',   nome: 'Conciliação e lançamento', quando: 'Seg–sex, 20 em 20 min das 09:40 às 13:40 (mini PC)' },
   { id: 'extracao-diaria-promocoes',         nome: 'Extração de promoções',  quando: 'Todo dia 12:30' },
   { id: 'extracao-semanal-cardapio',         nome: 'Extração de cardápio',   quando: 'Segunda 14:00' },
   { id: 'resumo-semanal-ifood',              nome: 'Resumo semanal',         quando: 'Segunda 17:00' },
