@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+</head>
+<body>
+<title>Pesos das Listas</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Instrument+Serif&display=swap">
+<style>
+  :root {
+    --papel: #faf6ef;
+    --cartao: #ffffff;
+    --tinta: #2b2620;
+    --tinta-2: #6f675c;
+    --linha: #e5ddd0;
+    --vermelho: #c8102e;
+    --verde: #2e7d4f;
+    --campo: #fdfbf7;
+  }
+  body {
+    background: var(--papel);
+    color: var(--tinta);
+    font-family: "Instrument Sans", "Segoe UI", system-ui, sans-serif;
+    margin: 0;
+    padding: 20px 14px 48px;
+    line-height: 1.45;
+  }
+  .folha { max-width: 720px; margin: 0 auto; }
+  header { border-bottom: 3px solid var(--tinta); padding-bottom: 14px; margin-bottom: 6px; }
+  .selo { font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--vermelho); font-weight: 700; }
+  h1 { font-family: "Instrument Serif", Georgia, serif; font-weight: 400; font-size: clamp(30px, 6vw, 40px); margin: 4px 0 6px; text-wrap: balance; }
+  .contexto { color: var(--tinta-2); font-size: 14.5px; max-width: 62ch; margin: 0; }
+  .contexto b { color: var(--tinta); }
+
+  .bloco { margin-top: 30px; }
+  .bloco-titulo { display: flex; align-items: baseline; gap: 10px; border-bottom: 1px solid var(--linha); padding-bottom: 8px; }
+  .bloco-titulo h2 { font-size: 17px; margin: 0; }
+  .bloco-titulo .qtd { font-size: 13px; color: var(--tinta-2); }
+  .bloco-nota { font-size: 13.5px; color: var(--tinta-2); margin: 8px 0 14px; max-width: 62ch; }
+
+  .item { background: var(--cartao); border: 1px solid var(--linha); border-radius: 10px; padding: 12px 14px; margin-bottom: 10px;
+          display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: center; }
+  .item .nome { font-weight: 600; font-size: 15px; }
+  .item .meta { grid-column: 1; font-size: 12.5px; color: var(--tinta-2); font-variant-numeric: tabular-nums; }
+  .campo-peso { grid-column: 2; grid-row: 1 / span 2; display: flex; align-items: center; gap: 6px; }
+  .campo-peso .caixa { width: 86px; height: 44px; border: 2px solid var(--tinta); border-radius: 8px; background: var(--campo);
+                       display: flex; align-items: center; justify-content: flex-end; padding: 0 8px; font-size: 18px; font-weight: 700;
+                       font-variant-numeric: tabular-nums; }
+  .campo-peso .caixa.vazia { border-style: dashed; border-color: var(--vermelho); color: transparent; }
+  .campo-peso .g { font-size: 14px; color: var(--tinta-2); font-weight: 600; }
+  .risca { margin-top: 6px; grid-column: 1 / -1; font-size: 12.5px; color: var(--tinta-2);
+           display: flex; gap: 16px; flex-wrap: wrap; }
+  .risca .op { display: inline-flex; align-items: center; gap: 6px; }
+  .quadrado { width: 15px; height: 15px; border: 2px solid var(--tinta-2); border-radius: 4px; display: inline-block; }
+
+  .rodape { margin-top: 34px; border-top: 1px solid var(--linha); padding-top: 12px; font-size: 13px; color: var(--tinta-2); max-width: 62ch; }
+  @media print {
+    body { background: #fff; padding: 0; }
+    .item { break-inside: avoid; }
+  }
+</style>
+
+<div class="folha">
+  <header>
+    <div class="selo">Listas de transferência · Água Verde</div>
+    <h1>Pesos das Listas</h1>
+    <p class="contexto">
+      As listas agora se movimentam <b>por quilo</b> (menos embalagens). Para os itens abaixo, que sempre
+      foram contados por unidade, precisamos do <b>peso de 1 unidade pronta</b> — é ele que transforma o
+      custo unitário em preço por kg. <b>Rita:</b> confere na balança e anota no quadradinho. Peso médio
+      de 3 pesagens serve bem.
+    </p>
+  </header>
+
+  <section class="bloco">
+    <div class="bloco-titulo">
+      <h2>Falta o peso — anotar</h2>
+      <span class="qtd">12 itens</span>
+    </div>
+    <p class="bloco-nota">
+      Sem o peso, esses seguem por unidade. Se algum fizer mais sentido continuar <b>por contagem</b>
+      (o sachê é candidato), marca a opção em vez de pesar.
+    </p>
+    <div class="item">
+      <div class="nome">BIFE DE CARNE GRELHADO RECEITA</div>
+      <div class="meta">R$ 3.28 por unidade hoje · pedido 35x nos últimos 3 meses</div>
+      <div class="campo-peso"><div class="caixa vazia">000</div><span class="g">g</span></div>
+      <div class="risca"><span class="op"><span class="quadrado"></span> deixar por contagem (não pesar)</span></div>
+    </div>
+<div class="item">
+      <div class="nome">BROWNIE TRADICIONAL RECEITA</div>
+      <div class="meta">R$ 1.69 por unidade hoje · pedido 22x nos últimos 3 meses</div>
+      <div class="campo-peso"><div class="caixa vazia">000</div><span class="g">g</span></div>
+      <div class="risca"><span class="op"><span class="quadrado"></span> deixar por contagem (não pesar)</span></div>
+    </div>
+<div class="item">
+      <div class="nome">CHEESECAKE TRADICIONAL RECEITA</div>
+      <div class="meta">R$ 1.85 por unidade hoje · pedido 32x nos últimos 3 meses</div>
+      <div class="campo-peso"><div class="caixa vazia">000</div><span class="g">g</span></div>
+      <div class="risca"><span class="op"><span class="quadrado"></span> deixar por contagem (não pesar)</span></div>
+    </div>
+<div class="item">
+      <div class="nome">CHEESECAKE VEGANA RECEITA</div>
+      <div class="meta">R$ 2.37 por unidade hoje · pedido 15x nos últimos 3 meses</div>
+      <div class="campo-peso"><div class="caixa vazia">000</div><span class="g">g</span></div>
+      <div class="risca"><span class="op"><span class="quadrado"></span> deixar por contagem (não pesar)</span></div>
+    </div>
+<div class="item">
+      <div class="nome">CHIMICHURRI</div>
+      <div class="meta">R$ 22.92 por unidade hoje · pedido 3x nos últimos 3 meses</div>
+      <div class="campo-peso"><div class="caixa vazia">000</div><span class="g">g</span></div>
+      <div class="risca"><span class="op"><span class="quadrado"></span> deixar por contagem (não pesar)</span></div>
+    </div>
+<div class="item">
+      <div class="nome">ESPETINHO DE PTS RECEITA</div>
+      <div class="meta">R$ 1.17 por unidade hoje · pedido 9x nos últimos 3 meses</div>
+      <div class="campo-peso"><div class="caixa vazia">000</div><span class="g">g</span></div>
+      <div class="risca"><span class="op"><span class="quadrado"></span> deixar por contagem (não pesar)</span></div>
+    </div>
+<div class="item">
+      <div class="nome">FRANGO GRELHADO RECEITA</div>
+      <div class="meta">R$ 12.82 por unidade hoje · pedido 2x nos últimos 3 meses</div>
+      <div class="campo-peso"><div class="caixa vazia">000</div><span class="g">g</span></div>
+      <div class="risca"><span class="op"><span class="quadrado"></span> deixar por contagem (não pesar)</span></div>
+    </div>
+<div class="item">
+      <div class="nome">OVO</div>
+      <div class="meta">R$ 0.66 por unidade hoje · pedido 4x nos últimos 3 meses</div>
+      <div class="campo-peso"><div class="caixa vazia">000</div><span class="g">g</span></div>
+      <div class="risca"><span class="op"><span class="quadrado"></span> deixar por contagem (não pesar)</span></div>
+    </div>
+<div class="item">
+      <div class="nome">PACOCA</div>
+      <div class="meta">R$ 0.37 por unidade hoje · pedido 2x nos últimos 3 meses</div>
+      <div class="campo-peso"><div class="caixa vazia">000</div><span class="g">g</span></div>
+      <div class="risca"><span class="op"><span class="quadrado"></span> deixar por contagem (não pesar)</span></div>
+    </div>
+<div class="item">
+      <div class="nome">PAO BRIOCHE</div>
+      <div class="meta">R$ 1.33 por unidade hoje · pedido 3x nos últimos 3 meses</div>
+      <div class="campo-peso"><div class="caixa vazia">000</div><span class="g">g</span></div>
+      <div class="risca"><span class="op"><span class="quadrado"></span> deixar por contagem (não pesar)</span></div>
+    </div>
+<div class="item">
+      <div class="nome">PASTEL DE QUEIJO RECEITA</div>
+      <div class="meta">R$ 0.58 por unidade hoje · pedido 13x nos últimos 3 meses</div>
+      <div class="campo-peso"><div class="caixa vazia">000</div><span class="g">g</span></div>
+      <div class="risca"><span class="op"><span class="quadrado"></span> deixar por contagem (não pesar)</span></div>
+    </div>
+<div class="item">
+      <div class="nome">SACHE DE CATCHUP CX C/ 190UN</div>
+      <div class="meta">R$ 0.11 por unidade hoje · pedido 1x nos últimos 3 meses</div>
+      <div class="campo-peso"><div class="caixa vazia">000</div><span class="g">g</span></div>
+      <div class="risca"><span class="op"><span class="quadrado"></span> deixar por contagem (não pesar)</span></div>
+    </div>
+  </section>
+
+  <section class="bloco">
+    <div class="bloco-titulo">
+      <h2>Peso veio do nome — só conferir</h2>
+      <span class="qtd">9 itens</span>
+    </div>
+    <p class="bloco-nota">
+      Esses já viraram kg usando o peso que está no próprio nome da receita. Se a balança disser
+      outra coisa, risca e anota o certo ao lado.
+    </p>
+    <div class="item">
+      <div class="nome">BIFE DE CARNE EMPANADO 170G RECEITA</div>
+      <div class="meta">R$ 3.79/un · com 170 g vira R$ 22.29/kg · pedido 30x em 3 meses</div>
+      <div class="campo-peso"><div class="caixa">170</div><span class="g">g</span></div>
+      <div class="risca"><span class="op"><span class="quadrado"></span> confere</span>
+        <span class="op"><span class="quadrado"></span> errado — peso certo: ______ g</span></div>
+    </div>
+<div class="item">
+      <div class="nome">BOLINHO DE PERNIL 35G RECEITA</div>
+      <div class="meta">R$ 1.00/un · com 35 g vira R$ 28.54/kg · pedido 13x em 3 meses</div>
+      <div class="campo-peso"><div class="caixa">35</div><span class="g">g</span></div>
+      <div class="risca"><span class="op"><span class="quadrado"></span> confere</span>
+        <span class="op"><span class="quadrado"></span> errado — peso certo: ______ g</span></div>
+    </div>
+<div class="item">
+      <div class="nome">BROWNIE VEGANO 70G RECEITA</div>
+      <div class="meta">R$ 1.21/un · com 70 g vira R$ 17.23/kg · pedido 19x em 3 meses</div>
+      <div class="campo-peso"><div class="caixa">70</div><span class="g">g</span></div>
+      <div class="risca"><span class="op"><span class="quadrado"></span> confere</span>
+        <span class="op"><span class="quadrado"></span> errado — peso certo: ______ g</span></div>
+    </div>
+<div class="item">
+      <div class="nome">DISCO DE MOZARELA EMPANADO 150G RECEITA</div>
+      <div class="meta">R$ 3.15/un · com 150 g vira R$ 21.03/kg · pedido 55x em 3 meses</div>
+      <div class="campo-peso"><div class="caixa">150</div><span class="g">g</span></div>
+      <div class="risca"><span class="op"><span class="quadrado"></span> confere</span>
+        <span class="op"><span class="quadrado"></span> errado — peso certo: ______ g</span></div>
+    </div>
+<div class="item">
+      <div class="nome">DISCO DE QUEIJO VEGANO EMPANADO 140G RECEITA</div>
+      <div class="meta">R$ 1.99/un · com 140 g vira R$ 14.24/kg · pedido 17x em 3 meses</div>
+      <div class="campo-peso"><div class="caixa">140</div><span class="g">g</span></div>
+      <div class="risca"><span class="op"><span class="quadrado"></span> confere</span>
+        <span class="op"><span class="quadrado"></span> errado — peso certo: ______ g</span></div>
+    </div>
+<div class="item">
+      <div class="nome">HAMBURGUER DE CARNE 150G RECEITA</div>
+      <div class="meta">R$ 3.46/un · com 150 g vira R$ 23.04/kg · pedido 44x em 3 meses</div>
+      <div class="campo-peso"><div class="caixa">150</div><span class="g">g</span></div>
+      <div class="risca"><span class="op"><span class="quadrado"></span> confere</span>
+        <span class="op"><span class="quadrado"></span> errado — peso certo: ______ g</span></div>
+    </div>
+<div class="item">
+      <div class="nome">HAMBURGUER DE FEIJAO COM PTS 125G RECEITA</div>
+      <div class="meta">R$ 0.52/un · com 125 g vira R$ 4.17/kg · pedido 43x em 3 meses</div>
+      <div class="campo-peso"><div class="caixa">125</div><span class="g">g</span></div>
+      <div class="risca"><span class="op"><span class="quadrado"></span> confere</span>
+        <span class="op"><span class="quadrado"></span> errado — peso certo: ______ g</span></div>
+    </div>
+<div class="item">
+      <div class="nome">SMASH BURGER 60G RECEITA</div>
+      <div class="meta">R$ 1.37/un · com 60 g vira R$ 22.90/kg · pedido 12x em 3 meses</div>
+      <div class="campo-peso"><div class="caixa">60</div><span class="g">g</span></div>
+      <div class="risca"><span class="op"><span class="quadrado"></span> confere</span>
+        <span class="op"><span class="quadrado"></span> errado — peso certo: ______ g</span></div>
+    </div>
+<div class="item">
+      <div class="nome">TORTA ALEMA VEGANA 150G RECEITA</div>
+      <div class="meta">R$ 2.62/un · com 150 g vira R$ 17.46/kg · pedido 3x em 3 meses</div>
+      <div class="campo-peso"><div class="caixa">150</div><span class="g">g</span></div>
+      <div class="risca"><span class="op"><span class="quadrado"></span> confere</span>
+        <span class="op"><span class="quadrado"></span> errado — peso certo: ______ g</span></div>
+    </div>
+  </section>
+
+  <div class="rodape">
+    Preços mostrados são o custo atual por unidade (Formação de preços / NF de agosto) e o que o item
+    vira por quilo com o peso anotado. Devolver para o Neto — ele lança no sistema e a tabela de
+    preços atualiza sozinha. Gerado em 01/09/2026.
+  </div>
+</div>
+
+</body>
+</html>
