@@ -3400,16 +3400,21 @@ async function entrarRotinas() {
 }
 
 async function carregarRotinas() {
-  const [status, historico] = await Promise.all([
+  const [status, historico, batimento] = await Promise.all([
     consultarTudo('vw_rotinas_status?select=rotina,inicio,fim,status,resumo,detalhe,duracao_seg,falhas_30d'),
     consultarTudo('rotinas_execucao?select=rotina,inicio,fim,status,resumo,detalhe&order=inicio.desc&limit=40'),
+    // Batimento (01/09/2026): a conciliação acorda 13x por dia e sai em silêncio
+    // quando não há extrato. Sem isso, "acordou e saiu" e "não acordou" ficam
+    // idênticos na tela — e foi assim que um dia inteiro se perdeu sem ninguém ver.
+    consultarTudo('vw_rotinas_batimento?select=rotina,situacao,motivo,acordou_em,ha_seg'),
   ]);
-  renderModuloRotinas(status, historico);
+  renderModuloRotinas(status, historico, batimento || []);
 }
 
-function renderModuloRotinas(status, historico) {
+function renderModuloRotinas(status, historico, batimento = []) {
   const alvo = document.getElementById('view-rotinas');
   const porId = Object.fromEntries(status.map(r => [r.rotina, r]));
+  const porBatimento = Object.fromEntries(batimento.map(b => [b.rotina, b]));
 
   const dtHora = (v) => v ? new Date(v).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }) : '—';
   const dur = (s) => s == null ? '—' : (s < 60 ? `${s}s` : `${Math.floor(s/60)}min`);
@@ -3418,6 +3423,10 @@ function renderModuloRotinas(status, historico) {
     OK:       '<span style="color:#3fb950; font-weight:bold;">✔ concluída</span>',
     FALHOU:   '<span style="color:#ff6b6b; font-weight:bold;">✖ falhou</span>',
     PULADA:   '<span style="color:#8a897e; font-weight:bold;">— pulada</span>',
+    // PARCIAL (01/09/2026): fez o trabalho mas não deixou a prova no banco —
+    // rastro, aviso ou conferência faltando. Quem grava é fechar_execucao.py,
+    // que rebaixa o OK em vez de aceitar a palavra da rotina.
+    PARCIAL:  '<span style="color:#f5a623; font-weight:bold;">◐ sem prova completa</span>',
     TRAVADA:  '<span style="color:#ff6b6b; font-weight:bold;">✖ não finalizou</span>',
   }[st] || `<span style="color:#8a897e;">${st}</span>`);
 
@@ -3433,6 +3442,19 @@ function renderModuloRotinas(status, historico) {
   ${rodando.length ? `<div class="contexto" style="border-color:#f5a623;">
     <b>Acontecendo agora:</b> ${rodando.map(r => r.nome).join(', ')} —
     começou ${dtHora(porId[rodando[0].id].inicio)}, já faz ${dur(porId[rodando[0].id].duracao_seg)}.
+  </div>` : ''}
+
+  ${batimento.length ? `<div class="contexto">
+    <b>Último batimento</b> — rotina que acorda várias vezes por dia e sai em silêncio
+    quando não tem trabalho. Aqui dá para ver a diferença entre <i>saiu</i> e <i>não acordou</i>:
+    <ul style="margin:6px 0 0 0;">
+      ${batimento.map(b => `<li style="font-size:12px;">
+        <b>${b.rotina}</b> — ${b.situacao} em ${dtHora(b.acordou_em)}
+        <span style="color:${Number(b.ha_seg) > 86400 ? '#ff6b6b' : '#8a897e'};">
+          (há ${dur(Number(b.ha_seg))})</span>
+        ${b.motivo ? `<br><span style="color:#8a897e;">${b.motivo}</span>` : ''}
+      </li>`).join('')}
+    </ul>
   </div>` : ''}
 
   <div id="tabelaRotinas"><table>
