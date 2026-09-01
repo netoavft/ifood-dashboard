@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Faxina do Cardápio Burger AV</title>
+</head>
+<body>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<style>
+:root{
+  --bg:#f6f1e8; --surface:#fffdf8; --surface2:#f0e9db; --ink:#2b2118; --ink2:#5c5245;
+  --muted:#8a7c6b; --line:#e3d8c6; --accent:#c8102e; --accent-soft:#fbe9ec;
+  --good:#1c7c44; --good-soft:#e3f2e8; --warn:#a3630b; --warn-soft:#f8eeda;
+  --bad:#b3261e; --bad-soft:#f9e7e5; --chip:#efe6d6;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#211b13; --surface:#2b241a; --surface2:#352c20; --ink:#f1e9dc; --ink2:#cfc3b0;
+    --muted:#a2937e; --line:#443a2b; --accent:#f0596f; --accent-soft:#48222a;
+    --good:#59c98a; --good-soft:#22382c; --warn:#e0a33e; --warn-soft:#3d311f;
+    --bad:#ef6b61; --bad-soft:#42241f; --chip:#3a3123;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#211b13; --surface:#2b241a; --surface2:#352c20; --ink:#f1e9dc; --ink2:#cfc3b0;
+  --muted:#a2937e; --line:#443a2b; --accent:#f0596f; --accent-soft:#48222a;
+  --good:#59c98a; --good-soft:#22382c; --warn:#e0a33e; --warn-soft:#3d311f;
+  --bad:#ef6b61; --bad-soft:#42241f; --chip:#3a3123;
+}
+*{box-sizing:border-box}
+body{background:var(--bg); color:var(--ink); margin:0;
+  font-family:'Instrument Sans',system-ui,sans-serif; font-size:16px; line-height:1.55; padding-bottom:80px;}
+.wrap{max-width:880px; margin:0 auto; padding:0 20px;}
+h1,h2,h3{font-family:'Archivo',system-ui,sans-serif; line-height:1.15; text-wrap:balance; margin:0;}
+h1{font-size:clamp(26px,5vw,40px); font-weight:800;}
+h2{font-size:clamp(19px,3vw,25px); font-weight:700; margin-bottom:6px;}
+p{margin:.5em 0; max-width:74ch;}
+.eyebrow{font-size:12px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:var(--accent); margin-bottom:8px;}
+header.hero{padding:40px 0 8px;}
+.sub{color:var(--ink2); margin-top:10px;}
+section{margin:34px 0;}
+.box{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:16px 18px; margin:14px 0;}
+.box.warn{background:var(--warn-soft); border-color:var(--warn);}
+.small{font-size:13.5px; color:var(--ink2);}
+.chip{display:inline-block; background:var(--chip); border-radius:20px; padding:1px 10px; font-size:12px; font-weight:600; white-space:nowrap;}
+.chip.good{background:var(--good-soft); color:var(--good);}
+.chip.bad{background:var(--bad-soft); color:var(--bad);}
+.chip.acc{background:var(--accent-soft); color:var(--accent);}
+.passo{display:flex; gap:12px; align-items:flex-start; background:var(--surface);
+  border:1px solid var(--line); border-radius:10px; padding:12px 15px; margin:8px 0;}
+.passo input{width:20px; height:20px; margin-top:2px; accent-color:var(--good); flex:none; cursor:pointer;}
+.passo .t{font-weight:600;}
+.passo .d{font-size:13.5px; color:var(--ink2); margin-top:2px;}
+.passo:has(input:checked){opacity:.55; border-color:var(--good);}
+.passo:has(input:checked) .t{text-decoration:line-through;}
+.grupo{font-family:'Archivo'; font-weight:700; font-size:15px; margin:20px 0 6px;
+  display:flex; align-items:center; gap:8px;}
+.grupo .chip{font-size:11px;}
+#bar{position:fixed; left:0; right:0; bottom:0; background:var(--surface);
+  border-top:2px solid var(--accent); padding:11px 20px; z-index:50;}
+#bar .in{max-width:880px; margin:0 auto; display:flex; justify-content:space-between; align-items:center; gap:12px;}
+#bar .tot{font-family:'Archivo'; font-weight:800; font-size:19px; font-variant-numeric:tabular-nums;}
+ol{padding-left:20px;} ol li{margin:6px 0; max-width:74ch;}
+input:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+@media (prefers-reduced-motion: reduce){ *{transition:none !important;} }
+</style>
+
+<div class="wrap">
+<header class="hero">
+  <div class="eyebrow">Execução aprovada em 01/09/2026 · Cidadão do Mundo Burger – Água Verde</div>
+  <h1>Faxina do Cardápio</h1>
+  <p class="sub">Lista de trabalho da <strong>onda 1</strong>: só o que é inequívoco e não toca em nenhum
+  item das campanhas do Hits. Vá marcando conforme executa — o progresso fica salvo neste navegador.
+  Ao terminar, me avise no chat: eu releio as 9 campanhas e o cardápio inteiro para conferir que nada
+  quebrou.</p>
+</header>
+
+<section>
+  <div class="box warn">
+    <p><strong>Salvaguardas antes de começar:</strong></p>
+    <ol>
+      <li>Caminho no portal: <strong>Cardápio</strong> (menu lateral) → abrir a categoria → no item,
+      menu <strong>⋮</strong> → Excluir. Para categoria inteira: <strong>⋮</strong> ao lado do nome
+      da categoria → Excluir categoria.</li>
+      <li><strong>Se o portal avisar que um item está em promoção, PULE e me avise</strong> — não
+      confirme a exclusão. Nenhum destes deveria estar, o aviso seria sinal de mapa desatualizado.</li>
+      <li>Confira sempre o <strong>preço</strong> antes de excluir — é ele que distingue o clone da
+      versão que fica. Vale conferir pelo preço, não pela posição na tela.</li>
+      <li>O que <strong>NÃO</strong> entra nesta onda (de propósito): a categoria “Almoço Campeão”
+      (os preços De das campanhas de almoço do Hits moram lá), a “Copa do Mundo” (Azteca e Rose Bowl
+      só existem lá — seriam mortos junto) e qualquer mudança de preço. Isso é a onda 2, depois da
+      leitura pós-faxina.</li>
+    </ol>
+  </div>
+</section>
+
+<section>
+  <h2>As 20 ações da onda 1</h2>
+
+  <div class="grupo">1 · Categorias inteiras <span class="chip bad">3 exclusões</span></div>
+  <div class="passo"><input type="checkbox">
+    <div><div class="t">Excluir a categoria “Mais Pedidos Do Ifood!!!(Curitiba Geral)” — com os 8 itens</div>
+    <div class="d">São os 8 clones baratos: Nelson 29,99 · Silvio 31,99 · CDM 44,99 · Alain 36,99 ·
+    Ayrton 36,99 · Caldo c/ costela 31,99 · Berlim 29,99 · Kentucky 35,99. Nenhum está em campanha.
+    É aqui que mora o vazamento de frete.</div></div></div>
+  <div class="passo"><input type="checkbox">
+    <div><div class="t">Excluir a categoria “Semana do Hambúrguer Cwburgerfest” — com os 2 itens</div>
+    <div class="d">Já está indisponível. Leva junto o Don Vito (54,99) e o Hambúrguer França (39,90,
+    conversão 11% — a pior da vitrine).</div></div></div>
+  <div class="passo"><input type="checkbox">
+    <div><div class="t">Excluir a categoria “Dia dos Namorados” — com os 2 combos</div>
+    <div class="d">Já está indisponível (129,99 e 149,99, evento passado).</div></div></div>
+
+  <div class="grupo">2 · Clones “Curitiba” na Seleção Cidadão do Mundo <span class="chip bad">2 exclusões</span></div>
+  <div class="passo"><input type="checkbox">
+    <div><div class="t">Excluir “Burgers Classicos - ( Curitiba )” — R$ 32,99</div>
+    <div class="d">Fica o “Burgers Clássicos - (Água Verde e Região)” 39,99, que está na campanha
+    R$ 8 (vira 31,99 com o desconto — praticamente o mesmo preço para o cliente de perto).</div></div></div>
+  <div class="passo"><input type="checkbox">
+    <div><div class="t">Excluir “Pratos Executivos - Marmitas ( Curitiba )” — R$ 33,99</div>
+    <div class="d">Fica o “Pratos executivos (Marmitas) - Água Verde e Região” 42,99, na campanha
+    R$ 10 (vira 32,99 com desconto — o cliente de perto até ganha R$ 1).</div></div></div>
+
+  <div class="grupo">3 · Clones soltos na categoria “Burgers Clássicos” <span class="chip bad">2 exclusões</span></div>
+  <div class="passo"><input type="checkbox">
+    <div><div class="t">Excluir o Nelson Piquet de R$ 29,99 desta categoria</div>
+    <div class="d">É um terceiro cadastro do mesmo burger. Fica o Nelson 37,99→29,99 da campanha,
+    na “Mais Pedidos”. ⚠ Confira o preço: 29,99 sai, 37,99 fica.</div></div></div>
+  <div class="passo"><input type="checkbox">
+    <div><div class="t">Excluir o Ayrton Senna de R$ 36,99 desta categoria</div>
+    <div class="d">Terceiro cadastro com preço igual — redundância pura. Ficam o da “Mais Pedidos”
+    (36,99, na campanha) e o cadastro morto da Curitiba já saiu no passo 1.</div></div></div>
+
+  <div class="grupo">4 · Duplicados dentro de “Hambúrgueres Campeões” <span class="chip bad">3 exclusões</span></div>
+  <div class="passo"><input type="checkbox">
+    <div><div class="t">Excluir o Jesse Pinkman de R$ 45,99</div>
+    <div class="d">O mesmo burger aparece duas vezes NESTA categoria. Fica o de 34,99 (que também
+    existe nos Burgers Especiais).</div></div></div>
+  <div class="passo"><input type="checkbox">
+    <div><div class="t">Excluir o John Lennon de R$ 39,99</div>
+    <div class="d">Fica o de 46,99 — é o preço De da campanha R$ 10 do jantar. ⚠ Aqui é o INVERSO
+    dos outros: sai o barato, fica o caro (o caro é o da campanha, com desconto vira 36,99).</div></div></div>
+  <div class="passo"><input type="checkbox">
+    <div><div class="t">Excluir o Rubens Barrichello de R$ 49,99</div>
+    <div class="d">Fica o de 39,99 — o De da campanha R$ 8 do jantar que você ligou hoje
+    (vira 31,99 com desconto).</div></div></div>
+
+  <div class="grupo">5 · Renomear <span class="chip acc">1 edição</span></div>
+  <div class="passo"><input type="checkbox">
+    <div><div class="t">Renomear “Mais Pedidos Ifood!! (Água Verde/Região)” → “Mais Pedidos do iFood”</div>
+    <div class="d">Sem a versão Curitiba, o sufixo de região perde o sentido. Esta categoria vira a
+    casa da linha Hits. (Nome é sugestão — o que preferir.)</div></div></div>
+
+  <div class="grupo">6 · Verificação (eu faço, quando você avisar) <span class="chip good">automática</span></div>
+  <div class="passo"><input type="checkbox">
+    <div><div class="t">Reler as 9 campanhas do Hits e o cardápio pela API</div>
+    <div class="d">Confirmo: 27 seleções de campanha intactas, ~155 posições restantes, nenhum
+    produto de campanha sem posição. Se algo tiver caído, a gente readiciona na vaga (adicionar em
+    vaga é permitido).</div></div></div>
+</section>
+
+<section>
+  <h2>O que fica para a onda 2</h2>
+  <div class="box">
+    <p class="small">Depois da verificação, com o cardápio limpo, decidimos com calma (cada caso mexe
+    perto de campanha ou de preço):</p>
+    <ol class="small">
+      <li><strong>Preço duplo no mesmo produto</strong> — Severino (39,99 no Almoço Campeão × 35,99
+      nos Pratos Clássicos), Paulo Cintura, Silvio (39,99 × 31,99), Schumacher, Chaplin, CDM (54,99 ×
+      46,99), Alain (46,99 × 35,99), Adoniran “- Almoço”. Antes de igualar, precisamos observar como o
+      app mostra o desconto do Hits quando o produto tem duas posições com preços diferentes.</li>
+      <li><strong>Copa do Mundo 2026</strong> — mover Estádio Azteca e Rose Bowl (39,99, joias
+      pequenas) para Burgers Especiais e aí excluir a categoria.</li>
+      <li><strong>Tripla Campeões × Especiais × Clássicos</strong> — consolidar depois que os preços
+      estiverem únicos.</li>
+      <li><strong>Caldo de mandioquinha</strong> — 4 cadastros restantes (25,99 / 31,99 ×2 / 37,99
+      Jantar); o de 37,99 está na campanha do jantar. Unificar no fim do inverno, junto com a troca
+      do item sazonal.</li>
+    </ol>
+  </div>
+  <p class="small">Meta final: 34 → ~22 categorias e ~146 → ~135 produtos, um preço por produto.
+  Estudo completo na página “Cardápio Burger AV”.</p>
+</section>
+</div>
+
+<div id="bar"><div class="in">
+  <div class="tot" id="prog">0 de 12</div>
+  <div class="small" id="msg">nenhum passo feito</div>
+</div></div>
+
+<script>
+const caixas = [...document.querySelectorAll('.passo input')];
+function upd(){
+  const n = caixas.filter(c=>c.checked).length;
+  document.getElementById('prog').textContent = n + ' de ' + caixas.length;
+  document.getElementById('msg').textContent =
+    n===0 ? 'nenhum passo feito' :
+    n===caixas.length ? 'tudo feito — me avise no chat para eu rodar a verificação' :
+    'em andamento';
+  try{ localStorage.setItem('faxinaAV', JSON.stringify(caixas.map(c=>c.checked))); }catch(e){}
+}
+caixas.forEach(c=>c.addEventListener('change', upd));
+try{
+  const sv = JSON.parse(localStorage.getItem('faxinaAV'));
+  if(sv) caixas.forEach((c,i)=> c.checked = !!sv[i]);
+}catch(e){}
+upd();
+</script>
+
+</body>
+</html>

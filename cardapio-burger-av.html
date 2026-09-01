@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Cardápio Burger AV — estudo</title>
+</head>
+<body>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<style>
+:root{
+  --bg:#f6f1e8; --surface:#fffdf8; --surface2:#f0e9db; --ink:#2b2118; --ink2:#5c5245;
+  --muted:#8a7c6b; --line:#e3d8c6; --accent:#c8102e; --accent-soft:#fbe9ec;
+  --good:#1c7c44; --good-soft:#e3f2e8; --warn:#a3630b; --warn-soft:#f8eeda;
+  --bad:#b3261e; --bad-soft:#f9e7e5; --chip:#efe6d6;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#211b13; --surface:#2b241a; --surface2:#352c20; --ink:#f1e9dc; --ink2:#cfc3b0;
+    --muted:#a2937e; --line:#443a2b; --accent:#f0596f; --accent-soft:#48222a;
+    --good:#59c98a; --good-soft:#22382c; --warn:#e0a33e; --warn-soft:#3d311f;
+    --bad:#ef6b61; --bad-soft:#42241f; --chip:#3a3123;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#211b13; --surface:#2b241a; --surface2:#352c20; --ink:#f1e9dc; --ink2:#cfc3b0;
+  --muted:#a2937e; --line:#443a2b; --accent:#f0596f; --accent-soft:#48222a;
+  --good:#59c98a; --good-soft:#22382c; --warn:#e0a33e; --warn-soft:#3d311f;
+  --bad:#ef6b61; --bad-soft:#42241f; --chip:#3a3123;
+}
+*{box-sizing:border-box}
+body{background:var(--bg); color:var(--ink); margin:0;
+  font-family:'Instrument Sans',system-ui,sans-serif; font-size:16px; line-height:1.55;
+  padding-bottom:84px;}
+.wrap{max-width:1040px; margin:0 auto; padding:0 20px;}
+h1,h2,h3{font-family:'Archivo',system-ui,sans-serif; line-height:1.15; text-wrap:balance; margin:0;}
+h1{font-size:clamp(28px,5vw,44px); font-weight:800; letter-spacing:-.01em;}
+h2{font-size:clamp(20px,3vw,27px); font-weight:700; margin-bottom:6px;}
+h3{font-size:17px; font-weight:700;}
+p{margin:.5em 0; max-width:72ch;}
+.eyebrow{font-size:12px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:var(--accent); margin-bottom:8px;}
+header.hero{padding:44px 0 10px;}
+.sub{color:var(--ink2); max-width:76ch; margin-top:10px;}
+.tiles{display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:12px; margin:24px 0 8px;}
+.tile{background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:14px 16px;}
+.tile .v{font-family:'Archivo'; font-weight:800; font-size:26px; font-variant-numeric:tabular-nums;}
+.tile .l{font-size:12.5px; color:var(--muted); margin-top:2px;}
+section{margin:40px 0;}
+.secnum{display:inline-block; background:var(--accent); color:#fff; font-family:'Archivo'; font-weight:700;
+  font-size:13px; border-radius:6px; padding:2px 9px; margin-bottom:8px;}
+:root[data-theme="dark"] .secnum{color:#211b13;}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .secnum{color:#211b13;} }
+.box{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:18px 20px; margin:14px 0;}
+.box.note{background:var(--surface2); border-style:dashed;}
+.small{font-size:13.5px; color:var(--ink2);}
+.tablewrap{overflow-x:auto; margin:12px 0; border:1px solid var(--line); border-radius:10px; background:var(--surface);}
+table{border-collapse:collapse; width:100%; min-width:640px; font-size:14.5px;}
+th{font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted);
+  text-align:left; padding:10px 12px; border-bottom:1px solid var(--line); font-weight:600;}
+td{padding:9px 12px; border-bottom:1px solid var(--line); vertical-align:top;}
+tr:last-child td{border-bottom:none;}
+td.num,th.num{text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap;}
+.pos{color:var(--good); font-weight:600;} .neg{color:var(--bad); font-weight:600;}
+.mid{color:var(--warn); font-weight:600;}
+.chip{display:inline-block; background:var(--chip); border-radius:20px; padding:1px 10px; font-size:12px; font-weight:600; white-space:nowrap;}
+.chip.good{background:var(--good-soft); color:var(--good);}
+.chip.warn{background:var(--warn-soft); color:var(--warn);}
+.chip.bad{background:var(--bad-soft); color:var(--bad);}
+.chip.acc{background:var(--accent-soft); color:var(--accent);}
+.quad{display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:12px; margin-top:14px;}
+.qcard{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:14px 16px;}
+.qcard h3{display:flex; align-items:center; gap:8px; margin-bottom:4px;}
+.qcard .qsub{font-size:12.5px; color:var(--muted); margin-bottom:10px;}
+.qcard ul{margin:0; padding-left:18px; font-size:14px;}
+.qcard li{margin:3px 0;}
+.dot{width:10px; height:10px; border-radius:50%; display:inline-block; flex:none;}
+/* propostas com checkbox */
+.prop{display:flex; gap:12px; align-items:flex-start; background:var(--surface);
+  border:1px solid var(--line); border-radius:10px; padding:13px 15px; margin:9px 0;}
+.prop input{width:19px; height:19px; margin-top:2px; accent-color:var(--accent); flex:none; cursor:pointer;}
+.prop .body{flex:1;}
+.prop .t{font-weight:600;}
+.prop .d{font-size:13.5px; color:var(--ink2); margin-top:2px;}
+.prop .imp{font-family:'Archivo'; font-weight:700; font-size:15px; white-space:nowrap;
+  font-variant-numeric:tabular-nums; color:var(--good);}
+.prop .imp.na{color:var(--muted); font-weight:600; font-size:13px;}
+.prop:has(input:checked){border-color:var(--accent); box-shadow:inset 3px 0 0 var(--accent);}
+input:focus-visible, .prop input:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+/* barra fixa */
+#bar{position:fixed; left:0; right:0; bottom:0; background:var(--surface);
+  border-top:2px solid var(--accent); padding:12px 20px; z-index:50;}
+#bar .in{max-width:1040px; margin:0 auto; display:flex; justify-content:space-between; align-items:center; gap:14px; flex-wrap:wrap;}
+#bar .tot{font-family:'Archivo'; font-weight:800; font-size:22px; font-variant-numeric:tabular-nums;}
+#bar .lbl{font-size:13px; color:var(--muted);}
+/* scatter */
+#chart{width:100%; height:auto; display:block;}
+.scwrap{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:14px; margin-top:12px;}
+#tip{position:fixed; pointer-events:none; background:var(--ink); color:var(--bg);
+  border-radius:8px; padding:7px 11px; font-size:13px; opacity:0; transition:opacity .12s; z-index:60; max-width:260px;}
+.cenario{display:flex; align-items:center; gap:10px; background:var(--surface2);
+  border:1px solid var(--line); border-radius:10px; padding:10px 14px; margin:12px 0; flex-wrap:wrap;}
+.cenario input{width:64px; font-size:16px; font-family:'Instrument Sans'; padding:5px 8px;
+  border:1px solid var(--line); border-radius:8px; background:var(--surface); color:var(--ink); text-align:center;}
+ol.pend{padding-left:20px;} ol.pend li{margin:7px 0; max-width:76ch;}
+.legendrow{display:flex; gap:16px; flex-wrap:wrap; font-size:13px; margin-top:8px; color:var(--ink2);}
+.legendrow span{display:flex; gap:6px; align-items:center;}
+@media (prefers-reduced-motion: reduce){ *{transition:none !important;} }
+</style>
+
+<div class="wrap">
+<header class="hero">
+  <div class="eyebrow">Engenharia de cardápio · iFood · 03/jul – 01/set/2026</div>
+  <h1>Cardápio Burger AV</h1>
+  <p class="sub">Marca <strong>Cidadão do Mundo Burgers – Água Verde</strong>, 60 dias de venda item a item,
+  com o custo da ficha técnica de cada prato. As propostas estão em blocos com caixa de marcação:
+  <strong>marcar = quero fazer; em branco = não muda nada</strong>. A barra no rodapé soma o efeito
+  estimado do que estiver marcado.</p>
+  <div class="tiles">
+    <div class="tile"><div class="v">R$ 652 mil</div><div class="l">venda em 60 dias (9.905 pedidos)</div></div>
+    <div class="tile"><div class="v">18,5%</div><div class="l">custo de comida (CMV) médio</div></div>
+    <div class="tile"><div class="v">R$ 397 mil</div><div class="l">sobra em 60d após comida, embalagem e taxas</div></div>
+    <div class="tile"><div class="v">95%</div><div class="l">da venda com custo de ficha conhecido</div></div>
+  </div>
+</header>
+
+<section>
+  <div class="secnum">A conta</div>
+  <h2>O que cada número desta página desconta</h2>
+  <div class="box">
+    <p><strong>Sobra por venda</strong> = preço − comida (ficha) − embalagem (7,84%) − taxas do iFood
+    <strong>cheias</strong> (9,5% de comissão + 3,2% de pagamento online). Usamos a comissão cheia de
+    propósito: o benefício dos R$ 500 mil acaba entre dez/26 e jan/27, e cardápio é decisão para depois disso.</p>
+    <p><strong>Sobra pós-promo</strong> = a mesma conta, menos o custo da promoção:
+    <span class="chip acc">Hits R$ 5 / 8 / 10 por venda</span> conforme a faixa de preço do item, e
+    <span class="chip acc">Campanha Inteligente R$ 5,00 por pedido</span> (custo fixo, medido no extrato).</p>
+    <p class="small">Fora desta conta (não mudam com a escolha de item): motoboy, frete grátis, verbas de
+    anúncio e custos fixos. A sobra daqui é o que paga essas contas.</p>
+    <p><strong>Regra sua (01/09):</strong> mercadoria de revenda — torta alemã comprada, refrigerantes,
+    brownie — <strong>não absorve custo de produção</strong> e se avalia pela <em>sobra em reais por
+    venda</em>, nunca pelo CMV%. O chopp é a única exceção com trabalho de equipe: o envaze é do salão.
+    A página abaixo já segue essa regra.</p>
+  </div>
+</section>
+
+<section>
+  <div class="secnum">1</div>
+  <h2>A fotografia: 128 itens em quatro caixas</h2>
+  <p>Cada ponto é um item vendido nos últimos 60 dias (mínimo 10 unidades). Para a direita = vende mais;
+  para cima = sobra mais por venda. As linhas cortam nas medianas (51 unidades · R$ 23,02).</p>
+  <div class="scwrap">
+    <svg id="chart" viewBox="0 0 960 520" role="img" aria-label="Dispersão volume por margem dos itens do cardápio"></svg>
+    <div class="legendrow">
+      <span><span class="dot" style="background:var(--good)"></span>Estrela — vende muito e sobra muito</span>
+      <span><span class="dot" style="background:var(--warn)"></span>Burro de carga — vende muito, sobra pouco</span>
+      <span><span class="dot" style="background:var(--accent)"></span>Joia escondida — sobra muito, vende pouco</span>
+      <span><span class="dot" style="background:var(--muted)"></span>Abacaxi — nem um nem outro</span>
+    </div>
+  </div>
+  <div class="quad">
+    <div class="qcard">
+      <h3><span class="dot" style="background:var(--good)"></span>Estrelas (32 itens · R$ 242 mil de sobra)</h3>
+      <div class="qsub">Proteger: são 66% de toda a sobra da loja. Não mexer em preço nem tirar da vitrine.</div>
+      <ul>
+        <li><strong>2 Burgers com Desconto</strong> — 2.021 un, sobra R$ 32,40/venda</li>
+        <li><strong>2 Marmitas com Desconto</strong> — 664 un, R$ 35,47</li>
+        <li>Ayrton Senna — 802 un, R$ 23,03</li>
+        <li>Combos Clássico e Especial (batata + bebida) — 902 un, R$ 30–33</li>
+        <li>Cidadão do Mundo Burger — 361 un, R$ 31,85</li>
+      </ul>
+    </div>
+    <div class="qcard">
+      <h3><span class="dot" style="background:var(--warn)"></span>Burros de carga (33 · R$ 87 mil)</h3>
+      <div class="qsub">Vendem muito com sobra menor — quase todos saudáveis:</div>
+      <ul>
+        <li>Silvio Santos — 802 un, R$ 20,55 (o prato âncora)</li>
+        <li>Jesse Pinkman, Nelson Piquet, London — R$ 20–22</li>
+        <li>Brownie delivery (mercadoria) — 166 un, sobra R$ 4,32/venda</li>
+        <li>Torta Alemã delivery (mercadoria) — 100 un, sobra R$ 6,88; o problema dela não é
+        o preço, é ocupar a vaga do Hits sobrando R$ 2,91 (seção 3)</li>
+      </ul>
+    </div>
+    <div class="qcard">
+      <h3><span class="dot" style="background:var(--accent)"></span>Joias escondidas (32 · R$ 30 mil)</h3>
+      <div class="qsub">Sobra alta, vitrine fraca. É onde promo e foto pagam mais:</div>
+      <ul>
+        <li><strong>Feijoada grande</strong> — 56 un, CMV 9%, sobra R$ 75,60/venda</li>
+        <li><strong>Feijoada pequena</strong> — 79 un, sobra R$ 48,51</li>
+        <li>Costelinha barbecue (peça grande) — sobra R$ 50,24</li>
+        <li>Pork and Roll / Pork and Cubes — sobra R$ 36</li>
+        <li>Las Vegas (bolinho de pernil) — sobra R$ 35,70</li>
+      </ul>
+    </div>
+    <div class="qcard">
+      <h3><span class="dot" style="background:var(--muted)"></span>Abacaxis (31 · R$ 7 mil)</h3>
+      <div class="qsub">Pouco volume e pouca sobra. Mercadoria de revenda entra aqui só pelo número —
+      pela sua regra, ela se julga pela sobra em R$, sem carregar produção:</div>
+      <ul>
+        <li><strong>“Batata frita” a R$ 2,00</strong> — vende <em>abaixo do custo</em> (R$ 3,66)</li>
+        <li>Chopp 1 L delivery — sobra R$ 12–14/litro; único de revenda com trabalho de equipe (envaze no salão)</li>
+        <li>Refrigerante 2 L — sobra R$ 7–9/venda; conveniência que completa o pedido</li>
+        <li>UFO Burger Salada, chopps 500 ml — meia dúzia de vendas</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="secnum">2</div>
+  <h2>Combos: a máquina está certa — o ajuste é fino</h2>
+  <p>O medo natural é o desconto embutido dos combos corroer a margem. O dado diz o contrário:
+  <strong>o combo é o melhor negócio da loja</strong>, porque dobra a cesta. O “2 Burgers com Desconto”
+  dá R$ 20,65 de desconto e ainda sobra R$ 32,40 por venda — mais que qualquer burger avulso.</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Combo</th><th class="num">un/60d</th><th class="num">preço médio</th>
+    <th class="num">soma avulsa</th><th class="num">desconto</th><th class="num">CMV</th>
+    <th class="num">sobra/venda</th><th class="num">sobra 60d</th></tr></thead>
+    <tbody>
+      <tr><td>2 Burgers com Desconto</td><td class="num">2.021</td><td class="num">55,33</td><td class="num">75,98</td><td class="num">−20,65</td><td class="num">20,9%</td><td class="num pos">32,40</td><td class="num">65.477</td></tr>
+      <tr><td>2 Marmitas com Desconto</td><td class="num">664</td><td class="num">56,41</td><td class="num">79,98</td><td class="num">−23,57</td><td class="num">16,6%</td><td class="num pos">35,47</td><td class="num">23.555</td></tr>
+      <tr><td>Combo Clássico + batata + bebida</td><td class="num">507</td><td class="num">48,76</td><td class="num">75,98</td><td class="num">−27,22</td><td class="num">18,2%</td><td class="num pos">29,85</td><td class="num">15.133</td></tr>
+      <tr><td>Combo Especial + batata + bebida</td><td class="num">395</td><td class="num">54,26</td><td class="num">82,98</td><td class="num">−28,72</td><td class="num">18,9%</td><td class="num pos">32,89</td><td class="num">12.990</td></tr>
+      <tr><td>2 Burgers Clássicos com Desconto</td><td class="num">185</td><td class="num">54,01</td><td class="num">75,98</td><td class="num">−21,97</td><td class="num">21,7%</td><td class="num pos">31,18</td><td class="num">5.769</td></tr>
+      <tr><td>Combo Marmita + bebida</td><td class="num">153</td><td class="num">41,02</td><td class="num">47,99</td><td class="num">−6,97</td><td class="num">15,9%</td><td class="num pos">26,08</td><td class="num">3.990</td></tr>
+    </tbody>
+  </table></div>
+  <p class="small">“Soma avulsa” usa o preço de cardápio dos componentes mais vendidos (burger médio 37,99;
+  marmita 39,99; batata 29,99; lata 8,00). A sobra já desconta comida, embalagem e taxas cheias.</p>
+
+  <h3 style="margin-top:20px">Conferência pedida em 01/09: as duas regras do combo</h3>
+  <div class="box">
+    <p><strong>1. Obrigatório compõe o combo, adicional vende à parte — conferido, a conta segue a
+    regra.</strong> Nos 6 combos acima, 100% das escolhas têm papel definido. Burger e marmita são
+    obrigatórios (o custo entra no combo e o valor da opção fica na receita dele); batata, anéis,
+    latas avulsas e brownie são adicionais (receita e custo em linha própria). A bebida <em>inclusa</em>
+    do Combo Clássico/Especial fica com o custo dentro do combo, como deve.</p>
+    <p><strong>2. Preço cheio com os obrigatórios de entrada — conferido.</strong> Preço do combo menos
+    as opções cobradas colapsa num único valor base em ~99% das vendas: 2 Burgers <strong>47,99</strong>
+    (1.958 de 1.966) · Clássico 44,99 · Especial 49,99 · 2 Marmitas 49,99 · Marmita+bebida 37,99.
+    A única exceção: 9 vendas de 08–10/07 com o preço antigo das 2 Marmitas (57,99 → 49,99 em 10/07).</p>
+  </div>
+  <p><strong>3. O que a conferência achou: os valores das opções não acompanham os preços avulsos.</strong>
+  No “2 Burgers”, a opção sem acréscimo é o Nelson Piquet — que avulso custa R$ 37,99, o segundo mais
+  caro do grupo. Resultado: o desconto embutido varia de R$ 28 a <em>negativo</em> conforme a escolha:</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Opção no “2 Burgers”</th><th class="num">avulso hoje</th><th class="num">acréscimo na pergunta</th>
+    <th class="num">par no combo</th><th class="num">par avulso</th><th class="num">desconto embutido</th></tr></thead>
+    <tbody>
+      <tr><td>Nelson Piquet <span class="chip acc">o mais escolhido (1.007)</span></td><td class="num">37,99</td><td class="num">+0</td><td class="num">47,99</td><td class="num">75,98</td><td class="num pos">27,99</td></tr>
+      <tr><td>Rubens Barrichello</td><td class="num">39,99</td><td class="num">+6</td><td class="num">59,99</td><td class="num">79,98</td><td class="num pos">19,99</td></tr>
+      <tr><td>Charles Chaplin <span class="chip warn">subiu p/ 38,99 há ~15 dias</span></td><td class="num">38,99</td><td class="num">+6</td><td class="num">59,99</td><td class="num">77,98</td><td class="num pos">17,99</td></tr>
+      <tr><td>Ayrton Senna</td><td class="num">36,99</td><td class="num">+5</td><td class="num">57,99</td><td class="num">73,98</td><td class="num pos">15,99</td></tr>
+      <tr><td>Alain Prost</td><td class="num">35,99</td><td class="num">+5</td><td class="num">57,99</td><td class="num">71,98</td><td class="num pos">13,99</td></tr>
+      <tr><td>Jesse Pinkman</td><td class="num">34,99</td><td class="num">+6</td><td class="num">59,99</td><td class="num">69,98</td><td class="num mid">9,99</td></tr>
+      <tr><td>Michael Schumacher</td><td class="num">26,90</td><td class="num">+3</td><td class="num">53,99</td><td class="num">53,80</td><td class="num neg">−0,19 (combo mais caro!)</td></tr>
+    </tbody>
+  </table></div>
+  <p class="small">O burger mais barato avulso (Schumacher) paga acréscimo e sai do combo MAIS CARO que
+  comprado separado; o Jesse, mais barato que o Ayrton, paga acréscimo maior. Os acréscimos parecem
+  configurados numa tabela de preços antiga — o Chaplin subiu de preço e a pergunta não acompanhou.
+  Preços avulsos medidos em vendas sem adicional dos últimos 60 dias (Nelson vende metade a 37,99 e
+  metade a 29,99 — os 29,99 são o desconto do Hits aplicado no item).</p>
+  <div class="prop"><input type="checkbox" id="p-upgrades" data-imp="0">
+    <div class="body"><div class="t">Realinhar os acréscimos das perguntas do “2 Burgers” à tabela de preços atual</div>
+    <div class="d">Decidir os valores juntos: dá para preservar o desconto do combo e só corrigir as
+    distorções (Schumacher negativo, Jesse × Ayrton invertidos), ou padronizar o desconto por opção.
+    Atenção: o Nelson a +0 é hoje o motor do combo — mexer nele muda comportamento, não só margem.</div></div>
+    <div class="imp na">decidir valores</div></div>
+
+  <h3 style="margin-top:20px">Propostas</h3>
+  <div class="prop"><input type="checkbox" id="p-upsell" data-imp="479">
+    <div class="body"><div class="t">Empurrar a batata dentro do “2 Burgers” (hoje só 16% levam)</div>
+    <div class="d">325 de 2.021 combos saíram com batata extra — cada uma sobra R$ 8,28. Ação no cardápio do
+    portal: pergunta do acompanhamento em primeiro na lista, com foto. Estimativa para +5 pontos de adesão.</div></div>
+    <div class="imp">+R$ 479/mês</div></div>
+  <div class="prop"><input type="checkbox" id="p-sobremesa" data-imp="0">
+    <div class="body"><div class="t">Sobremesa própria no lugar do brownie comprado dentro dos combos</div>
+    <div class="d">O brownie tradicional é comprado a R$ 6,00; Salvador Dalí custa R$ 2,36, brownie vegano R$ 1,21.
+    Onde o combo oferece sobremesa, dar destaque às próprias = R$ 3–4,80 a mais de sobra por combo com sobremesa.
+    Efeito depende da adesão — a medir depois de trocar a ordem.</div></div>
+    <div class="imp na">a medir</div></div>
+  <div class="prop"><input type="checkbox" id="p-feijoada" data-imp="0">
+    <div class="body"><div class="t">Criar “Combo Feijoada + bebida” para o fim de semana</div>
+    <div class="d">A feijoada é a maior sobra por venda da loja (R$ 48–76) com CMV de 8–9%, e hoje não tem combo.
+    Feijoada pequena + lata a R$ 78,99 sobra ~R$ 55. Vitrine de sábado. Volume novo — sem estimativa honesta antes de testar.</div></div>
+    <div class="imp na">a medir</div></div>
+  <div class="prop"><input type="checkbox" id="p-marmitabebida" data-imp="0">
+    <div class="body"><div class="t">Reformular o “Combo Marmita + bebida” (desconto de só R$ 6,97 — converte 15%)</div>
+    <div class="d">É o combo de pior conversão da vitrine (15% contra 23–25% dos outros). Dar percepção de valor
+    barata: incluir sobremesa própria (custo R$ 1,21–2,36) em vez de aprofundar desconto.</div></div>
+    <div class="imp na">a medir</div></div>
+</section>
+
+<section>
+  <div class="secnum">3</div>
+  <h2>Hits: itens desenhados para a promo</h2>
+  <p>A regra que muda tudo: o investimento do Hits segue a <strong>faixa de preço do item</strong> —
+  R$ 15–24,99 custa R$ 5 · R$ 25–39,99 custa R$ 8 · R$ 40–59,99 custa R$ 10 — e o iFood devolve o frete
+  (até R$ 6,99, até 3 km) em qualquer faixa. Ou seja: <strong>a faixa barata dá a mesma contrapartida
+  de frete pagando menos da metade do investimento</strong>.</p>
+  <div class="box note">
+    <p><strong>O buraco que já conhecíamos continua aberto — e o portal confirmou em 01/09:</strong> a
+    Burger AV não tem <em>nenhum prato salgado entre R$ 15,00 e 24,99</em>, e as três campanhas da faixa
+    R$ 5 estão cheias com as mesmas três sobremesas. A Torta Alemã (custo R$ 9,00 sobre venda de
+    R$ 14,99 = CMV de 60%) sobra só <strong>R$ 2,91</strong> por venda dentro do Hits — o pior item
+    possível na vaga mais barata do programa. Para um prato salgado entrar, é trocar um item da seleção (o drawer permite
+    Remover/Adicionar) — a Torta Alemã é a candidata a ceder a vaga. <strong>Sua regra de 01/09
+    destrava isso:</strong> alterar item do Hits é aceitável — perde relevância no ranking por um
+    tempo, mas item atrativo sobe rápido de novo no algoritmo.</p>
+  </div>
+
+  <h3>Itens novos para a faixa R$ 5 — montados só com fichas que já existem</h3>
+  <p class="small">Preço proposto no teto da faixa (De R$ 24,99 → cliente paga R$ 19,99 com o desconto):
+  cada real abaixo do teto é desconto dado sem precisar. Sobra = 19,99 − comida − embalagem − taxas cheias
+  (régua De→Por confirmada no portal em 01/09). Composição e gramatura passam por você antes de qualquer
+  criação; foto real é exigência do programa.</p>
+  <div class="cenario">
+    <label for="vdia"><strong>Cenário de venda:</strong> vendas por dia de cada item novo</label>
+    <input type="number" id="vdia" value="2" min="0" max="30" step="1">
+    <span class="small">o efeito ao lado recalcula na hora; não desconta canibalização de itens atuais</span>
+  </div>
+  <div class="prop"><input type="checkbox" class="novoitem" id="p-marmitadia" data-sobra="13.28">
+    <div class="body"><div class="t">“Marmita do Dia” — De 24,99 → 19,99 <span class="chip good">sobra pós-Hits R$ 13,28</span></div>
+    <div class="d">Usa as fichas dos PFs mais baratos (Paulo Cintura frango custa R$ 2,60; Pedro Pedreiro frango
+    R$ 3,99). CMV de 10–16% mesmo com desconto. É o prato salgado que falta na faixa.</div></div>
+    <div class="imp" data-role="novo">—</div></div>
+  <div class="prop"><input type="checkbox" class="novoitem" id="p-caldo5" data-sobra="14.36">
+    <div class="body"><div class="t">“Canja / Caldo individual” — De 24,99 → 19,99 <span class="chip good">sobra pós-Hits R$ 14,36</span></div>
+    <div class="d">Canja custa R$ 1,52, mandioquinha R$ 1,06 — o melhor CMV da casa. <strong>Sazonal:</strong> o
+    inverno está acabando; se for fazer, é decisão para esta semana.</div></div>
+    <div class="imp" data-role="novo">—</div></div>
+  <div class="prop"><input type="checkbox" class="novoitem" id="p-kids" data-sobra="13.75">
+    <div class="body"><div class="t">“Prato Kids” — De 24,99 → 19,99 <span class="chip good">sobra pós-Hits R$ 12,74–14,53</span></div>
+    <div class="d">Fichas prontas (nuggets R$ 1,35 · frango R$ 2,13 · bife R$ 3,14). Além da sobra, prato de
+    criança puxa pedido de família — tíquete maior no mesmo frete.</div></div>
+    <div class="imp" data-role="novo">—</div></div>
+  <div class="prop"><input type="checkbox" class="novoitem" id="p-smash" data-sobra="11.68">
+    <div class="body"><div class="t">“Cheese Burger de entrada” (80 g) — De 24,99 → 19,99 <span class="chip warn">ficha a montar</span></div>
+    <div class="d">Blocos existem (pão brioche R$ 1,33 + hambúrguer 80 g R$ 1,83 + queijo); custo estimado ~R$ 4,20
+    → sobra ~R$ 11,68. Precisa de ficha validada por você antes — é o único dos quatro sem ficha pronta.</div></div>
+    <div class="imp" data-role="novo">—</div></div>
+
+  <h3 style="margin-top:22px">O mapa real das 9 campanhas — lido no portal em 01/09</h3>
+  <p>Todas ativas, raio de 4 km. Dois achados de método: a faixa segue o preço <strong>“De” do cardápio
+  do iFood</strong> (o Alain aparece De 46,99 no portal, embora a venda típica saia a 35,99), e o drawer
+  tem “Remover / Adicionar item / Salvar” — a seleção de itens é editável pela interface.</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Campanha</th><th class="num">pedidos 30d</th><th>Itens (De → Por)</th><th>Vagas</th></tr></thead>
+    <tbody>
+      <tr><td>R$ 5 — Sempre ativa</td><td class="num">28</td><td>Torta alemã · Salvador Dalí · Torta vegana (todas 19,99 → 14,99)</td><td><span class="chip">cheia</span></td></tr>
+      <tr><td>R$ 5 — Almoço</td><td class="num">0</td><td>as mesmas 3 sobremesas</td><td><span class="chip">cheia</span></td></tr>
+      <tr><td>R$ 5 — Jantar</td><td class="num">6</td><td>as mesmas 3 sobremesas</td><td><span class="chip">cheia</span></td></tr>
+      <tr><td>R$ 8 — Sempre ativa</td><td class="num">119</td><td>Ayrton 36,99→28,99 · Nelson 37,99→29,99 · Burgers Clássicos 39,99→31,99</td><td><span class="chip">cheia</span></td></tr>
+      <tr><td>R$ 8 — Almoço</td><td class="num">7</td><td>Severino 39,99→31,99 · Paulo Cintura 39,99→31,99 · <strong>PF Feijoada 37,99→29,99</strong> <span class="chip good">novo 01/09</span></td><td><span class="chip">cheia</span></td></tr>
+      <tr><td>R$ 8 — Jantar</td><td class="num">5</td><td>Caldo mandioquinha c/ costela 37,99→29,99 (sazonal!) · <strong>Rubens Barrichello 39,99→31,99</strong> · <strong>Charles Chaplin 38,99→30,99</strong> <span class="chip good">novos 01/09</span></td><td><span class="chip">cheia</span></td></tr>
+      <tr><td>R$ 10 — Sempre ativa</td><td class="num">36</td><td>Alain 46,99→36,99 · Pratos executivos 42,99→32,99 · CDM Burger 54,99→44,99</td><td><span class="chip">cheia</span></td></tr>
+      <tr><td>R$ 10 — Almoço</td><td class="num">2</td><td>Agostinho (strogonoff carne) 45,99→35,99 · PF Costela 47,99→37,99 · PF Pernil 45,99→35,99</td><td><span class="chip">cheia</span></td></tr>
+      <tr><td>R$ 10 — Jantar</td><td class="num">12</td><td>Alain 46,99→36,99 · John Lennon 46,99→36,99 · CDM Burger 54,99→44,99</td><td><span class="chip">cheia</span></td></tr>
+    </tbody>
+  </table></div>
+  <p><strong>O que salta do mapa:</strong> a faixa R$ 5 está cheia de sobremesa nas três campanhas
+  (colocar prato salgado exige trocar um item — a Torta Alemã, sobra R$ 2,91, é a candidata natural a
+  sair); <strong>as 3 vagas da faixa R$ 8 foram preenchidas por você em 01/09</strong> (Feijoada no
+  almoço; Rubens e Chaplin no jantar); e o <strong>Silvio Santos, prato âncora da loja (802 un/60d),
+  segue fora de campanha</strong>.</p>
+
+  <h3 style="margin-top:22px">Os 19 itens ativos no Hits e o que cada um sobra — lido no portal 01/09</h3>
+  <p>A conta certa, agora com o De→Por real: o cliente paga o <strong>Por</strong>, e o desconto
+  (De−Por = o investimento da faixa) já está dentro dele. Sobra = Por − comida − embalagem − taxas
+  cheias. <span class="chip acc">os números anteriores subestimavam itens que já estavam na promo</span></p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Campanha</th><th>Item</th><th class="num">De → Por</th><th class="num">comida</th><th class="num">CMV s/ Por</th><th class="num">sobra/venda</th></tr></thead>
+    <tbody>
+      <tr><td rowspan="3">R$ 5 — as três</td><td>Torta alemã</td><td class="num">19,99 → 14,99</td><td class="num">9,00</td><td class="num neg">60,0%</td><td class="num neg">2,91</td></tr>
+      <tr><td>Salvador Dalí</td><td class="num">19,99 → 14,99</td><td class="num">2,36</td><td class="num">15,7%</td><td class="num">9,55</td></tr>
+      <tr><td>Torta vegana</td><td class="num">19,99 → 14,99</td><td class="num">2,62*</td><td class="num">17,5%</td><td class="num">9,29</td></tr>
+      <tr><td rowspan="3">R$ 8 — Sempre</td><td>Ayrton Senna</td><td class="num">36,99 → 28,99</td><td class="num">6,36</td><td class="num">22,0%</td><td class="num">16,67</td></tr>
+      <tr><td>Nelson Piquet</td><td class="num">37,99 → 29,99</td><td class="num">5,33</td><td class="num">17,8%</td><td class="num">18,50</td></tr>
+      <tr><td>Burgers Clássicos (escolha)</td><td class="num">39,99 → 31,99</td><td class="num">~5,91</td><td class="num">18,5%</td><td class="num">19,51</td></tr>
+      <tr><td rowspan="3">R$ 8 — Almoço</td><td><strong>PF Feijoada</strong> <span class="chip good">novo</span></td><td class="num">37,99 → 29,99</td><td class="num">4,24</td><td class="num">14,1%</td><td class="num pos">19,59</td></tr>
+      <tr><td>Severino</td><td class="num">39,99 → 31,99</td><td class="num">5,08</td><td class="num">15,9%</td><td class="num pos">20,34</td></tr>
+      <tr><td>Paulo Cintura</td><td class="num">39,99 → 31,99</td><td class="num">2,60</td><td class="num">8,1%</td><td class="num pos">22,82</td></tr>
+      <tr><td rowspan="3">R$ 8 — Jantar</td><td>Caldo mandioq. c/ costela (sazonal)</td><td class="num">37,99 → 29,99</td><td class="num">3,89</td><td class="num">13,0%</td><td class="num pos">19,94</td></tr>
+      <tr><td><strong>Rubens Barrichello</strong> <span class="chip good">novo</span></td><td class="num">39,99 → 31,99</td><td class="num">6,93</td><td class="num">21,7%</td><td class="num">18,49</td></tr>
+      <tr><td><strong>Charles Chaplin</strong> <span class="chip good">novo</span></td><td class="num">38,99 → 30,99</td><td class="num">6,70</td><td class="num">21,6%</td><td class="num">17,93</td></tr>
+      <tr><td rowspan="3">R$ 10 — Sempre</td><td>Alain Prost (tb. no Jantar)</td><td class="num">46,99 → 36,99</td><td class="num">6,42</td><td class="num">17,4%</td><td class="num pos">22,97</td></tr>
+      <tr><td>Pratos executivos (escolha)</td><td class="num">42,99 → 32,99</td><td class="num">~4,97</td><td class="num">15,1%</td><td class="num pos">21,24</td></tr>
+      <tr><td>CDM Burger (tb. no Jantar)</td><td class="num">54,99 → 44,99</td><td class="num">8,43</td><td class="num">18,7%</td><td class="num pos">27,32</td></tr>
+      <tr><td rowspan="3">R$ 10 — Almoço</td><td>Agostinho (strog. carne)</td><td class="num">45,99 → 35,99</td><td class="num">7,35</td><td class="num">20,4%</td><td class="num pos">21,24</td></tr>
+      <tr><td>PF Costela Bovina</td><td class="num">47,99 → 37,99</td><td class="num">6,96</td><td class="num">18,3%</td><td class="num pos">23,23</td></tr>
+      <tr><td>PF Pernil</td><td class="num">45,99 → 35,99</td><td class="num">5,66</td><td class="num">15,7%</td><td class="num pos">22,94</td></tr>
+      <tr><td>R$ 10 — Jantar</td><td>John Lennon (+ Alain e CDM acima)</td><td class="num">46,99 → 36,99</td><td class="num">8,27</td><td class="num">22,4%</td><td class="num pos">21,12</td></tr>
+    </tbody>
+  </table></div>
+  <p class="small">* Torta vegana: usei a ficha da receita de 150 g (R$ 2,62); o cadastro do produto diz
+  R$ 0,47 — divergência de cadastro a conferir, não muda a leitura. Todo pedido Hits até 3 km ainda
+  recebe do iFood o frete de volta (até R$ 6,99), que não está nesta conta por ser do pedido, não do item.
+  A leitura da tabela: <strong>só a Torta Alemã destoa</strong> — todos os demais sobram R$ 9,29–27,32
+  por venda. As trocas de 01/09 entraram com sobras saudáveis (17,93–19,59).</p>
+  <div class="prop"><input type="checkbox" id="p-2burgershits" data-imp="0">
+    <div class="body"><div class="t">Estudar o “2 Burgers com Desconto” dentro da faixa R$ 10</div>
+    <div class="d">A 58,99 ele cabe na faixa (40–59,99) e sobraria ~R$ 24,50 por venda com o frete devolvido pelo
+    iFood. <strong>O porém é sério:</strong> item no Hits não pode ser editado — congelaria o preço da alma da loja.
+    Recomendo só se a leitura do portal mostrar vaga sobrando na R$ 10.</div></div>
+    <div class="imp na">decidir com cautela</div></div>
+</section>
+
+<section>
+  <div class="secnum">4</div>
+  <h2>Campanha Inteligente: agora dá para escolher os itens — e isso muda a estratégia</h2>
+  <p>Conferido no portal em 01/09 (Campanha Inteligente → Gestão de itens): o iFood passou a permitir
+  configurar <strong>quais itens participam</strong>. Hoje está tudo aberto: <strong>162 de 162 itens
+  participando</strong>. Os números de 30 dias da tela: investimento <strong>R$ 5,00 por pedido</strong>
+  (nossa régua, confirmada), loja R$ 7.857 + <strong>iFood R$ 8.539 (52% da conta)</strong>, retorno
+  R$ 11,35 por real, tíquete R$ 61,72 — e <strong>74% dos pedidos com mais de uma promoção</strong>
+  (o empilhamento que antes era incontrolável, agora controlável por item).</p>
+  <div class="prop"><input type="checkbox" id="p-cisair" data-imp="0">
+    <div class="body"><div class="t">Tirar da CI os itens de sobra fina (~15 itens)</div>
+    <div class="d">Régua: sai quem sobra menos de R$ 10/venda — o desconto queima margem que não existe.
+    A lista: brownie (sobra 4,32), Torta Alemã (6,88), refrigerantes lata (~4,50) e 2 L (6,84–8,78),
+    águas (~4), suco morango (7,46), chopp Avelã 500 ml, e os adicionais soltos (maionese, anéis).
+    O algoritmo passa a aplicar o desconto onde a margem aguenta — combos e pratos. Honestidade da
+    conta: o R$ 5 é por pedido, então a economia direta é parcial; o ganho principal é direcionar o
+    desconto para onde converte com margem.</div></div>
+    <div class="imp na">direcionamento</div></div>
+  <div class="prop"><input type="checkbox" id="p-cihits" data-imp="0">
+    <div class="body"><div class="t">Teste: tirar da CI os 19 itens que estão no Hits</div>
+    <div class="d">Evita desconto duplo no mesmo item (Hits + CI) e espalha o desconto da CI para
+    itens fora do Hits — mais vitrine descontada em vez de concentração. Ligar por uma semana e ler:
+    % de pedidos multi-promoção (hoje 74%) e investimento/pedido. Uma variável por vez.</div></div>
+    <div class="imp na">teste 1 semana</div></div>
+  <div class="prop"><input type="checkbox" id="p-cinovos" data-imp="0">
+    <div class="body"><div class="t">Itens novos já nascem com a CI decidida</div>
+    <div class="d">Os itens só-para-Hits da seção 3 entram com CI “não participar” (já têm desconto de
+    faixa); itens de margem gorda fora do Hits (feijoadas, joias da seção 1) entram “sempre participar”
+    — são os melhores veículos para o algoritmo trabalhar.</div></div>
+    <div class="imp na">regra de desenho</div></div>
+</section>
+
+<section>
+  <div class="secnum">5</div>
+  <h2>Preços: onde ainda vale mexer</h2>
+  <p>Nenhum item abaixo está no Hits. (Pela sua regra de 01/09, mexer em item do Hits ficou permitido —
+  custa relevância temporária no ranking — mas os preços do Hits estão saudáveis na tabela da seção 3,
+  então não há proposta lá.) Mercadoria de revenda segue a sua regra — julgada pela sobra em reais, sem
+  custo de produção na conta. Efeito calculado com o volume dos últimos 30 dias mantido.</p>
+  <div class="prop"><input type="checkbox" id="p-batata2" data-imp="55">
+    <div class="body"><div class="t">“Batata frita” a R$ 2,00 — conferir e corrigir <span class="chip bad">vende abaixo do custo</span></div>
+    <div class="d">38 vendas em 60d a R$ 2,00 com custo de R$ 3,66. Provável item de upsell configurado errado.
+    Primeiro entender o que é; depois subir ou tirar.</div></div>
+    <div class="imp">+R$ 55/mês</div></div>
+  <div class="prop"><input type="checkbox" id="p-costelinha" data-imp="157">
+    <div class="body"><div class="t">Combo Costelinha Grande: 148,99 → 159,99</div>
+    <div class="d">Produzido em casa, então carrega produção de verdade — e hoje a margem cheia dele é zero.
+    R$ 159,99 não fecha a conta toda, mas para de vender a maior peça da casa no empate.</div></div>
+    <div class="imp">+R$ 157/mês</div></div>
+  <div class="prop"><input type="checkbox" id="p-chopp1l" data-imp="293">
+    <div class="body"><div class="t">Chopp 1 L no delivery: Mutum 52 → 59,99 · Brahma 38 → 45,99 · Bird 30 → 34,99 <span class="chip warn">único de revenda com trabalho de equipe</span></div>
+    <div class="d">Sobra R$ 12–14 por litro hoje — e é o salão quem envaza. O aumento leva a sobra para
+    R$ 18–20 e paga esse trabalho. Risco de perder volume assumido; se cair, alternativa é tirar o 1 L do delivery.</div></div>
+    <div class="imp">+R$ 293/mês</div></div>
+  <div class="prop"><input type="checkbox" id="p-brownie" data-imp="188">
+    <div class="body"><div class="t">Brownie delivery: 12,99 → 15,99 <span class="chip warn">sobra R$ 4,32/venda</span></div>
+    <div class="d">Mercadoria comprada a R$ 6,00 — sem trabalho de equipe, mas a sobra atual é a mais fina
+    do cardápio. A R$ 15,99 vai para R$ 6,70 por venda. Opcional.</div></div>
+    <div class="imp">+R$ 188/mês</div></div>
+  <div class="prop"><input type="checkbox" id="p-guarana" data-imp="65">
+    <div class="body"><div class="t">Guaraná 2 L: 18,00 → 19,99 <span class="chip">sobra R$ 6,84/venda</span></div>
+    <div class="d">Conveniência de revenda — sensibilidade baixa, ajuste pequeno. Pepsi 2 L pode acompanhar. Opcional.</div></div>
+    <div class="imp">+R$ 65/mês</div></div>
+</section>
+
+<section>
+  <div class="secnum">6</div>
+  <h2>O cardápio em dobro: categorias e clones — lido item a item no portal em 01/09</h2>
+  <p>O cardápio da Burger AV tem <strong>172 posições em 34 categorias, mas só 146 produtos de
+  verdade</strong>. A diferença são duas camadas de duplicação: <strong>26 produtos linkados em duas
+  categorias</strong> (ok quando o preço é o mesmo — é vitrine) e <strong>16 famílias de clones</strong>
+  — o mesmo prato recriado como produto separado com outro preço, que é o desenho “Água Verde e Região
+  (caro, no Hits) × Curitiba Geral (barato, fora)”.</p>
+
+  <div class="box note">
+    <p><strong>O problema do desenho, medido:</strong> o iFood não esconde categoria por distância — os
+    dois clones aparecem para TODO cliente. E o cliente compra o barato: nos Burgers Clássicos, a versão
+    Curitiba vendeu <strong>217</strong> contra <strong>85</strong> da versão Hits em agosto. Para o
+    cliente de perto (81,5% da base mora a até 3 km) isso é dinheiro na mesa: no pedido com item do Hits
+    o <em>iFood devolve o frete</em> (até R$ 6,99); no pedido com o clone barato o frete grátis sai da
+    <em>nossa</em> promo. Mesmo preço para o cliente, <strong>~R$ 6 a menos por pedido para a loja</strong>.
+    Só nas duas famílias que dá para medir (Burgers Clássicos + Pratos Executivos), isso é
+    <strong>≈ R$ 1,3 mil/mês</strong> — e Nelson, Silvio, CDM e Alain têm o mesmo vazamento, não medível
+    porque os clones têm o mesmo nome. O sinal indireto: metade das vendas do Nelson sai a 29,99 sem ser
+    pedido Hits.</p>
+    <p><strong>E a bagunça acumulada foi além do desenho:</strong> o Alain aparece com 3 preços (46,99 /
+    36,99 / 35,99); Jesse (34,99 e 45,99) e Rubens (39,99 e 49,99) estão duplicados <em>dentro da mesma
+    categoria</em>; o caldo de mandioquinha tem 5 posições com 4 preços; e 2 categorias mortas ainda
+    existem (“Semana do Hambúrguer” — onde mora o Hambúrguer França de conversão 11% — e “Dia dos
+    Namorados”).</p>
+  </div>
+
+  <h3>A proposta de estrutura</h3>
+  <div class="prop"><input type="checkbox" id="p-clones" data-imp="1300">
+    <div class="body"><div class="t">Matar os clones de preço: um produto, um preço — o do Hits</div>
+    <div class="d">Apagar as versões “Curitiba Geral” e os clones soltos, ficando com o item que está no
+    Hits (De calibrado; quem está a até 4 km vê o desconto e o pedido vira Hits com frete devolvido).
+    O custo: o cliente além de 4 km (6,2% da base) passa a ver o preço cheio — sem a versão barata.
+    Impacto estimado é o piso medível das 2 famílias; o real inclui Nelson/Silvio/CDM/Alain.</div></div>
+    <div class="imp">+R$ 1.300/mês</div></div>
+  <div class="prop"><input type="checkbox" id="p-categorias" data-imp="0">
+    <div class="body"><div class="t">Consolidar categorias: de 34 para ~22</div>
+    <div class="d">Fundir os dois “Mais Pedidos” num só (vira a casa da linha Hits); apagar as 2 mortas;
+    rever “Copa do Mundo 2026” (4 re-links) e a tripla Hambúrgueres Campeões × Burgers Especiais ×
+    Clássicos. Re-link do MESMO produto em 2 categorias pode ficar — é vitrine, não clone.</div></div>
+    <div class="imp na">vitrine</div></div>
+  <div class="prop"><input type="checkbox" id="p-limpeza" data-imp="0">
+    <div class="body"><div class="t">Limpeza pontual de configuração</div>
+    <div class="d">Jesse 45,99 e Rubens 49,99 duplicados na própria categoria; caldo de mandioquinha com
+    5 posições; Hambúrguer França e a categoria morta dele; “Chuva!” de R$ 100 (aviso técnico — manter se
+    for proposital).</div></div>
+    <div class="imp na">limpeza</div></div>
+
+  <p><strong>Onde a ideia do Fabio continua certa:</strong> preço maior para absorver o custo do Hits é
+  exatamente a régua desta página (o De carrega o investimento). O que a análise muda é o <em>como</em>:
+  em vez de dois produtos por prato, <strong>um produto com o De calibrado + a linha de itens nascidos
+  para o Hits</strong> (seção 3). O papel de “preço para quem está longe” quem faz é a promo de frete de
+  fim de semana (3–5 km), não um cardápio paralelo.</p>
+
+  <h3 style="margin-top:20px">Cauda de itens para tirar do ar</h3>
+  <p>Candidatos com o dado ao lado; a decisão é sua (bebida às vezes fica por
+  conveniência do pedido):</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Item</th><th class="num">un/60d</th><th class="num">sobra/venda</th><th>sinal</th></tr></thead>
+    <tbody>
+      <tr><td>Chopp Avelã Porter 500 ml delivery</td><td class="num">10</td><td class="num">7,39</td><td><span class="chip">1 venda a cada 6 dias, com envaze do salão</span></td></tr>
+      <tr><td>Chopp Mutum 500 ml delivery</td><td class="num">19</td><td class="num">11,35</td><td><span class="chip">1 venda a cada 3 dias, com envaze do salão</span></td></tr>
+      <tr><td>UFO Burger Salada</td><td class="num">16</td><td class="num">21,67</td><td><span class="chip">1 venda a cada 4 dias</span></td></tr>
+      <tr><td>Hambúrguer França (funil do iFood)</td><td class="num">~20 ped.</td><td class="num">—</td><td><span class="chip bad">conversão 11% — a pior da vitrine</span></td></tr>
+      <tr><td>Água com gás 500 ml</td><td class="num">16</td><td class="num">3,95</td><td><span class="chip">conveniência — provável ficar</span></td></tr>
+    </tbody>
+  </table></div>
+  <div class="prop"><input type="checkbox" id="p-enxugar" data-imp="0">
+    <div class="body"><div class="t">Tirar do ar os marcados acima que você aprovar</div>
+    <div class="d">Ganho é de vitrine e operação, não de margem direta — por isso entra sem número.</div></div>
+    <div class="imp na">vitrine</div></div>
+</section>
+
+<section>
+  <div class="secnum">7</div>
+  <h2>Antes de executar — verificações combinadas</h2>
+  <ol class="pend">
+    <li><strong>✅ Feita em 01/09: leitura das 9 campanhas no portal</strong> — mapa na seção 3. O que
+    restou dela: ao escolher item para vaga, conferir o preço “De” no cardápio do iFood (é ele que define
+    a faixa, e difere do preço praticado); e o caldo do jantar R$ 8 é sazonal — trocar antes do calor.</li>
+    <li><strong>Validar composição e gramatura dos itens novos</strong> (Marmita do Dia, Caldo, Kids, Cheese 80 g)
+    e criar as fichas antes de qualquer item ir ao ar. Foto real é exigência do Hits.</li>
+    <li><strong>“Batata frita” a R$ 2,00</strong> — descobrir o que é esse item no cardápio.</li>
+    <li><strong>Caldo é decisão desta semana</strong> — sazonal, o frio está indo embora.</li>
+    <li><strong>Levar a sua regra da mercadoria para a régua de preço alvo do painel</strong> — hoje a
+    tela Resultado por canal aplica o percentual cheio do canal (com produção) a todo produto; foi por
+    isso que o “alvo” do chopp saiu em R$ 122. Mercadoria de revenda precisa de régua própria.</li>
+  </ol>
+  <p class="small">Fontes: vendas e fichas do banco (60 dias até 01/09), funil do cardápio do iFood (agosto),
+  custo de promo medido no extrato de repasses. Combos custeados pelas escolhas obrigatórias; 5% da venda
+  segue sem ficha (miudezas tipo colher descartável e a torta comprada).</p>
+</section>
+</div>
+
+<div id="bar"><div class="in">
+  <div><div class="tot" id="total">R$ 0/mês</div><div class="lbl">efeito estimado das ações marcadas · premissas nos itens</div></div>
+  <div class="lbl" id="count">nenhuma ação marcada — em branco = não muda</div>
+</div></div>
+<div id="tip"></div>
+
+<script>
+const DATA = [{"n":"2 Burgers Com Desconto","q":2021,"m":32.4,"r":111829,"c":"ESTRELA"},{"n":"2 Marmitas Com Desconto","q":664,"m":35.47,"r":37453,"c":"ESTRELA"},{"n":"Ayrton Senna","q":802,"m":23.03,"r":29666,"c":"ESTRELA"},{"n":"Silvio Santos (Bife Grelhado E Batata Frita)","q":802,"m":20.55,"r":27352,"c":"BURRO"},{"n":"Combo Burger Classico + Batata + Bebida","q":507,"m":29.85,"r":24722,"c":"ESTRELA"},{"n":"Escolha Seu Burger Classico","q":571,"m":25.15,"r":22476,"c":"ESTRELA"},{"n":"Combo Burger Especial + Batata + Bebida","q":395,"m":32.89,"r":21433,"c":"ESTRELA"},{"n":"Alain Prost","q":494,"m":23.94,"r":18875,"c":"ESTRELA"},{"n":"Cidadao Do Mundo Burger","q":361,"m":31.85,"r":18301,"c":"ESTRELA"},{"n":"Jesse Pinkman","q":316,"m":21.96,"r":11222,"c":"BURRO"},{"n":"Nelson Piquet","q":295,"m":21.62,"r":10007,"c":"BURRO"},{"n":"2 Burgers Classicos Com Desconto","q":185,"m":31.18,"r":9991,"c":"ESTRELA"},{"n":"John Lennon","q":214,"m":27.28,"r":9573,"c":"ESTRELA"},{"n":"London (Batata)","q":285,"m":20.17,"r":8547,"c":"BURRO"},{"n":"Caldo De Madioca Com Costela Desfiada","q":225,"m":22.13,"r":7368,"c":"BURRO"},{"n":"Escolha Seu Caldo","q":246,"m":21.77,"r":7343,"c":"BURRO"},{"n":"Escolha Seu Lanche Especial","q":186,"m":23.5,"r":7137,"c":"ESTRELA"},{"n":"Berlim (Batata E Onion Rings)","q":212,"m":20.13,"r":6580,"c":"BURRO"},{"n":"Bezerra Da Silva (Milanesa De Carne E Salada)","q":196,"m":20.85,"r":6430,"c":"BURRO"},{"n":"Escolha Seu Prato","q":153,"m":27.97,"r":6342,"c":"ESTRELA"},{"n":"Combo Marmita + Bebida","q":153,"m":26.08,"r":6275,"c":"ESTRELA"},{"n":"Feijoada Grande (2 Pessoas)","q":56,"m":75.6,"r":6042,"c":"ESTRELA"},{"n":"Agostinho Carrara (Strogonoff De Carne E Salada)","q":139,"m":25.9,"r":5817,"c":"ESTRELA"},{"n":"Rubens Barrichello","q":142,"m":24.45,"r":5608,"c":"ESTRELA"},{"n":"Canja De Galinha","q":195,"m":21.21,"r":5576,"c":"BURRO"},{"n":"Feijoada Pequena (1 Pessoa)","q":79,"m":48.51,"r":5339,"c":"ESTRELA"},{"n":"Severino (Carne Desfiada E Salada)","q":126,"m":25.26,"r":4811,"c":"ESTRELA"},{"n":"Combo Marmita + Brownie + Bebida","q":98,"m":26.88,"r":4746,"c":"ESTRELA"},{"n":"Kentucky (Frango Crocante)","q":129,"m":22.1,"r":4743,"c":"BURRO"},{"n":"Costelinha Barbecue (Grande) + Arroz + Batata + Farofa + Coleslaw","q":34,"m":63.39,"r":4538,"c":"JOIA"},{"n":"Honolulu Burger","q":78,"m":27.63,"r":3509,"c":"ESTRELA"},{"n":"Charles Chaplin","q":93,"m":22.71,"r":3442,"c":"BURRO"},{"n":"Escolha Sua Porçao","q":90,"m":24.5,"r":3436,"c":"ESTRELA"},{"n":"Adoniran Barbosa (Parmegiana De Carne E Salada)","q":92,"m":22.28,"r":3407,"c":"BURRO"},{"n":"Adoniran Barbosa (Parmegiana De Frango E Salada)","q":92,"m":22.62,"r":3333,"c":"BURRO"},{"n":"Cheech E Chong","q":79,"m":26.07,"r":3317,"c":"ESTRELA"},{"n":"Shack Citizen","q":94,"m":22.22,"r":3289,"c":"BURRO"},{"n":"!!Vegan!! Escolha Seu Item Vegano","q":79,"m":27.12,"r":3157,"c":"ESTRELA"},{"n":"Big Citizen","q":89,"m":21.77,"r":3114,"c":"BURRO"},{"n":"Joao Frango","q":76,"m":24.35,"r":3039,"c":"ESTRELA"},{"n":"Michael Schumacher","q":100,"m":18.15,"r":3026,"c":"BURRO"},{"n":"!Vegan! Ogros Veganos","q":78,"m":26.13,"r":3005,"c":"ESTRELA"},{"n":"Caldo De Mandioquinha","q":108,"m":20.41,"r":2919,"c":"BURRO"},{"n":"Gauderio Burger","q":57,"m":29.84,"r":2792,"c":"ESTRELA"},{"n":"Mahatma Gandhi (Burger De Pts)","q":82,"m":23.26,"r":2787,"c":"ESTRELA"},{"n":"!Vegan! Lewis Hamilton","q":76,"m":24.69,"r":2756,"c":"ESTRELA"},{"n":"Stacker Citizen","q":75,"m":21.21,"r":2624,"c":"BURRO"},{"n":"Chopp Mutum Cavalo Ignorus 1 Litro Delivery","q":47,"m":14.11,"r":2444,"c":"ABACAXI"},{"n":"Ufo Burger Costela Catupiry","q":46,"m":29.82,"r":2332,"c":"JOIA"},{"n":"Tijuana (Batata Pernil Barbecue E Jalapeno","q":48,"m":30.05,"r":2304,"c":"JOIA"},{"n":"Pf Pernil","q":57,"m":24.89,"r":2191,"c":"ESTRELA"},{"n":"Brownie Tradicional Delivery","q":166,"m":4.32,"r":2156,"c":"BURRO"},{"n":"!Vegan! Cidadao Vegano","q":51,"m":28.41,"r":2141,"c":"ESTRELA"},{"n":"James Brown","q":49,"m":26.74,"r":2107,"c":"JOIA"},{"n":"Frango A Passarinho Porcao Grande","q":62,"m":22.58,"r":2060,"c":"BURRO"},{"n":"Amsterdam (Batata Cheddar E Bacon)","q":48,"m":26.59,"r":2024,"c":"JOIA"},{"n":"Torta Alema Delivery","q":100,"m":6.88,"r":1999,"c":"BURRO"},{"n":"Pf Costela Bovina","q":47,"m":26.71,"r":1992,"c":"JOIA"},{"n":"Pf Feijoada","q":52,"m":25.95,"r":1975,"c":"ESTRELA"},{"n":"Paulo Cintura (Peito De Frango Grelhado E Salada)","q":52,"m":27.57,"r":1974,"c":"ESTRELA"},{"n":"Costelinha Barbecue (Grande)","q":20,"m":50.24,"r":1960,"c":"JOIA"},{"n":"Bezerra Da Silva (Milanesa De Frango E Salada)","q":56,"m":22.87,"r":1959,"c":"BURRO"},{"n":"Ribs And Fries (Batata Costela Desfiada E Catupiry)","q":32,"m":36.57,"r":1886,"c":"JOIA"},{"n":"Las Vegas (Bolinho De Pernil)","q":32,"m":35.7,"r":1848,"c":"JOIA"},{"n":"Rose Bowl Stadium","q":46,"m":24.22,"r":1840,"c":"JOIA"},{"n":"Pork And Roll (Torresmo De Rolo)","q":30,"m":36.51,"r":1770,"c":"JOIA"},{"n":"T-Bone (File De Igreja) 2 Pessoas","q":11,"m":127.08,"r":1762,"c":"JOIA"},{"n":"Estadio Azteca","q":43,"m":24.14,"r":1720,"c":"JOIA"},{"n":"Pequim (10 Un De Pastel De Queijo)","q":42,"m":24.4,"r":1596,"c":"JOIA"},{"n":"Chopp Brahma Pilsen 1 Litro Delivery","q":41,"m":11.63,"r":1558,"c":"ABACAXI"},{"n":"Caldo Verde","q":52,"m":20.47,"r":1455,"c":"BURRO"},{"n":"1/2 Peca Costelinha Barbecue (Pequena) + Arroz + Batata + Farofa + Coleslaw","q":16,"m":46.58,"r":1440,"c":"JOIA"},{"n":"New York (Onion Rings)","q":48,"m":19.27,"r":1440,"c":"ABACAXI"},{"n":"Burger Kids + Batata + Bebida","q":32,"m":31.22,"r":1429,"c":"JOIA"},{"n":"Guarana Antartica Lata 350Ml Delivery","q":170,"m":4.79,"r":1428,"c":"BURRO"},{"n":"Pork And Cubes (Torresmo Em Cubos)","q":23,"m":36.01,"r":1342,"c":"JOIA"},{"n":"Guarana Antartica Zero Lata 350Ml Delivery","q":148,"m":4.45,"r":1243,"c":"BURRO"},{"n":"!Vegan! Da Vinci","q":32,"m":25.29,"r":1225,"c":"JOIA"},{"n":"Ufo Burger Gorgonzola Crispy","q":29,"m":24.86,"r":1206,"c":"JOIA"},{"n":"Cid Moreira (Strogonoff De Pts)","q":33,"m":25.35,"r":1200,"c":"JOIA"},{"n":"Lisa Simpson (Espetinho De Pts)","q":30,"m":25.83,"r":1160,"c":"JOIA"},{"n":"!Vegan! Helio Gracie","q":26,"m":29.33,"r":1148,"c":"JOIA"},{"n":"Guarana Antarctica 2L Delivery","q":62,"m":6.84,"r":1116,"c":"BURRO"},{"n":"!Vegan! Ufo Burger Vegan","q":29,"m":30.47,"r":1114,"c":"JOIA"},{"n":"Hamburguer França","q":22,"m":37.66,"r":1087,"c":"JOIA"},{"n":"Kf Citzen","q":26,"m":24.09,"r":1040,"c":"JOIA"},{"n":"Tilapia Empanada E Batata Frita","q":17,"m":37.81,"r":1036,"c":"JOIA"},{"n":"Salvador Dali Delivery","q":51,"m":13.52,"r":1019,"c":"BURRO"},{"n":"Pepsi Lata 350Ml Delivery","q":118,"m":4.07,"r":991,"c":"BURRO"},{"n":"Chopp Trooper Brasil 1 Litro Delivery","q":18,"m":18.25,"r":936,"c":"ABACAXI"},{"n":"Chopp Pilsen Bird Beer 1 Litro Delivery","q":31,"m":12.81,"r":930,"c":"ABACAXI"},{"n":"Tilapia Empanada","q":14,"m":35.06,"r":918,"c":"JOIA"},{"n":"Pedro Pedreiro (Frango Grelhado E Salada)","q":26,"m":23.02,"r":884,"c":"ABACAXI"},{"n":"Ufo Burger Cheddar Bacon","q":20,"m":26.65,"r":880,"c":"JOIA"},{"n":"Pepsi Black Zero 2L","q":47,"m":8.78,"r":846,"c":"ABACAXI"},{"n":"Pepsi Black Zero Lata 350Ml Delivery","q":98,"m":4.57,"r":823,"c":"BURRO"},{"n":"Ayrton Senna Burger ( Cheese Bacon )","q":74,"m":8.27,"r":784,"c":"BURRO"},{"n":"Suco Morango 500Ml Delivery","q":65,"m":7.46,"r":780,"c":"BURRO"},{"n":"Agostinho Carrara (Strogonoff De Frango E Salada)","q":20,"m":25.27,"r":760,"c":"JOIA"},{"n":"Pedro Pedreiro (Frango Passarinho E Salada)","q":21,"m":22.89,"r":693,"c":"ABACAXI"},{"n":"Ufo Burger Salada","q":16,"m":21.67,"r":598,"c":"ABACAXI"},{"n":"Pepsi 2L Delivery","q":33,"m":8.78,"r":594,"c":"ABACAXI"},{"n":"Chopp Mutum Cavalo Ignorus 500Ml Delivery","q":19,"m":11.35,"r":551,"c":"ABACAXI"},{"n":"Alain Prost Burger ( Chesse Salada )","q":52,"m":7.86,"r":526,"c":"BURRO"},{"n":"Batata Frita","q":32,"m":8.25,"r":480,"c":"ABACAXI"},{"n":"Mad Max Burger","q":11,"m":26.48,"r":473,"c":"JOIA"},{"n":"Pedro Pedreiro (Bife Grelhado E Salada)","q":13,"m":23.89,"r":468,"c":"JOIA"},{"n":"Jesse Pinkman Burger","q":40,"m":8.54,"r":433,"c":"ABACAXI"},{"n":"Olinda (Bolinho De Pts)","q":10,"m":24.69,"r":380,"c":"JOIA"},{"n":"Rubens Barrichello Burger ( Cheddar Bacon )","q":30,"m":9.62,"r":365,"c":"ABACAXI"},{"n":"Nelson Piquet Burger ( Cheese Burger )","q":60,"m":3.7,"r":298,"c":"BURRO"},{"n":"Rita Lee Delivery","q":14,"m":13.0,"r":280,"c":"ABACAXI"},{"n":"Charles Chaplin Burger","q":19,"m":10.69,"r":259,"c":"ABACAXI"},{"n":"Bezerra Da Silva (Milanesa De Frango)","q":23,"m":7.08,"r":245,"c":"ABACAXI"},{"n":"Chopp Avela Porter 500Ml Delivery","q":10,"m":7.39,"r":230,"c":"ABACAXI"},{"n":"Silvio Santos (Bife E Batata Frita)","q":25,"m":6.68,"r":212,"c":"ABACAXI"},{"n":"Adoniran Barbosa (Parmegiana De Carne)","q":16,"m":1.95,"r":207,"c":"ABACAXI"},{"n":"Água Sem Gás 500Ml Delivery","q":30,"m":4.24,"r":195,"c":"ABACAXI"},{"n":"Pf Pernil Desfiado","q":12,"m":2.93,"r":146,"c":"ABACAXI"},{"n":"Água Com Gás 500Ml Delivery","q":16,"m":3.95,"r":104,"c":"ABACAXI"},{"n":"Refrigerante Pepsi Black Lata 350Ml","q":13,"m":4.26,"r":104,"c":"ABACAXI"},{"n":"Michael Schumacher Burger ( Cheddar Burger )","q":13,"m":5.61,"r":94,"c":"ABACAXI"},{"n":"Maionese De Cebolinha","q":17,"m":3.74,"r":85,"c":"ABACAXI"},{"n":"Pf Feijoada","q":14,"m":-0.06,"r":79,"c":"ABACAXI"},{"n":"Batata Frita","q":38,"m":-2.07,"r":76,"c":"ABACAXI"},{"n":"Anéis De Cebola","q":10,"m":3.8,"r":65,"c":"ABACAXI"},{"n":"Pedro Pedreiro (Frango Grelhado)","q":15,"m":-0.59,"r":65,"c":"ABACAXI"},{"n":"Refrigerante Black Sem Açúcar Pepsi 350Ml","q":16,"m":-2.1,"r":0,"c":"ABACAXI"}];
+const MEDQ = 51, MEDM = 23.02;
+
+// ---------- scatter ----------
+(function(){
+  const svg = document.getElementById('chart');
+  const W=960, H=520, L=64, R=20, T=18, B=46;
+  const qmax = 2200, mmin = -5, mmax = 80;
+  const x = q => L + (Math.log10(Math.max(q,8)) - Math.log10(8)) / (Math.log10(qmax)-Math.log10(8)) * (W-L-R);
+  const y = m => T + (1 - (m - mmin)/(mmax-mmin)) * (H-T-B);
+  const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  const cor = c => ({ESTRELA:css('--good'), BURRO:css('--warn'), JOIA:css('--accent'), ABACAXI:css('--muted')}[c]);
+  let s = '';
+  // fundos dos quadrantes
+  s += `<rect x="${x(MEDQ)}" y="${T}" width="${W-R-x(MEDQ)}" height="${y(MEDM)-T}" fill="${css('--good')}" opacity="0.05"/>`;
+  // linhas medianas
+  s += `<line x1="${x(MEDQ)}" y1="${T}" x2="${x(MEDQ)}" y2="${H-B}" stroke="${css('--line')}" stroke-width="1.5" stroke-dasharray="5 4"/>`;
+  s += `<line x1="${L}" y1="${y(MEDM)}" x2="${W-R}" y2="${y(MEDM)}" stroke="${css('--line')}" stroke-width="1.5" stroke-dasharray="5 4"/>`;
+  // eixos
+  [10,50,200,1000,2000].forEach(v=>{
+    s += `<text x="${x(v)}" y="${H-B+20}" font-size="11.5" fill="${css('--muted')}" text-anchor="middle">${v}</text>`;
+  });
+  [0,20,40,60,80].forEach(v=>{
+    s += `<line x1="${L}" y1="${y(v)}" x2="${W-R}" y2="${y(v)}" stroke="${css('--line')}" stroke-width="0.5" opacity="0.6"/>`;
+    s += `<text x="${L-8}" y="${y(v)+4}" font-size="11.5" fill="${css('--muted')}" text-anchor="end">${v}</text>`;
+  });
+  s += `<text x="${(L+W-R)/2}" y="${H-8}" font-size="12" fill="${css('--ink2')}" text-anchor="middle">unidades vendidas em 60 dias (escala log)</text>`;
+  s += `<text x="14" y="${(T+H-B)/2}" font-size="12" fill="${css('--ink2')}" text-anchor="middle" transform="rotate(-90 14 ${(T+H-B)/2})">sobra por venda (R$)</text>`;
+  // pontos
+  DATA.forEach((d,i)=>{
+    const rr = Math.max(4, Math.min(13, Math.sqrt(d.r)/28));
+    s += `<circle cx="${x(d.q)}" cy="${y(Math.min(d.m, mmax))}" r="${rr}" fill="${cor(d.c)}" opacity="0.75" data-i="${i}" stroke="${css('--surface')}" stroke-width="1.5"/>`;
+  });
+  // rotulos dos maiores
+  const label = ["2 Burgers Com Desconto","2 Marmitas Com Desconto","Ayrton Senna","Feijoada Grande (2 Pessoas)","Silvio Santos (Bife Grelhado E Batata Frita)","Brownie Tradicional Delivery"];
+  DATA.forEach(d=>{
+    if(label.includes(d.n)){
+      const nm = d.n.length>24 ? d.n.slice(0,22)+'…' : d.n;
+      s += `<text x="${x(d.q)}" y="${y(Math.min(d.m,mmax))-12}" font-size="11.5" font-weight="600" fill="${css('--ink2')}" text-anchor="middle">${nm}</text>`;
+    }
+  });
+  svg.innerHTML = s;
+  const tip = document.getElementById('tip');
+  svg.addEventListener('mousemove', e=>{
+    const t = e.target;
+    if(t.tagName==='circle'){
+      const d = DATA[+t.dataset.i];
+      tip.innerHTML = `<strong>${d.n}</strong><br>${d.q} un · sobra R$ ${d.m.toFixed(2).replace('.',',')}/venda<br>R$ ${d.r.toLocaleString('pt-BR')} em 60d`;
+      tip.style.opacity=1; tip.style.left=(e.clientX+14)+'px'; tip.style.top=(e.clientY-10)+'px';
+    } else tip.style.opacity=0;
+  });
+  svg.addEventListener('mouseleave', ()=> tip.style.opacity=0);
+})();
+
+// ---------- soma das propostas ----------
+const fmt = v => 'R$ ' + Math.round(v).toLocaleString('pt-BR') + '/mês';
+function recalc(){
+  let tot=0, n=0;
+  const vd = Math.max(0, +document.getElementById('vdia').value || 0);
+  document.querySelectorAll('.prop input').forEach(cb=>{
+    const imp = cb.classList.contains('novoitem') ? (+cb.dataset.sobra * vd * 30) : (+cb.dataset.imp || 0);
+    if(cb.classList.contains('novoitem')){
+      const el = cb.parentElement.querySelector('[data-role="novo"]');
+      el.textContent = '+' + fmt(+cb.dataset.sobra * vd * 30);
+    }
+    if(cb.checked){ tot += imp; n++; }
+  });
+  document.getElementById('total').textContent = fmt(tot);
+  document.getElementById('count').textContent = n ?
+    n + ' açõe' + (n>1?'s':'') + ' marcada' + (n>1?'s':'') + ' · itens sem número entram como "a medir"' :
+    'nenhuma ação marcada — em branco = não muda';
+  try{ localStorage.setItem('cardapioAV', JSON.stringify({
+    vd, marcas: Array.from(document.querySelectorAll('.prop input')).map(c=>c.checked) })); }catch(e){}
+}
+document.querySelectorAll('.prop input').forEach(cb=> cb.addEventListener('change', recalc));
+document.getElementById('vdia').addEventListener('input', recalc);
+try{
+  const sv = JSON.parse(localStorage.getItem('cardapioAV'));
+  if(sv){ document.getElementById('vdia').value = sv.vd ?? 2;
+    document.querySelectorAll('.prop input').forEach((c,i)=> c.checked = !!sv.marcas?.[i]); }
+}catch(e){}
+recalc();
+</script>
+
+</body>
+</html>
