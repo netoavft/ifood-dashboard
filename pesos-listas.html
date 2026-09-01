@@ -4,62 +4,58 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
+<title>Pesos das Listas</title>
 </head>
 <body>
 <title>Pesos das Listas</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Instrument+Serif&display=swap">
 <style>
-  :root {
-    --papel: #faf6ef;
-    --cartao: #ffffff;
-    --tinta: #2b2620;
-    --tinta-2: #6f675c;
-    --linha: #e5ddd0;
-    --vermelho: #c8102e;
-    --verde: #2e7d4f;
-    --campo: #fdfbf7;
-  }
-  body {
-    background: var(--papel);
-    color: var(--tinta);
-    font-family: "Instrument Sans", "Segoe UI", system-ui, sans-serif;
-    margin: 0;
-    padding: 20px 14px 48px;
-    line-height: 1.45;
-  }
-  .folha { max-width: 720px; margin: 0 auto; }
-  header { border-bottom: 3px solid var(--tinta); padding-bottom: 14px; margin-bottom: 6px; }
-  .selo { font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--vermelho); font-weight: 700; }
-  h1 { font-family: "Instrument Serif", Georgia, serif; font-weight: 400; font-size: clamp(30px, 6vw, 40px); margin: 4px 0 6px; text-wrap: balance; }
-  .contexto { color: var(--tinta-2); font-size: 14.5px; max-width: 62ch; margin: 0; }
-  .contexto b { color: var(--tinta); }
-
-  .bloco { margin-top: 30px; }
-  .bloco-titulo { display: flex; align-items: baseline; gap: 10px; border-bottom: 1px solid var(--linha); padding-bottom: 8px; }
-  .bloco-titulo h2 { font-size: 17px; margin: 0; }
-  .bloco-titulo .qtd { font-size: 13px; color: var(--tinta-2); }
-  .bloco-nota { font-size: 13.5px; color: var(--tinta-2); margin: 8px 0 14px; max-width: 62ch; }
-
-  .item { background: var(--cartao); border: 1px solid var(--linha); border-radius: 10px; padding: 12px 14px; margin-bottom: 10px;
-          display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: center; }
-  .item .nome { font-weight: 600; font-size: 15px; }
-  .item .meta { grid-column: 1; font-size: 12.5px; color: var(--tinta-2); font-variant-numeric: tabular-nums; }
-  .campo-peso { grid-column: 2; grid-row: 1 / span 2; display: flex; align-items: center; gap: 6px; }
-  .campo-peso .caixa { width: 86px; height: 44px; border: 2px solid var(--tinta); border-radius: 8px; background: var(--campo);
-                       display: flex; align-items: center; justify-content: flex-end; padding: 0 8px; font-size: 18px; font-weight: 700;
-                       font-variant-numeric: tabular-nums; }
-  .campo-peso .caixa.vazia { border-style: dashed; border-color: var(--vermelho); color: transparent; }
-  .campo-peso .g { font-size: 14px; color: var(--tinta-2); font-weight: 600; }
-  .risca { margin-top: 6px; grid-column: 1 / -1; font-size: 12.5px; color: var(--tinta-2);
-           display: flex; gap: 16px; flex-wrap: wrap; }
-  .risca .op { display: inline-flex; align-items: center; gap: 6px; }
-  .quadrado { width: 15px; height: 15px; border: 2px solid var(--tinta-2); border-radius: 4px; display: inline-block; }
-
-  .rodape { margin-top: 34px; border-top: 1px solid var(--linha); padding-top: 12px; font-size: 13px; color: var(--tinta-2); max-width: 62ch; }
-  @media print {
-    body { background: #fff; padding: 0; }
-    .item { break-inside: avoid; }
-  }
+  :root { --papel:#faf6ef; --cartao:#fff; --tinta:#2b2620; --tinta-2:#6f675c; --linha:#e5ddd0;
+          --vermelho:#c8102e; --verde:#2e7d4f; --campo:#fdfbf7; }
+  body { background:var(--papel); color:var(--tinta); font-family:"Instrument Sans","Segoe UI",system-ui,sans-serif;
+         margin:0; padding:20px 14px 120px; line-height:1.45; }
+  .folha { max-width:720px; margin:0 auto; }
+  header { border-bottom:3px solid var(--tinta); padding-bottom:14px; margin-bottom:6px; }
+  .selo { font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:var(--vermelho); font-weight:700; }
+  h1 { font-family:"Instrument Serif",Georgia,serif; font-weight:400; font-size:clamp(30px,6vw,40px); margin:4px 0 6px; text-wrap:balance; }
+  .contexto { color:var(--tinta-2); font-size:14.5px; max-width:62ch; margin:0; }
+  .contexto b { color:var(--tinta); }
+  .bloco { margin-top:30px; }
+  .bloco-titulo { display:flex; align-items:baseline; gap:10px; border-bottom:1px solid var(--linha); padding-bottom:8px; }
+  .bloco-titulo h2 { font-size:17px; margin:0; }
+  .bloco-titulo .qtd { font-size:13px; color:var(--tinta-2); }
+  .bloco-nota { font-size:13.5px; color:var(--tinta-2); margin:8px 0 14px; max-width:62ch; }
+  .item { background:var(--cartao); border:1px solid var(--linha); border-radius:10px; padding:12px 14px; margin-bottom:10px;
+          display:grid; grid-template-columns:1fr auto; gap:4px 12px; align-items:center; }
+  .item .nome { font-weight:600; font-size:15px; }
+  .item .meta { grid-column:1; font-size:12.5px; color:var(--tinta-2); font-variant-numeric:tabular-nums; }
+  .campo-peso { grid-column:2; grid-row:1 / span 2; display:flex; align-items:center; gap:6px; }
+  input.peso { width:86px; height:44px; border:2px dashed var(--vermelho); border-radius:8px; background:var(--campo);
+               text-align:right; padding:0 8px; font:700 18px "Instrument Sans",sans-serif; color:var(--tinta);
+               font-variant-numeric:tabular-nums; }
+  input.peso:not(:placeholder-shown), .item[data-original] input.peso { border-style:solid; border-color:var(--tinta); }
+  input.peso:focus { outline:2px solid var(--verde); outline-offset:1px; }
+  .campo-peso .g { font-size:14px; color:var(--tinta-2); font-weight:600; }
+  label.op { grid-column:1 / -1; font-size:12.5px; color:var(--tinta-2); display:inline-flex; align-items:center; gap:7px; margin-top:4px; }
+  label.op input { width:17px; height:17px; accent-color:var(--verde); }
+  .grupo-nome { font-size:11.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--tinta-2);
+                margin:16px 0 6px; font-weight:700; }
+  .linha { background:var(--cartao); border:1px solid var(--linha); border-radius:8px; padding:8px 12px; margin-bottom:6px;
+           display:flex; justify-content:space-between; align-items:center; gap:10px; }
+  .nome-s { font-weight:600; font-size:13.5px; }
+  .linha .meta { font-size:12px; color:var(--tinta-2); }
+  input.obs { width:34%; min-width:110px; border:1px solid var(--linha); border-radius:7px; background:var(--campo);
+              padding:8px 9px; font:400 13px "Instrument Sans",sans-serif; color:var(--tinta); }
+  input.obs:focus { outline:2px solid var(--verde); outline-offset:1px; }
+  .barra { position:fixed; left:0; right:0; bottom:0; background:var(--cartao); border-top:2px solid var(--tinta);
+           padding:10px 14px; display:flex; gap:10px; align-items:center; justify-content:center; flex-wrap:wrap; }
+  .barra button { background:var(--vermelho); color:#fff; border:none; border-radius:9px; padding:12px 18px;
+                  font:700 14px "Instrument Sans",sans-serif; cursor:pointer; }
+  .barra button:focus { outline:3px solid var(--verde); outline-offset:2px; }
+  .barra .estado { font-size:12.5px; color:var(--tinta-2); }
+  #resumo { display:none; width:100%; max-width:692px; margin:10px auto 0; height:150px; font:12px monospace;
+            border:1px solid var(--linha); border-radius:8px; padding:8px; background:var(--campo); color:var(--tinta); }
+  .rodape { margin-top:34px; border-top:1px solid var(--linha); padding-top:12px; font-size:13px; color:var(--tinta-2); max-width:62ch; }
 </style>
 
 <div class="folha">
@@ -67,176 +63,759 @@
     <div class="selo">Listas de transferência · Água Verde</div>
     <h1>Pesos das Listas</h1>
     <p class="contexto">
-      As listas agora se movimentam <b>por quilo</b> (menos embalagens). Para os itens abaixo, que sempre
-      foram contados por unidade, precisamos do <b>peso de 1 unidade pronta</b> — é ele que transforma o
-      custo unitário em preço por kg. <b>Rita:</b> confere na balança e anota no quadradinho. Peso médio
-      de 3 pesagens serve bem.
+      As listas agora se movimentam <b>por quilo</b> (menos embalagens). <b>Rita:</b> pesa 1 unidade
+      pronta de cada item das duas primeiras partes e digita os gramas (média de 3 pesagens serve bem).
+      Na terceira parte é só passar o olho no catálogo inteiro — algo estranho, anota na caixinha.
+      O que você digita <b>fica salvo neste aparelho</b>; no final, toque em <b>Enviar respostas</b>
+      e mande o texto no WhatsApp do Neto.
     </p>
   </header>
 
   <section class="bloco">
-    <div class="bloco-titulo">
-      <h2>Falta o peso — anotar</h2>
-      <span class="qtd">12 itens</span>
-    </div>
-    <p class="bloco-nota">
-      Sem o peso, esses seguem por unidade. Se algum fizer mais sentido continuar <b>por contagem</b>
-      (o sachê é candidato), marca a opção em vez de pesar.
-    </p>
-    <div class="item">
-      <div class="nome">BIFE DE CARNE GRELHADO RECEITA</div>
-      <div class="meta">R$ 3.28 por unidade hoje · pedido 35x nos últimos 3 meses</div>
-      <div class="campo-peso"><div class="caixa vazia">000</div><span class="g">g</span></div>
-      <div class="risca"><span class="op"><span class="quadrado"></span> deixar por contagem (não pesar)</span></div>
-    </div>
-<div class="item">
-      <div class="nome">BROWNIE TRADICIONAL RECEITA</div>
-      <div class="meta">R$ 1.69 por unidade hoje · pedido 22x nos últimos 3 meses</div>
-      <div class="campo-peso"><div class="caixa vazia">000</div><span class="g">g</span></div>
-      <div class="risca"><span class="op"><span class="quadrado"></span> deixar por contagem (não pesar)</span></div>
-    </div>
-<div class="item">
-      <div class="nome">CHEESECAKE TRADICIONAL RECEITA</div>
-      <div class="meta">R$ 1.85 por unidade hoje · pedido 32x nos últimos 3 meses</div>
-      <div class="campo-peso"><div class="caixa vazia">000</div><span class="g">g</span></div>
-      <div class="risca"><span class="op"><span class="quadrado"></span> deixar por contagem (não pesar)</span></div>
-    </div>
-<div class="item">
-      <div class="nome">CHEESECAKE VEGANA RECEITA</div>
-      <div class="meta">R$ 2.37 por unidade hoje · pedido 15x nos últimos 3 meses</div>
-      <div class="campo-peso"><div class="caixa vazia">000</div><span class="g">g</span></div>
-      <div class="risca"><span class="op"><span class="quadrado"></span> deixar por contagem (não pesar)</span></div>
-    </div>
-<div class="item">
-      <div class="nome">CHIMICHURRI</div>
-      <div class="meta">R$ 22.92 por unidade hoje · pedido 3x nos últimos 3 meses</div>
-      <div class="campo-peso"><div class="caixa vazia">000</div><span class="g">g</span></div>
-      <div class="risca"><span class="op"><span class="quadrado"></span> deixar por contagem (não pesar)</span></div>
-    </div>
-<div class="item">
-      <div class="nome">ESPETINHO DE PTS RECEITA</div>
-      <div class="meta">R$ 1.17 por unidade hoje · pedido 9x nos últimos 3 meses</div>
-      <div class="campo-peso"><div class="caixa vazia">000</div><span class="g">g</span></div>
-      <div class="risca"><span class="op"><span class="quadrado"></span> deixar por contagem (não pesar)</span></div>
-    </div>
-<div class="item">
-      <div class="nome">FRANGO GRELHADO RECEITA</div>
-      <div class="meta">R$ 12.82 por unidade hoje · pedido 2x nos últimos 3 meses</div>
-      <div class="campo-peso"><div class="caixa vazia">000</div><span class="g">g</span></div>
-      <div class="risca"><span class="op"><span class="quadrado"></span> deixar por contagem (não pesar)</span></div>
-    </div>
-<div class="item">
-      <div class="nome">OVO</div>
-      <div class="meta">R$ 0.66 por unidade hoje · pedido 4x nos últimos 3 meses</div>
-      <div class="campo-peso"><div class="caixa vazia">000</div><span class="g">g</span></div>
-      <div class="risca"><span class="op"><span class="quadrado"></span> deixar por contagem (não pesar)</span></div>
-    </div>
-<div class="item">
-      <div class="nome">PACOCA</div>
-      <div class="meta">R$ 0.37 por unidade hoje · pedido 2x nos últimos 3 meses</div>
-      <div class="campo-peso"><div class="caixa vazia">000</div><span class="g">g</span></div>
-      <div class="risca"><span class="op"><span class="quadrado"></span> deixar por contagem (não pesar)</span></div>
-    </div>
-<div class="item">
-      <div class="nome">PAO BRIOCHE</div>
-      <div class="meta">R$ 1.33 por unidade hoje · pedido 3x nos últimos 3 meses</div>
-      <div class="campo-peso"><div class="caixa vazia">000</div><span class="g">g</span></div>
-      <div class="risca"><span class="op"><span class="quadrado"></span> deixar por contagem (não pesar)</span></div>
-    </div>
-<div class="item">
-      <div class="nome">PASTEL DE QUEIJO RECEITA</div>
-      <div class="meta">R$ 0.58 por unidade hoje · pedido 13x nos últimos 3 meses</div>
-      <div class="campo-peso"><div class="caixa vazia">000</div><span class="g">g</span></div>
-      <div class="risca"><span class="op"><span class="quadrado"></span> deixar por contagem (não pesar)</span></div>
-    </div>
-<div class="item">
-      <div class="nome">SACHE DE CATCHUP CX C/ 190UN</div>
-      <div class="meta">R$ 0.11 por unidade hoje · pedido 1x nos últimos 3 meses</div>
-      <div class="campo-peso"><div class="caixa vazia">000</div><span class="g">g</span></div>
-      <div class="risca"><span class="op"><span class="quadrado"></span> deixar por contagem (não pesar)</span></div>
-    </div>
+    <div class="bloco-titulo"><h2>1 · Falta o peso — pesar e digitar</h2><span class="qtd">12 itens</span></div>
+    <p class="bloco-nota">Sem o peso esses continuam por unidade. Se algum fizer mais sentido
+      <b>por contagem</b> (o sachê é candidato), marca a opção em vez de pesar.</p>
+<div class="item" data-item="OVO">
+  <div class="nome">OVO</div>
+  <div class="meta">R$ 0.66/un hoje · pedido 4x em 3 meses</div>
+  <div class="campo-peso"><input class="peso" type="number" inputmode="numeric" min="1" max="20000" placeholder="g"><span class="g">g</span></div>
+  <label class="op"><input type="checkbox" class="contagem"> deixar por contagem (não pesar)</label>
+</div>
+<div class="item" data-item="ESPETINHO DE PTS RECEITA">
+  <div class="nome">ESPETINHO DE PTS RECEITA</div>
+  <div class="meta">R$ 1.17/un hoje · pedido 9x em 3 meses</div>
+  <div class="campo-peso"><input class="peso" type="number" inputmode="numeric" min="1" max="20000" placeholder="g"><span class="g">g</span></div>
+  <label class="op"><input type="checkbox" class="contagem"> deixar por contagem (não pesar)</label>
+</div>
+<div class="item" data-item="BROWNIE TRADICIONAL RECEITA">
+  <div class="nome">BROWNIE TRADICIONAL RECEITA</div>
+  <div class="meta">R$ 1.69/un hoje · pedido 22x em 3 meses</div>
+  <div class="campo-peso"><input class="peso" type="number" inputmode="numeric" min="1" max="20000" placeholder="g"><span class="g">g</span></div>
+  <label class="op"><input type="checkbox" class="contagem"> deixar por contagem (não pesar)</label>
+</div>
+<div class="item" data-item="CHEESECAKE TRADICIONAL RECEITA">
+  <div class="nome">CHEESECAKE TRADICIONAL RECEITA</div>
+  <div class="meta">R$ 1.85/un hoje · pedido 32x em 3 meses</div>
+  <div class="campo-peso"><input class="peso" type="number" inputmode="numeric" min="1" max="20000" placeholder="g"><span class="g">g</span></div>
+  <label class="op"><input type="checkbox" class="contagem"> deixar por contagem (não pesar)</label>
+</div>
+<div class="item" data-item="CHEESECAKE VEGANA RECEITA">
+  <div class="nome">CHEESECAKE VEGANA RECEITA</div>
+  <div class="meta">R$ 2.37/un hoje · pedido 15x em 3 meses</div>
+  <div class="campo-peso"><input class="peso" type="number" inputmode="numeric" min="1" max="20000" placeholder="g"><span class="g">g</span></div>
+  <label class="op"><input type="checkbox" class="contagem"> deixar por contagem (não pesar)</label>
+</div>
+<div class="item" data-item="PACOCA">
+  <div class="nome">PACOCA</div>
+  <div class="meta">R$ 0.37/un hoje · pedido 2x em 3 meses</div>
+  <div class="campo-peso"><input class="peso" type="number" inputmode="numeric" min="1" max="20000" placeholder="g"><span class="g">g</span></div>
+  <label class="op"><input type="checkbox" class="contagem"> deixar por contagem (não pesar)</label>
+</div>
+<div class="item" data-item="BIFE DE CARNE GRELHADO RECEITA">
+  <div class="nome">BIFE DE CARNE GRELHADO RECEITA</div>
+  <div class="meta">R$ 3.28/un hoje · pedido 35x em 3 meses</div>
+  <div class="campo-peso"><input class="peso" type="number" inputmode="numeric" min="1" max="20000" placeholder="g"><span class="g">g</span></div>
+  <label class="op"><input type="checkbox" class="contagem"> deixar por contagem (não pesar)</label>
+</div>
+<div class="item" data-item="CHIMICHURRI">
+  <div class="nome">CHIMICHURRI</div>
+  <div class="meta">R$ 22.92/un hoje · pedido 3x em 3 meses</div>
+  <div class="campo-peso"><input class="peso" type="number" inputmode="numeric" min="1" max="20000" placeholder="g"><span class="g">g</span></div>
+  <label class="op"><input type="checkbox" class="contagem"> deixar por contagem (não pesar)</label>
+</div>
+<div class="item" data-item="FRANGO GRELHADO RECEITA">
+  <div class="nome">FRANGO GRELHADO RECEITA</div>
+  <div class="meta">R$ 12.82/un hoje · pedido 2x em 3 meses</div>
+  <div class="campo-peso"><input class="peso" type="number" inputmode="numeric" min="1" max="20000" placeholder="g"><span class="g">g</span></div>
+  <label class="op"><input type="checkbox" class="contagem"> deixar por contagem (não pesar)</label>
+</div>
+<div class="item" data-item="PAO BRIOCHE">
+  <div class="nome">PAO BRIOCHE</div>
+  <div class="meta">R$ 1.33/un hoje · pedido 3x em 3 meses</div>
+  <div class="campo-peso"><input class="peso" type="number" inputmode="numeric" min="1" max="20000" placeholder="g"><span class="g">g</span></div>
+  <label class="op"><input type="checkbox" class="contagem"> deixar por contagem (não pesar)</label>
+</div>
+<div class="item" data-item="PASTEL DE QUEIJO RECEITA">
+  <div class="nome">PASTEL DE QUEIJO RECEITA</div>
+  <div class="meta">R$ 0.58/un hoje · pedido 13x em 3 meses</div>
+  <div class="campo-peso"><input class="peso" type="number" inputmode="numeric" min="1" max="20000" placeholder="g"><span class="g">g</span></div>
+  <label class="op"><input type="checkbox" class="contagem"> deixar por contagem (não pesar)</label>
+</div>
+<div class="item" data-item="SACHE DE CATCHUP CX C/ 190UN">
+  <div class="nome">SACHE DE CATCHUP CX C/ 190UN</div>
+  <div class="meta">R$ 0.11/un hoje · pedido 1x em 3 meses</div>
+  <div class="campo-peso"><input class="peso" type="number" inputmode="numeric" min="1" max="20000" placeholder="g"><span class="g">g</span></div>
+  <label class="op"><input type="checkbox" class="contagem"> deixar por contagem (não pesar)</label>
+</div>
   </section>
 
   <section class="bloco">
-    <div class="bloco-titulo">
-      <h2>Peso veio do nome — só conferir</h2>
-      <span class="qtd">9 itens</span>
-    </div>
-    <p class="bloco-nota">
-      Esses já viraram kg usando o peso que está no próprio nome da receita. Se a balança disser
-      outra coisa, risca e anota o certo ao lado.
-    </p>
-    <div class="item">
-      <div class="nome">BIFE DE CARNE EMPANADO 170G RECEITA</div>
-      <div class="meta">R$ 3.79/un · com 170 g vira R$ 22.29/kg · pedido 30x em 3 meses</div>
-      <div class="campo-peso"><div class="caixa">170</div><span class="g">g</span></div>
-      <div class="risca"><span class="op"><span class="quadrado"></span> confere</span>
-        <span class="op"><span class="quadrado"></span> errado — peso certo: ______ g</span></div>
-    </div>
-<div class="item">
-      <div class="nome">BOLINHO DE PERNIL 35G RECEITA</div>
-      <div class="meta">R$ 1.00/un · com 35 g vira R$ 28.54/kg · pedido 13x em 3 meses</div>
-      <div class="campo-peso"><div class="caixa">35</div><span class="g">g</span></div>
-      <div class="risca"><span class="op"><span class="quadrado"></span> confere</span>
-        <span class="op"><span class="quadrado"></span> errado — peso certo: ______ g</span></div>
-    </div>
-<div class="item">
-      <div class="nome">BROWNIE VEGANO 70G RECEITA</div>
-      <div class="meta">R$ 1.21/un · com 70 g vira R$ 17.23/kg · pedido 19x em 3 meses</div>
-      <div class="campo-peso"><div class="caixa">70</div><span class="g">g</span></div>
-      <div class="risca"><span class="op"><span class="quadrado"></span> confere</span>
-        <span class="op"><span class="quadrado"></span> errado — peso certo: ______ g</span></div>
-    </div>
-<div class="item">
-      <div class="nome">DISCO DE MOZARELA EMPANADO 150G RECEITA</div>
-      <div class="meta">R$ 3.15/un · com 150 g vira R$ 21.03/kg · pedido 55x em 3 meses</div>
-      <div class="campo-peso"><div class="caixa">150</div><span class="g">g</span></div>
-      <div class="risca"><span class="op"><span class="quadrado"></span> confere</span>
-        <span class="op"><span class="quadrado"></span> errado — peso certo: ______ g</span></div>
-    </div>
-<div class="item">
-      <div class="nome">DISCO DE QUEIJO VEGANO EMPANADO 140G RECEITA</div>
-      <div class="meta">R$ 1.99/un · com 140 g vira R$ 14.24/kg · pedido 17x em 3 meses</div>
-      <div class="campo-peso"><div class="caixa">140</div><span class="g">g</span></div>
-      <div class="risca"><span class="op"><span class="quadrado"></span> confere</span>
-        <span class="op"><span class="quadrado"></span> errado — peso certo: ______ g</span></div>
-    </div>
-<div class="item">
-      <div class="nome">HAMBURGUER DE CARNE 150G RECEITA</div>
-      <div class="meta">R$ 3.46/un · com 150 g vira R$ 23.04/kg · pedido 44x em 3 meses</div>
-      <div class="campo-peso"><div class="caixa">150</div><span class="g">g</span></div>
-      <div class="risca"><span class="op"><span class="quadrado"></span> confere</span>
-        <span class="op"><span class="quadrado"></span> errado — peso certo: ______ g</span></div>
-    </div>
-<div class="item">
-      <div class="nome">HAMBURGUER DE FEIJAO COM PTS 125G RECEITA</div>
-      <div class="meta">R$ 0.52/un · com 125 g vira R$ 4.17/kg · pedido 43x em 3 meses</div>
-      <div class="campo-peso"><div class="caixa">125</div><span class="g">g</span></div>
-      <div class="risca"><span class="op"><span class="quadrado"></span> confere</span>
-        <span class="op"><span class="quadrado"></span> errado — peso certo: ______ g</span></div>
-    </div>
-<div class="item">
-      <div class="nome">SMASH BURGER 60G RECEITA</div>
-      <div class="meta">R$ 1.37/un · com 60 g vira R$ 22.90/kg · pedido 12x em 3 meses</div>
-      <div class="campo-peso"><div class="caixa">60</div><span class="g">g</span></div>
-      <div class="risca"><span class="op"><span class="quadrado"></span> confere</span>
-        <span class="op"><span class="quadrado"></span> errado — peso certo: ______ g</span></div>
-    </div>
-<div class="item">
-      <div class="nome">TORTA ALEMA VEGANA 150G RECEITA</div>
-      <div class="meta">R$ 2.62/un · com 150 g vira R$ 17.46/kg · pedido 3x em 3 meses</div>
-      <div class="campo-peso"><div class="caixa">150</div><span class="g">g</span></div>
-      <div class="risca"><span class="op"><span class="quadrado"></span> confere</span>
-        <span class="op"><span class="quadrado"></span> errado — peso certo: ______ g</span></div>
-    </div>
+    <div class="bloco-titulo"><h2>2 · Peso veio do nome — conferir na balança</h2><span class="qtd">9 itens</span></div>
+    <p class="bloco-nota">O número já está preenchido com o peso do nome da receita. Se a balança
+      disser outra coisa, corrige direto no campo; se bater, marca "confere".</p>
+<div class="item" data-item="BROWNIE VEGANO 70G RECEITA" data-original="70">
+  <div class="nome">BROWNIE VEGANO 70G RECEITA</div>
+  <div class="meta">com 70 g fica R$ 20.51/kg · pedido 19x em 3 meses</div>
+  <div class="campo-peso"><input class="peso" type="number" inputmode="numeric" min="1" max="20000" value="70"><span class="g">g</span></div>
+  <label class="op"><input type="checkbox" class="confere"> confere (não pesei diferente)</label>
+</div>
+<div class="item" data-item="HAMBURGUER DE CARNE 150G RECEITA" data-original="150">
+  <div class="nome">HAMBURGUER DE CARNE 150G RECEITA</div>
+  <div class="meta">com 150 g fica R$ 27.42/kg · pedido 44x em 3 meses</div>
+  <div class="campo-peso"><input class="peso" type="number" inputmode="numeric" min="1" max="20000" value="150"><span class="g">g</span></div>
+  <label class="op"><input type="checkbox" class="confere"> confere (não pesei diferente)</label>
+</div>
+<div class="item" data-item="HAMBURGUER DE FEIJAO COM PTS 125G RECEITA" data-original="125">
+  <div class="nome">HAMBURGUER DE FEIJAO COM PTS 125G RECEITA</div>
+  <div class="meta">com 125 g fica R$ 4.96/kg · pedido 43x em 3 meses</div>
+  <div class="campo-peso"><input class="peso" type="number" inputmode="numeric" min="1" max="20000" value="125"><span class="g">g</span></div>
+  <label class="op"><input type="checkbox" class="confere"> confere (não pesei diferente)</label>
+</div>
+<div class="item" data-item="TORTA ALEMA VEGANA 150G RECEITA" data-original="150">
+  <div class="nome">TORTA ALEMA VEGANA 150G RECEITA</div>
+  <div class="meta">com 150 g fica R$ 20.77/kg · pedido 3x em 3 meses</div>
+  <div class="campo-peso"><input class="peso" type="number" inputmode="numeric" min="1" max="20000" value="150"><span class="g">g</span></div>
+  <label class="op"><input type="checkbox" class="confere"> confere (não pesei diferente)</label>
+</div>
+<div class="item" data-item="BIFE DE CARNE EMPANADO 170G RECEITA" data-original="170">
+  <div class="nome">BIFE DE CARNE EMPANADO 170G RECEITA</div>
+  <div class="meta">com 170 g fica R$ 26.52/kg · pedido 30x em 3 meses</div>
+  <div class="campo-peso"><input class="peso" type="number" inputmode="numeric" min="1" max="20000" value="170"><span class="g">g</span></div>
+  <label class="op"><input type="checkbox" class="confere"> confere (não pesei diferente)</label>
+</div>
+<div class="item" data-item="BOLINHO DE PERNIL 35G RECEITA" data-original="35">
+  <div class="nome">BOLINHO DE PERNIL 35G RECEITA</div>
+  <div class="meta">com 35 g fica R$ 33.96/kg · pedido 13x em 3 meses</div>
+  <div class="campo-peso"><input class="peso" type="number" inputmode="numeric" min="1" max="20000" value="35"><span class="g">g</span></div>
+  <label class="op"><input type="checkbox" class="confere"> confere (não pesei diferente)</label>
+</div>
+<div class="item" data-item="DISCO DE MOZARELA EMPANADO 150G RECEITA" data-original="150">
+  <div class="nome">DISCO DE MOZARELA EMPANADO 150G RECEITA</div>
+  <div class="meta">com 150 g fica R$ 25.03/kg · pedido 55x em 3 meses</div>
+  <div class="campo-peso"><input class="peso" type="number" inputmode="numeric" min="1" max="20000" value="150"><span class="g">g</span></div>
+  <label class="op"><input type="checkbox" class="confere"> confere (não pesei diferente)</label>
+</div>
+<div class="item" data-item="DISCO DE QUEIJO VEGANO EMPANADO 140G RECEITA" data-original="140">
+  <div class="nome">DISCO DE QUEIJO VEGANO EMPANADO 140G RECEITA</div>
+  <div class="meta">com 140 g fica R$ 16.95/kg · pedido 17x em 3 meses</div>
+  <div class="campo-peso"><input class="peso" type="number" inputmode="numeric" min="1" max="20000" value="140"><span class="g">g</span></div>
+  <label class="op"><input type="checkbox" class="confere"> confere (não pesei diferente)</label>
+</div>
+<div class="item" data-item="SMASH BURGER 60G RECEITA" data-original="60">
+  <div class="nome">SMASH BURGER 60G RECEITA</div>
+  <div class="meta">com 60 g fica R$ 27.25/kg · pedido 12x em 3 meses</div>
+  <div class="campo-peso"><input class="peso" type="number" inputmode="numeric" min="1" max="20000" value="60"><span class="g">g</span></div>
+  <label class="op"><input type="checkbox" class="confere"> confere (não pesei diferente)</label>
+</div>
+  </section>
+
+  <section class="bloco">
+    <div class="bloco-titulo"><h2>3 · O resto do catálogo — passar o olho</h2><span class="qtd">99 itens</span></div>
+    <p class="bloco-nota">Unidade e preço de tabela de cada item (preço = custo + 19% de produção).
+      <b>Em branco = está certo.</b> Item que sobra, falta, ou está com nome/unidade errada: anota.</p>
+<div class="grupo-nome">BEBIDAS</div>
+<div class="linha" data-item="QUENTAO DEL REI">
+  <div><div class="nome-s">QUENTAO DEL REI</div>
+  <div class="meta">R$ 15.47 por LT</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="grupo-nome">CARNE</div>
+<div class="linha" data-item="FILE C MIGNON (T BONE)">
+  <div><div class="nome-s">FILE C MIGNON (T BONE)</div>
+  <div class="meta">R$ 39.75 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="FRANGO A PASSARINHO">
+  <div><div class="nome-s">FRANGO A PASSARINHO</div>
+  <div class="meta">R$ 11.29 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="ISCAS DE TILAPIA">
+  <div><div class="nome-s">ISCAS DE TILAPIA</div>
+  <div class="meta">R$ 66.84 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="grupo-nome">CARNES DEFUMADAS</div>
+<div class="linha" data-item="COSTELA BOVINA PECA">
+  <div><div class="nome-s">COSTELA BOVINA PECA</div>
+  <div class="meta">R$ 36.50 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="PERNIL DESFIADO PECA">
+  <div><div class="nome-s">PERNIL DESFIADO PECA</div>
+  <div class="meta">R$ 17.09 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="grupo-nome">CONGELADOS</div>
+<div class="linha" data-item="ANEIS DE CEBOLA CONGELADO KG">
+  <div><div class="nome-s">ANEIS DE CEBOLA CONGELADO KG</div>
+  <div class="meta">R$ 18.64 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="BATATA CONGELADA KG">
+  <div><div class="nome-s">BATATA CONGELADA KG</div>
+  <div class="meta">R$ 11.89 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="MORANGO CONGELADO 100G">
+  <div><div class="nome-s">MORANGO CONGELADO 100G</div>
+  <div class="meta">R$ 12.72 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="grupo-nome">DESCARTAVEIS</div>
+<div class="linha" data-item="BOBINA/SACO PICOTADO PORCOES 16X30">
+  <div><div class="nome-s">BOBINA/SACO PICOTADO PORCOES 16X30</div>
+  <div class="meta">R$ 12.49 por RL</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="ETIQUETA BALANCA">
+  <div><div class="nome-s">ETIQUETA BALANCA</div>
+  <div class="meta">R$ 0.04 por UN</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="ISOPOR H102 P/ UFO BURGER">
+  <div><div class="nome-s">ISOPOR H102 P/ UFO BURGER</div>
+  <div class="meta">R$ 1.66 por UN</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="LUVA VINIL G SEM PO">
+  <div><div class="nome-s">LUVA VINIL G SEM PO</div>
+  <div class="meta">R$ 0.21 por UN</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="PAPEL ALUMINIO">
+  <div><div class="nome-s">PAPEL ALUMINIO</div>
+  <div class="meta">R$ 73.66 por UN</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="grupo-nome">EMBALAGENS</div>
+<div class="linha" data-item="ETIQUETA VALIDADE">
+  <div><div class="nome-s">ETIQUETA VALIDADE</div>
+  <div class="meta">R$ 0.10 por UN</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="LACRE DE SEGURANCA CIDADAO">
+  <div><div class="nome-s">LACRE DE SEGURANCA CIDADAO</div>
+  <div class="meta">R$ 0.06 por UN</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="PLASTICO FILME MARMITAS">
+  <div><div class="nome-s">PLASTICO FILME MARMITAS</div>
+  <div class="meta">R$ 0.23 por UN</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="POTE PRATOS 500ML (CANJA)">
+  <div><div class="nome-s">POTE PRATOS 500ML (CANJA)</div>
+  <div class="meta">R$ 0.92 por UN</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="EMBALAGEM BATATA (COLADA) CIDADAO">
+  <div><div class="nome-s">EMBALAGEM BATATA (COLADA) CIDADAO</div>
+  <div class="meta">R$ 0.62 por UN</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="EMBALAGEM BATATA (TO GO MINI) LISA">
+  <div><div class="nome-s">EMBALAGEM BATATA (TO GO MINI) LISA</div>
+  <div class="meta">R$ 1.40 por UN</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="EMBALAGEM LONDON (TO GO P) CIDADAO">
+  <div><div class="nome-s">EMBALAGEM LONDON (TO GO P) CIDADAO</div>
+  <div class="meta">R$ 1.30 por UN</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="EMBALAGEM LONDON (TO GO P) LISA">
+  <div><div class="nome-s">EMBALAGEM LONDON (TO GO P) LISA</div>
+  <div class="meta">R$ 1.73 por UN</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="EMBALAGEM SOS 10KG PEQUENA CIDADAO">
+  <div><div class="nome-s">EMBALAGEM SOS 10KG PEQUENA CIDADAO</div>
+  <div class="meta">R$ 0.48 por UN</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="EMBALAGEM SOS 20KG GRANDE CIDADAO">
+  <div><div class="nome-s">EMBALAGEM SOS 20KG GRANDE CIDADAO</div>
+  <div class="meta">R$ 0.74 por UN</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="PAPEL ACOPLADO SEDA CIDADAO">
+  <div><div class="nome-s">PAPEL ACOPLADO SEDA CIDADAO</div>
+  <div class="meta">R$ 0.21 por UN</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="PET GROWLER 1L">
+  <div><div class="nome-s">PET GROWLER 1L</div>
+  <div class="meta">R$ 4.55 por UN</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="PET GROWLER 500ML">
+  <div><div class="nome-s">PET GROWLER 500ML</div>
+  <div class="meta">R$ 1.89 por UN</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="SACOLA DELIVERY">
+  <div><div class="nome-s">SACOLA DELIVERY</div>
+  <div class="meta">R$ 0.08 por UN</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="grupo-nome">FUNCIONARIOS</div>
+<div class="linha" data-item="MARGARINA FUNCIONARIOS">
+  <div><div class="nome-s">MARGARINA FUNCIONARIOS</div>
+  <div class="meta">R$ 16.99 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="grupo-nome">HORTIFRUTI</div>
+<div class="linha" data-item="ABACATE">
+  <div><div class="nome-s">ABACATE</div>
+  <div class="meta">R$ 5.83 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="ALFACE AMERICANA">
+  <div><div class="nome-s">ALFACE AMERICANA</div>
+  <div class="meta">R$ 6.54 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="BETERRABA">
+  <div><div class="nome-s">BETERRABA</div>
+  <div class="meta">R$ 3.45 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="CEBOLA">
+  <div><div class="nome-s">CEBOLA</div>
+  <div class="meta">R$ 4.64 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="LIMAO">
+  <div><div class="nome-s">LIMAO</div>
+  <div class="meta">R$ 10.69 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="TOMATE">
+  <div><div class="nome-s">TOMATE</div>
+  <div class="meta">R$ 9.40 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="CENOURA">
+  <div><div class="nome-s">CENOURA</div>
+  <div class="meta">R$ 5.24 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="REPOLHO BRANCO">
+  <div><div class="nome-s">REPOLHO BRANCO</div>
+  <div class="meta">R$ 3.77 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="REPOLHO ROXO">
+  <div><div class="nome-s">REPOLHO ROXO</div>
+  <div class="meta">R$ 6.48 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="grupo-nome">MATERIAL DE LIMPEZA</div>
+<div class="linha" data-item="LIMPA FORNO (FORNO GRILL)">
+  <div><div class="nome-s">LIMPA FORNO (FORNO GRILL)</div>
+  <div class="meta">R$ 17.61 por LT</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="SACO DE LIXO PRETO 100L">
+  <div><div class="nome-s">SACO DE LIXO PRETO 100L</div>
+  <div class="meta">R$ 0.62 por UN</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="grupo-nome">MONTAGEM E PREPAROS BURGUERS</div>
+<div class="linha" data-item="BACON EM CUBOS MP">
+  <div><div class="nome-s">BACON EM CUBOS MP</div>
+  <div class="meta">R$ 26.77 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="CEBOLA CRISPY RECEITA">
+  <div><div class="nome-s">CEBOLA CRISPY RECEITA</div>
+  <div class="meta">R$ 11.56 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="CEBOLA GRELHADA RECEITA">
+  <div><div class="nome-s">CEBOLA GRELHADA RECEITA</div>
+  <div class="meta">R$ 18.94 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="CONFIT DE TOMATE CEREJA RECEITA">
+  <div><div class="nome-s">CONFIT DE TOMATE CEREJA RECEITA</div>
+  <div class="meta">R$ 27.25 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="QUEIJO VEGANO DE CASTANHA RECEITA">
+  <div><div class="nome-s">QUEIJO VEGANO DE CASTANHA RECEITA</div>
+  <div class="meta">R$ 19.37 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="grupo-nome">MONTAGEM E PREPAROS PRATOS</div>
+<div class="linha" data-item="ALHO BATIDO RECEITA">
+  <div><div class="nome-s">ALHO BATIDO RECEITA</div>
+  <div class="meta">R$ 18.02 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="CALDO DE MANDIOQUINHA RECEITA">
+  <div><div class="nome-s">CALDO DE MANDIOQUINHA RECEITA</div>
+  <div class="meta">R$ 4.21 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="CANJA DE GALINHA RECEITA">
+  <div><div class="nome-s">CANJA DE GALINHA RECEITA</div>
+  <div class="meta">R$ 4.51 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="FAROFA RECEITA">
+  <div><div class="nome-s">FAROFA RECEITA</div>
+  <div class="meta">R$ 11.28 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="PEITO DE FRANGO">
+  <div><div class="nome-s">PEITO DE FRANGO</div>
+  <div class="meta">R$ 18.53 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="STROGONOFF DE CARNE RECEITA">
+  <div><div class="nome-s">STROGONOFF DE CARNE RECEITA</div>
+  <div class="meta">R$ 31.76 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="STROGONOFF DE FRANGO RECEITA">
+  <div><div class="nome-s">STROGONOFF DE FRANGO RECEITA</div>
+  <div class="meta">R$ 17.28 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="STROGONOFF DE PTS VEGAN RECEITA">
+  <div><div class="nome-s">STROGONOFF DE PTS VEGAN RECEITA</div>
+  <div class="meta">R$ 8.86 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="grupo-nome">PORCOES</div>
+<div class="linha" data-item="TORRESMO EM CUBOS">
+  <div><div class="nome-s">TORRESMO EM CUBOS</div>
+  <div class="meta">R$ 34.24 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="TORRESMO EM ROLO">
+  <div><div class="nome-s">TORRESMO EM ROLO</div>
+  <div class="meta">R$ 33.83 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="grupo-nome">PREP PRATOS</div>
+<div class="linha" data-item="CARNE DESFIADA RECEITA">
+  <div><div class="nome-s">CARNE DESFIADA RECEITA</div>
+  <div class="meta">R$ 21.71 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="FEIJOADA RECEITA">
+  <div><div class="nome-s">FEIJOADA RECEITA</div>
+  <div class="meta">R$ 9.49 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="FRANGO EMPANADO RECEITA">
+  <div><div class="nome-s">FRANGO EMPANADO RECEITA</div>
+  <div class="meta">R$ 20.84 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="MOLHO AO SUGO RECEITA">
+  <div><div class="nome-s">MOLHO AO SUGO RECEITA</div>
+  <div class="meta">R$ 9.47 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="grupo-nome">PREP PRODUCAO</div>
+<div class="linha" data-item="BOLINHO DE CARNE RECEITA">
+  <div><div class="nome-s">BOLINHO DE CARNE RECEITA</div>
+  <div class="meta">R$ 22.97 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="COSTELA BOVINA DESFIADA RECEITA">
+  <div><div class="nome-s">COSTELA BOVINA DESFIADA RECEITA</div>
+  <div class="meta">R$ 63.81 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="COSTELA E ACEM DESFIADO RECEITA">
+  <div><div class="nome-s">COSTELA E ACEM DESFIADO RECEITA</div>
+  <div class="meta">R$ 48.09 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="COSTELINHA DEFUMADA RECEITA">
+  <div><div class="nome-s">COSTELINHA DEFUMADA RECEITA</div>
+  <div class="meta">R$ 42.58 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="MAIONESE DE CEBOLINHA LEITE RECEITA">
+  <div><div class="nome-s">MAIONESE DE CEBOLINHA LEITE RECEITA</div>
+  <div class="meta">R$ 9.15 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="MOLHO DE PIMENTA RECEITA">
+  <div><div class="nome-s">MOLHO DE PIMENTA RECEITA</div>
+  <div class="meta">R$ 17.36 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="PERNIL DEFUMADO RECEITA">
+  <div><div class="nome-s">PERNIL DEFUMADO RECEITA</div>
+  <div class="meta">R$ 34.18 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="TORRESMO DE ROLO RECEITA">
+  <div><div class="nome-s">TORRESMO DE ROLO RECEITA</div>
+  <div class="meta">R$ 33.83 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="TORRESMO EM CUBOS RECEITA">
+  <div><div class="nome-s">TORRESMO EM CUBOS RECEITA</div>
+  <div class="meta">R$ 34.24 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="grupo-nome">RESFRIADOS</div>
+<div class="linha" data-item="ALCATRA (ORELHA DE ELEFANTE)">
+  <div><div class="nome-s">ALCATRA (ORELHA DE ELEFANTE)</div>
+  <div class="meta">R$ 51.05 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="COSTELINHA BARBECUE PECA">
+  <div><div class="nome-s">COSTELINHA BARBECUE PECA</div>
+  <div class="meta">R$ 32.87 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="MOZARELA FATIA">
+  <div><div class="nome-s">MOZARELA FATIA</div>
+  <div class="meta">R$ 37.48 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="TORTA ALEMA">
+  <div><div class="nome-s">TORTA ALEMA</div>
+  <div class="meta">R$ 10.71 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="grupo-nome">SECOS</div>
+<div class="linha" data-item="GELEIA DE PIMENTA">
+  <div><div class="nome-s">GELEIA DE PIMENTA</div>
+  <div class="meta">R$ 40.46 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="GORDURA VEGETAL">
+  <div><div class="nome-s">GORDURA VEGETAL</div>
+  <div class="meta">R$ 13.04 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="ARROZ PARBOILIZADO 5KG">
+  <div><div class="nome-s">ARROZ PARBOILIZADO 5KG</div>
+  <div class="meta">R$ 5.28 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="CALDO DE GALINHA 1,1KG">
+  <div><div class="nome-s">CALDO DE GALINHA 1,1KG</div>
+  <div class="meta">R$ 18.67 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="CATCHUP GALAO 3,8KG">
+  <div><div class="nome-s">CATCHUP GALAO 3,8KG</div>
+  <div class="meta">R$ 11.55 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="FEIJAO CARIOCA 1KG">
+  <div><div class="nome-s">FEIJAO CARIOCA 1KG</div>
+  <div class="meta">R$ 7.32 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="FEIJAO PRETO 1KG">
+  <div><div class="nome-s">FEIJAO PRETO 1KG</div>
+  <div class="meta">R$ 6.27 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="GELEIA DE ABACAXI COM PIMENTA">
+  <div><div class="nome-s">GELEIA DE ABACAXI COM PIMENTA</div>
+  <div class="meta">R$ 54.07 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="MACARRAO">
+  <div><div class="nome-s">MACARRAO</div>
+  <div class="meta">R$ 7.12 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="MAIONESE HELLMANS">
+  <div><div class="nome-s">MAIONESE HELLMANS</div>
+  <div class="meta">R$ 18.23 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="MAIONESE VEGANA">
+  <div><div class="nome-s">MAIONESE VEGANA</div>
+  <div class="meta">R$ 42.28 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="MASSA PARA PASTEL">
+  <div><div class="nome-s">MASSA PARA PASTEL</div>
+  <div class="meta">R$ 10.90 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="MOLHO BARBECUE 3,5KG">
+  <div><div class="nome-s">MOLHO BARBECUE 3,5KG</div>
+  <div class="meta">R$ 10.20 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="OREGANO 1,01KG">
+  <div><div class="nome-s">OREGANO 1,01KG</div>
+  <div class="meta">R$ 30.68 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="PIMENTA JALAPENO 2KG DRENADO">
+  <div><div class="nome-s">PIMENTA JALAPENO 2KG DRENADO</div>
+  <div class="meta">R$ 88.66 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="PTS CARAMELO GROSSO">
+  <div><div class="nome-s">PTS CARAMELO GROSSO</div>
+  <div class="meta">R$ 21.96 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="PTS CARAMELO MEDIO">
+  <div><div class="nome-s">PTS CARAMELO MEDIO</div>
+  <div class="meta">R$ 10.67 por KG</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="grupo-nome">UTEIS</div>
+<div class="linha" data-item="BOBINA TERMICA IMPRESSORA">
+  <div><div class="nome-s">BOBINA TERMICA IMPRESSORA</div>
+  <div class="meta">R$ 4.76 por RL</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="BOBINA/FOLHA PICOTADA FRIOS 40X30">
+  <div><div class="nome-s">BOBINA/FOLHA PICOTADA FRIOS 40X30</div>
+  <div class="meta">R$ 0.41 por UN</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="BOBINA/SACO PICOTADO 35X50">
+  <div><div class="nome-s">BOBINA/SACO PICOTADO 35X50</div>
+  <div class="meta">R$ 0.07 por RL</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="CANETA PILOT">
+  <div><div class="nome-s">CANETA PILOT</div>
+  <div class="meta">R$ 4.17 por UN</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="COPO DESCARTAVEL 300ML">
+  <div><div class="nome-s">COPO DESCARTAVEL 300ML</div>
+  <div class="meta">R$ 0.08 por UN</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="FACA DESCARTAVEL">
+  <div><div class="nome-s">FACA DESCARTAVEL</div>
+  <div class="meta">R$ 0.19 por UN</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="GARFO DESCARTAVEL">
+  <div><div class="nome-s">GARFO DESCARTAVEL</div>
+  <div class="meta">R$ 0.19 por UN</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="GAS MACARICO">
+  <div><div class="nome-s">GAS MACARICO</div>
+  <div class="meta">R$ 15.25 por UN</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="GATILHO MACARICO">
+  <div><div class="nome-s">GATILHO MACARICO</div>
+  <div class="meta">R$ 21.06 por UN</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
+<div class="linha" data-item="GRAMPO">
+  <div><div class="nome-s">GRAMPO</div>
+  <div class="meta">R$ 7.72 por CX</div></div>
+  <input class="obs" type="text" placeholder="obs (em branco = ok)">
+</div>
   </section>
 
   <div class="rodape">
-    Preços mostrados são o custo atual por unidade (Formação de preços / NF de agosto) e o que o item
-    vira por quilo com o peso anotado. Devolver para o Neto — ele lança no sistema e a tabela de
-    preços atualiza sozinha. Gerado em 01/09/2026.
+    Catálogo enxugado em 01/09/2026: só itens pedidos nos últimos 3 meses. Devolvidas as respostas,
+    o Neto lança e a tabela de preços atualiza sozinha.
   </div>
 </div>
 
+<div class="barra">
+  <button id="btnEnviar" type="button">Enviar respostas</button>
+  <span class="estado" id="estado">nada preenchido ainda</span>
+  <textarea id="resumo" readonly></textarea>
+</div>
+
+<script>
+(function () {
+  var CHAVE = 'pesosListas_v2';
+  function q(sel, raiz) { return Array.prototype.slice.call((raiz || document).querySelectorAll(sel)); }
+
+  function coletar() {
+    var d = { pesos: {}, contagem: [], confere: [], obs: {} };
+    q('.item').forEach(function (el) {
+      var item = el.dataset.item;
+      var peso = el.querySelector('input.peso');
+      var original = el.dataset.original || null;
+      if (peso && peso.value && peso.value !== original) d.pesos[item] = peso.value;
+      var c1 = el.querySelector('input.contagem'); if (c1 && c1.checked) d.contagem.push(item);
+      var c2 = el.querySelector('input.confere'); if (c2 && c2.checked) d.confere.push(item);
+    });
+    q('.linha').forEach(function (el) {
+      var o = el.querySelector('input.obs');
+      if (o && o.value.trim()) d.obs[el.dataset.item] = o.value.trim();
+    });
+    return d;
+  }
+
+  function salvar() {
+    try { localStorage.setItem(CHAVE, JSON.stringify(coletar())); } catch (e) {}
+    atualizarEstado();
+  }
+
+  function restaurar() {
+    var d = null;
+    try { d = JSON.parse(localStorage.getItem(CHAVE) || 'null'); } catch (e) {}
+    if (!d) return;
+    q('.item').forEach(function (el) {
+      var item = el.dataset.item;
+      if (d.pesos && d.pesos[item]) { var p = el.querySelector('input.peso'); if (p) p.value = d.pesos[item]; }
+      if (d.contagem && d.contagem.indexOf(item) >= 0) { var c = el.querySelector('input.contagem'); if (c) c.checked = true; }
+      if (d.confere && d.confere.indexOf(item) >= 0) { var c2 = el.querySelector('input.confere'); if (c2) c2.checked = true; }
+    });
+    q('.linha').forEach(function (el) {
+      if (d.obs && d.obs[el.dataset.item]) { var o = el.querySelector('input.obs'); if (o) o.value = d.obs[el.dataset.item]; }
+    });
+  }
+
+  function atualizarEstado() {
+    var d = coletar();
+    var n = Object.keys(d.pesos).length + d.contagem.length + d.confere.length + Object.keys(d.obs).length;
+    document.getElementById('estado').textContent =
+      n ? n + ' resposta(s) preenchida(s) — salvas neste aparelho' : 'nada preenchido ainda';
+  }
+
+  function resumo() {
+    var d = coletar();
+    var L = ['PESOS DAS LISTAS — respostas da Rita'];
+    Object.keys(d.pesos).forEach(function (i) { L.push('PESO ' + i + ' = ' + d.pesos[i] + ' g'); });
+    d.contagem.forEach(function (i) { L.push('CONTAGEM (nao pesar): ' + i); });
+    d.confere.forEach(function (i) { L.push('CONFERE: ' + i); });
+    Object.keys(d.obs).forEach(function (i) { L.push('OBS ' + i + ': ' + d.obs[i]); });
+    if (L.length === 1) L.push('(nada preenchido)');
+    return L.join('\n');
+  }
+
+  document.getElementById('btnEnviar').addEventListener('click', function () {
+    var t = resumo();
+    var ta = document.getElementById('resumo');
+    ta.value = t; ta.style.display = 'block';
+    var fim = function (ok) {
+      document.getElementById('estado').textContent =
+        ok ? 'copiado! cola no WhatsApp do Neto' : 'copie o texto acima e mande para o Neto';
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(t).then(function () { fim(true); }, function () { fim(false); });
+    } else { ta.select(); fim(false); }
+  });
+
+  document.addEventListener('input', salvar);
+  document.addEventListener('change', salvar);
+  restaurar(); atualizarEstado();
+})();
+</script>
 </body>
 </html>
