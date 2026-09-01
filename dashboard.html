@@ -8446,13 +8446,14 @@ async function entrarListas() {
   if (!alvo) return;
   if (LISTAS === null) {
     alvo.innerHTML = '<div class="contexto">Carregando as transferências...</div>';
-    const [mensal, listas, abertura, fretePend] = await Promise.all([
-      consultarTudo('vw_tr_conta_listas_mensal?select=*&order=mes.desc'),
-      consultarTudo('vw_tr_listas?select=unidade,data_pedido,status,itens,valor_cobrado,frete,total_lista,itens_conferidos,itens_divergentes&order=data_pedido.desc&limit=40'),
-      consultarTudo('vw_tr_conta_abertura?select=*'),
-      consultarTudo('vw_tr_frete_pendente?select=*'),
+    // 01/09/2026, decisao do dono: o historico da era planilha VIVE nas
+    // planilhas (e segue no banco para consulta) — a tela e do modulo
+    // operante: conta do corte (ago/26) em diante e listas do painel.
+    const [mensal, listas] = await Promise.all([
+      consultarTudo('vw_tr_conta_listas_mensal?select=*&mes=gte.2026-08-01&order=mes.desc'),
+      consultarTudo('vw_tr_listas?select=unidade,data_pedido,status,itens,valor_cobrado,frete,total_lista,itens_conferidos,itens_divergentes&fonte=eq.PAINEL&order=data_pedido.desc&limit=30'),
     ]);
-    LISTAS = { mensal, listas, abertura, fretePend };
+    LISTAS = { mensal, listas };
   }
   renderModuloListas();
 }
@@ -8460,7 +8461,7 @@ async function entrarListas() {
 function renderModuloListas() {
   const alvo = document.getElementById('view-listas');
   if (!alvo || LISTAS === null) return;
-  const { mensal, listas, abertura, fretePend } = LISTAS;
+  const { mensal, listas } = LISTAS;
   const nu = (v) => Number(v) || 0;
   const ddmm = (d) => d ? d.slice(8, 10) + '/' + d.slice(5, 7) + '/' + d.slice(2, 4) : '—';
   const mesTxt = (m) => { const [a, mm] = m.split('-'); return MESES_ABREV[Number(mm) - 1] + '/' + a.slice(2); };
@@ -8502,7 +8503,6 @@ function renderModuloListas() {
     <td><b>R$ ${fmt(nu(r.total_devido))}</b></td>
     <td>R$ ${fmt(nu(r.total_pago))}</td>
     <td class="${r.sem_fechar ? 'negativo' : ''}">${r.sem_fechar ? 'SEM FECHAR' : 'fechado'}</td>
-    <td class="${Math.abs(nu(r.deriva_custo)) > 0.005 ? 'negativo' : ''}">${Math.abs(nu(r.deriva_custo)) > 0.005 ? 'R$ ' + fmt(nu(r.deriva_custo)) : '—'}</td>
   </tr>`).join('');
 
   const linhasListas = listas.map(l => `<tr>
@@ -8510,14 +8510,6 @@ function renderModuloListas() {
     <td>R$ ${fmt(nu(l.total_lista))}</td>
     <td>${l.status || '—'}</td>
     <td class="${nu(l.itens_conferidos) ? '' : 'negativo'}">${nu(l.itens_conferidos) ? l.itens_conferidos + '/' + l.itens : 'não conferida'}</td>
-  </tr>`).join('');
-
-  const linhasAbertura = abertura.map(a => `<tr>
-    <td>${a.unidade}</td><td>R$ ${fmt(nu(a.total_bancado))}</td>
-    <td>R$ ${fmt(nu(a.total_devolvido))}</td>
-    <td class="${nu(a.ainda_em_aberto) > 0.005 ? 'negativo' : ''}">R$ ${fmt(nu(a.ainda_em_aberto))}</td>
-    <td>${nu(a.repasse_lucro) ? 'R$ ' + fmt(nu(a.repasse_lucro)) : '—'}</td>
-    <td>${ddmm(a.desde)}</td>
   </tr>`).join('');
 
   // 01/09/2026, pedido do dono: o PROCESSO abre o módulo (é ele que a equipe
@@ -8531,46 +8523,30 @@ function renderModuloListas() {
     <div id="trOperacao"><div class="contexto">Carregando a operação...</div></div>
 
     <details style="margin-top:26px;">
-      <summary style="cursor:pointer; color:#a5a49a;" class="section-label">Conta e histórico — mês a mês, últimas listas, abertura</summary>
+      <summary style="cursor:pointer; color:#a5a49a;" class="section-label">A conta dos últimos meses e as listas do painel</summary>
       <div class="cards" style="margin-top:10px;">${cardsFarol}
-        <div class="card ${totConf ? 'neutral' : 'neg'}"><div class="card-lbl">Conferência na chegada</div>
+        ${listas.length ? `<div class="card ${totConf ? 'neutral' : 'neg'}"><div class="card-lbl">Conferência na chegada</div>
           <div class="card-val">${pctConf.toFixed(0)}%</div>
-          <div class="card-pct">${totConf ? totConf + ' de ' + totItens + ' itens conferidos' : 'ninguém confere o que chega — nas últimas ' + listas.length + ' listas, zero'}</div></div>
+          <div class="card-pct">${totConf + ' de ' + totItens + ' itens conferidos nas listas do painel'}</div></div>` : ''}
         ${derivas.length ? `<div class="card neg"><div class="card-lbl">Meses fechados reescritos</div>
           <div class="card-val">R$ ${fmt(Math.abs(derivaTotal))}</div>
           <div class="card-pct">${derivas.length} mês(es) — deriva positiva = cobrou a menos</div></div>` : ''}
       </div>
-      ${fretePend.length ? `<div class="contexto" style="border-color:#f5a623;">
-        <b>${fretePend.length} lista(s) do Boqueirão sem frete lançado</b> — a AV paga o entregador e recobra; sem o lançamento, a conta do mês fica menor do que deveria.</div>` : ''}
-      <div class="caption-label" style="text-align:center;">
-        Mês fechado vale pelo valor congelado; a coluna "deriva" mostra o quanto a planilha reescreveu depois (era da planilha, até ago/26).
-      </div>
 
-      <div class="section-label">A conta, mês a mês</div>
+      <div class="section-label">A conta, mês a mês (do corte de ago/26 em diante)</div>
+      <div class="caption-label" style="text-align:center;">
+        O histórico anterior vive nas planilhas aposentadas (e no banco, para consulta) — a tela é do módulo operante.
+      </div>
       <div id="tabelaTrMensal"><table>
-        <tr><th>Mês</th><th>Filial</th><th>Listas</th><th>Itens (R$)</th><th>Frete</th><th>Royalty</th><th>Devido</th><th>Pago</th><th>Situação</th><th>Deriva</th></tr>
+        <tr><th>Mês</th><th>Filial</th><th>Listas</th><th>Itens (R$)</th><th>Frete</th><th>Royalty</th><th>Devido</th><th>Pago</th><th>Situação</th></tr>
         ${linhasMes}
-        ${(() => { const t = mensal.reduce((a, r) => ({ l: a.l + Number(r.listas || 0), v: a.v + nu(r.valor_lista),
-            f: a.f + nu(r.frete), ry: a.ry + nu(r.royalty), d: a.d + nu(r.total_devido), p: a.p + nu(r.total_pago) }),
-            { l: 0, v: 0, f: 0, ry: 0, d: 0, p: 0 });
-          return `<tr class="liq"><td>TOTAL</td><td>—</td><td>${t.l}</td><td>R$ ${fmt(t.v)}</td>
-            <td>R$ ${fmt(t.f)}</td><td>R$ ${fmt(t.ry)}</td><td><b>R$ ${fmt(t.d)}</b></td><td>R$ ${fmt(t.p)}</td>
-            <td></td><td>${Math.abs(derivaTotal) > 0.005 ? 'R$ ' + fmt(derivaTotal) : '—'}</td></tr>`; })()}
       </table></div>
 
-      <div class="section-label">Últimas listas</div>
+      ${listas.length ? `<div class="section-label">Listas do painel</div>
       <div id="tabelaTrListas"><table>
         <tr><th>Pedida em</th><th>Filial</th><th>Itens</th><th>Valor</th><th>Status</th><th>Conferida?</th></tr>
         ${linhasListas}
-      </table></div>
-
-      <details style="margin-top:14px;">
-        <summary style="cursor:pointer; color:#a5a49a;">Conta de abertura das filiais (histórico)</summary>
-        <div id="tabelaTrAbertura" style="margin-top:8px;"><table>
-          <tr><th>Filial</th><th>Bancado pela AV</th><th>Devolvido</th><th>Em aberto</th><th>Lucro p/ Holding</th><th>Desde</th></tr>
-          ${linhasAbertura}
-        </table></div>
-      </details>
+      </table></div>` : ''}
     </details>`;
   entrarOperacaoListas();
 }
