@@ -66,8 +66,8 @@
       As listas agora se movimentam <b>por quilo</b> (menos embalagens). <b>Rita:</b> pesa 1 unidade
       pronta de cada item das duas primeiras partes e digita os gramas (média de 3 pesagens serve bem).
       Na terceira parte é só passar o olho no catálogo inteiro — algo estranho, anota na caixinha.
-      O que você digita <b>fica salvo neste aparelho</b>; no final, toque em <b>Enviar respostas</b>
-      e mande o texto no WhatsApp do Neto.
+      O que você digita <b>fica salvo neste aparelho</b> (pode fechar e voltar depois). No final,
+      toque em <b>📲 Enviar no WhatsApp</b>, escolha a conversa do Neto e envie.
     </p>
   </header>
 
@@ -734,7 +734,8 @@
 </div>
 
 <div class="barra">
-  <button id="btnEnviar" type="button">Enviar respostas</button>
+  <button id="btnZap" type="button">📲 Enviar no WhatsApp</button>
+  <button id="btnEnviar" type="button" style="background:#6f675c;">copiar texto</button>
   <span class="estado" id="estado">nada preenchido ainda</span>
   <textarea id="resumo" readonly></textarea>
 </div>
@@ -799,6 +800,14 @@
     return L.join('\n');
   }
 
+  // A v2 so copiava o texto e a resposta da Rita ficou no celular dela
+  // (01/09/2026). Agora o botao principal ABRE o WhatsApp com o texto pronto —
+  // ela so escolhe a conversa do Neto e envia.
+  document.getElementById('btnZap').addEventListener('click', function () {
+    var t = resumo();
+    window.open('https://wa.me/?text=' + encodeURIComponent(t), '_blank');
+    document.getElementById('estado').textContent = 'abrindo o WhatsApp — escolha a conversa do Neto e envie';
+  });
   document.getElementById('btnEnviar').addEventListener('click', function () {
     var t = resumo();
     var ta = document.getElementById('resumo');
