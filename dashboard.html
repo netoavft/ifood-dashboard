@@ -683,7 +683,8 @@
 
     <button class="sidebar-secao" onclick="toggleGrupo('gProducao')">Produção e estoque <span class="seta">▶</span></button>
     <div class="sidebar-grupo" id="gProducao">
-      <button class="sidebar-btn" id="navBtnListas" onclick="mostrarModulo('listas')"><span class="mico">📦</span>Transferências AV → filiais</button>
+      <button class="sidebar-btn" id="navBtnListas" onclick="mostrarModulo('listas')"><span class="mico">📦</span>Listas · Pedidos</button>
+      <button class="sidebar-btn" id="navBtnListasFin" onclick="mostrarModulo('listasfin')"><span class="mico">🧾</span>Listas · Financeiro</button>
     </div>
 
     <button class="sidebar-secao" onclick="toggleGrupo('gSistema')">Sistema <span class="seta">▶</span></button>
@@ -826,6 +827,10 @@
 
     <div id="modulo-listas" class="modulo" style="display:none;">
       <div id="view-listas"></div>
+    </div>
+
+    <div id="modulo-listasfin" class="modulo" style="display:none;">
+      <div id="view-listasfin"></div>
     </div>
 
     <div id="modulo-fichas" class="modulo" style="display:none;">
@@ -1516,6 +1521,7 @@ function mostrarModulo(nome) {
     logfin: ['modulo-logfin', 'navBtnLogfin'],
     frete: ['modulo-frete', 'navBtnFrete'],
     listas: ['modulo-listas', 'navBtnListas'],
+    listasfin: ['modulo-listasfin', 'navBtnListasFin'],
     // rateio ficou de fora do mapa quando o modulo nasceu (22/08): entrarRateio()
     // buscava os dados e o div nunca era exibido — a tela abria vazia.
     rateio: ['modulo-rateio', 'navBtnRateio'],
@@ -1569,6 +1575,7 @@ function mostrarModulo(nome) {
   if (nome === 'logfin') entrarLogfin();
   if (nome === 'frete') entrarFrete();
   if (nome === 'listas') entrarListas();
+  if (nome === 'listasfin') entrarListasFin();
   if (nome === 'fichas') entrarFichas();
   if (nome === 'engcard') entrarEngcard();
   if (nome === 'plano') entrarPlano();
@@ -1605,6 +1612,7 @@ function moduloAtivo() {
   if (atr && atr.style.display !== 'none') return 'atrasos';
   for (const [idm, nomem] of [['modulo-site','site'],
                               ['modulo-frete','frete'], ['modulo-listas','listas'],
+                              ['modulo-listasfin','listasfin'],
                               ['modulo-fichas','fichas'], ['modulo-engcard','engcard'],
                               ['modulo-plano','plano'],
                               ['modulo-reembolsos','reembolsos'], ['modulo-rh','rh']]) {
@@ -8441,25 +8449,57 @@ function renderLucroUni() {
   });
 }
 
-async function entrarListas() {
+// 01/09/2026, decisao do dono: DOIS modulos. "Listas · Pedidos" e o ciclo que
+// os envolvidos operam (pedido, separacao, conferencia, tabela de precos);
+// "Listas · Financeiro" e o dinheiro (fechamento, contas a pagar, conta mes a
+// mes, CMV). As telas continuam fechadas por papel — mudou o endereco, nao a
+// permissao. So um dos modulos mantem o container da operacao no DOM por vez
+// (o outro e esvaziado), para os ids trOperacao/trTelaConteudo nao duplicarem.
+let TR_MODULO = 'pedidos';
+const TR_TELAS_MODULO = {
+  pedidos:    ['pedido', 'separacao', 'conferencia', 'precos'],
+  financeiro: ['fechamento', 'contas', 'cmv'],
+};
+
+async function entrarListas() {   // Listas · Pedidos
   const alvo = document.getElementById('view-listas');
   if (!alvo) return;
+  const outro = document.getElementById('view-listasfin');
+  if (outro) outro.innerHTML = '';
+  if (TR_MODULO !== 'pedidos') trTela = null;
+  TR_MODULO = 'pedidos';
+  alvo.innerHTML = `
+    <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Listas · Pedidos</div>
+    <div class="caption-label" style="text-align:center;">
+      A filial pede, a Água Verde separa e envia, quem recebe confere — tudo por peso (kg), menos embalagens.
+      Preço de tabela = CMV + 19% de custo de produção, congelado no ato do pedido.
+      Fechamento e contas ficam em <b>Listas · Financeiro</b>.
+    </div>
+    <div id="trOperacao"><div class="contexto">Carregando a operação...</div></div>`;
+  entrarOperacaoListas();
+}
+
+async function entrarListasFin() {   // Listas · Financeiro
+  const alvo = document.getElementById('view-listasfin');
+  if (!alvo) return;
+  const outro = document.getElementById('view-listas');
+  if (outro) outro.innerHTML = '';
+  if (TR_MODULO !== 'financeiro') trTela = null;
+  TR_MODULO = 'financeiro';
   if (LISTAS === null) {
     alvo.innerHTML = '<div class="contexto">Carregando as transferências...</div>';
-    // 01/09/2026, decisao do dono: o historico da era planilha VIVE nas
-    // planilhas (e segue no banco para consulta) — a tela e do modulo
-    // operante: conta do corte (ago/26) em diante e listas do painel.
+    // historico da era planilha vive nas planilhas; aqui e do corte em diante
     const [mensal, listas] = await Promise.all([
       consultarTudo('vw_tr_conta_listas_mensal?select=*&mes=gte.2026-08-01&order=mes.desc'),
       consultarTudo('vw_tr_listas?select=unidade,data_pedido,status,itens,valor_cobrado,frete,total_lista,itens_conferidos,itens_divergentes&fonte=eq.PAINEL&order=data_pedido.desc&limit=30'),
     ]);
     LISTAS = { mensal, listas };
   }
-  renderModuloListas();
+  renderModuloListasFin();
 }
 
-function renderModuloListas() {
-  const alvo = document.getElementById('view-listas');
+function renderModuloListasFin() {
+  const alvo = document.getElementById('view-listasfin');
   if (!alvo || LISTAS === null) return;
   const { mensal, listas } = LISTAS;
   const nu = (v) => Number(v) || 0;
@@ -8512,13 +8552,11 @@ function renderModuloListas() {
     <td class="${nu(l.itens_conferidos) ? '' : 'negativo'}">${nu(l.itens_conferidos) ? l.itens_conferidos + '/' + l.itens : 'não conferida'}</td>
   </tr>`).join('');
 
-  // 01/09/2026, pedido do dono: o PROCESSO abre o módulo (é ele que a equipe
-  // usa todo dia); a conta mês a mês vira consulta recolhida no fim.
   alvo.innerHTML = `
-    <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Transferências Água Verde → filiais</div>
+    <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Listas · Financeiro</div>
     <div class="caption-label" style="text-align:center;">
-      A filial pede, a Água Verde separa e envia, quem recebe confere — e o fechamento gera as contas.
-      Desde 01/09/2026 a lista nasce aqui (a planilha aposentou) e o preço de tabela é CMV + 19% de custo de produção.
+      O dinheiro das transferências: fechamento do mês (a Rita valida), contas a pagar
+      (Água Verde e Michiro) e a conta mês a mês. O ciclo do pedido vive em <b>Listas · Pedidos</b>.
     </div>
     <div id="trOperacao"><div class="contexto">Carregando a operação...</div></div>
 
@@ -8605,7 +8643,10 @@ async function trFazerLogin() {
   TR_OP = null;
   entrarOperacaoListas();
 }
-function trSair() { localStorage.removeItem('rmbSessao'); TR_OP = null; trTela = null; renderModuloListas(); }
+function trSair() {
+  localStorage.removeItem('rmbSessao'); TR_OP = null; trTela = null;
+  (TR_MODULO === 'financeiro' ? entrarListasFin : entrarListas)();
+}
 
 async function entrarOperacaoListas() {
   const alvo = document.getElementById('trOperacao');
@@ -8645,7 +8686,6 @@ async function entrarOperacaoListas() {
       return;
     }
   }
-  if (!trTela) trTela = { SEPARACAO: 'separacao', FILIAL: 'pedido', FINANCEIRO: 'contas' }[TR_OP.papel] || 'separacao';
   trRenderOperacao();
 }
 
@@ -8653,14 +8693,23 @@ function trRenderOperacao() {
   const alvo = document.getElementById('trOperacao');
   if (!alvo) return;
   const { papel, unidade } = TR_OP;
-  const telas = [];
+  let telas = [];
   if (papel === 'FILIAL' || papel === 'DONO') telas.push(['pedido', '📝 Novo pedido']);
   if (papel === 'SEPARACAO' || papel === 'DONO') telas.push(['separacao', '📦 Fila de separação']);
   if (papel === 'FILIAL' || papel === 'DONO') telas.push(['conferencia', '✅ Conferência']);
+  telas.push(['precos', '💰 Tabela de preços']);
   if (papel === 'SEPARACAO' || papel === 'DONO') telas.push(['fechamento', '🧾 Fechamento do mês']);
   telas.push(['contas', '💳 Contas a pagar']);
-  telas.push(['precos', '💰 Tabela de preços']);
   telas.push(['cmv', '📈 CMV semanal']);
+  // cada modulo mostra so as suas telas (a permissao continua a mesma)
+  telas = telas.filter(([id]) => TR_TELAS_MODULO[TR_MODULO].includes(id));
+  if (!telas.length) {
+    alvo.innerHTML = `<div class="contexto">Logado como <b>${rmbSessao().email}</b> (papel ${papel}).
+      As telas do seu papel ficam no módulo <b>Listas · ${TR_MODULO === 'pedidos' ? 'Financeiro' : 'Pedidos'}</b>.
+      <button class="preset-btn" onclick="trSair()">sair</button></div>`;
+    return;
+  }
+  if (!trTela || !telas.some(([id]) => id === trTela)) trTela = telas[0][0];
   alvo.innerHTML = `
     <div class="caption-label">Logado: <b>${rmbSessao().email}</b> · papel <b>${papel}</b>${unidade ? ' · ' + unidade : ''}
       <button class="preset-btn" style="margin-left:8px;" onclick="trSair()">sair</button></div>
@@ -12553,7 +12602,8 @@ function renderAll() {
   if (ativo === 'atrasos' && ATRASOS !== null) renderModuloAtrasos();
   if (ativo === 'logfin' && LOGFIN !== null) renderModuloLogfin();
   if (ativo === 'frete' && FRETE !== null) renderModuloFrete(FRETE);
-  if (ativo === 'listas' && LISTAS !== null) renderModuloListas();
+  if (ativo === 'listas') entrarListas();
+  if (ativo === 'listasfin' && LISTAS !== null) renderModuloListasFin();
   if (ativo === 'reembolsos' && REEMBOLSOS !== null) renderModuloReembolsos(REEMBOLSOS);
   if (ativo === 'rh' && RH !== null) renderModuloRh();
   if (ativo === 'negociacoes' && NEGOCIACOES !== null) renderModuloNegociacoes();
