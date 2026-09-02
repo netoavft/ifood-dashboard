@@ -181,6 +181,52 @@
   #tabelaContasDia th, #tabelaContasDia td { padding:3px 10px; }
   #tabelaContasDia td { font-size:12px; }
   /* tabelas hierarquicas (blocos/grupos/linhas) pintam o fundo por conta propria */
+  /* ===== Fechamento do mes / A semana (02/09/2026): em portugues, para leigo ===== */
+  .fx-rotulo { font-size:11px; font-weight:700; letter-spacing:.09em; text-transform:uppercase; color:#a5a49a; }
+  .fx-cab-topo { display:flex; justify-content:space-between; align-items:flex-end; gap:14px; flex-wrap:wrap; margin:14px 0 6px; }
+  .fx-h1 { font-size:26px; font-weight:800; letter-spacing:-.02em; margin:2px 0 0; color:#fff; }
+  .fx-sub { color:#a5a49a; font-size:14px; max-width:64ch; margin-top:4px; }
+  .fx-seg { display:inline-flex; flex-wrap:wrap; gap:2px; background:#1a1a19; border:1px solid #2e2d2a; border-radius:8px; padding:3px; }
+  .fx-seg button { border:0; background:transparent; color:#a5a49a; font-weight:600; padding:6px 11px; border-radius:6px; cursor:pointer; font-size:12px; }
+  .fx-seg button.ativo { background:#2b2a27; color:#fff; box-shadow:0 1px 2px rgba(0,0,0,.4); }
+  .fx-secao { display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; border-bottom:2px solid #c8102e; padding-bottom:5px; margin:30px 0 10px; }
+  .fx-secao h3 { font-size:18px; margin:0; color:#fff; } .fx-secao span { font-size:12.5px; color:#a5a49a; }
+  .fx-tiles { display:grid; grid-template-columns:repeat(auto-fit, minmax(230px, 1fr)); gap:10px; }
+  .fx-tile, .fx-caixa, .fx-destaque, .fx-cem, .fx-frases, .fx-tabela { background:#1a1a19; border:1px solid #2e2d2a; border-radius:10px; padding:14px 16px; }
+  .fx-valor { font-size:28px; font-weight:800; letter-spacing:-.02em; font-variant-numeric:tabular-nums; margin-top:2px; line-height:1.1; color:#fff; }
+  .fx-valor.neg, .fx-valor-g.neg { color:#ff6b6b; }
+  .fx-valor-g { font-size:36px; font-weight:800; letter-spacing:-.02em; font-variant-numeric:tabular-nums; line-height:1.05; color:#fff; }
+  .fx-var { font-size:14px; margin-top:6px; color:#e8e6dc; } .fx-var b { font-weight:700; }
+  .fx-extra { font-size:12.5px; color:#a5a49a; margin-top:2px; }
+  .fx-lista { margin:8px 0 0; padding:0; list-style:none; font-size:13px; color:#a5a49a; }
+  .fx-lista li { display:flex; justify-content:space-between; gap:8px; border-top:1px dashed #2e2d2a; padding:3px 0; }
+  .fx-spark { margin-top:10px; } .fx-spark svg { display:block; width:100%; height:52px; overflow:visible; }
+  .fx-eixo { display:flex; justify-content:space-between; font-size:10.5px; color:#a5a49a; letter-spacing:.04em; margin-top:2px; }
+  .fx-pill { display:inline-block; font-size:11px; font-weight:700; letter-spacing:.05em; padding:2px 9px; border-radius:99px; text-transform:uppercase; }
+  .fx-pill.ok { background:#1f3a22; color:#3fb950; } .fx-pill.atencao { background:#3a2f16; color:#f5a623; } .fx-pill.fora { background:#42221f; color:#ff6b6b; } .fx-pill.neutro { background:#2b2a27; color:#a5a49a; }
+  .fx-destaque { border-left:6px solid #c8102e; } .fx-destaque p { margin:8px 0 0; max-width:52ch; color:#e8e6dc; }
+  .fx-duas { display:grid; grid-template-columns:1fr; gap:10px; } @media (min-width:900px) { .fx-duas { grid-template-columns:1.1fr 1fr; } }
+  .fx-cem .fx-linha { display:grid; grid-template-columns:minmax(150px,1.2fr) 64px 3fr 150px; gap:10px; align-items:center; padding:7px 0; border-bottom:1px dashed #2e2d2a; }
+  .fx-cem .fx-linha:last-child { border-bottom:0; }
+  .fx-nome { font-weight:600; color:#fff; } .fx-nome small { display:block; font-weight:400; color:#a5a49a; font-size:12px; }
+  .fx-num { font-weight:800; font-size:20px; text-align:right; font-variant-numeric:tabular-nums; color:#fff; }
+  .fx-barra { height:12px; background:#2b2a27; border-radius:4px; overflow:hidden; } .fx-barra i { display:block; height:100%; background:#c8102e; opacity:.85; border-radius:4px; }
+  .fx-linha.sobrou .fx-barra i { background:#3fb950; } .fx-linha.sobrou.atencao .fx-barra i { background:#f5a623; } .fx-linha.sobrou.fora .fx-barra i { background:#ff6b6b; }
+  .fx-jul { font-size:12px; color:#a5a49a; text-align:right; white-space:nowrap; }
+  @media (max-width:640px) { .fx-cem .fx-linha { grid-template-columns:1fr 56px; } .fx-barra, .fx-jul { grid-column:1 / -1; } .fx-jul { text-align:left; } }
+  .fx-caixa h4 { margin:0 0 6px; font-size:15px; color:#fff; } .fx-caixa ul { margin:6px 0 0; padding:0; list-style:none; }
+  .fx-caixa li { display:flex; justify-content:space-between; gap:10px; padding:5px 0; border-bottom:1px dashed #2e2d2a; font-size:13.5px; color:#e8e6dc; }
+  .fx-caixa li b { font-variant-numeric:tabular-nums; white-space:nowrap; } .fx-caixa li span small { display:block; color:#a5a49a; font-size:11.5px; }
+  .fx-caixa li.res { border-bottom:0; font-weight:800; font-size:16px; padding-top:8px; } .fx-caixa li.res.neg b { color:#ff6b6b; } .fx-caixa li.res.pos b { color:#3fb950; }
+  .fx-mandar { margin-top:10px; padding:8px 10px; border-radius:6px; background:#2b2a27; font-size:13.5px; color:#e8e6dc; }
+  .fx-frases { padding:4px 16px; } .fx-frases p { margin:0; padding:10px 0; border-bottom:1px dashed #2e2d2a; font-size:15.5px; max-width:72ch; color:#e8e6dc; } .fx-frases p:last-child { border-bottom:0; }
+  .fx-tabela { overflow-x:auto; padding:6px 10px; } .fx-tabela table { width:100%; border-collapse:collapse; font-size:13.5px; }
+  .fx-tabela th { font-size:11px; letter-spacing:.07em; text-transform:uppercase; color:#a5a49a; text-align:right; padding:7px 9px; border-bottom:1px solid #2e2d2a; }
+  .fx-tabela th:first-child, .fx-tabela th.esq { text-align:left; }
+  .fx-tabela td { padding:6px 9px; border-bottom:1px solid #2e2d2a; text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; color:#e8e6dc; }
+  .fx-tabela td:first-child { text-align:left; } .fx-tabela td.esq { text-align:left; white-space:normal; color:#a5a49a; } .fx-tabela tr.tot td { font-weight:700; border-top:2px solid #45443f; }
+  .fx-nota { font-size:12.5px; color:#a5a49a; margin-top:8px; max-width:80ch; }
+  .fx-rodape { margin-top:26px; font-size:12px; color:#8a897e; border-top:1px solid #2e2d2a; padding-top:10px; max-width:85ch; }
   #tabelaDFC tr, #tabelaDRE tr, #tabelaDespesas tr { background:transparent; --linha-fundo:var(--fundo-tabela, #111110); }
 
   /* COLUNA FIXA EM TODA TABELA LARGA (padrao nascido no DFC/DRE, 16/08/2026).
@@ -625,6 +671,10 @@
       <button class="sidebar-btn" id="navBtnPlano" onclick="mostrarModulo('plano')"><span class="mico">🗺️</span>Plano</button>
       <button class="sidebar-btn active" id="navBtnEstaSemana" onclick="mostrarModulo('estasemana')"><span class="mico">🏠</span>Esta semana</button>
       <button class="sidebar-btn" id="navBtnIndicadores" onclick="mostrarModulo('indicadores')"><span class="mico">🎯</span>Indicadores e metas</button>
+      <!-- Em portugues, para a Jane e o Fabio (02/09/2026): a semana fechada e o mes fechado
+           em uma pagina cada — quanto vendeu, para onde foi cada R$ 100, quanto sobrou, o caixa. -->
+      <button class="sidebar-btn" id="navBtnSemana" onclick="mostrarModulo('semana')"><span class="mico">📅</span>A semana</button>
+      <button class="sidebar-btn" id="navBtnFechamento" onclick="mostrarModulo('fechamento')"><span class="mico">📖</span>Fechamento do mês</button>
     </div>
 
     <button class="sidebar-secao" onclick="toggleGrupo('gResultado')">Resultado <span class="seta">▶</span></button>
@@ -879,6 +929,14 @@
 
     <div id="modulo-dre" class="modulo" style="display:none;">
       <div id="view-dre"></div>
+    </div>
+
+    <div id="modulo-semana" class="modulo" style="display:none;">
+      <div id="view-semana"></div>
+    </div>
+
+    <div id="modulo-fechamento" class="modulo" style="display:none;">
+      <div id="view-fechamento"></div>
     </div>
 
     <div id="modulo-rateio" class="modulo" style="display:none;">
@@ -1449,6 +1507,7 @@ function toggleGrupo(id) {
 // a Cancelamentos a partir da Visao geral, ou o modulo inicial no boot).
 function abrirGrupoDoModulo(nome) {
   const grupoDe = { plano: 'gComecar', estasemana: 'gComecar', indicadores: 'gComecar',
+                    semana: 'gComecar', fechamento: 'gComecar',
                     consolidada: 'gResultado', dre: 'gResultado',
                     engcard: 'gResultado', fichas: 'gResultado', rateio: 'gResultado',
                     site: 'gSite',
@@ -1509,6 +1568,8 @@ function mostrarModulo(nome) {
     site: ['modulo-site', 'navBtnSite'],
     fluxo: ['modulo-fluxo', 'navBtnFluxo'],
     dre: ['modulo-dre', 'navBtnDre'],
+    semana: ['modulo-semana', 'navBtnSemana'],
+    fechamento: ['modulo-fechamento', 'navBtnFechamento'],
     projecao: ['modulo-projecao', 'navBtnProjecao'],
     despesas: ['modulo-despesas', 'navBtnDespesas'],
     conciliacao: ['modulo-conciliacao', 'navBtnConciliacao'],
@@ -1589,6 +1650,8 @@ function mostrarModulo(nome) {
   if (nome === 'rotinas') entrarRotinas();
   if (nome === 'fluxo') entrarFluxo();
   if (nome === 'dre') entrarDre();
+  if (nome === 'semana') entrarSemana();
+  if (nome === 'fechamento') entrarFechamento();
   if (nome === 'rateio') entrarRateio();
   if (nome === 'lucrouni') entrarLucroUni();
   if (nome === 'projecao') entrarProjecao();
@@ -10226,6 +10289,343 @@ document.addEventListener('click', (e) => {
   if (MODULO_ATUAL === 'fluxo') renderModuloDFC();
   else if (MODULO_ATUAL === 'dre') renderModuloDRE();
   else if (MODULO_ATUAL === 'concbanco') renderConcbanco();
+  else if (MODULO_ATUAL === 'semana' && FX_S) renderSemana();
+  else if (MODULO_ATUAL === 'fechamento' && FX_M) renderFechamento();
+});
+
+// ===== Fechamento do mes e A semana — em portugues, para a Jane e o Fabio (02/09/2026) =====
+// Mesmos numeros das paginas "Agosto em uma pagina" e "A Semana das Lojas"
+// (contexto/project_fechamento_para_leigos.md). Regras: um mes/semana contra o
+// anterior; "de cada R$ 100"; farol em PALAVRA; fato separado de interpretacao.
+// Fontes: views vw_fin_* e vw_sem_*/mv_sem_* (script/sql/fechamento_semana.sql).
+const FX_TODAS = ['AGUA VERDE', 'AHU', 'SÃO BRAZ'];
+const fxLojas = () => LOJA_FIN === 'REDE' ? FX_TODAS : [LOJA_FIN];
+const fxN = v => Number(v) || 0;
+const fxSoma = (rows, campo) => rows.reduce((s, r) => s + fxN(r[campo]), 0);
+function fxMil(v) {
+  const a = Math.abs(v), s = v < 0 ? '−' : '';
+  if (a >= 1e6) return s + 'R$ ' + (a / 1e6).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' mi';
+  if (a >= 1e5) return s + 'R$ ' + Math.round(a / 1e3).toLocaleString('pt-BR') + ' mil';
+  if (a >= 1e4) return s + 'R$ ' + (a / 1e3).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' mil';
+  return s + 'R$ ' + Math.round(a).toLocaleString('pt-BR');
+}
+const fxInt = v => Math.round(v).toLocaleString('pt-BR');
+const fxPct1 = v => v.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%';
+const fxR2 = v => 'R$ ' + v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+function fxVar(a, b, rotAnt) {
+  if (!b || Math.abs(b) < 0.005) return '';
+  const d = (a - b) / Math.abs(b) * 100;
+  if (Math.abs(d) < 0.5) return `<b>ficou igual</b> ${rotAnt}`;
+  return `<b>${d > 0 ? 'subiu' : 'caiu'} ${fxPct1(Math.abs(d))}</b> ${rotAnt}`;
+}
+function fxFarol(valor, meta, sentido) {
+  const dist = sentido === 'abaixo' ? valor - meta : meta - valor;
+  if (dist <= 0) return ['ok', 'dentro da meta'];
+  if (dist <= meta * 0.10) return ['atencao', 'perto da meta'];
+  return ['fora', 'fora da meta'];
+}
+const fxHojeSP = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
+function fxSegunda(dataStr) { const d = new Date(dataStr + 'T12:00:00'); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.toISOString().slice(0, 10); }
+function fxSomaDias(dataStr, n) { const d = new Date(dataStr + 'T12:00:00'); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); }
+const fxDM = s => { const [, m, d] = s.split('-'); return `${Number(d)}/${m}`; };
+const FX_MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+const FX_MESES_LONGO = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+const fxMesRot = m => FX_MESES[Number(m.slice(5, 7)) - 1];
+const fxMesLongo = m => FX_MESES_LONGO[Number(m.slice(5, 7)) - 1];
+const fxSemRot = s => `${fxDM(s)} a ${fxDM(fxSomaDias(s, 6))}`;
+
+// linha dos ultimos periodos: uma serie, uma cor, ponto final em destaque, titulo em cada ponto
+function fxSpark(vals, rotulos, fmt) {
+  if (!vals.length) return '';
+  const W = 300, H = 50, P = 6, min = Math.min(...vals), max = Math.max(...vals);
+  const y = v => max === min ? H / 2 : P + (H - 2 * P) * (1 - (v - min) / (max - min));
+  const xs = vals.map((_, i) => P + i * (W - 2 * P) / Math.max(1, vals.length - 1));
+  const pts = vals.map((v, i) => `${xs[i].toFixed(1)},${y(v).toFixed(1)}`);
+  const area = `M${pts[0]} L${pts.join(' L')} L${xs[xs.length - 1].toFixed(1)},${H} L${xs[0].toFixed(1)},${H} Z`;
+  const circ = vals.map((v, i) => `<circle cx="${xs[i].toFixed(1)}" cy="${y(v).toFixed(1)}" r="${i === vals.length - 1 ? 4 : 3}" fill="${i === vals.length - 1 ? '#c8102e' : '#1a1a19'}" stroke="#c8102e" stroke-width="${i === vals.length - 1 ? 0 : 1.5}"><title>${rotulos[i]}: ${fmt(v)}</title></circle>`).join('');
+  const iMax = vals.indexOf(max);
+  const lab = `<text x="${xs[iMax].toFixed(1)}" y="${(y(max) - 7).toFixed(1)}" text-anchor="${iMax > vals.length - 3 ? 'end' : iMax < 2 ? 'start' : 'middle'}" font-size="11" fill="#a5a49a">${rotulos[iMax]} ${fmt(max)}</text>`;
+  return `<div class="fx-spark"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img"><path d="${area}" fill="rgba(200,16,46,.14)"/><polyline points="${pts.join(' ')}" fill="none" stroke="#c8102e" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>${lab}${circ}</svg><div class="fx-eixo"><span>${rotulos[0]}</span><span>${rotulos[rotulos.length - 1]}</span></div></div>`;
+}
+const fxTile = (r, v, varr, extra, sp, lista) => `<div class="fx-tile"><div class="fx-rotulo">${r}</div><div class="fx-valor${(typeof v === 'number' && v < 0) ? ' neg' : ''}">${typeof v === 'number' ? fxMil(v) : v}</div><div class="fx-var">${varr || ''}</div><div class="fx-extra">${extra || ''}</div>${lista || ''}${sp || ''}</div>`;
+const fxPill = (f) => `<span class="fx-pill ${f[0]}">${f[1]}</span>`;
+const fxSeg = (id, itens, sel) => `<div class="fx-seg" data-seg="${id}">${itens.map(([v, rot]) => `<button data-v="${v}" class="${v === sel ? 'ativo' : ''}">${rot}</button>`).join('')}</div>`;
+
+// ---------------- FECHAMENTO DO MES ----------------
+let FX_M = null;           // dados carregados uma vez
+let FX_MES_SEL = null;
+const FX_SUBT_PDV = ['RECEITAS CARTAO', 'RECEITAS ONLINE', 'RECEITAS DINHEIRO', 'RECEITAS FIADO'];
+const FX_GRUPOS = { CUSTO: ['MATERIA PRIMA', 'USO E CONSUMO'], PESSOAL: ['PESSOAL', 'PRO LABORE'],
+  VENDA: ['DESPESAS COMERCIAIS', 'DESPESAS LOGISTICA', 'DESPESAS MARKETING'],
+  ADMIN: ['DESPESAS ADMINISTRATIVAS', 'DESPESAS MANUTENÇÃO', 'IMPOSTOS E TAXAS'] };
+async function entrarFechamento() {
+  const alvo = document.getElementById('view-fechamento');
+  if (!FX_M) {
+    alvo.innerHTML = '<div class="contexto">Carregando o fechamento...</div>';
+    const [dre, vendas, taxas, benef, ponte, metas] = await Promise.all([
+      consultarTudo('vw_fin_dre_mensal?select=unidade,mes,natureza,tipo,subtipo,credito,debito&mes=gte.2026-01-01'),
+      consultarTudo('vw_mes_vendas?select=mes,unidade,canal,pedidos,faturamento&mes=gte.2026-01-01'),
+      consultarTudo('mv_conciliacao_agregado?select=data,grupo,valor&unidade=eq.AGUA%20VERDE'),
+      consultarTudo('vw_fin_dre_beneficio?select=mes,unidade,beneficio_ifood'),
+      consultarTudo('vw_fin_ponte_mensal?select=*'),
+      consultarTudo('fin_metas_dre?select=chave,sentido,pct_meta'),
+    ]);
+    const metasMap = {}; metas.forEach(m => { metasMap[m.chave] = { sentido: m.sentido, meta: fxN(m.pct_meta) }; });
+    FX_M = { dre, vendas, taxas, benef, ponte, metas: metasMap };
+    const meses = [...new Set(dre.map(r => r.mes))].sort().filter(m => m.slice(0, 7) < mesCorrenteSP());
+    FX_MES_SEL = meses[meses.length - 1];
+  }
+  renderFechamento();
+}
+function fxMesCalc(mes) {
+  const L = fxLojas();
+  const rows = FX_M.dre.filter(r => r.mes === mes && L.includes(r.unidade));
+  const s = (pred, sinal = 1) => rows.reduce((a, r) => a + (pred(r) ? (fxN(r.credito) - fxN(r.debito)) * sinal : 0), 0);
+  const v = FX_M.vendas.filter(r => r.mes === mes && L.includes(r.unidade));
+  const canais = {}; v.forEach(r => { canais[r.canal] = (canais[r.canal] || 0) + fxN(r.faturamento); });
+  const recBruta = fxSoma(v, 'faturamento'), pedidos = fxSoma(v, 'pedidos');
+  const recPdv = s(r => r.natureza === 'RECEITAS' && FX_SUBT_PDV.includes(r.subtipo));
+  const outras = s(r => r.natureza === 'RECEITAS' && !FX_SUBT_PDV.includes(r.subtipo));
+  const outrasDet = {}; rows.forEach(r => { if (r.natureza === 'RECEITAS' && !FX_SUBT_PDV.includes(r.subtipo)) outrasDet[r.subtipo] = (outrasDet[r.subtipo] || 0) + fxN(r.credito) - fxN(r.debito); });
+  let anuncios = 0;
+  if (L.includes('AGUA VERDE')) FX_M.taxas.forEach(r => { if (r.data.slice(0, 7) === mes.slice(0, 7) && r.grupo === 'ANUNCIOS') anuncios -= fxN(r.valor); });
+  const taxasCanais = recBruta - recPdv - anuncios;
+  const deducoes = s(r => r.natureza === 'DEDUÇOES DA RECEITA' && r.subtipo !== 'IRPJ', -1);
+  const irpj = s(r => r.natureza === 'DEDUÇOES DA RECEITA' && r.subtipo === 'IRPJ', -1);
+  const grupos = {};
+  Object.entries(FX_GRUPOS).forEach(([k, tipos]) => { grupos[k] = s(r => r.natureza === 'DESPESAS' && r.tipo !== 'INVESTIMENTOS' && tipos.includes(r.tipo), -1); });
+  grupos.VENDA += anuncios;
+  const mapeados = Object.values(FX_GRUPOS).flat().concat(['DESPESAS FINANCEIRAS']);
+  const outrasDesp = s(r => r.natureza === 'DESPESAS' && r.tipo !== 'INVESTIMENTOS' && !mapeados.includes(r.tipo), -1);
+  const base = recBruta + outras;
+  const recLiq = base - taxasCanais - deducoes;
+  const ebitda = recLiq - grupos.CUSTO - grupos.PESSOAL - grupos.VENDA - grupos.ADMIN - outrasDesp;
+  const despFin = s(r => r.tipo === 'DESPESAS FINANCEIRAS', -1), recFin = s(r => r.natureza === 'APLICAÇÕES' && r.subtipo === 'RENDIMENTOS');
+  const semClass = s(r => r.natureza === 'SEM CLASSIFICACAO');
+  const resultado = ebitda + recFin - despFin + semClass - irpj;
+  const benef = FX_M.benef.filter(r => r.mes === mes && L.includes(r.unidade)).reduce((a, r) => a + fxN(r.beneficio_ifood), 0);
+  return { mes, canais, recBruta, pedidos, ticket: pedidos ? recBruta / pedidos : 0, outras, outrasDet, taxasCanais, deducoes, irpj, base, grupos, outrasDesp, ebitda, despFin, recFin, semClass, resultado, benef };
+}
+function fxPonte(mes) { const L = fxLojas(); const rows = FX_M.ponte.filter(r => r.mes === mes && L.includes(r.unidade)); if (!rows.length) return null; const s = c => rows.reduce((a, r) => a + fxN(r[c]), 0); return { res: s('resultado_apurado'), comp: s('ajuste_competencia'), inv: s('investimentos'), ret: s('retiradas'), emp: s('emprestimos'), apo: s('aportes'), rend: s('aplicacoes'), xp: s('transferencias_liquidas'), sem: s('sem_classificacao'), v: s('variacao_caixa') }; }
+function renderFechamento() {
+  const alvo = document.getElementById('view-fechamento');
+  const meses = [...new Set(FX_M.dre.map(r => r.mes))].sort().filter(m => m.slice(0, 7) < mesCorrenteSP());
+  if (!meses.includes(FX_MES_SEL)) FX_MES_SEL = meses[meses.length - 1];
+  const mes = FX_MES_SEL, iM = meses.indexOf(mes), ant = meses[iM - 1];
+  const a = fxMesCalc(mes), j = ant ? fxMesCalc(ant) : null;
+  const rotAnt = ant ? `em relação a ${fxMesLongo(ant)}` : '';
+  const serie = meses.map(fxMesCalc);
+  const rots = meses.map(fxMesRot);
+  const M = FX_M.metas;
+  const cem = v => a.base ? v / a.base * 100 : 0;
+  let h = seletorLojaFin();
+  h += `<div class="fx-cab-topo"><div><div class="fx-rotulo">Fechamento do mês · ${nomeLojaFin()}</div><h2 class="fx-h1">${fxMesLongo(mes)[0].toUpperCase() + fxMesLongo(mes).slice(1)} de ${mes.slice(0, 4)} em uma página</h2>
+    <div class="fx-sub">Quanto vendeu, para onde foi cada R$ 100, quanto sobrou e o caixa — sempre contra o mês anterior.</div></div>
+    ${fxSeg('fxMes', meses.map(m => [m, fxMesRot(m)]), mes)}</div>`;
+  // 1. quanto vendeu
+  const maior = serie.reduce((m, x) => x.recBruta > m.recBruta ? x : m, serie[0]);
+  h += `<div class="fx-secao"><h3>1. Quanto vendeu</h3><span>vendas nas lojas e no delivery, pelo caixa (PDV)</span></div><div class="fx-tiles">`
+    + fxTile('Vendas do mês', a.recBruta, j ? fxVar(a.recBruta, j.recBruta, rotAnt) : '', `${j ? `${fxMesRot(ant)}: ${fxMil(j.recBruta)} · ` : ''}maior mês: ${fxMesRot(maior.mes)}, ${fxMil(maior.recBruta)}`, fxSpark(serie.map(x => x.recBruta), rots, fxMil),
+      `<ul class="fx-lista">${Object.entries(a.canais).sort((x, y) => y[1] - x[1]).filter(([, v]) => v >= 1).map(([c, v]) => `<li><span>${c}</span><b>${fxMil(v)} · ${fxPct1(v / a.recBruta * 100)}</b></li>`).join('')}</ul>`)
+    + fxTile('Pedidos', fxInt(a.pedidos), j ? fxVar(a.pedidos, j.pedidos, rotAnt) : '', j ? `${fxMesRot(ant)}: ${fxInt(j.pedidos)} pedidos` : '', fxSpark(serie.map(x => x.pedidos), rots, fxInt))
+    + fxTile('Valor médio por pedido', fxR2(a.ticket), j ? fxVar(a.ticket, j.ticket, rotAnt) : '', j ? `${fxMesRot(ant)}: ${fxR2(j.ticket)}` : '', fxSpark(serie.map(x => x.ticket), rots, v => 'R$ ' + v.toFixed(0)))
+    + '</div>';
+  const nomesOutras = { 'RECEITAS REVENDA': 'atacado', 'LISTAS SAO BRAZ': 'mercadoria vendida ao São Braz', 'LISTAS AHU': 'mercadoria vendida ao Ahú', 'RECEITAS BOQUEIRAO': 'royalties do Boqueirão', 'OUTRAS RECEITAS': 'eventos e outros' };
+  h += `<div class="fx-nota">${a.outras > 0.5 ? `Além das vendas, entraram <b>${fxMil(a.outras)}</b> de outras receitas (${Object.entries(a.outrasDet).filter(([, v]) => Math.abs(v) > 0.5).sort((x, y) => y[1] - x[1]).map(([k, v]) => `${nomesOutras[k] || k.toLowerCase()} ${fxMil(v)}`).join(', ')}). Somando tudo, o mês movimentou <b>${fxMil(a.base)}</b>; é sobre esse total que a seção 2 divide os R$ 100.` : `O total do mês é <b>${fxMil(a.base)}</b>; é sobre ele que a seção 2 divide os R$ 100.`}</div>`;
+  // 2. de cada R$ 100
+  const baldes = x => [['CUSTO', 'Mercadoria', 'insumos, bebidas, embalagens de uso', x.grupos.CUSTO], ['PESSOAL', 'Pessoas', 'salários, encargos, pró-labore', x.grupos.PESSOAL],
+    ['VENDA', 'Entrega, comercial e marketing', 'motoboys, embalagens de envio, anúncios', x.grupos.VENDA], ['ADMIN', 'A casa', 'aluguel, energia, gás, manutenção, sistemas', x.grupos.ADMIN],
+    ['TAXAS', 'Taxas dos canais e impostos', 'comissão e taxas do iFood e dos cartões, ICMS', x.taxasCanais + x.deducoes],
+    ['OUTROS', 'Juros, tarifas e outros', '', x.despFin - x.recFin - x.semClass + x.irpj + x.outrasDesp]].map(b => [b[0], b[1], b[2], x.base ? b[3] / x.base * 100 : 0]);
+  const ba = baldes(a), bj = j ? baldes(j) : null;
+  const maxv = Math.max(...ba.map(b => Math.abs(b[3])), Math.abs(cem(a.resultado)), 1);
+  const reais = v => (v < -0.5 ? '−R$ ' : 'R$ ') + Math.abs(Math.round(v));
+  let somaArr = 0;
+  h += `<div class="fx-secao"><h3>2. De cada R$ 100 que entraram, para onde foram</h3><span>${fxMesLongo(mes)}${ant ? `, com ${fxMesLongo(ant)} ao lado` : ''}</span></div><div class="fx-cem">`;
+  ba.forEach((b, i) => {
+    if (b[0] === 'OUTROS' && Math.abs(b[3]) < 0.5) return;
+    somaArr += Math.round(b[3]);
+    const m = M[b[0]]; const f = m ? fxFarol(b[3], m.meta, m.sentido) : null;
+    h += `<div class="fx-linha"><div class="fx-nome">${b[1]}<small>${b[2]}${m ? ` · meta: até R$ ${m.meta}` : ''}</small></div><div class="fx-num">${reais(b[3])}</div><div class="fx-barra"><i style="width:${Math.max(0, Math.abs(b[3])) / maxv * 100}%"></i></div><div class="fx-jul">${bj ? `${fxMesRot(ant)}: ${reais(bj[i][3])}` : ''}${f ? ' · ' + fxPill(f) : ''}</div></div>`;
+  });
+  const fs = M.RESULTADO ? fxFarol(cem(a.resultado), M.RESULTADO.meta, M.RESULTADO.sentido) : ['neutro', ''];
+  h += `<div class="fx-linha sobrou ${fs[0]}"><div class="fx-nome">Sobrou<small>meta: R$ ${M.RESULTADO ? M.RESULTADO.meta : '—'} ou mais de cada 100</small></div><div class="fx-num">R$ ${100 - somaArr}</div><div class="fx-barra"><i style="width:${Math.max(0, cem(a.resultado)) / maxv * 100}%"></i></div><div class="fx-jul">${j ? `${fxMesRot(ant)}: R$ ${Math.round(j.base ? j.resultado / j.base * 100 : 0)}` : ''} · ${fxPill(fs)}</div></div></div>`;
+  h += `<div class="fx-nota">Valores arredondados para o real, por isso a soma fecha em 100 no "Sobrou".${(a.taxasCanais < -0.5 || (j && j.taxasCanais < -0.5)) ? ` Quando a linha de taxas fica negativa, caiu na conta mais repasse do iFood do que a venda do próprio mês — é a defasagem semanal do repasse atravessando a virada do mês, não taxa de graça; vale olhar os dois meses juntos.` : ''}</div>`;
+  // 3. quanto sobrou
+  const serieRes = serie.map(x => x.resultado);
+  h += `<div class="fx-secao"><h3>3. Quanto sobrou</h3><span>o resultado do mês</span></div><div class="fx-duas">
+    <div class="fx-destaque"><div class="fx-rotulo">Sobrou em ${fxMesLongo(mes)}</div><div class="fx-valor-g${a.resultado < 0 ? ' neg' : ''}">${fxMil(a.resultado)}</div>
+      <p>De cada R$ 100 que entraram, sobraram <b>R$ ${Math.round(cem(a.resultado))}</b>. A meta é R$ ${M.RESULTADO ? M.RESULTADO.meta : '—'} ou mais — ${fxPill(fs)}</p>
+      ${j ? `<p>Em ${fxMesLongo(ant)} sobraram <b>${fxMil(j.resultado)}</b> (R$ ${Math.round(j.base ? j.resultado / j.base * 100 : 0)} de cada 100). O que sobrou ${fxVar(a.resultado, j.resultado, rotAnt)}.</p>` : ''}
+      ${a.benef > 0.5 ? `<p><b>${fxMil(a.benef)}</b> desse valor é comissão que o iFood deixou de cobrar (o benefício, que acaba entre dezembro e janeiro). Pagando comissão cheia, teria sobrado <b>${fxMil(a.resultado - a.benef)}</b>${a.resultado - a.benef < 0 ? ' — ou seja, faltaria dinheiro' : ''}.</p>` : ''}</div>
+    <div class="fx-tile"><div class="fx-rotulo">Quanto sobrou, mês a mês</div><div class="fx-valor" style="font-size:20px">${serie.slice(-3).map(x => fxMil(x.resultado).replace('R$ ', '')).join(' · ')}</div><div class="fx-extra">últimos três meses</div>${fxSpark(serieRes, rots, fxMil)}<div class="fx-extra" style="margin-top:8px">Melhor mês: ${rots[serieRes.indexOf(Math.max(...serieRes))]} (${fxMil(Math.max(...serieRes))}). Pior: ${rots[serieRes.indexOf(Math.min(...serieRes))]} (${fxMil(Math.min(...serieRes))}).</div></div></div>`;
+  // 4. caixa
+  const p = fxPonte(mes);
+  h += `<div class="fx-secao"><h3>4. E no caixa?</h3><span>o dinheiro de verdade nas contas e cofres do dia a dia</span></div>`;
+  if (p) {
+    const itens = [['Sobrou no papel (o resultado da seção 3)', p.res, ''], ['Contas de outros meses pagas no mês, ou do mês ainda por pagar', p.comp, 'negativo = o mês pagou mais do que gerou de conta'],
+      ['Investimentos (obras, máquinas, tecnologia)', p.inv, 'vira patrimônio, não some'], ['Retiradas dos sócios', p.ret, ''], ['Dinheiro entre as lojas (lucro e bônus repassados, aportes)', p.apo, ''],
+      ['Foi para a XP e para pagar cartões', p.xp, 'inclui o benefício do iFood enviado à XP'], ['Empréstimos', p.emp, ''], ['Rendimentos', p.rend, ''], ['Sem classificação', p.sem, 'lançamento sem conta — deveria ser zero']].filter(([, x]) => Math.abs(x) > 0.5);
+    h += `<div class="fx-caixa"><div class="fx-rotulo">O caixa do dia a dia em ${fxMesLongo(mes)}</div><div class="fx-valor${p.v < 0 ? ' neg' : ''}">${p.v >= 0 ? 'cresceu' : 'encolheu'} ${fxMil(Math.abs(p.v))}</div><ul>${itens.map(([n, x, s2]) => `<li><span>${n}${s2 ? `<small>${s2}</small>` : ''}</span><b>${x >= 0 ? '+ ' : '− '}${fxMil(Math.abs(x))}</b></li>`).join('')}<li class="res"><span><b>= caixa do dia a dia</b><small>bancos e cofres; XP, Participações e cartões ficam de fora</small></span><b>${p.v >= 0 ? '+ ' : '− '}${fxMil(Math.abs(p.v))}</b></li></ul></div>`;
+  } else h += '<div class="fx-nota">Sem ponte de caixa para esta loja neste mês (o caixa das filiais entrou no Saipos em 01/08).</div>';
+  // 5. frases
+  const piores = Object.entries(FX_GRUPOS).map(([k]) => ({ k, v: cem(a.grupos[k]), meta: M[k] ? M[k].meta : null })).filter(x => x.meta !== null).map(x => ({ ...x, dist: x.v - x.meta })).sort((x, y) => y.dist - x.dist);
+  const nomeG = { CUSTO: 'mercadoria', PESSOAL: 'pessoas', VENDA: 'entrega, comercial e marketing', ADMIN: 'a casa' };
+  const pior = piores[0];
+  h += `<div class="fx-secao"><h3>5. O mês em três frases</h3><span>só o fato — a interpretação é de quem lê</span></div><div class="fx-frases">`;
+  h += `<p>${fxMesLongo(mes)[0].toUpperCase() + fxMesLongo(mes).slice(1)} vendeu <b>${fxMil(a.recBruta)}</b>${j ? ` — ${Math.abs((a.recBruta - j.recBruta) / j.recBruta * 100) < 0.5 ? `o mesmo que ${fxMesLongo(ant)}` : `${a.recBruta > j.recBruta ? 'mais' : 'menos'} ${fxPct1(Math.abs((a.recBruta - j.recBruta) / j.recBruta * 100))} que ${fxMesLongo(ant)}`}` : ''}${maior.mes !== mes ? `, ${fxPct1(Math.abs((a.recBruta - maior.recBruta) / maior.recBruta * 100))} abaixo do maior mês (${fxMesRot(maior.mes)})` : ', o maior mês do ano'}. Foram <b>${fxInt(a.pedidos)} pedidos</b>, com valor médio de <b>R$ ${a.ticket.toFixed(0)}</b>.</p>`;
+  if (pior) h += `<p>De cada R$ 100, <b>${nomeG[pior.k]}</b> levou <b>R$ ${Math.round(pior.v)}</b> — ${pior.dist <= 0 ? 'dentro da meta' : pior.dist <= pior.meta * 0.1 ? 'no limite da meta' : 'acima da meta'} de R$ ${pior.meta}. ${piores.slice(1).filter(x => x.dist > 0.5).length ? `Também acima da meta: ${piores.slice(1).filter(x => x.dist > 0.5).map(x => `${nomeG[x.k]} (R$ ${Math.round(x.v)} de ${x.meta})`).join(', ')}.` : 'As outras fatias estão dentro da meta ou no limite.'}</p>`;
+  h += `<p>Sobraram <b>R$ ${Math.round(cem(a.resultado))}</b> de cada R$ 100 (${fxMil(a.resultado)}); a meta é R$ ${M.RESULTADO ? M.RESULTADO.meta : '—'}.${a.benef > 0.5 ? ` Sem o benefício do iFood seriam <b>R$ ${Math.round(cem(a.resultado - a.benef))}</b>.` : ''}</p>`;
+  if (p) h += `<p>No caixa do dia a dia, o mês ${p.v >= 0 ? 'deixou' : 'consumiu'} <b>${fxMil(Math.abs(p.v))}</b>${Math.abs(p.comp) > 1000 ? ` — ${p.comp < 0 ? 'pagou' : 'adiou'} ${fxMil(Math.abs(p.comp))} de contas fora do mês` : ''}${Math.abs(p.xp) > 1000 ? `, e ${fxMil(Math.abs(p.xp))} ${p.xp < 0 ? 'foram para a XP e cartões' : 'vieram da XP'}` : ''}.</p>`;
+  h += `</div><div class="fx-rodape">Vendas e pedidos: caixa das lojas (Saipos), sem cancelados. Para onde foi e quanto sobrou: as contas do mês por competência (uma conta do mês conta no mês, mesmo paga depois), pelas mesmas views da DRE. Caixa: a ponte resultado × caixa. O Boqueirão fica fora (gestão separada). Na Rede, a mercadoria que a Água Verde vende às filiais entra de um lado e sai do outro e se anula no "sobrou". A tabela completa está na DRE.</div>`;
+  alvo.innerHTML = h;
+}
+
+// ---------------- A SEMANA ----------------
+let FX_S = null, FX_SEM_SEL = null;
+async function entrarSemana() {
+  const alvo = document.getElementById('view-semana');
+  if (!FX_S) {
+    alvo.innerHTML = '<div class="contexto">Carregando a semana...</div>';
+    const hoje = fxHojeSP(), segAtual = fxSegunda(hoje);
+    const desde = fxSomaDias(segAtual, -7 * 12);
+    const [vendas, itens, ifood, anuncios, funil, compras, listas, despesas, recebido, caixa, contas, parcial] = await Promise.all([
+      consultarTudo(`vw_sem_vendas?select=*&semana=gte.${desde}`), consultarTudo(`vw_sem_itens?select=*&semana=gte.${desde}`),
+      consultarTudo(`mv_sem_ifood?select=*&semana=gte.${desde}`), consultarTudo(`mv_sem_anuncios?select=*&semana=gte.${desde}`),
+      consultarTudo(`vw_sem_funil?select=*&semana=gte.${desde}`), consultarTudo(`vw_sem_compras?select=*&semana=gte.${desde}`),
+      consultarTudo(`vw_tr_cmv_semanal?select=unidade,semana,valor&semana=gte.${desde}`), consultarTudo(`vw_sem_despesas?select=*&semana=gte.${desde}`),
+      consultarTudo(`vw_sem_recebido?select=*&semana=gte.${desde}`), consultarTudo('vw_sem_caixa_hoje?select=*'),
+      consultarTudo(`vw_fin_contas_pagar?select=unidade,sentido,situacao,vencimento,credito,debito&ativa=eq.true&vencimento=lt.${fxSomaDias(segAtual, 14)}`),
+      consultarTudo('vw_mes_cmv_parcial?select=*'),
+    ]);
+    FX_S = { hoje, segAtual, vendas, itens, ifood, anuncios, funil, compras, listas, despesas, recebido, caixa, contas, parcial };
+    const fechadas = [...new Set(vendas.map(r => r.semana))].sort().filter(s => s < segAtual);
+    FX_SEM_SEL = fechadas[fechadas.length - 1];
+  }
+  renderSemana();
+}
+function fxSemCalc(w) {
+  const L = fxLojas(), f = arr => arr.filter(r => r.semana === w && L.includes(r.unidade));
+  const v = f(FX_S.vendas); const canais = {}; v.forEach(r => { canais[r.canal] = (canais[r.canal] || 0) + fxN(r.faturamento); });
+  const fat = fxSoma(v, 'faturamento'), ped = fxSoma(v, 'pedidos'), it = fxSoma(f(FX_S.itens), 'itens');
+  const ifd = f(FX_S.ifood), an = fxSoma(f(FX_S.anuncios), 'anuncios'), fu = f(FX_S.funil), comp = f(FX_S.compras);
+  const compMP = fxSoma(comp.filter(r => r.tipo === 'MATERIA PRIMA'), 'valor'), compUC = fxSoma(comp.filter(r => r.tipo === 'USO E CONSUMO'), 'valor');
+  const listas = FX_S.listas.filter(r => r.semana === w);
+  const enviadas = L.includes('AGUA VERDE') ? fxSoma(listas, 'valor') : 0;
+  const recebidas = fxSoma(listas.filter(r => L.includes(r.unidade) && r.unidade !== 'AGUA VERDE'), 'valor');
+  const custoIfood = fxSoma(ifd, 'promo_loja') + fxSoma(ifd, 'taxas') + an;
+  const compras = compMP + compUC - enviadas + recebidas;
+  return { w, fat, ped, it, ticket: ped ? fat / ped : 0, canais, ifPed: fxSoma(ifd, 'pedidos'), ifItens: fxSoma(ifd, 'itens'), promoLoja: fxSoma(ifd, 'promo_loja'), promoIfood: fxSoma(ifd, 'promo_ifood'),
+    taxas: fxSoma(ifd, 'taxas'), frete: fxSoma(ifd, 'frete'), anuncios: an, custoIfood, visitas: fxSoma(fu, 'visitas'), concluidos: fxSoma(fu, 'concluidos'),
+    compras, compMP, compUC, enviadas, recebidas, margem: fat - compras - custoIfood };
+}
+function fxCaixaLoja(u) {
+  const cx = FX_S.caixa.filter(r => r.unidade === u);
+  const banco = fxSoma(cx.filter(r => r.tipo === 'BANCO'), 'saldo'), cofre = fxSoma(cx.filter(r => r.tipo === 'COFRE'), 'saldo');
+  const fim = fxSomaDias(FX_S.segAtual, 6);
+  const cs = FX_S.contas.filter(r => r.unidade === u);
+  const pagarAte = cs.filter(r => r.sentido === 'PAGAR' && r.vencimento <= fim), pagarProx = cs.filter(r => r.sentido === 'PAGAR' && r.vencimento > fim);
+  const receberAte = cs.filter(r => r.sentido === 'RECEBER' && r.vencimento <= fim);
+  const venc = pagarAte.filter(r => r.situacao === 'VENCIDA');
+  const semanas4 = [1, 2, 3, 4].map(n => fxSomaDias(FX_S.segAtual, -7 * n));
+  const rec4 = FX_S.recebido.filter(r => r.unidade === u && semanas4.includes(r.semana));
+  const mediaSem = rec4.length ? fxSoma(rec4, 'recebido') / rec4.length : 0;
+  const diasRest = Math.max(0, Math.round((new Date(fim + 'T12:00:00') - new Date(FX_S.hoje + 'T12:00:00')) / 86400000) + 1);
+  const esperado = mediaSem * diasRest / 7, recLanc = fxSoma(receberAte, 'credito'), pagar = fxSoma(pagarAte, 'debito');
+  return { u, banco, cofre, recLanc, esperado, pagar, vencidas: fxSoma(venc, 'debito'), nVenc: venc.length, pagarProx: fxSoma(pagarProx, 'debito'), sobra: banco + cofre + recLanc + esperado - pagar, diasRest, mediaSem, fim };
+}
+function renderSemana() {
+  const alvo = document.getElementById('view-semana');
+  const fechadas = [...new Set(FX_S.vendas.map(r => r.semana))].sort().filter(s => s < FX_S.segAtual).slice(-8);
+  if (!fechadas.includes(FX_SEM_SEL)) FX_SEM_SEL = fechadas[fechadas.length - 1];
+  const W = FX_SEM_SEL, iW = fechadas.indexOf(W), ANT = fechadas[iW - 1];
+  const SEM = fechadas.slice(0, iW + 1).slice(-8);           // ate 8 semanas, terminando na escolhida
+  const S = {}; SEM.forEach(w => { S[w] = fxSemCalc(w); });
+  const a = S[W], j = ANT ? S[ANT] : null, rots = SEM.map(fxDM);
+  const ra = 'vs semana anterior';
+  const cmvPct = w => S[w].fat ? S[w].compras / S[w].fat * 100 : 0;
+  const cmv4 = w => { const i = SEM.indexOf(w); const ws = SEM.slice(Math.max(0, i - 3), i + 1); const f = ws.reduce((s, x) => s + S[x].fat, 0), c = ws.reduce((s, x) => s + S[x].compras, 0); return f ? c / f * 100 : 0; };
+  const META_CMV = 35;
+  let h = seletorLojaFin();
+  h += `<div class="fx-cab-topo"><div><div class="fx-rotulo">A semana · ${nomeLojaFin()}</div><h2 class="fx-h1">Semana de ${fxSemRot(W)}</h2>
+    <div class="fx-sub">O que vendeu, o que o iFood custou, quanto foi de mercadoria, a margem que fechou — e o caixa desta semana.</div></div>
+    ${fxSeg('fxSem', fechadas.map(w => [w, fxDM(w)]), W)}</div>`;
+  // 1
+  const conv = a.visitas ? a.concluidos / a.visitas * 100 : null, convJ = j && j.visitas ? j.concluidos / j.visitas * 100 : null;
+  h += `<div class="fx-secao"><h3>1. Quanto vendeu</h3><span>pelo caixa das lojas (PDV), sem cancelados</span></div><div class="fx-tiles">`
+    + fxTile('Vendas da semana', a.fat, j ? fxVar(a.fat, j.fat, ra) : '', j ? `semana anterior: ${fxMil(j.fat)}` : '', fxSpark(SEM.map(w => S[w].fat), rots, fxMil), `<ul class="fx-lista">${Object.entries(a.canais).sort((x, y) => y[1] - x[1]).filter(([, v]) => v >= 1).map(([c, v]) => `<li><span>${c}</span><b>${fxMil(v)} · ${fxPct1(v / a.fat * 100)}</b></li>`).join('')}</ul>`)
+    + fxTile('Pedidos', fxInt(a.ped), j ? fxVar(a.ped, j.ped, ra) : '', j ? `semana anterior: ${fxInt(j.ped)}` : '', fxSpark(SEM.map(w => S[w].ped), rots, fxInt))
+    + fxTile('Itens vendidos', fxInt(a.it), j ? fxVar(a.it, j.it, ra) : '', a.ped ? `${(a.it / a.ped).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} itens por pedido` : '', fxSpark(SEM.map(w => S[w].it), rots, fxInt))
+    + fxTile('Valor médio por pedido', fxR2(a.ticket), j ? fxVar(a.ticket, j.ticket, ra) : '', j ? `semana anterior: ${fxR2(j.ticket)}` : '', fxSpark(SEM.map(w => S[w].ticket), rots, v => 'R$ ' + v.toFixed(0)))
+    + (conv !== null ? fxTile('Conversão do cardápio iFood', fxPct1(conv), convJ !== null ? `<b>${conv > convJ + 0.3 ? 'subiu' : conv < convJ - 0.3 ? 'caiu' : 'ficou igual'}</b> (anterior: ${fxPct1(convJ)})` : '', `${fxInt(a.visitas)} visitas viraram ${fxInt(a.concluidos)} pedidos`, fxSpark(SEM.map(w => S[w].visitas ? S[w].concluidos / S[w].visitas * 100 : 0), rots, fxPct1)) : '')
+    + '</div>';
+  // 2
+  const cemIf = a.ifItens ? a.custoIfood / a.ifItens * 100 : 0, cemIfJ = j && j.ifItens ? j.custoIfood / j.ifItens * 100 : null;
+  h += `<div class="fx-secao"><h3>2. O que o iFood custou</h3><span>pedido a pedido, pelo export do iFood + anúncios do extrato</span></div><div class="fx-tiles">`
+    + fxTile('Custo iFood da semana', a.custoIfood, j ? fxVar(a.custoIfood, j.custoIfood, ra) : '', `de cada R$ 100 vendidos no iFood, <b>R$ ${Math.round(cemIf)}</b> ficaram com o iFood${cemIfJ !== null ? ` (anterior: R$ ${Math.round(cemIfJ)})` : ''}`, fxSpark(SEM.map(w => S[w].ifItens ? S[w].custoIfood / S[w].ifItens * 100 : 0), rots, v => 'R$ ' + v.toFixed(0)),
+      `<ul class="fx-lista"><li><span>promoções pagas pela loja</span><b>${fxMil(a.promoLoja)}</b></li><li><span>comissão e taxas</span><b>${fxMil(a.taxas)}</b></li><li><span>anúncios</span><b>${fxMil(a.anuncios)}</b></li></ul>`)
+    + fxTile('Venda no iFood', a.ifItens, j ? fxVar(a.ifItens, j.ifItens, ra) : '', `${fxInt(a.ifPed)} pedidos entregues`, fxSpark(SEM.map(w => S[w].ifItens), rots, fxMil))
+    + fxTile('Entrega paga pelos clientes', a.frete, j ? fxVar(a.frete, j.frete, ra) : '', 'taxa de entrega cobrada no iFood — ajuda a pagar os motoboys; não entra na margem', fxSpark(SEM.map(w => S[w].frete), rots, fxMil))
+    + fxTile('Promoção paga pelo iFood', a.promoIfood, j ? fxVar(a.promoIfood, j.promoIfood, ra) : '', 'desconto que o iFood banca, não nós', fxSpark(SEM.map(w => S[w].promoIfood), rots, fxMil))
+    + '</div><div class="fx-nota">A venda no iFood aqui é o valor dos itens pelo export do iFood; o PDV registra praticamente o mesmo número. Promoção paga pela loja é custo de verdade: o cliente pagou menos e o iFood desconta do repasse.</div>';
+  // 3
+  const p = cmvPct(W), pj = j ? cmvPct(ANT) : null, p4 = cmv4(W), fC = fxFarol(p4, META_CMV, 'abaixo');
+  const parcial = FX_S.parcial.filter(r => fxLojas().includes(r.unidade)); const pv = fxSoma(parcial, 'vendas'), pc = fxSoma(parcial, 'compras');
+  h += `<div class="fx-secao"><h3>3. Mercadoria (CMV de compras)</h3><span>notas de mercadoria emitidas na semana ÷ vendas da semana</span></div><div class="fx-tiles">`
+    + fxTile('Mercadoria da semana', a.compras, j ? fxVar(a.compras, j.compras, ra) : '', `notas: insumos ${fxMil(a.compMP)} · uso e consumo ${fxMil(a.compUC)}${a.enviadas ? ` · − ${fxMil(a.enviadas)} mandados às filiais e Boqueirão` : ''}${a.recebidas ? ` · + ${fxMil(a.recebidas)} recebidos da Água Verde` : ''}`, fxSpark(SEM.map(w => S[w].compras), rots, fxMil))
+    + fxTile('De cada R$ 100 vendidos, mercadoria levou', 'R$ ' + Math.round(p), pj !== null ? `semana anterior: R$ ${Math.round(pj)}` : '', 'compras oscilam de semana para semana — olhe a média ao lado', fxSpark(SEM.map(w => cmvPct(w)), rots, v => 'R$ ' + v.toFixed(0)))
+    + fxTile('Média das últimas 4 semanas', 'R$ ' + Math.round(p4), fxPill(fC) + ` · até R$ ${META_CMV}`, 'é este número que diz se a mercadoria está no lugar', fxSpark(SEM.map(w => cmv4(w)), rots, v => 'R$ ' + v.toFixed(0)))
+    + (pv > 0.5 ? fxTile(`CMV parcial do mês (até ${fxDM(parcial[0].vendas_ate)})`, pc > 0 ? 'R$ ' + Math.round(pc / pv * 100) : '—', pc > 0 ? `compras ${fxMil(pc)} ÷ vendas ${fxMil(pv)}` : '', pc > 0 ? 'de cada R$ 100 vendidos no mês até agora; muda todo dia conforme as notas entram' : 'ainda sem nota de mercadoria lançada neste mês') : '')
+    + '</div><div class="fx-nota">Mercadoria aqui é o que foi comprado (notas emitidas, lançadas no Saipos), não o que foi consumido — uma compra grande pesa na semana em que a nota entra; por isso a média de 4 semanas é a régua. A mercadoria mandada às filiais sai da Água Verde e entra na filial que recebeu. O CMV pela ficha técnica fica fora até ser auditado.</div>';
+  // 4
+  const cemM = a.fat ? a.margem / a.fat * 100 : 0, serieM = SEM.map(w => S[w].margem);
+  h += `<div class="fx-secao"><h3>4. A margem que fechou</h3><span>vendas − mercadoria − custo iFood</span></div><div class="fx-duas">
+    <div class="fx-destaque"><div class="fx-rotulo">Margem fechada da semana</div><div class="fx-valor-g${a.margem < 0 ? ' neg' : ''}">${fxMil(a.margem)}</div>
+      <p>Vendas ${fxMil(a.fat)} − mercadoria ${fxMil(a.compras)} − custo iFood ${fxMil(a.custoIfood)}. De cada R$ 100 vendidos, <b>R$ ${Math.round(cemM)}</b> ficaram para pagar pessoas, entrega, a casa e sobrar.</p>
+      ${j ? `<p>Semana anterior: ${fxMil(j.margem)} (R$ ${Math.round(j.fat ? j.margem / j.fat * 100 : 0)} de cada 100). A margem ${fxVar(a.margem, j.margem, ra)}.</p>` : ''}</div>
+    <div class="fx-tile"><div class="fx-rotulo">Margem, semana a semana</div><div class="fx-valor" style="font-size:20px">${SEM.slice(-3).map(w => fxMil(S[w].margem).replace('R$ ', '')).join(' · ')}</div><div class="fx-extra">últimas três semanas</div>${fxSpark(serieM, rots, fxMil)}<div class="fx-extra" style="margin-top:8px">Melhor: ${fxSemRot(SEM[serieM.indexOf(Math.max(...serieM))])} (${fxMil(Math.max(...serieM))}). Pior: ${fxSemRot(SEM[serieM.indexOf(Math.min(...serieM))])} (${fxMil(Math.min(...serieM))}).</div></div></div>`;
+  // 5 caixa
+  const us = fxLojas(), cxs = us.map(fxCaixaLoja), fim = cxs[0].fim;
+  h += `<div class="fx-secao"><h3>5. O caixa desta semana</h3><span>hoje ${fxDM(FX_S.hoje)} · semana de ${fxDM(FX_S.segAtual)} a ${fxDM(fim)} · saldos do banco de hoje</span></div><div class="fx-tiles">`;
+  cxs.forEach(c => { const nome = LOJAS_FIN.find(l => l[0] === c.u)[1];
+    h += `<div class="fx-caixa"><h4>${nome}</h4><ul>
+      <li><span>Nas contas do banco hoje<small>saldo real, batido com o extrato</small></span><b>${fxMil(c.banco)}</b></li>
+      <li><span>No cofre</span><b>${fxMil(c.cofre)}</b></li>
+      <li><span>A receber até domingo, já lançado</span><b>+ ${fxMil(c.recLanc)}</b></li>
+      <li><span>Vendas que ainda devem cair até domingo<small>${c.diasRest} dias × média das últimas 4 semanas (${fxMil(c.mediaSem)}/semana)</small></span><b>+ ${fxMil(c.esperado)}</b></li>
+      <li><span>A pagar até domingo<small>${c.nVenc ? `inclui ${c.nVenc} conta(s) vencida(s): ${fxMil(c.vencidas)}` : 'nenhuma vencida'}</small></span><b>− ${fxMil(c.pagar)}</b></li>
+      <li class="res ${c.sobra >= 0 ? 'pos' : 'neg'}"><span>${c.sobra >= 0 ? 'Vai sobrar' : 'Vai faltar'}</span><b>${fxMil(Math.abs(c.sobra))}</b></li></ul>
+      <div class="fx-mandar">${c.u !== 'AGUA VERDE' ? (c.sobra > 0 ? `Pode mandar para a Água Verde esta semana: <b>até ${fxMil(c.sobra)}</b>` : `Não pode mandar nada esta semana — faltam ${fxMil(Math.abs(c.sobra))}`) : `Próxima semana já tem <b>${fxMil(c.pagarProx)}</b> a pagar lançados.`}</div></div>`; });
+  if (us.length > 1) { const sT = cxs.reduce((s, c) => s + c.sobra, 0);
+    h += `<div class="fx-caixa"><h4>Rede</h4><ul><li><span>Banco + cofres hoje</span><b>${fxMil(cxs.reduce((s, c) => s + c.banco + c.cofre, 0))}</b></li><li><span>A receber até domingo (lançado + vendas esperadas)</span><b>+ ${fxMil(cxs.reduce((s, c) => s + c.recLanc + c.esperado, 0))}</b></li><li><span>A pagar até domingo</span><b>− ${fxMil(cxs.reduce((s, c) => s + c.pagar, 0))}</b></li><li class="res ${sT >= 0 ? 'pos' : 'neg'}"><span>${sT >= 0 ? 'Vai sobrar' : 'Vai faltar'}</span><b>${fxMil(Math.abs(sT))}</b></li></ul><div class="fx-mandar">Filiais podem mandar para a AV: <b>${fxMil(cxs.filter(c => c.u !== 'AGUA VERDE' && c.sobra > 0).reduce((s, c) => s + c.sobra, 0))}</b> · próxima semana a pagar na rede: <b>${fxMil(cxs.reduce((s, c) => s + c.pagarProx, 0))}</b></div></div>`; }
+  h += '</div><div class="fx-nota">XP, Participações e cartões de crédito ficam fora — é o caixa do dia a dia. "Vendas que ainda devem cair" é a média do que caiu nas contas nas últimas 4 semanas, proporcional aos dias que faltam; não é promessa. Conta a pagar só aparece se está lançada no Saipos.</div>';
+  // 6 despesas
+  const L = fxLojas(), at = FX_S.despesas.filter(r => r.semana === W && L.includes(r.unidade));
+  const ws4 = SEM.slice(Math.max(0, iW - 4), iW).length ? fechadas.slice(Math.max(0, iW - 4), iW) : [];
+  const ant4 = FX_S.despesas.filter(r => ws4.includes(r.semana) && L.includes(r.unidade));
+  const cat = {}, catA = {}; at.forEach(r => { cat[r.subtipo] = (cat[r.subtipo] || 0) + fxN(r.valor); }); ant4.forEach(r => { catA[r.subtipo] = (catA[r.subtipo] || 0) + fxN(r.valor); });
+  const nA = Math.max(1, ws4.length), totA = fxSoma(at, 'valor'), totN = fxSoma(ant4, 'valor') / nA;
+  const leitura = (v, m) => m ? (Math.abs((v - m) / m * 100) < 15 ? 'no normal' : `${v > m ? 'acima' : 'abaixo'} do normal (${fxPct1(Math.abs((v - m) / m * 100))})`) : 'não tinha nas 4 anteriores';
+  h += `<div class="fx-secao"><h3>6. Onde o dinheiro foi</h3><span>as maiores despesas pagas na semana, contra o normal das 4 anteriores</span></div><div class="fx-tabela"><table><tr><th>Categoria</th><th>Esta semana</th><th>Normal (média 4 sem.)</th><th class="esq">Leitura</th></tr>`
+    + Object.entries(cat).sort((x, y) => y[1] - x[1]).slice(0, 8).map(([c, v]) => `<tr><td>${c}</td><td>${fxMil(v)}</td><td>${fxMil((catA[c] || 0) / nA)}</td><td class="esq">${leitura(v, (catA[c] || 0) / nA)}</td></tr>`).join('')
+    + `<tr class="tot"><td>Total pago na semana</td><td>${fxMil(totA)}</td><td>${fxMil(totN)}</td><td class="esq">${leitura(totA, totN)}</td></tr></table></div>`;
+  // 7 frases
+  h += `<div class="fx-secao"><h3>7. A semana em frases</h3><span>só o fato</span></div><div class="fx-frases">`;
+  h += `<p>A semana vendeu <b>${fxMil(a.fat)}</b>${j ? ` — ${Math.abs((a.fat - j.fat) / j.fat * 100) < 0.5 ? 'o mesmo que a anterior' : `${a.fat > j.fat ? 'mais' : 'menos'} ${fxPct1(Math.abs((a.fat - j.fat) / j.fat * 100))} que a anterior`}` : ''}, em ${fxInt(a.ped)} pedidos de R$ ${a.ticket.toFixed(0)} em média.</p>`;
+  h += `<p>O iFood ficou com <b>R$ ${Math.round(cemIf)}</b> de cada R$ 100 vendidos lá (${fxMil(a.custoIfood)}): ${fxMil(a.promoLoja)} de promoção paga por nós, ${fxMil(a.taxas)} de comissão e taxas, ${fxMil(a.anuncios)} de anúncios.</p>`;
+  h += `<p>Mercadoria levou <b>R$ ${Math.round(p)}</b> de cada R$ 100 nesta semana; na média de 4 semanas, <b>R$ ${Math.round(p4)}</b> — ${p4 <= META_CMV ? 'dentro' : p4 <= META_CMV * 1.1 ? 'no limite' : 'acima'} da meta de R$ ${META_CMV}.</p>`;
+  h += `<p>Fechou <b>${fxMil(a.margem)}</b> de margem (R$ ${Math.round(cemM)} de cada 100)${j ? ` — ${fxVar(a.margem, j.margem, ra)}` : ''}.</p>`;
+  h += `<p>Caixa desta semana: ${cxs.map(c => `${LOJAS_FIN.find(l => l[0] === c.u)[1]} ${c.sobra >= 0 ? 'deve sobrar' : 'deve faltar'} <b>${fxMil(Math.abs(c.sobra))}</b>`).join('; ')}.</p></div>`;
+  h += `<div class="fx-rodape">Vendas, pedidos e itens: caixa das lojas (Saipos), semanas de segunda a domingo. Custo iFood: export de pedidos do iFood (promoções pagas pela loja, comissões e taxas) + anúncios do extrato oficial. Mercadoria: notas lançadas no Saipos pela data de emissão. Caixa: saldos do banco de hoje e contas a pagar/receber lançadas no Saipos. O Boqueirão fica fora; a mercadoria do atacado ainda está dentro das compras da Água Verde.</div>`;
+  alvo.innerHTML = h;
+}
+// seletores de mes/semana dos dois modulos (um listener so, como o da loja)
+document.addEventListener('click', (e) => {
+  const b = e.target && e.target.closest && e.target.closest('.fx-seg button');
+  if (!b) return;
+  const seg = b.closest('.fx-seg').dataset.seg;
+  if (seg === 'fxMes') { FX_MES_SEL = b.dataset.v; renderFechamento(); }
+  if (seg === 'fxSem') { FX_SEM_SEL = b.dataset.v; renderSemana(); }
 });
 
 // Carrega os dados financeiros uma vez so — compartilhados entre DFC e DRE.
