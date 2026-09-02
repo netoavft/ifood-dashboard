@@ -5459,14 +5459,25 @@ function renderConcbanco() {
                    saldo_saipos: sdDia.saldo_saipos, diferenca: sdDia.diferenca,
                    explicado_pela_fila: null, lancado_em_outra_data: null,
                    varredura_do_banco: null, sem_explicacao: null,
-                   extrato_ate: sdOntem && sdOntem.extrato_ate } : null);
+                   extrato_ate: sdOntem && sdOntem.extrato_ate,
+                   movimenta_diariamente: sdOntem && sdOntem.movimenta_diariamente,
+                   ultimo_movimento: sdOntem && sdOntem.ultimo_movimento } : null);
     // Um centavo de diferença é arredondamento de soma, não dinheiro.
     const TOL_SALDO = 0.015;
     let saldoTxt = '<span style="opacity:.4">—</span>', saldoTitulo = '';
     if (sd) {
+      // CONTA QUE NAO MOVIMENTA TODO DIA NAO ESTA "PARADA" (dono, 02/09/2026): a
+      // PARTICIPACOES mexe uma vez por mes e aparecia como "extrato parado em
+      // 26/08" — um alerta de falta de dado onde nao faltava dado. A view diz se
+      // a conta movimenta diariamente (>= 15 dias com movimento nos ultimos 30;
+      // medido: AV/AHU/FF AV/SB 21-23, FF SB 12, SANTANDER 8, PARTICIPACOES 1).
+      // Quem nao movimenta mostra o ULTIMO DIA MOVIMENTADO, em tom neutro, e
+      // segue com a conferencia de saldo normal.
+      const diaria = sd.movimenta_diariamente !== false;
       const semExtratoDe = !sd.extrato_ate ? 'nunca'
-        : (Math.round((new Date(ontem) - new Date(sd.extrato_ate)) / 86400000) > 2
+        : (diaria && Math.round((new Date(ontem) - new Date(sd.extrato_ate)) / 86400000) > 2
             ? ddmm(sd.extrato_ate) : null);
+      const ultimoMov = (!diaria && sd.ultimo_movimento) ? ddmm(sd.ultimo_movimento) : null;
       const dif = n(sd.diferenca);
       saldoTitulo = 'banco ' + rs(sd.saldo_banco) + ' · Saipos ' + rs(sd.saldo_saipos)
         + ' · diferença ' + rs(dif) + ' · na fila ' + rs(sd.explicado_pela_fila)
@@ -5498,7 +5509,8 @@ function renderConcbanco() {
         // acabou — não importa que a decomposição em termos deixe um resto (ela
         // é aproximada por natureza; a PARTICIPAÇÕES tinha saldo igual e R$ 0,55
         // de resto, e a tela pintava de vermelho uma conta fechada).
-        saldoTxt = '<b>' + rs(sd.saldo_banco) + '</b> · '
+        saldoTxt = (ultimoMov ? '<span style="opacity:.7">último movimento ' + ultimoMov + '</span> · ' : '')
+          + '<b>' + rs(sd.saldo_banco) + '</b> · '
           + (bateu ? '<span style="color:#2e7d32">Saipos igual</span>'
              : Math.abs(sobra) >= TOL_SALDO
                ? '<span style="color:#c8102e">Saipos ' + rs(sd.saldo_saipos)
