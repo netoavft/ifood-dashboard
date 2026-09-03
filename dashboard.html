@@ -9006,7 +9006,9 @@ async function trTelaPedido(unidadeEscolhida) {
 function trPedidoFiltra() {
   const q = (document.getElementById('trPedidoBusca')?.value || '').toLowerCase();
   document.querySelectorAll('label[data-busca]').forEach(el => {
-    el.style.display = !q || el.dataset.busca.includes(q) ? '' : 'none';
+    // 'grid', nunca '': limpar o display apagava o grid inline da linha e
+    // o campo desalinhava ao voltar do filtro (visto pelo dono em 04/09)
+    el.style.display = !q || el.dataset.busca.includes(q) ? 'grid' : 'none';
   });
 }
 
