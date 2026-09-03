@@ -9071,16 +9071,26 @@ async function trCriarPedido() {
   });
   if (!rl.ok) { msg.textContent = 'Não deu: ' + await trErroDe(rl); msg.style.color = '#ff6b6b'; return; }
   const lista = (await rl.json())[0];
+  // TODAS as linhas com as MESMAS chaves (observacao: null quando nao ha) —
+  // o PostgREST recusa lote com objetos de campos diferentes ("All object
+  // keys must match"; mordeu no 1o pedido real do Ahu em 04/09/2026).
   const ri = await trFetch('tr_lista_itens', {
     method: 'POST',
     body: JSON.stringify(escolhidos.map(x => ({
       id_lista: lista.id, item: x.i.item, un_medida: x.i.un_medida,
       // com embalagem, o campo e "quantos potes": grava o convertido e anota o original
       qtd_solicitada: x.i.emb_fator ? Math.round(x.q * x.i.emb_fator * 1000) / 1000 : x.q,
-      observacao: x.i.emb_fator ? `pedido: ${x.q} ${x.i.emb_nome}(s)` : undefined,
-    })).concat(avulsos.map(a => ({ id_lista: lista.id, ...a })))),
+      observacao: x.i.emb_fator ? `pedido: ${x.q} ${x.i.emb_nome}(s)` : null,
+    })).concat(avulsos.map(a => ({ id_lista: lista.id, item: a.item, un_medida: a.un_medida,
+      qtd_solicitada: a.qtd_solicitada, observacao: null })))),
   });
-  if (!ri.ok) { msg.textContent = 'Lista criada mas os itens falharam: ' + await trErroDe(ri); msg.style.color = '#ff6b6b'; return; }
+  if (!ri.ok) {
+    const erro = await trErroDe(ri);
+    // desfaz a lista vazia para nao poluir a fila da separacao
+    await trFetch(`tr_listas?id=eq.${lista.id}`, { method: 'DELETE' });
+    msg.textContent = 'O pedido não entrou (' + erro + ') — nada foi criado, pode tentar de novo.';
+    msg.style.color = '#ff6b6b'; return;
+  }
   msg.textContent = `Pedido enviado — lista #${lista.id} com ${escolhidos.length + avulsos.length} itens`
     + (avulsos.length ? ` (${avulsos.length} fora da grade, entram sem preço até a vinculação)` : '') + '. A separação já enxerga.';
   msg.style.color = '#3fb950';
