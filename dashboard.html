@@ -5623,18 +5623,13 @@ function renderConcbanco() {
       '<tr><td style="text-align:left">' + esc(r.descricao || '') + '</td>' +
       '<td style="text-align:left">' + esc(r.subtipo || '') + '</td>' +
       '<td style="text-align:right">' + rs(Math.abs(n(r.valor))) + '</td></tr>').join('');
-    return '<div class="section-label">A conta da diferença — ' + esc(nomeConta(conta)) + '</div>' +
-      '<div class="contexto" style="font-variant-numeric:tabular-nums">' +
-      (Math.abs(c.difEnt) >= CONCB_TOL_CENTAVOS
-        ? '<b>Entradas:</b> o banco tem <b style="color:#2e7d32">' + rs(fe) + '</b> que o Saipos não tem' +
-          ' — são as linhas de entrada na fila abaixo. Diferença: <b>' + rs(Math.abs(c.difEnt)) + '</b>.<br>' : '') +
-      (Math.abs(c.difSai) >= CONCB_TOL_CENTAVOS
-        ? '<b>Saídas:</b> banco sem Saipos <b style="color:#c8102e">' + rs(fs) + '</b> (fila abaixo)' +
-          ' − Saipos sem banco <b>' + rs(srTot) + '</b> (tabela) = <b>' + rs(Math.abs(c.difSai)) + '</b>.' : '') +
-      '</div>' +
-      (srSai.length
+    // Dono, 03/09/2026: o titulo "A conta da diferenca" e a frase de somas
+    // sairam — "podemos manter somente as grades com as diferencas". Fica so a
+    // tabela do lado que a fila nao mostra (Saipos sem banco), com o nome da
+    // conta no cabecalho; a fila abaixo ja e a grade do outro lado.
+    return (srSai.length
         ? '<div id="tabelaConcbSres' + esc(conta).replace(/\W/g, '') + '" style="overflow-x:auto"><table style="width:100%">' +
-          '<thead><tr><th style="text-align:left">Lançado no Saipos, sem débito no banco no dia</th>' +
+          '<thead><tr><th style="text-align:left">' + esc(nomeConta(conta)) + ' — lançado no Saipos, sem débito no banco no dia</th>' +
           '<th style="text-align:left">Categoria</th><th style="text-align:right">Valor</th></tr></thead>' +
           '<tbody>' + linhaSr +
           '<tr><td style="text-align:left"><b>Total</b></td><td></td><td style="text-align:right"><b>' +
