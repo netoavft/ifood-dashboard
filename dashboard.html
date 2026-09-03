@@ -600,6 +600,12 @@
     .sidebar-grupo { display:flex; flex-direction:row; }
     .sidebar-secao { display:none; }
   }
+  /* Celular: navegador da zoom sozinho ao focar campo com fonte < 16px
+     (pedido do dono no 1o teste das Listas, 03/09/2026). Fonte 16px nos
+     campos da operacao desliga esse zoom sem mexer no viewport. */
+  @media (max-width: 820px) {
+    #trOperacao input, #trOperacao select, #trOperacao textarea { font-size:16px; }
+  }
 </style>
 </head>
 <body>
@@ -8911,10 +8917,33 @@ async function trTelaPedido(unidadeEscolhida) {
               style="width:72px; background:#232321; border:1px solid #34332f; border-radius:6px; color:#fff; padding:4px 6px; text-align:right;">
           </label>`).join('')}
       </div>`).join('')}
+    <div class="section-label" style="margin-top:16px;">PRECISA DE ALGO FORA DA GRADE?</div>
+    <div class="caption-label">Escreva o nome do item, a quantidade e a unidade. Ele entra no pedido <b>sem preço</b> —
+      o preço é definido quando o item for vinculado à base (antes do fechamento do mês), e daí ele passa a aparecer na grade.</div>
+    <div id="trAvulsos"></div>
+    <button class="preset-btn" onclick="trAddAvulso()">+ item fora da grade</button>
     <div style="margin-top:14px;">
       <button class="preset-btn" onclick="trCriarPedido()">Enviar pedido</button>
       <span id="trPedidoMsg" style="font-size:12px; margin-left:8px;"></span>
     </div>`;
+  trAvulsoN = 0;
+}
+
+// itens fora da grade: linhas dinamicas no fim do pedido (03/09/2026)
+let trAvulsoN = 0;
+function trAddAvulso() {
+  trAvulsoN++;
+  const d = document.createElement('div');
+  d.style.cssText = 'display:flex; gap:6px; margin:4px 0; align-items:center; flex-wrap:wrap;';
+  d.innerHTML = `
+    <input type="text" id="trav_n_${trAvulsoN}" placeholder="nome do item" maxlength="80"
+      style="flex:1; min-width:170px; background:#232321; border:1px solid #34332f; border-radius:6px; color:#fff; padding:6px 8px;">
+    <input type="number" min="0" step="any" id="trav_q_${trAvulsoN}" placeholder="qtd"
+      style="width:72px; background:#232321; border:1px solid #34332f; border-radius:6px; color:#fff; padding:6px 8px; text-align:right;">
+    <select id="trav_u_${trAvulsoN}" style="background:#232321; border:1px solid #34332f; border-radius:6px; color:#fff; padding:6px 8px;">
+      <option>KG</option><option>UN</option><option>LT</option>
+    </select>`;
+  document.getElementById('trAvulsos').appendChild(d);
 }
 
 async function trCriarPedido() {
@@ -8922,7 +8951,17 @@ async function trCriarPedido() {
   const itens = window._trItensPedido || [];
   const escolhidos = itens.map((i, idx) => ({ i, q: Number(document.getElementById('trq_' + idx)?.value || 0) }))
     .filter(x => x.q > 0);
-  if (!escolhidos.length) { msg.textContent = 'Nenhuma quantidade preenchida.'; msg.style.color = '#f5a623'; return; }
+  // itens fora da grade: nome digitado vira MAIUSCULA (padrao da base); se o
+  // nome bater com um item da grade, o banco precifica normal em vez de avulso
+  const avulsos = [];
+  for (let k = 1; k <= trAvulsoN; k++) {
+    const n = document.getElementById('trav_n_' + k);
+    if (!n) continue;
+    const nome = n.value.trim().toUpperCase();
+    const q = Number(document.getElementById('trav_q_' + k)?.value || 0);
+    if (nome && q > 0) avulsos.push({ item: nome, un_medida: document.getElementById('trav_u_' + k).value, qtd_solicitada: q });
+  }
+  if (!escolhidos.length && !avulsos.length) { msg.textContent = 'Nenhuma quantidade preenchida.'; msg.style.color = '#f5a623'; return; }
   msg.textContent = 'Enviando...'; msg.style.color = '#8a897e';
   const rl = await trFetch('tr_listas', {
     method: 'POST', headers: { Prefer: 'return=representation' },
@@ -8932,10 +8971,12 @@ async function trCriarPedido() {
   const lista = (await rl.json())[0];
   const ri = await trFetch('tr_lista_itens', {
     method: 'POST',
-    body: JSON.stringify(escolhidos.map(x => ({ id_lista: lista.id, item: x.i.item, un_medida: x.i.un_medida, qtd_solicitada: x.q }))),
+    body: JSON.stringify(escolhidos.map(x => ({ id_lista: lista.id, item: x.i.item, un_medida: x.i.un_medida, qtd_solicitada: x.q }))
+      .concat(avulsos.map(a => ({ id_lista: lista.id, ...a })))),
   });
   if (!ri.ok) { msg.textContent = 'Lista criada mas os itens falharam: ' + await trErroDe(ri); msg.style.color = '#ff6b6b'; return; }
-  msg.textContent = `Pedido enviado — lista #${lista.id} com ${escolhidos.length} itens. A separação já enxerga.`;
+  msg.textContent = `Pedido enviado — lista #${lista.id} com ${escolhidos.length + avulsos.length} itens`
+    + (avulsos.length ? ` (${avulsos.length} fora da grade, entram sem preço até a vinculação)` : '') + '. A separação já enxerga.';
   msg.style.color = '#3fb950';
 }
 
@@ -8998,17 +9039,18 @@ async function trAbrirSeparacao(id) {
   const alvo = document.getElementById('trTelaConteudo');
   const [rl, ri] = await Promise.all([
     trFetch(`tr_listas?id=eq.${id}&select=id,unidade,status,data_pedido`),
-    trFetch(`tr_lista_itens?id_lista=eq.${id}&order=item&select=id,item,un_medida,qtd_solicitada,qtd_separada`),
+    trFetch(`tr_lista_itens?id_lista=eq.${id}&order=item&select=id,item,un_medida,qtd_solicitada,qtd_separada,avulso`),
   ]);
   const lista = (await rl.json())[0];
   const itens = await ri.json();
-  window._trItensSep = itens;
+  window._trItensSep = itens; window._trListaSep = lista;
   alvo.innerHTML = `
     <div class="caption-label"><button class="preset-btn" onclick="trListaAberta=null; trTelaSeparacao();">← fila</button>
-      Lista <b>#${id}</b> · ${lista.unidade} · status <b>${lista.status}</b></div>
+      Lista <b>#${id}</b> · ${lista.unidade} · status <b>${lista.status}</b>
+      <button class="preset-btn" style="margin-left:8px;" onclick="trImprimirSeparacao(${id})">🖨️ Gerar PDF</button></div>
     <div id="tabelaTrOpSep"><table>
       <tr><th>Item</th><th>Solicitado</th><th>Separado</th></tr>
-      ${itens.map((i, idx) => `<tr><td>${i.item} <span class="dre-av">${i.un_medida || ''}</span></td>
+      ${itens.map((i, idx) => `<tr><td>${i.item} <span class="dre-av">${i.un_medida || ''}</span>${i.avulso ? ' <span style="color:#f5a623; font-size:11px;">🆕 fora da grade</span>' : ''}</td>
         <td>${Number(i.qtd_solicitada || 0)}</td>
         <td><input type="number" min="0" step="any" id="trs_${idx}" value="${i.qtd_separada ?? i.qtd_solicitada ?? ''}"
           style="width:80px; background:#232321; border:1px solid #34332f; border-radius:6px; color:#fff; padding:4px 6px; text-align:right;"></td></tr>`).join('')}
@@ -9047,12 +9089,61 @@ async function trEnviarLista(id) {
   setTimeout(trTelaSeparacao, 900);
 }
 
+// Papel para a separacao (03/09/2026): abre a lista num formato de imprimir
+// (ou salvar em PDF pelo dialogo do navegador), agrupada como o estoque anda.
+async function trImprimirSeparacao(id) {
+  const itens = window._trItensSep || [];
+  const lista = window._trListaSep || {};
+  let grupoDe = {};
+  try {
+    const filtro = itens.map(i => '"' + i.item.replace(/"/g, '') + '"').join(',');
+    const r = await trFetch(`tr_itens?select=item,grupo_separacao&item=in.(${encodeURIComponent(filtro)})`);
+    if (r.ok) (await r.json()).forEach(x => { grupoDe[x.item] = x.grupo_separacao; });
+  } catch (e) { /* sem grupo tudo cai em OUTROS — o papel sai do mesmo jeito */ }
+  const porGrupo = {};
+  itens.forEach(i => {
+    const g = i.avulso ? '🆕 FORA DA GRADE' : (grupoDe[i.item] || 'OUTROS');
+    (porGrupo[g] = porGrupo[g] || []).push(i);
+  });
+  const ddmm = (d) => d ? d.slice(8, 10) + '/' + d.slice(5, 7) + '/' + d.slice(0, 4) : '—';
+  const w = window.open('', '_blank');
+  if (!w) { alert('O navegador bloqueou a janela de impressão — libere pop-ups para este site.'); return; }
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Lista #${id} — ${lista.unidade || ''}</title><style>
+    body { font-family:Arial, sans-serif; color:#000; margin:24px; }
+    h1 { font-size:19px; margin:0 0 2px; }
+    .sub { font-size:12px; color:#444; margin-bottom:14px; }
+    h2 { font-size:12px; text-transform:uppercase; border-bottom:1.5px solid #000; padding-bottom:2px; margin:16px 0 4px; }
+    table { width:100%; border-collapse:collapse; }
+    td, th { border-bottom:1px solid #bbb; padding:6px; font-size:13px; text-align:left; }
+    th { font-size:10.5px; text-transform:uppercase; color:#444; }
+    .q { text-align:right; white-space:nowrap; }
+    .risco { width:110px; }
+    .risco span { display:inline-block; width:100%; border-bottom:1px solid #000; height:14px; }
+    .cx { width:24px; font-size:15px; }
+    @media print { .naoimprime { display:none; } }
+  </style></head><body>
+    <button class="naoimprime" onclick="window.print()" style="float:right; padding:8px 14px;">Imprimir / salvar PDF</button>
+    <h1>Lista #${id} — ${lista.unidade || ''}</h1>
+    <div class="sub">pedida em ${ddmm(lista.data_pedido)} · ${itens.length} itens · impressa em ${ddmm(trHoje())} · marque ☑ ao separar e anote a quantidade separada</div>
+    ${Object.keys(porGrupo).sort().map(g => `<h2>${g}</h2><table>
+      <tr><th class="cx"></th><th>Item</th><th>Un</th><th class="q">Solicitado</th><th class="risco">Separado</th></tr>
+      ${porGrupo[g].map(i => `<tr><td class="cx">☐</td><td>${i.item}</td><td>${i.un_medida || ''}</td>
+        <td class="q"><b>${Number(i.qtd_solicitada || 0)}</b></td><td class="risco"><span></span></td></tr>`).join('')}
+    </table>`).join('')}
+  </body></html>`);
+  w.document.close();
+  w.focus();
+  setTimeout(() => { try { w.print(); } catch (e) {} }, 400);
+}
+
 // ---- tela: conferencia no recebimento (FILIAL/DONO) ----
 async function trTelaConferencia() {
   const alvo = document.getElementById('trTelaConteudo');
   if (trListaAberta) return trAbrirConferencia(trListaAberta);
   const filtro = TR_OP.unidade ? `&unidade=eq.${encodeURIComponent(TR_OP.unidade)}` : '';
-  const r = await trFetch(`tr_listas?status=eq.ENVIADA${filtro}&order=data_entrega&select=id,unidade,data_pedido,data_entrega`);
+  // fonte=PAINEL: as 1.118 listas da era planilha estao ENVIADA no banco (historico
+  // congelado) e poluiam a fila — aqui e so o modulo operante, mais nova primeiro
+  const r = await trFetch(`tr_listas?status=eq.ENVIADA&fonte=eq.PAINEL${filtro}&order=data_entrega.desc,id.desc&select=id,unidade,data_pedido,data_entrega`);
   if (!r.ok) { alvo.innerHTML = `<div class="contexto" style="border-color:#ff6b6b;">${await trErroDe(r)}</div>`; return; }
   const listas = await r.json();
   alvo.innerHTML = listas.length ? `
@@ -9065,7 +9156,7 @@ async function trTelaConferencia() {
 
 async function trAbrirConferencia(id) {
   const alvo = document.getElementById('trTelaConteudo');
-  const ri = await trFetch(`tr_lista_itens?id_lista=eq.${id}&order=item&select=id,item,un_medida,qtd_separada,qtd_recebida`);
+  const ri = await trFetch(`tr_lista_itens?id_lista=eq.${id}&order=item&select=id,item,un_medida,qtd_separada,qtd_recebida,avulso`);
   const itens = await ri.json();
   window._trItensConf = itens;
   alvo.innerHTML = `
@@ -9073,7 +9164,7 @@ async function trAbrirConferencia(id) {
       Conferência da lista <b>#${id}</b> — o campo vem preenchido com o separado; <b>corrija o que veio diferente</b>.</div>
     <div id="tabelaTrOpConf"><table>
       <tr><th>Item</th><th>Separado</th><th>Recebido</th></tr>
-      ${itens.map((i, idx) => `<tr><td>${i.item} <span class="dre-av">${i.un_medida || ''}</span></td>
+      ${itens.map((i, idx) => `<tr><td>${i.item} <span class="dre-av">${i.un_medida || ''}</span>${i.avulso ? ' <span style="color:#f5a623; font-size:11px;">🆕 fora da grade</span>' : ''}</td>
         <td>${Number(i.qtd_separada || 0)}</td>
         <td><input type="number" min="0" step="any" id="trc_${idx}" value="${i.qtd_recebida ?? i.qtd_separada ?? 0}"
           style="width:80px; background:#232321; border:1px solid #34332f; border-radius:6px; color:#fff; padding:4px 6px; text-align:right;"></td></tr>`).join('')}
@@ -9154,12 +9245,14 @@ async function trBaixar(id) {
 // (vespera da folha da AV) e dia 20 para o Boqueirao, pela regra da unidade.
 async function trTelaFechamento() {
   const alvo = document.getElementById('trTelaConteudo');
-  const [rv, ru] = await Promise.all([
+  const [rv, ru, ra] = await Promise.all([
     trFetch('vw_tr_fechamento_validar?order=unidade'),
     trFetch('tr_regras_unidade?select=unidade,dia_pagamento,vigencia_inicio&order=unidade,vigencia_inicio.desc'),
+    trFetch('vw_tr_avulsos_pendentes?select=id_lista,unidade,item,un_medida,qtd,avulso'),
   ]);
   if (!rv.ok) { alvo.innerHTML = `<div class="contexto" style="border-color:#ff6b6b;">${await trErroDe(rv)}</div>`; return; }
   const esperando = await rv.json();
+  const avulsos = ra.ok ? await ra.json() : [];
   // regras sao versionadas por vigencia (desde 01/09 ha duas por unidade):
   // o dropdown mostra so a vigente — a primeira de cada unidade, ja que a
   // consulta vem ordenada por vigencia decrescente.
@@ -9180,6 +9273,12 @@ async function trTelaFechamento() {
       </div>
       <div id="trFechMsg" style="font-size:12px; margin-top:8px;"></div>
     </div>
+
+    ${avulsos.length ? `<div class="contexto" style="border-color:#f5a623; margin-top:12px;">
+      <b>⚠️ ${avulsos.length} item(ns) sem preço esperando vínculo na base</b> — o mês não fecha com item sem preço.
+      Avise o Neto para vincular:<br>
+      ${avulsos.map(a => `· <b>${a.item}</b> (${Number(a.qtd) || '?'} ${a.un_medida || ''}, ${a.unidade}, lista #${a.id_lista})`).join('<br>')}
+    </div>` : ''}
 
     <div class="section-label">Esperando validação</div>
     ${!esperando.length ? '<div class="contexto">Nada esperando. Todo mês fechado já virou conta a pagar.</div>' : `
