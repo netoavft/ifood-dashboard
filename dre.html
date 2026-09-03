@@ -19,6 +19,10 @@ h1{font-size:26px;margin:0 0 6px;font-weight:700;letter-spacing:-.01em}
 .tabs button{font:inherit;font-size:13px;font-weight:600;padding:7px 14px;border:1px solid var(--line);background:var(--paper);color:var(--ink-2);border-radius:6px;cursor:pointer}
 .tabs button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
 .tabs button:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.periodo{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 12px;font-size:12.5px;color:var(--ink-3)}
+.periodo select{font:inherit;font-size:13px;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--paper);color:var(--ink)}
+.periodo button{font:inherit;font-size:12px;padding:5px 10px;border:1px solid var(--line);background:var(--paper);color:var(--ink-2);border-radius:6px;cursor:pointer}
+.periodo button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
 .legend{font-size:12.5px;color:var(--ink-3);margin:0 0 10px;max-width:90ch}
 .tscroll{overflow-x:auto;background:var(--paper);border:1px solid var(--line)}
 table{border-collapse:collapse;width:100%;font-size:13px}
@@ -53,6 +57,7 @@ details{margin:10px 0 0;font-size:13px;color:var(--ink-2);max-width:90ch} summar
   <p class="lead">Receita pela venda registrada no PDV (valor cheio), despesas pela data de competência, mercadoria entre lojas pela lista fechada do mês.
     Estrutura na ordem do fechamento da MA Consultoria; os cálculos são os da nossa base. Clique nas linhas com ▸ para abrir o detalhe.</p>
   <div class="tabs" id="tabs"></div>
+  <div class="periodo" id="periodo"></div>
   <p class="legend">Em cada célula: valor em R$, ao lado a fatia da <b>receita bruta</b> (vendas + outras receitas) e, embaixo, a variação contra o mês anterior.
     O % fica colorido só quando a linha tem meta: verde dentro, âmbar até 10% de distância, vermelho além.</p>
   <div class="tscroll"><table id="t"></table></div>
@@ -62,7 +67,7 @@ details{margin:10px 0 0;font-size:13px;color:var(--ink-2);max-width:90ch} summar
     <b>Margem de contribuição</b>: receita líquida menos mercadoria. <b>Resultado operacional</b>: antes de banco e imposto sobre o lucro. <b>Benefício iFood</b>: comissão que o iFood deixou de cobrar (R$ 500 mil, acaba entre dez/26 e jan/27), já embutida na venda; o resultado recorrente mostra o mês pagando comissão cheia.
     <b>Abaixo do resultado</b>: lucro repassado pelas filiais (total enviado menos a lista do mês, com o bônus do iFood dentro), investimentos, retiradas e aportes.</p>
   </details>
-  <p class="foot"><b>Base:</b> Saipos importado em 03/09/2026 14:55 · meses fechados até 2026-08 · página gerada em 03/09/2026 15:36.
+  <p class="foot"><b>Base:</b> Saipos importado em 03/09/2026 14:55 · meses fechados até 2026-08 · página gerada em 03/09/2026 15:45.
     Lançamento retroativo muda mês fechado; a versão viva está no painel. Valores em reais; os centavos estão nas fontes.</p>
 </div>
 <script>
@@ -73,6 +78,9 @@ const rot = m => MESES_ABREV[Number(m.slice(5,7))-1] + '/' + m.slice(2,4);
 const fmt = v => Math.round(v).toLocaleString('pt-BR');
 const pct = v => v.toLocaleString('pt-BR', {minimumFractionDigits:1, maximumFractionDigits:1});
 let loja = 'AGUA VERDE'; const aberto = new Set();
+let de = 0, ate = D.meses.length - 1;   // janela de exibicao (o calculo usa sempre a serie inteira)
+function periodo(p){ const n = D.meses.length; if (p==='ano'){de=0;} else {de=Math.max(0,n-p);} ate=n-1; render(); }
+function periodoSel(){ const a=+document.getElementById('selDe').value, b=+document.getElementById('selAte').value; de=Math.min(a,b); ate=Math.max(a,b); render(); }
 function farol(m, av){ const M = D.metas[m]; if(!M) return ''; const d = M.sentido==='abaixo' ? av-M.meta : M.meta-av; return d<=0?'ok':d<=M.meta*.1?'perto':'fora'; }
 function cel(v, base, ant, kind, meta){
   const show = kind==='custo' ? -v : v; let s = '';
@@ -82,13 +90,14 @@ function cel(v, base, ant, kind, meta){
   return `<td class="num${(show<-0.005 && kind!=='custo')?' neg':''}">${fmt(show)}${s}${sub}</td>`;
 }
 function linha(l, id, nivel){
-  const L = D.lojas[loja], n = D.meses.length, tem = l.f && l.f.length;
+  const L = D.lojas[loja], n = ate - de + 1, tem = l.f && l.f.length;
   if (l.t==='sec') return `<tr class="sec"><td colspan="${n+2}">${l.r}</td></tr>`;
   const cls = (l.t==='res'?'res':l.t) + (tem?' click':'') + (l.t==='linha' && nivel===0?' top':'');
   const seta = tem ? `<span class="seta">${aberto.has(id)?'▾':'▸'}</span>` : (l.t!=='res'?'<span class="seta"></span>':'');
   const M = l.m && D.metas[l.m]; const meta = M ? `<div><span class="meta">meta: ${M.sentido==='abaixo'?'até':''} ${pct(M.meta)}%${M.sentido==='abaixo'?'':' ou mais'} da receita</span></div>` : '';
-  let tds=''; for (let i=0;i<n;i++) tds += cel(l.v[i], L.base[i], i>0?l.v[i-1]:null, l.k, l.m);
-  const tot = l.v.reduce((a,b)=>a+b,0), btot = L.base.reduce((a,b)=>a+b,0); tds += cel(tot, btot, null, l.k, l.m);
+  let tds=''; for (let i=de;i<=ate;i++) tds += cel(l.v[i], L.base[i], i>0?l.v[i-1]:null, l.k, l.m);
+  const sl = a => a.slice(de, ate+1).reduce((x,y)=>x+y,0);
+  const tot = sl(l.v), btot = sl(L.base); tds += cel(tot, btot, null, l.k, l.m);
   let h = `<tr class="${cls}" ${tem?`onclick="tog('${id}')"`:''}><td>${seta}${l.r}${meta}</td>${tds}</tr>`;
   if (tem && aberto.has(id)) l.f.forEach((f,j)=>{ h += linha(f, id+'.'+j, nivel+1); });
   return h;
@@ -97,8 +106,16 @@ function tog(id){ aberto.has(id)?aberto.delete(id):aberto.add(id); render(); }
 function render(){
   document.getElementById('nomeLoja').textContent = NOMES[loja];
   document.getElementById('tabs').innerHTML = Object.keys(NOMES).map(k=>`<button class="${k===loja?'on':''}" onclick="loja='${k}';render()">${NOMES[k]}</button>`).join('');
+  const n = D.meses.length;
+  const opts = sel => D.meses.map((m,i)=>`<option value="${i}" ${i===sel?'selected':''}>${rot(m)}</option>`).join('');
+  document.getElementById('periodo').innerHTML =
+    `<button class="${de===0&&ate===n-1?'on':''}" onclick="periodo('ano')">Ano completo</button>`
+    + `<button class="${de===Math.max(0,n-6)&&ate===n-1&&n>6?'on':''}" onclick="periodo(6)">Últimos 6 meses</button>`
+    + `<button class="${de===Math.max(0,n-3)&&ate===n-1&&n>3?'on':''}" onclick="periodo(3)">Últimos 3 meses</button>`
+    + `<span>ou escolha:</span><select id="selDe" onchange="periodoSel()">${opts(de)}</select><span>até</span><select id="selAte" onchange="periodoSel()">${opts(ate)}</select>`
+    + `<span>(a coluna Total soma só os meses mostrados)</span>`;
   const L = D.lojas[loja];
-  let h = `<tr><th>Linha</th>${D.meses.map(m=>`<th>${rot(m)}</th>`).join('')}<th>Total</th></tr>`;
+  let h = `<tr><th>Linha</th>${D.meses.slice(de, ate+1).map(m=>`<th>${rot(m)}</th>`).join('')}<th>Total</th></tr>`;
   L.linhas.forEach((l,i)=>{ h += linha(l, 'l'+i, 0); });
   document.getElementById('t').innerHTML = h;
 }
