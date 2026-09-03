@@ -11533,6 +11533,7 @@ function renderModuloDRE() {
   const canalLinha = {}, canalRotulo = {}, canalOrdem = [];
   (DRE_CANAL || []).forEach(r => {
     if (LOJA_FIN !== 'REDE' && r.unidade !== LOJA_FIN) return;
+    if (r.classe === 'INFO') return;   // linha informativa (vale/maquininha fora do repasse), nao e' deducao
     const i = idxMes[r.mes];
     if (i === undefined) return;
     if (!canalLinha[r.linha]) { canalLinha[r.linha] = Array(nM).fill(0); canalRotulo[r.linha] = r.rotulo; canalOrdem.push(r.linha); }
