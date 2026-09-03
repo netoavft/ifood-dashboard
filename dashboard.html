@@ -8970,25 +8970,25 @@ async function trTelaPedido(unidadeEscolhida) {
       `<button class="preset-btn" onclick="trTelaPedido('${u}')">${u}</button>`).join(' ')}</div>`;
     return;
   }
-  const r = await trFetch(`vw_tr_itens_pedido?unidade=eq.${encodeURIComponent(unidade)}&order=ordem`);
+  // 04/09/2026, dono: sem grupos — grade unica em ordem alfabetica, com busca no topo
+  const r = await trFetch(`vw_tr_itens_pedido?unidade=eq.${encodeURIComponent(unidade)}&order=item`);
   if (!r.ok) { alvo.innerHTML = `<div class="contexto" style="border-color:#b3261e;">${await trErroDe(r)}</div>`; return; }
   const itens = await r.json();
-  const grupos = [...new Set(itens.map(i => i.grupo_separacao))];
   const dataCusto = itens.find(i => i.custo_atualizado_em)?.custo_atualizado_em;
   window._trItensPedido = itens; window._trPedidoUnidade = unidade;
   alvo.innerHTML = `
     <div class="caption-label">Pedido para <b>${unidade}</b> — preencha só o que precisa; itens em branco ficam fora.
       O preço é congelado pelo sistema no ato (Formação de preços${dataCusto ? ' de ' + dataCusto.slice(8,10) + '/' + dataCusto.slice(5,7) : ''}).</div>
-    ${grupos.map(g => `
-      <div class="section-label" style="margin-top:14px;">${g || 'SEM GRUPO'}</div>
-      <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:6px 14px;">
-        ${itens.map((i, idx) => i.grupo_separacao !== g ? '' : `
-          <label style="display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:12.5px; color:#4d545b; padding:2px 0;">
-            <span>${i.item} <span style="color:#7d858c;">(${i.emb_fator ? 'pede em ' + i.emb_nome + ' de ' + trEmbDesc(i) : (i.un_medida || 'un')}${i.nao_cobrado ? ' · não cobrado' : (i.preco_tabela ? ' · R$ ' + Number(i.preco_tabela).toFixed(2) + '/' + (i.un_medida || 'un').toLowerCase() : '')})${i.sem_custo ? ' ⚠️ sem custo' : ''}</span>${i.emb_fator ? `<br><span id="trqe_${idx}" style="color:#1f6d3f; font-size:11px;"></span>` : ''}</span>
-            <input type="number" min="0" step="any" id="trq_${idx}" placeholder="${i.emb_fator ? i.emb_nome + 's' : (i.minimo || i.maximo ? (i.minimo ?? '') + '–' + (i.maximo ?? '') : '')}"${i.emb_fator ? ` oninput="trEmbHint(${idx})"` : ''}
-              style="width:72px; background:#efede6; border:1px solid #dcdad3; border-radius:6px; color:#1e2226; padding:4px 6px; text-align:right;">
-          </label>`).join('')}
-      </div>`).join('')}
+    <input id="trPedidoBusca" type="search" placeholder="buscar item... (o que você digitou continua guardado)" oninput="trPedidoFiltra()"
+      style="width:100%; max-width:360px; margin:8px 0; background:#efede6; border:1px solid #dcdad3; border-radius:8px; color:#1e2226; padding:8px 10px;">
+    <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:6px 14px;">
+      ${itens.map((i, idx) => `
+        <label data-busca="${i.item.toLowerCase()}" style="display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:12.5px; color:#4d545b; padding:2px 0;">
+          <span>${i.item} <span style="color:#7d858c;">(${i.emb_fator ? 'pede em ' + i.emb_nome + ' de ' + trEmbDesc(i) : (i.un_medida || 'un')}${i.nao_cobrado ? ' · não cobrado' : (i.preco_tabela ? ' · R$ ' + Number(i.preco_tabela).toFixed(2) + '/' + (i.un_medida || 'un').toLowerCase() : '')})${i.sem_custo ? ' ⚠️ sem custo' : ''}</span>${i.emb_fator ? `<br><span id="trqe_${idx}" style="color:#1f6d3f; font-size:11px;"></span>` : ''}</span>
+          <input type="number" min="0" step="any" id="trq_${idx}" placeholder="${i.emb_fator ? i.emb_nome + 's' : (i.minimo || i.maximo ? (i.minimo ?? '') + '–' + (i.maximo ?? '') : '')}"${i.emb_fator ? ` oninput="trEmbHint(${idx})"` : ''}
+            style="width:72px; background:#efede6; border:1px solid #dcdad3; border-radius:6px; color:#1e2226; padding:4px 6px; text-align:right;">
+        </label>`).join('')}
+    </div>
     <div class="section-label" style="margin-top:16px;">PRECISA DE ALGO FORA DA GRADE?</div>
     <div class="caption-label">Escreva o nome do item, a quantidade e a unidade. Ele entra no pedido <b>sem preço</b> —
       o preço é definido quando o item for vinculado à base (antes do fechamento do mês), e daí ele passa a aparecer na grade.</div>
@@ -8999,6 +8999,15 @@ async function trTelaPedido(unidadeEscolhida) {
       <span id="trPedidoMsg" style="font-size:12px; margin-left:8px;"></span>
     </div>`;
   trAvulsoN = 0;
+}
+
+// Busca da grade do pedido: esconde o que nao casa, sem perder o que ja foi
+// digitado (display:none mantem o valor do campo; o envio le por id).
+function trPedidoFiltra() {
+  const q = (document.getElementById('trPedidoBusca')?.value || '').toLowerCase();
+  document.querySelectorAll('label[data-busca]').forEach(el => {
+    el.style.display = !q || el.dataset.busca.includes(q) ? '' : 'none';
+  });
 }
 
 // Pedido por embalagem (04/09/2026): quem pede fala em potes/baldes/pacotes;
