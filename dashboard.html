@@ -8965,7 +8965,7 @@ async function trTelaPedido(unidadeEscolhida) {
   let unidade = TR_OP.unidade || unidadeEscolhida;
   if (!unidade) {
     const r = await trFetch('vw_tr_itens_pedido?select=unidade');
-    const us = [...new Set((await r.json()).map(x => x.unidade))].sort();
+    const us = [...new Set((await r.json()).map(x => x.unidade))].filter(Boolean).sort();
     alvo.innerHTML = `<div class="contexto">Pedido em nome de qual filial? ${us.map(u =>
       `<button class="preset-btn" onclick="trTelaPedido('${u}')">${u}</button>`).join(' ')}</div>`;
     return;
