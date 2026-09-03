@@ -18,7 +18,7 @@
     background:#1e2226; z-index:1002; }
   body {
     margin: 0; padding: 0;
-    background: #f6f5f1; color: #ffffff;
+    background: #f6f5f1; color:#1e2226;
     font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
     min-height: 100vh;
   }
@@ -42,7 +42,7 @@
      como o letreiro da loja. Amarelo/laranja SO em area de marca (login, topo da
      sidebar, faixa do topo) — nunca em dado, para nao brigar com o ambar do farol. */
   .sidebar-marca { display:flex; align-items:center; gap:10px; padding:12px 14px; margin:0 12px 14px;
-                   background:#1e2226; border-radius:12px; }
+                   background:linear-gradient(135deg,#f6c63e,#ee8a3c 70%,#e2622b); border-radius:12px; }
   .sidebar-logo { height:38px; width:38px; border-radius:9px; object-fit:cover; flex-shrink:0; }
   .sidebar-marca-nome { color:#111110; font-size:14px; font-weight:800; letter-spacing:.3px;
                         flex:1; text-align:center; }
@@ -61,7 +61,7 @@
   .sidebar-marca + .sidebar-secao { border-top:none; margin-top:0; }
   .sidebar-secao::before { content:''; width:14px; height:3px; border-radius:2px; flex-shrink:0;
                            background:#1e2226; opacity:.85; }
-  .sidebar-secao:hover { color:#ffffff; }
+  .sidebar-secao:hover { color:#1e2226; }
   .sidebar-secao .seta { font-size:8px; transition:transform .15s; margin-left:auto; }
   .sidebar-secao.aberto .seta { transform:rotate(90deg); }
   .sidebar-grupo { display:none; flex-direction:column; gap:2px; }
@@ -80,13 +80,13 @@
   .wrap { max-width: 1100px; margin: 0 auto; padding: 28px 32px 60px; }
   .header-row { display:flex; align-items:center; justify-content:center; gap:14px; margin:0 0 6px 0; }
   .header-logo { height:64px; width:64px; border-radius:14px; object-fit:cover; flex-shrink:0; }
-  h1 { color:#ffffff; font-size:28px; font-weight:800; margin:0; }
+  h1 { color:#1e2226; font-size:28px; font-weight:800; margin:0; }
   .subtitle { color:#5f666d; font-size:13px; margin-bottom:22px; }
 
   .filters { display:flex; gap:12px; flex-wrap:wrap; justify-content:center; align-items:center; margin-bottom:12px; }
   .filters label { font-size:12px; color:#5f666d; display:flex; gap:6px; align-items:center; }
   .filters input[type=date], .filters select {
-    background:#efede6; border:1px solid #dcdad3; color:#ffffff; border-radius:8px; padding:6px 8px; font-size:12.5px;
+    background:#efede6; border:1px solid #dcdad3; color:#1e2226; border-radius:8px; padding:6px 8px; font-size:12.5px;
   }
   .filters button {
     background:#efede6; border:1px solid #dcdad3; color:#4d545b; font-size:12px; font-weight:700;
@@ -112,7 +112,7 @@
 
   /* Titulos em BRANCO desde 16/08/2026 (pedido do dono: o vermelho pesava a
      leitura). O vermelho segue como acento em botoes ativos e no farol. */
-  .section-label { color:#ffffff; font-size:17px; font-weight:700; margin-top:24px; margin-bottom:12px; padding-top:20px; border-top:1px solid #dcdad3; text-align:center; text-transform:uppercase; letter-spacing:.8px; }
+  .section-label { color:#1e2226; font-size:17px; font-weight:700; margin-top:24px; margin-bottom:12px; padding-top:20px; border-top:1px solid #dcdad3; text-align:center; text-transform:uppercase; letter-spacing:.8px; }
   .caption-label { color:#5f666d; font-size:11px; margin:14px 0 12px 0; }
 
   .cards { display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:14px; margin-bottom:8px; }
@@ -121,7 +121,7 @@
   @media (max-width: 700px) { .cards-3 { grid-template-columns:1fr; } }
   .card { background:#ffffff; border:1px solid #dcdad3; border-radius:14px; padding:16px 18px; text-align:center; }
   .card-lbl { color:#7d858c; font-size:10.5px; text-transform:uppercase; letter-spacing:.5px; margin-bottom:8px; }
-  .card-val { color:#ffffff; font-size:21px; font-weight:800; }
+  .card-val { color:#1e2226; font-size:21px; font-weight:800; }
   .card-pct { color:#5f666d; font-size:15px; font-weight:600; margin-top:2px; }
   .card-delta { font-size:10.5px; font-weight:600; margin-top:6px; letter-spacing:.2px; }
 
@@ -133,12 +133,12 @@
 
   .contexto { background:#f1f0eb; border:1px solid #dcdad3; border-radius:10px; padding:10px 16px;
               margin:16px 0 4px; text-align:center; color:#5f666d; font-size:12.5px; line-height:1.7; }
-  .contexto b { color:#ffffff; }
+  .contexto b { color:#1e2226; }
 
   .hero { background:#ffffff; border:1px solid #1f6d3f; border-radius:16px;
           padding:22px 26px; margin-bottom:16px; }
   .hero-lbl { color:#7d858c; font-size:11px; text-transform:uppercase; letter-spacing:.6px; }
-  .hero-val { color:#ffffff; font-size:46px; font-weight:bold; line-height:1.1; margin:6px 0 4px; }
+  .hero-val { color:#1e2226; font-size:46px; font-weight:bold; line-height:1.1; margin:6px 0 4px; }
   .hero-delta { font-size:14px; font-weight:bold; }
   .hero-frase { color:#5f666d; font-size:13px; line-height:1.6; margin-top:12px;
                 border-top:1px solid #dcdad3; padding-top:12px; }
@@ -340,7 +340,7 @@
   .plano-fase { margin:26px 0 12px; padding-top:18px; border-top:1px solid #dcdad3; }
   .plano-fase-quando { display:block; font-size:10.5px; font-weight:700; letter-spacing:1.2px;
     text-transform:uppercase; color:#1e2226; margin-bottom:3px; }
-  .plano-fase-titulo { display:block; font-size:19px; font-weight:700; color:#ffffff;
+  .plano-fase-titulo { display:block; font-size:19px; font-weight:700; color:#1e2226;
     letter-spacing:-.2px; }
   /* a conta do canal na ordem da DRE: tipo em destaque, subtipo recuado,
      linha de soma com regua em cima — a mesma leitura do modulo DRE */
@@ -349,8 +349,8 @@
   .dre-canal .dre-tipo td { color:#1e2226; font-weight:600; padding-top:10px; }
   .dre-canal .dre-item td { color:#5f666d; font-size:12.5px; padding-top:2px; padding-bottom:2px; }
   .dre-canal .dre-item td:first-child { padding-left:22px; }
-  .dre-canal .dre-soma td { color:#ffffff; font-weight:700; border-top:1px solid #dcdad3; }
-  .dre-canal .dre-forte td { color:#ffffff; font-weight:700; border-top:1px solid #cfcdc5;
+  .dre-canal .dre-soma td { color:#1e2226; font-weight:700; border-top:1px solid #dcdad3; }
+  .dre-canal .dre-forte td { color:#1e2226; font-weight:700; border-top:1px solid #cfcdc5;
     border-bottom:1px solid #cfcdc5; background:#ffffff; }
   /* o que ja foi resolvido fica recolhido no topo, para o que esta andando aparecer */
   .plano-feitos { margin:14px 0 4px; border:1px solid #ebe9e3; border-radius:10px;
@@ -488,7 +488,7 @@
   #tabelaDFC td.negativo, #tabelaDFC .negativo, #tabelaDRE td.negativo, #tabelaDRE .negativo { color:inherit; }
   /* negativo em soma tambem fica branco (pedido do dono, 16/08 a noite):
      o sinal de menos ja informa — cor nenhuma no DFC/DRE e' semaforo */
-  #tabelaDFC tr.dfc-bloco td { background:#efede6; font-weight:bold; border-top:2px solid #cfcdc5; color:#ffffff; }
+  #tabelaDFC tr.dfc-bloco td { background:#efede6; font-weight:bold; border-top:2px solid #cfcdc5; color:#1e2226; }
   #tabelaDFC tr.dfc-grupo td { background:#ffffff; font-weight:bold; color:#4d545b; }
   #tabelaDFC tr.dfc-grupo td:first-child { padding-left:22px; }
   #tabelaDFC tr.dfc-linha td { color:#5f666d; }
@@ -513,7 +513,7 @@
 
   /* DRE: mesma familia visual do DFC, com linhas de separacao e a sub-linha AV/AH */
   #tabelaDRE table td { border-bottom:1px solid #ebe9e3; vertical-align:top; }
-  #tabelaDRE tr.dfc-bloco td { background:#efede6; font-weight:bold; border-top:2px solid #cfcdc5; color:#ffffff; }
+  #tabelaDRE tr.dfc-bloco td { background:#efede6; font-weight:bold; border-top:2px solid #cfcdc5; color:#1e2226; }
   #tabelaDRE tr.dfc-grupo td { background:#ffffff; font-weight:bold; color:#4d545b; }
   #tabelaDRE tr.dfc-grupo td:first-child { padding-left:22px; }
   #tabelaDRE tr.dfc-linha td { color:#5f666d; }
@@ -622,7 +622,7 @@
   td.negativo, .negativo { color:#b3261e; }
 
   /* Analise de despesas e Conferencia da base (a grade vem do bloco padrao acima) */
-  #tabelaDespesas tr.dfc-bloco td { background:#efede6; font-weight:bold; border-top:2px solid #cfcdc5; color:#ffffff; }
+  #tabelaDespesas tr.dfc-bloco td { background:#efede6; font-weight:bold; border-top:2px solid #cfcdc5; color:#1e2226; }
   #tabelaDespesas tr.dfc-grupo td { background:#ffffff; font-weight:bold; color:#4d545b; }
   #tabelaDespesas tr.dfc-grupo td:first-child { padding-left:22px; }
   #tabelaDespesas tr.dfc-linha td { color:#5f666d; }
@@ -639,12 +639,12 @@
 
   .relatorio-corpo { background:#ffffff; border:1px solid #dcdad3; border-radius:14px; padding:24px 28px; line-height:1.7; font-size:13.5px; }
   .relatorio-corpo h2 { color:#c8102e; font-size:18px; margin:18px 0 10px; }
-  .relatorio-corpo h3 { color:#ffffff; font-size:15px; margin:16px 0 8px; }
+  .relatorio-corpo h3 { color:#1e2226; font-size:15px; margin:16px 0 8px; }
   .relatorio-corpo table { border-collapse:collapse; margin:10px 0; font-size:12.5px; }
   .relatorio-corpo th, .relatorio-corpo td { border:1px solid #dcdad3; padding:5px 10px; }
   .relatorio-corpo th { background:#efede6; color:#5f666d; }
   .relatorio-corpo ul { padding-left:22px; }
-  .relatorio-corpo b { color:#ffffff; }
+  .relatorio-corpo b { color:#1e2226; }
 
   /* Login no estilo da fachada: fundo amarelo/laranja do grafite, caixa creme
      com traco preto e a logo preta transparente (logo-preta.png; cai para
@@ -3243,9 +3243,9 @@ function renderModuloRelatorios(idSelecionado, abaIdx = 0) {
     continuam vindo do resumo automático de segunda-feira.)</span>
     <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-top:10px;">
       <label style="font-size:12px; color:#5f666d;">De <input type="date" id="relIni" value="${isoD(segPassada)}"
-        style="background:#f6f5f1; border:1px solid #dcdad3; color:#ffffff; border-radius:6px; padding:5px 8px;"></label>
+        style="background:#f6f5f1; border:1px solid #dcdad3; color:#1e2226; border-radius:6px; padding:5px 8px;"></label>
       <label style="font-size:12px; color:#5f666d;">Até <input type="date" id="relFim" value="${isoD(domPassado)}"
-        style="background:#f6f5f1; border:1px solid #dcdad3; color:#ffffff; border-radius:6px; padding:5px 8px;"></label>
+        style="background:#f6f5f1; border:1px solid #dcdad3; color:#1e2226; border-radius:6px; padding:5px 8px;"></label>
       <button class="preset-btn" onclick="gerarRelatorioAdHoc()">Gerar relatório</button>
     </div>
   </div>
@@ -3814,7 +3814,7 @@ function renderModuloCardapio(periodoSel, lojaSel) {
     <div style="display:flex; justify-content:center; align-items:center; gap:8px; margin:10px 0 4px;">
       <span class="caption-label" style="margin:0;">Itens e complementos de:</span>
       <select onchange="renderModuloCardapio('${chave}', this.value)"
-        style="background:#ffffff; color:#ffffff; border:1px solid #dcdad3; border-radius:6px; padding:6px 10px; font-family:inherit; font-size:12.5px;">
+        style="background:#ffffff; color:#1e2226; border:1px solid #dcdad3; border-radius:6px; padding:6px 10px; font-family:inherit; font-size:12.5px;">
         ${escopos.map(e => `<option value="${e}" ${e === escopo ? 'selected' : ''}>${e === 'REDE' ? 'Rede inteira (agregado)' : e}</option>`).join('')}
       </select>
     </div>` : '';
