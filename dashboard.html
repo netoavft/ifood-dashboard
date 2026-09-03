@@ -501,6 +501,13 @@
   #tabelaDFC tr.dfc-saldo td:first-child { color:#58a6ff; }
   #tabelaDFC tr.dfc-conta td { color:#a5a49a; }
   #tabelaDFC tr.dfc-conta td:first-child { padding-left:40px; }
+  /* conferência de saldo com o extrato (03/09/2026) */
+  #tabelaDFC .dfc-conf { font-size:11px; margin-left:6px; white-space:nowrap; }
+  #tabelaDFC .dfc-conf.ok { color:#3fb950; }
+  #tabelaDFC .dfc-conf.dif { color:#ff7b72; font-weight:bold; }
+  #tabelaDFC .dfc-conf.sem { color:#6e6d66; }
+  #tabelaDFC tr.dfc-confer td { font-size:11px; border-top:1px dashed #58a6ff; }
+  #tabelaDFC tr.dfc-confer .dfc-conf { margin-left:0; }
   #tabelaDFC tr.clicavel { cursor:pointer; }
   #tabelaDFC tr.clicavel:hover td:first-child { color:#c8102e; }
 
@@ -10218,6 +10225,9 @@ const LOJAS_FIN = [
   ['REDE', 'Rede (as três)'],
 ];
 let DFC_RAW = null, DFC_CONTAS_RAW = null, DFC_MOV_RAW = null;
+// vw_fin_fechamento_saldo_mensal: conferência de saldo por conta e mês fechado
+// (03/09/2026) — BATEU / DIFERE / SEM EXTRATO contra o saldo do banco ou informado.
+let DFC_CONF_RAW = null, DFC_CONF = null;
 let DRE_RAW = null, DRE_VENDAS_RAW = null;
 
 // Filtra pela loja escolhida. Em REDE soma as linhas equivalentes das unidades
@@ -10249,6 +10259,7 @@ function aplicarLojaFin() {
     const minhas = new Set((DFC_CONTAS || []).map(c => c.conta));
     DFC_MOV = (DFC_MOV_RAW || []).filter(m => minhas.has(m.conta));
     DFC_MOV.forEach(r => { r.movimento = Number(r.movimento); });
+    DFC_CONF = (DFC_CONF_RAW || []).filter(r => minhas.has(r.conta));
   }
   if (DRE_RAW) {
     DRE_FIN = porLojaFin(DRE_RAW, ['mes', 'natureza', 'tipo', 'subtipo', 'ordem'],
@@ -10468,6 +10479,22 @@ function renderFechamento() {
       ['Foi para a XP e para pagar cartões', p.xp, 'inclui o benefício do iFood enviado à XP'], ['Empréstimos', p.emp, ''], ['Rendimentos', p.rend, ''], ['Sem classificação', p.sem, 'lançamento sem conta — deveria ser zero']].filter(([, x]) => Math.abs(x) > 0.5);
     h += `<div class="fx-caixa"><div class="fx-rotulo">O caixa do dia a dia em ${fxMesLongo(mes)}</div><div class="fx-valor${p.v < 0 ? ' neg' : ''}">${p.v >= 0 ? 'cresceu' : 'encolheu'} ${fxMil(Math.abs(p.v))}</div><ul>${itens.map(([n, x, s2]) => `<li><span>${n}${s2 ? `<small>${s2}</small>` : ''}</span><b>${x >= 0 ? '+ ' : '− '}${fxMil(Math.abs(x))}</b></li>`).join('')}<li class="res"><span><b>= caixa do dia a dia</b><small>bancos e cofres; XP, Participações e cartões ficam de fora</small></span><b>${p.v >= 0 ? '+ ' : '− '}${fxMil(Math.abs(p.v))}</b></li></ul></div>`;
   } else h += '<div class="fx-nota">Sem ponte de caixa para esta loja neste mês (o caixa das filiais entrou no Saipos em 01/08).</div>';
+  // As contas batem com o banco? (03/09/2026) — o mês só está fechado de verdade
+  // se o saldo de cada conta no Saipos bate com o saldo declarado pelo banco no
+  // fim do mês (a XP confere pelo saldo informado da corretora). É a conferência
+  // que a planilha antiga fazia. Fonte: vw_fin_fechamento_saldo_mensal.
+  const confMes = (DFC_CONF || []).filter(r => r.mes.slice(0, 7) === mes.slice(0, 7));
+  if (confMes.length) {
+    const comRef = confMes.filter(r => r.situacao !== 'SEM EXTRATO').sort((x, y) => x.ordem - y.ordem);
+    const okC = comRef.filter(r => r.situacao === 'BATEU'), difC = comRef.filter(r => r.situacao === 'DIFERE');
+    const semC = confMes.filter(r => r.situacao === 'SEM EXTRATO');
+    const dd = s => s ? s.slice(8, 10) + '/' + s.slice(5, 7) : '';
+    h += `<div class="fx-tile" style="margin-top:12px"><div class="fx-rotulo">As contas batem com o banco?</div>
+      <div class="fx-valor${difC.length ? ' neg' : ''}" style="font-size:20px">${okC.length} de ${comRef.length} contas batem${difC.length ? ` · ${difC.length} difere${difC.length > 1 ? 'm' : ''}` : ''}</div>
+      <div class="fx-extra">saldo do Saipos no fim do mês contra o saldo declarado pelo banco, conta a conta (a XP, contra o saldo da corretora). Conta que difere tem lançamento faltando ou sobrando — é o que a conferência da planilha antiga garantia.</div>
+      <ul class="fx-lista">${comRef.map(r => { const d = Number(r.diferenca); return `<li><span>${r.conta_exibida}<small>saldo em ${dd(r.ref_fim_data)}${r.ancora_antes_do_fim ? ' — o extrato não cobre o fim do mês' : ''}${r.situacao === 'BATEU' && r.explicacao && Math.abs(d) > 0.015 ? ' — diferença de data já explicada: ' + r.explicacao : ''}</small></span><b>${r.situacao === 'BATEU' ? '✓ bate' : (d < 0 ? 'faltam R$ ' + fmt(-d) + ' de lançamento' : 'R$ ' + fmt(d) + ' lançados a mais')}</b></li>`; }).join('')}
+      ${semC.length ? `<li><span>sem extrato para conferir<small>${semC.map(r => r.conta_exibida).join(', ')}</small></span><b>—</b></li>` : ''}</ul></div>`;
+  }
   // 5. frases
   const piores = Object.entries(FX_GRUPOS).map(([k]) => ({ k, v: cem(a.grupos[k]), meta: M[k] ? M[k].meta : null })).filter(x => x.meta !== null).map(x => ({ ...x, dist: x.v - x.meta })).sort((x, y) => y.dist - x.dist);
   const nomeG = { CUSTO: 'mercadoria', PESSOAL: 'pessoas', VENDA: 'entrega, comercial e marketing', ADMIN: 'a casa' };
@@ -10631,13 +10658,14 @@ document.addEventListener('click', (e) => {
 // Carrega os dados financeiros uma vez so — compartilhados entre DFC e DRE.
 async function garantirDadosFin() {
   if (DFC_MENSAL !== null) return;
-  [DFC_RAW, DFC_CONTAS_RAW, DFC_MOV_RAW] = await Promise.all([
+  [DFC_RAW, DFC_CONTAS_RAW, DFC_MOV_RAW, DFC_CONF_RAW] = await Promise.all([
     consultarTudo("vw_fin_dfc_mensal?select=unidade,mes,natureza,tipo,subtipo,ordem,credito,debito&order=mes,ordem"),
     // ativa=is.true: BRADESCO e FABIO PESSOAL tem zero lancamento e zero
     // extrato. Antes apareciam com saldo 0,00, e conta morta em lista de saldo
     // faz a pessoa procurar o que nao existe.
     consultarTudo("fin_contas?select=conta,unidade,saldo_inicial,ordem,apelido&ativa=is.true&order=ordem"),
     consultarTudo("vw_fin_saldo_conta_mensal?select=mes,conta,movimento&order=mes,conta"),
+    consultarTudo("vw_fin_fechamento_saldo_mensal?select=conta,conta_exibida,ordem,mes,situacao,diferenca,diferenca_aceita,diferenca_explicada,explicacao,ref_fim,ref_fim_data,ref_origem,ancora_antes_do_fim&order=mes,ordem"),
   ]);
   aplicarLojaFin();   // converte os números lá dentro: trocar de loja refaz as listas
 }
@@ -10869,9 +10897,40 @@ function renderModuloDFC() {
   corpo += linha('dfc-resultado', '(=) RESULTADO FINAL', resultFim);
 
   corpo += linhaSaldo('dfc-saldo', 'SALDO FINAL', saldoFim, 'SALDO_FIM', saldoFim[nM - 1]);
+  // Conferência com o extrato (03/09/2026, pedido do dono): a planilha antiga
+  // tinha saldo inicial e final por conta batendo com o banco, e isso garantia
+  // que todo centavo estava lançado. Cada conta ganha a marca do mês fechado:
+  // ✓ bate com o saldo declarado (OFX, ou informado no caso da XP), ≠ difere
+  // (com o valor), · sem extrato para conferir (cofres e cartões, por ora).
+  // Fonte: vw_fin_fechamento_saldo_mensal — só meses fechados, por isso o mês
+  // em curso fica sem marca.
+  const confDe = (conta, mes) => (DFC_CONF || []).find(r => r.conta === conta && r.mes.slice(0, 7) === mes.slice(0, 7));
+  const ddmm = s => s ? s.slice(8, 10) + '/' + s.slice(5, 7) : '';
+  const marcaConf = (r) => {
+    if (!r) return '';
+    const ref = r.ref_origem === 'INFORMADO' ? 'informado' : 'do banco';
+    if (r.situacao === 'BATEU') return `<span class="dfc-conf ok" title="bate com o saldo ${ref} em ${ddmm(r.ref_fim_data)}${r.diferenca_aceita ? ' (diferença aceita de R$ ' + fmt(Number(r.diferenca_aceita)) + ')' : ''}${r.explicacao && Math.abs(Number(r.diferenca)) > 0.015 ? ' — diferença de R$ ' + fmt(Number(r.diferenca)) + ' explicada: ' + r.explicacao : ''}">✓</span>`;
+    if (r.situacao === 'DIFERE') {
+      const d = Number(r.diferenca);
+      return `<span class="dfc-conf dif" title="${d < 0 ? 'faltam lançamentos: o saldo ' + ref + ' tem R$ ' + fmt(-d) + ' a mais que o Saipos' : 'o Saipos tem R$ ' + fmt(d) + ' acima do saldo ' + ref} (em ${ddmm(r.ref_fim_data)})">≠ ${fmt(Math.abs(d))}</span>`;
+    }
+    return '<span class="dfc-conf sem" title="sem extrato nem saldo informado para conferir">·</span>';
+  };
   if (dfcAberto.has('SALDO_FIM')) contas.forEach(c => {
-    corpo += linhaSaldo('dfc-conta', nomeConta(c.conta), saldoFimConta[c.conta], null, saldoFimConta[c.conta][nM - 1]);
+    const vals = saldoFimConta[c.conta];
+    corpo += `<tr class="dfc-conta"><td>${nomeConta(c.conta)}</td>${vals.map((v, i) => `<td class="${v < -0.005 ? 'negativo' : ''}">${fmt(v)}${marcaConf(confDe(c.conta, meses[i]))}</td>`).join('')}${celRS(vals[nM - 1])}</tr>`;
   });
+  // resumo do mês: quantas contas com extrato bateram (sempre visível)
+  const resumoConf = meses.map(m => {
+    const rs = contas.map(c => confDe(c.conta, m)).filter(r => r && r.situacao !== 'SEM EXTRATO');
+    if (!rs.length) return '';
+    const ok = rs.filter(r => r.situacao === 'BATEU').length;
+    const dif = rs.filter(r => r.situacao === 'DIFERE');
+    if (ok === rs.length) return `<span class="dfc-conf ok">✓ ${ok} de ${rs.length} contas batem</span>`;
+    const soma = dif.reduce((s, r) => s + Math.abs(Number(r.diferenca)), 0);
+    return `<span class="dfc-conf dif" title="${dif.map(r => nomeConta(r.conta) + ': ' + fmt(Number(r.diferenca))).join(' · ')}">${ok} de ${rs.length} batem · R$ ${fmt(soma)} a explicar</span>`;
+  });
+  if (resumoConf.some(x => x)) corpo += `<tr class="dfc-conta dfc-confer"><td>conferência com o extrato</td>${resumoConf.map(x => `<td>${x}</td>`).join('')}<td></td></tr>`;
   // saldo separado por natureza (proposta do financeiro, 13/08): o total
   // sozinho dava impressao de folga — a maior parte esta aplicada e nao
   // paga conta. Mesma separacao que o Projetado ja faz.
@@ -10929,8 +10988,10 @@ function renderModuloDFC() {
         <canvas id="chartDestinoSaidas"></canvas></div></div>
   </div>
   <div class="caption-label">Nas linhas de fluxo, o percentual cinza é a fatia da receita do mês.
-  Aplicado é dinheiro da empresa, mas não está disponível para o dia a dia — o controle da aplicação é do Fabio;
-  no Saipos lançamos só a saída do Itaú para lá.
+  Aplicado é dinheiro da empresa, mas não está disponível para o dia a dia. A XP entra no Saipos pela saída do Itaú
+  e pelo rendimento de cada mês (decisão de 03/09/2026). Em SALDO FINAL, cada conta mostra se o saldo bate com o
+  extrato do banco (✓), difere (≠ e o valor) ou não tem extrato para conferir (·) — a XP confere pelo saldo informado
+  da tela da corretora; cofres e cartões ainda não têm saldo informado.
   Histórico de jan a jul/2026 importado da planilha de fluxo realizado (validado linha a linha contra ela).
   A partir de agosto a base passa a ser alimentada pelo Saipos. Saldos por conta: clique em SALDO INICIAL/FINAL.
   Nos saldos, a coluna Total mostra o saldo na ponta do período (não a soma dos meses).</div>`;
