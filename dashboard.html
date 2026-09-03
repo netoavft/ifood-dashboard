@@ -544,6 +544,80 @@
   .dre-sub b { font-weight:600; }
   .dre-farol { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:3px; vertical-align:middle; }
 
+  /* ===== TEMA CLARO "PAPEL" (03/09/2026). Pedido do dono: o fundo preto com
+     contornos amarelos pesava a leitura de tabela de numero. Comeca pela DRE e
+     pelo Fechamento (class="papel" no modulo); vai para os outros modulos
+     conforme ele aprovar. Regras: amarelo/laranja da marca ficam SO na barra
+     lateral; vermelho so para alerta; linha de soma em tinta preta fina, nao
+     em moldura amarela. As cores do farol e dos cinzas viram tokens — o JS
+     dos dois modulos usa var(--farol-*) e var(--tx-*) em vez de hex. ===== */
+  :root { --farol-ok:#3fb950; --farol-perto:#f5a623; --farol-fora:#ff6b6b; --tx-2:#c3c2b7; --tx-3:#a5a49a; --tx-4:#8a897e; }
+  .papel { --farol-ok:#1f6d3f; --farol-perto:#b26a00; --farol-fora:#b3261e; --tx-2:#4d545b; --tx-3:#5f666d; --tx-4:#7d858c;
+    --p-bg:#f6f5f1; --p-paper:#ffffff; --p-ink:#1e2226; --p-line:#dcdad3; --p-line2:#ebe9e3; --p-head:#efede6; --p-zebra:#f1f0eb;
+    background:var(--p-bg); color:var(--p-ink); margin:-28px -32px -60px; padding:28px 32px 60px; }
+  @media (max-width:700px) { .papel { margin:-28px -16px -60px; padding:28px 16px 60px; } }
+  .papel .section-label { color:var(--p-ink); border-top-color:var(--p-line); }
+  .papel .caption-label, .papel .subtitle { color:var(--tx-3); }
+  .papel .contexto { background:var(--p-paper); border-color:var(--p-line); color:var(--tx-2); }
+  .papel .contexto b { color:var(--p-ink); }
+  .papel .card { background:var(--p-paper); border-color:var(--p-line); }
+  .papel .card.neutral { border-color:var(--p-line); } .papel .card.pos { border-color:var(--farol-ok); } .papel .card.neg { border-color:var(--farol-fora); }
+  .papel .card-lbl { color:var(--tx-4); } .papel .card-val { color:var(--p-ink); } .papel .card-pct { color:var(--tx-2); }
+  .papel .preset-btn, .papel .preset-sel { background:var(--p-paper); border-color:var(--p-line); color:var(--tx-2); }
+  .papel .preset-btn:hover { border-color:var(--p-ink); color:var(--p-ink); }
+  .papel .preset-btn.active { background:var(--p-ink); color:#fff; border-color:var(--p-ink); }
+  .papel .loja-fin { background:var(--p-paper); color:var(--p-ink); font-family:inherit; }
+  .papel details.detalhes-extra { background:var(--p-paper); border-color:var(--p-line); }
+  .papel details.detalhes-extra summary { color:var(--tx-2); }
+  .papel div[id^="tabela"] th, .papel div[id^="tabela"] td { border-color:var(--p-line2); }
+  .papel div[id^="tabela"] th { background:var(--p-head); color:var(--tx-2); }
+  .papel div[id^="tabela"] th:first-child { background:var(--p-head); }
+  .papel div[id^="tabela"] tr { --linha-fundo:var(--p-paper); background:var(--p-paper); }
+  .papel div[id^="tabela"] tr:nth-child(even) { --linha-fundo:var(--p-zebra); background:var(--p-zebra); }
+  .papel div[id^="tabela"] tr.sub { --linha-fundo:var(--p-head); }
+  .papel div[id^="tabela"] tr.sub td { background:var(--p-head); border-top-color:var(--p-line); }
+  .papel div[id^="tabela"] tr.liq { --linha-fundo:var(--p-paper); }
+  .papel div[id^="tabela"] tr.liq td { background:var(--p-paper); color:var(--p-ink); border-top:2px solid var(--p-ink); border-bottom:2px solid var(--p-ink); }
+  .papel div[id^="tabela"] tr.liq td:first-child { color:var(--p-ink); border-left:none; }
+  .papel div[id^="tabela"] tr.liq td:last-child { border-right:none; }
+  .papel div[id^="tabela"].rolavel td:first-child, .papel div[id^="tabela"].rolavel th:first-child { box-shadow:6px 0 8px -6px rgba(0,0,0,.18); }
+  .papel #tabelaDRE table td { border-bottom-color:var(--p-line2); }
+  .papel #tabelaDRE tr.dfc-bloco { --linha-fundo:var(--p-head); }
+  .papel #tabelaDRE tr.dfc-bloco td { background:var(--p-head); color:var(--p-ink); border-top-color:var(--p-line); }
+  .papel #tabelaDRE tr.dfc-grupo { --linha-fundo:var(--p-paper); }
+  .papel #tabelaDRE tr.dfc-grupo td { background:var(--p-paper); color:var(--tx-2); }
+  .papel #tabelaDRE tr.dfc-linha { --linha-fundo:var(--p-paper); }
+  .papel #tabelaDRE tr.dfc-linha td { color:var(--tx-3); background:var(--p-paper); }
+  .papel #tabelaDRE tr.dfc-resultado { --linha-fundo:var(--p-paper); }
+  .papel #tabelaDRE tr.dfc-resultado td { background:var(--p-paper); color:var(--p-ink); border-top:2px solid var(--p-ink); border-bottom:2px solid var(--p-ink); }
+  .papel #tabelaDRE tr.dfc-resultado td:first-child { color:var(--p-ink); border-left:none; }
+  .papel #tabelaDRE tr.dfc-resultado td:last-child { border-right:none; }
+  .papel #tabelaDRE tr.dfc-saldo { --linha-fundo:#e8eef6; }
+  .papel #tabelaDRE tr.dfc-saldo td { background:#e8eef6; color:#345a86; border-top-color:#345a86; }
+  .papel #tabelaDRE tr.dfc-saldo td:first-child { color:#345a86; }
+  .papel .dre-av, .papel .dre-sub, .papel .th-emcurso { color:var(--tx-4); }
+  .papel .meta-pill { color:var(--tx-2); background:var(--p-paper); border-color:var(--p-line); }
+  .papel td.negativo, .papel .negativo { color:var(--farol-fora); }
+  .papel #tabelaDRE td.negativo, .papel #tabelaDRE .negativo { color:inherit; }
+  .papel #tabelaBeneficio th, .papel #tabelaBeneficio td { border-color:var(--p-line2); }
+  /* Fechamento do mes */
+  .papel .fx-h1, .papel .fx-secao h3, .papel .fx-valor, .papel .fx-valor-g, .papel .fx-nome, .papel .fx-num, .papel .fx-caixa h4 { color:var(--p-ink); }
+  .papel .fx-rotulo, .papel .fx-sub, .papel .fx-secao span, .papel .fx-extra, .papel .fx-lista, .papel .fx-eixo, .papel .fx-nome small, .papel .fx-jul, .papel .fx-tabela th, .papel .fx-tabela td.esq, .papel .fx-nota { color:var(--tx-3); }
+  .papel .fx-rodape { color:var(--tx-4); border-top-color:var(--p-line); }
+  .papel .fx-seg { background:var(--p-head); border-color:var(--p-line); }
+  .papel .fx-seg button { color:var(--tx-2); } .papel .fx-seg button.ativo { background:var(--p-paper); color:var(--p-ink); box-shadow:0 1px 2px rgba(0,0,0,.12); }
+  .papel .fx-tile, .papel .fx-caixa, .papel .fx-destaque, .papel .fx-cem, .papel .fx-frases, .papel .fx-tabela { background:var(--p-paper); border-color:var(--p-line); }
+  .papel .fx-valor.neg, .papel .fx-valor-g.neg { color:var(--farol-fora); }
+  .papel .fx-var, .papel .fx-destaque p, .papel .fx-caixa li, .papel .fx-mandar, .papel .fx-frases p, .papel .fx-tabela td { color:var(--p-ink); }
+  .papel .fx-lista li, .papel .fx-cem .fx-linha, .papel .fx-caixa li, .papel .fx-frases p { border-color:var(--p-line2); }
+  .papel .fx-tabela th, .papel .fx-tabela td { border-bottom-color:var(--p-line2); }
+  .papel .fx-tabela tr.tot td { border-top-color:var(--p-ink); }
+  .papel .fx-pill.ok { background:#e3f1e7; color:var(--farol-ok); } .papel .fx-pill.atencao { background:#fbeed5; color:var(--farol-perto); } .papel .fx-pill.fora { background:#f9e0de; color:var(--farol-fora); } .papel .fx-pill.neutro { background:var(--p-head); color:var(--tx-3); }
+  .papel .fx-barra { background:var(--p-line2); }
+  .papel .fx-linha.sobrou .fx-barra i { background:var(--farol-ok); } .papel .fx-linha.sobrou.atencao .fx-barra i { background:var(--farol-perto); } .papel .fx-linha.sobrou.fora .fx-barra i { background:var(--farol-fora); }
+  .papel .fx-mandar { background:var(--p-head); }
+  .papel .fx-caixa li.res.neg b { color:var(--farol-fora); } .papel .fx-caixa li.res.pos b { color:var(--farol-ok); }
+
   /* vermelho de valor negativo vale para todas as tabelas financeiras */
   td.negativo, .negativo { color:#ff6b6b; }
 
@@ -940,7 +1014,7 @@
       <div id="view-fluxo"></div>
     </div>
 
-    <div id="modulo-dre" class="modulo" style="display:none;">
+    <div id="modulo-dre" class="modulo papel" style="display:none;">
       <div id="view-dre"></div>
     </div>
 
@@ -948,7 +1022,7 @@
       <div id="view-semana"></div>
     </div>
 
-    <div id="modulo-fechamento" class="modulo" style="display:none;">
+    <div id="modulo-fechamento" class="modulo papel" style="display:none;">
       <div id="view-fechamento"></div>
     </div>
 
@@ -10474,9 +10548,9 @@ function fxSpark(vals, rotulos, fmt) {
   const xs = vals.map((_, i) => P + i * (W - 2 * P) / Math.max(1, vals.length - 1));
   const pts = vals.map((v, i) => `${xs[i].toFixed(1)},${y(v).toFixed(1)}`);
   const area = `M${pts[0]} L${pts.join(' L')} L${xs[xs.length - 1].toFixed(1)},${H} L${xs[0].toFixed(1)},${H} Z`;
-  const circ = vals.map((v, i) => `<circle cx="${xs[i].toFixed(1)}" cy="${y(v).toFixed(1)}" r="${i === vals.length - 1 ? 4 : 3}" fill="${i === vals.length - 1 ? '#c8102e' : '#1a1a19'}" stroke="#c8102e" stroke-width="${i === vals.length - 1 ? 0 : 1.5}"><title>${rotulos[i]}: ${fmt(v)}</title></circle>`).join('');
+  const circ = vals.map((v, i) => `<circle cx="${xs[i].toFixed(1)}" cy="${y(v).toFixed(1)}" r="${i === vals.length - 1 ? 4 : 3}" fill="${i === vals.length - 1 ? '#c8102e' : 'var(--p-paper, #1a1a19)'}" stroke="#c8102e" stroke-width="${i === vals.length - 1 ? 0 : 1.5}"><title>${rotulos[i]}: ${fmt(v)}</title></circle>`).join('');
   const iMax = vals.indexOf(max);
-  const lab = `<text x="${xs[iMax].toFixed(1)}" y="${(y(max) - 7).toFixed(1)}" text-anchor="${iMax > vals.length - 3 ? 'end' : iMax < 2 ? 'start' : 'middle'}" font-size="11" fill="#a5a49a">${rotulos[iMax]} ${fmt(max)}</text>`;
+  const lab = `<text x="${xs[iMax].toFixed(1)}" y="${(y(max) - 7).toFixed(1)}" text-anchor="${iMax > vals.length - 3 ? 'end' : iMax < 2 ? 'start' : 'middle'}" font-size="11" fill="var(--tx-3)">${rotulos[iMax]} ${fmt(max)}</text>`;
   return `<div class="fx-spark"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img"><path d="${area}" fill="rgba(200,16,46,.14)"/><polyline points="${pts.join(' ')}" fill="none" stroke="#c8102e" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>${lab}${circ}</svg><div class="fx-eixo"><span>${rotulos[0]}</span><span>${rotulos[rotulos.length - 1]}</span></div></div>`;
 }
 const fxTile = (r, v, varr, extra, sp, lista) => `<div class="fx-tile"><div class="fx-rotulo">${r}</div><div class="fx-valor${(typeof v === 'number' && v < 0) ? ' neg' : ''}">${typeof v === 'number' ? fxMil(v) : v}</div><div class="fx-var">${varr || ''}</div><div class="fx-extra">${extra || ''}</div>${lista || ''}${sp || ''}</div>`;
@@ -11299,7 +11373,7 @@ function blocoBeneficioIfood({ f, semanas }) {
       O saldo oficial é do iFood: bater no Portal do Parceiro antes de decidir pela data.
     </div>
     <table style="width:100%; font-size:12px; margin-top:8px;">
-      <tr style="color:#8a897e;"><td style="padding:3px 8px;">semana</td>
+      <tr style="color:var(--tx-4);"><td style="padding:3px 8px;">semana</td>
         <td style="padding:3px 8px; text-align:right;">consumiu</td>
         <td style="padding:3px 8px; text-align:right;">restava</td></tr>
       ${ult}
@@ -11382,7 +11456,7 @@ function blocoCaixaReal(mesF, rotuloMes) {
     nos bancos e cofres do dia a dia. Cada linha é um destino do dinheiro.</div>
   <div id="tabelaPonte"><table>
     <tr><th>Degrau</th><th>R$</th><th style="text-align:left">O que é</th></tr>
-    ${linhas.map(([n, v, d]) => `<tr><td>${n}</td><td class="${v < -0.005 ? 'negativo' : ''}">${v >= 0 ? '' : '−'} ${fmt(Math.abs(v))}</td><td style="text-align:left; white-space:normal; color:#8a897e;">${d}</td></tr>`).join('')}
+    ${linhas.map(([n, v, d]) => `<tr><td>${n}</td><td class="${v < -0.005 ? 'negativo' : ''}">${v >= 0 ? '' : '−'} ${fmt(Math.abs(v))}</td><td style="text-align:left; white-space:normal; color:var(--tx-4);">${d}</td></tr>`).join('')}
     <tr class="liq"><td>= Caixa operacional no mês</td><td class="${varCaixa < 0 ? 'negativo' : ''}">${varCaixa >= 0 ? '+' : '−'} ${fmt(Math.abs(varCaixa))}</td>
       <td style="text-align:left; white-space:normal;">${varCaixa >= 0 ? 'o caixa do dia a dia cresceu isso no mês' : 'o caixa do dia a dia encolheu isso no mês'}</td></tr>
   </table></div>`;
@@ -11515,9 +11589,9 @@ function renderModuloDRE() {
     const m = DRE_METAS && DRE_METAS[metaChave];
     if (!m || av === null) return null;
     const dist = m.sentido === 'abaixo' ? av - m.meta : m.meta - av;   // >0 = fora da meta
-    if (dist <= 0) return '#3fb950';
-    if (dist <= m.meta * 0.10) return '#f5a623';
-    return '#ff6b6b';
+    if (dist <= 0) return 'var(--farol-ok)';
+    if (dist <= m.meta * 0.10) return 'var(--farol-perto)';
+    return 'var(--farol-fora)';
   };
 
   // celula: R$ em cima; embaixo AV e AH em cinza discreto. Cor e' EXCEÇÃO:
@@ -11661,7 +11735,7 @@ function renderModuloDRE() {
   const SUBT_FILIAL_TODOS = [...SUBT_ENTRADA_FILIAL, ...SUBT_SAIDA_FILIAL];
   const outrosNaoOper = somar(r => r.natureza === 'APORTE VALORES' && !SUBT_FILIAL_TODOS.includes(r.subtipo));
 
-  corpo += `<tr class="dfc-saldo"><td colspan="${cols.length + 2}" style="text-align:left; color:#a5a49a; font-weight:normal;">
+  corpo += `<tr class="dfc-saldo"><td colspan="${cols.length + 2}" style="text-align:left; font-weight:normal;">
     Abaixo do resultado (não é resultado da operação desta loja — é destino ou origem do dinheiro):</td></tr>`;
   if (lucroFiliais.some(v => Math.abs(v) > 0.005)) {
     corpo += linha('dfc-bloco', LOJA_FIN === 'AGUA VERDE' ? '(+) Lucro repassado pelas filiais (enviado − lista do mês)'
@@ -11724,7 +11798,7 @@ function renderModuloDRE() {
               : (dif > 0 ? 'pagou também contas de meses anteriores' : 'parte ficou para pagar depois — vai pesar num próximo mês');
           return `<tr><td>${rotulo}</td><td>${fmt(comp)}</td><td>${fmt(caixa)}</td>
             <td class="${dif < -0.005 && natu === 'rec' || dif > 0.005 && natu === 'desp' ? 'negativo' : ''}">${dif >= 0 ? '+' : '−'} ${fmt(Math.abs(dif))}</td>
-            <td style="text-align:left; white-space:normal; color:${alinhado ? '#8a897e' : '#c3c2b7'};">${leitura}</td></tr>`;
+            <td style="text-align:left; white-space:normal; color:${alinhado ? 'var(--tx-4)' : 'var(--tx-2)'};">${leitura}</td></tr>`;
         }).join('');
         const difTot = caixaTot - compTot;
         ponteHtml = `
@@ -11765,7 +11839,7 @@ function renderModuloDRE() {
       const statusDe = (valPct, meta) => {
         if (!meta || valPct === null) return '';
         const dist = meta.sentido === 'abaixo' ? valPct - meta.meta : meta.meta - valPct;
-        const [cor, palavra] = dist <= 0 ? ['#3fb950', 'NA META'] : dist <= meta.meta * 0.10 ? ['#f5a623', 'PERTO DA META'] : ['#ff6b6b', 'FORA DA META'];
+        const [cor, palavra] = dist <= 0 ? ['var(--farol-ok)', 'NA META'] : dist <= meta.meta * 0.10 ? ['var(--farol-perto)', 'PERTO DA META'] : ['var(--farol-fora)', 'FORA DA META'];
         return `<div class="card-pct"><b style="color:${cor};">${palavra}</b> · meta ${meta.sentido === 'abaixo' ? '≤' : '≥'} ${pct(meta.meta)}%</div>`;
       };
       const mPrime = DRE_METAS && DRE_METAS.CUSTO && DRE_METAS.PESSOAL
@@ -11791,7 +11865,7 @@ function renderModuloDRE() {
         <div class="card"><div class="card-lbl">Prime Cost (CMV + pessoal)</div><div class="card-val">${pct(primePct)}%</div>
           ${statusDe(primePct, mPrime)}${varPP(primePct, antDe(primeArr))}</div>
         ${pe ? `<div class="card"><div class="card-lbl">Ponto de equilíbrio</div><div class="card-val">R$ ${fmt(pe)}</div>
-          <div class="card-pct" style="color:${folga >= 0 ? '#3fb950' : '#ff6b6b'};">vendeu ${pct(Math.abs(folga))}% ${folga >= 0 ? 'acima' : 'ABAIXO'} do ponto</div></div>` : ''}
+          <div class="card-pct" style="color:${folga >= 0 ? 'var(--farol-ok)' : 'var(--farol-fora)'};">vendeu ${pct(Math.abs(folga))}% ${folga >= 0 ? 'acima' : 'ABAIXO'} do ponto</div></div>` : ''}
       </div>
       <div class="caption-label" style="text-align:center;">
         Os demais indicadores estão na própria tabela: o % ao lado de cada número é a fatia da receita bruta,
@@ -11817,11 +11891,11 @@ function renderModuloDRE() {
     <button class="preset-btn ${drePeriodo === 'ano' ? 'active' : ''}" onclick="drePeriodoSet('ano')">Ano completo</button>
     <button class="preset-btn ${drePeriodo === '6m' ? 'active' : ''}" onclick="drePeriodoSet('6m')">Últimos 6 meses</button>
     <button class="preset-btn ${drePeriodo === '3m' ? 'active' : ''}" onclick="drePeriodoSet('3m')">Últimos 3 meses</button>
-    <span style="color:#8a897e; font-size:12px;">ou escolha:</span>
+    <span style="color:var(--tx-4); font-size:12px;">ou escolha:</span>
     <select id="dreSelDe" class="preset-sel" onchange="dreRangeSet()">
       ${meses.map(m => `<option value="${m}" ${m === cols[0] ? 'selected' : ''}>${rotuloMes(m)}</option>`).join('')}
     </select>
-    <span style="color:#8a897e; font-size:12px;">até</span>
+    <span style="color:var(--tx-4); font-size:12px;">até</span>
     <select id="dreSelAte" class="preset-sel" onchange="dreRangeSet()">
       ${meses.map(m => `<option value="${m}" ${m === cols[cols.length - 1] ? 'selected' : ''}>${rotuloMes(m)}</option>`).join('')}
     </select>
@@ -11832,7 +11906,7 @@ function renderModuloDRE() {
     Compromissos já lançados para os próximos meses não entram nesta tabela: estão no <b>Fluxo projetado</b>.</div>` : ''}
   <details class="detalhes-extra" style="margin-top:12px;">
     <summary>📖 O que significa cada linha (guia rápido)</summary>
-    <div style="font-size:12.5px; color:#c3c2b7; line-height:1.8; margin-top:10px;">
+    <div style="font-size:12.5px; color:var(--tx-2); line-height:1.8; margin-top:10px;">
       <b>Receita bruta de vendas</b> — tudo que os clientes pagaram nos canais (iFood, salão, balcão, site), pelo valor cheio do PDV, antes de promoção e de taxa.<br>
       <b>(+) Outras receitas da operação</b> — o que a loja vende fora do balcão: atacado, vendas para empresas, listas para as filiais e royalties do Boqueirão.<br>
       <b>(−) Deduções da receita</b> — o que os canais e o fisco levam antes de o dinheiro ser nosso: promoções pagas pela loja, anúncios, taxas do iFood, tarifas de cartão, comissões de vendedores e ICMS. Abra a linha para ver cada cobrança pelo nome.<br>
