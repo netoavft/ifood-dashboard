@@ -8915,8 +8915,8 @@ async function trTelaPedido(unidadeEscolhida) {
       <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:6px 14px;">
         ${itens.map((i, idx) => i.grupo_separacao !== g ? '' : `
           <label style="display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:12.5px; color:#c3c2b7; padding:2px 0;">
-            <span>${i.item} <span style="color:#8a897e;">(${i.un_medida || 'un'}${i.preco_tabela ? ' · R$ ' + Number(i.preco_tabela).toFixed(2) : ''})${i.sem_custo ? ' ⚠️ sem custo' : ''}</span></span>
-            <input type="number" min="0" step="any" id="trq_${idx}" placeholder="${i.minimo || i.maximo ? (i.minimo ?? '') + '–' + (i.maximo ?? '') : ''}"
+            <span>${i.item} <span style="color:#8a897e;">(${i.emb_fator ? 'pede em ' + i.emb_nome + ' de ' + trEmbDesc(i) : (i.un_medida || 'un')}${i.nao_cobrado ? ' · não cobrado' : (i.preco_tabela ? ' · R$ ' + Number(i.preco_tabela).toFixed(2) + '/' + (i.un_medida || 'un').toLowerCase() : '')})${i.sem_custo ? ' ⚠️ sem custo' : ''}</span>${i.emb_fator ? `<br><span id="trqe_${idx}" style="color:#3fb950; font-size:11px;"></span>` : ''}</span>
+            <input type="number" min="0" step="any" id="trq_${idx}" placeholder="${i.emb_fator ? i.emb_nome + 's' : (i.minimo || i.maximo ? (i.minimo ?? '') + '–' + (i.maximo ?? '') : '')}"${i.emb_fator ? ` oninput="trEmbHint(${idx})"` : ''}
               style="width:72px; background:#232321; border:1px solid #34332f; border-radius:6px; color:#fff; padding:4px 6px; text-align:right;">
           </label>`).join('')}
       </div>`).join('')}
@@ -8930,6 +8930,25 @@ async function trTelaPedido(unidadeEscolhida) {
       <span id="trPedidoMsg" style="font-size:12px; margin-left:8px;"></span>
     </div>`;
   trAvulsoN = 0;
+}
+
+// Pedido por embalagem (04/09/2026): quem pede fala em potes/baldes/pacotes;
+// o painel converte ao vivo para a unidade de CONTROLE (kg ou un), grava a
+// quantidade convertida e anota o pedido original na observacao da linha.
+// "pote de 700 g", "bandeja de 30 un", "balde de 4,5 kg"...
+function trEmbDesc(i) {
+  const f = Number(i.emb_fator);
+  if ((i.un_medida || '') === 'KG') return f >= 1 ? String(f).replace('.', ',') + ' kg' : Math.round(f * 1000) + ' g';
+  return f + ' ' + (i.un_medida || 'un').toLowerCase();
+}
+function trEmbHint(idx) {
+  const i = (window._trItensPedido || [])[idx];
+  const el = document.getElementById('trqe_' + idx);
+  if (!i || !el) return;
+  const n = Number(document.getElementById('trq_' + idx)?.value || 0);
+  el.textContent = n > 0
+    ? `${n} × ${trEmbDesc(i)} ≈ ${(n * i.emb_fator).toLocaleString('pt-BR', { maximumFractionDigits: 2 })} ${(i.un_medida || 'un').toLowerCase()}`
+    : '';
 }
 
 // itens fora da grade: linhas dinamicas no fim do pedido (03/09/2026)
@@ -8974,8 +8993,12 @@ async function trCriarPedido() {
   const lista = (await rl.json())[0];
   const ri = await trFetch('tr_lista_itens', {
     method: 'POST',
-    body: JSON.stringify(escolhidos.map(x => ({ id_lista: lista.id, item: x.i.item, un_medida: x.i.un_medida, qtd_solicitada: x.q }))
-      .concat(avulsos.map(a => ({ id_lista: lista.id, ...a })))),
+    body: JSON.stringify(escolhidos.map(x => ({
+      id_lista: lista.id, item: x.i.item, un_medida: x.i.un_medida,
+      // com embalagem, o campo e "quantos potes": grava o convertido e anota o original
+      qtd_solicitada: x.i.emb_fator ? Math.round(x.q * x.i.emb_fator * 1000) / 1000 : x.q,
+      observacao: x.i.emb_fator ? `pedido: ${x.q} ${x.i.emb_nome}(s)` : undefined,
+    })).concat(avulsos.map(a => ({ id_lista: lista.id, ...a })))),
   });
   if (!ri.ok) { msg.textContent = 'Lista criada mas os itens falharam: ' + await trErroDe(ri); msg.style.color = '#ff6b6b'; return; }
   msg.textContent = `Pedido enviado — lista #${lista.id} com ${escolhidos.length + avulsos.length} itens`
@@ -8992,7 +9015,7 @@ async function trTelaPrecos(unidadeEscolhida) {
   let unidade = TR_OP.unidade || unidadeEscolhida || window._trPrecosUnidade;
   if (!unidade) unidade = 'AHU'; // desde 01/09/2026 as tres pagam a mesma tabela
   window._trPrecosUnidade = unidade;
-  const r = await trFetch(`vw_tr_tabela_precos?unidade=eq.${encodeURIComponent(unidade)}&order=grupo_separacao,item&select=item,classe,grupo_separacao,un,cmv,pct_producao,preco,cmv_atualizado_em`);
+  const r = await trFetch(`vw_tr_tabela_precos?unidade=eq.${encodeURIComponent(unidade)}&order=grupo_separacao,item&select=item,classe,grupo_separacao,un,cmv,pct_producao,preco,cmv_atualizado_em,emb_nome,emb_fator,nao_cobrado`);
   if (!r.ok) { alvo.innerHTML = `<div class="contexto" style="border-color:#ff6b6b;">${await trErroDe(r)}</div>`; return; }
   const itens = await r.json();
   const pct = itens.length ? Math.round(Number(itens[0].pct_producao) * 100) : 0;
@@ -9006,10 +9029,11 @@ async function trTelaPrecos(unidadeEscolhida) {
     <input id="trPrecosBusca" type="search" placeholder="buscar item..." oninput="trPrecosFiltra()"
       style="width:100%; max-width:340px; margin:8px 0; background:#232321; border:1px solid #34332f; border-radius:8px; color:#fff; padding:8px 10px;">
     <div id="tabelaTrPrecos"><table>
-      <tr><th>Item</th><th>Grupo</th><th>Un</th><th>CMV</th><th>Preço</th></tr>
+      <tr><th>Item</th><th>Grupo</th><th>Un</th><th>Como se pede</th><th>CMV</th><th>Preço</th></tr>
       ${itens.map(i => `<tr data-busca="${(i.item + ' ' + (i.grupo_separacao || '') + ' ' + (i.classe || '')).toLowerCase()}">
         <td>${i.item}</td><td>${i.grupo_separacao || i.classe || '—'}</td><td>${i.un || '—'}</td>
-        <td>R$ ${Number(i.cmv).toFixed(2)}</td><td><b>R$ ${Number(i.preco).toFixed(2)}</b></td>
+        <td>${i.emb_fator ? i.emb_nome + ' de ' + trEmbDesc({ un_medida: i.un, emb_fator: i.emb_fator }) : '—'}</td>
+        <td>R$ ${Number(i.cmv).toFixed(2)}</td><td><b>${i.nao_cobrado ? 'não cobrado' : 'R$ ' + Number(i.preco).toFixed(2)}</b></td>
       </tr>`).join('')}
     </table></div>`;
 }
@@ -9042,7 +9066,7 @@ async function trAbrirSeparacao(id) {
   const alvo = document.getElementById('trTelaConteudo');
   const [rl, ri] = await Promise.all([
     trFetch(`tr_listas?id=eq.${id}&select=id,unidade,status,data_pedido`),
-    trFetch(`tr_lista_itens?id_lista=eq.${id}&order=item&select=id,item,un_medida,qtd_solicitada,qtd_separada,avulso`),
+    trFetch(`tr_lista_itens?id_lista=eq.${id}&order=item&select=id,item,un_medida,qtd_solicitada,qtd_separada,avulso,observacao`),
   ]);
   const lista = (await rl.json())[0];
   const itens = await ri.json();
@@ -9053,7 +9077,7 @@ async function trAbrirSeparacao(id) {
       <button class="preset-btn" style="margin-left:8px;" onclick="trImprimirSeparacao(${id})">🖨️ Gerar PDF</button></div>
     <div id="tabelaTrOpSep"><table>
       <tr><th>Item</th><th>Solicitado</th><th>Separado</th></tr>
-      ${itens.map((i, idx) => `<tr><td>${i.item} <span class="dre-av">${i.un_medida || ''}</span>${i.avulso ? ' <span style="color:#f5a623; font-size:11px;">🆕 fora da grade</span>' : ''}</td>
+      ${itens.map((i, idx) => `<tr><td>${i.item} <span class="dre-av">${i.un_medida || ''}</span>${i.avulso ? ' <span style="color:#f5a623; font-size:11px;">🆕 fora da grade</span>' : ''}${i.observacao ? ` <span style="color:#f5a623; font-size:11px;">${i.observacao}</span>` : ''}</td>
         <td>${Number(i.qtd_solicitada || 0)}</td>
         <td><input type="number" min="0" step="any" id="trs_${idx}" value="${i.qtd_separada ?? i.qtd_solicitada ?? ''}"
           style="width:80px; background:#232321; border:1px solid #34332f; border-radius:6px; color:#fff; padding:4px 6px; text-align:right;"></td></tr>`).join('')}
@@ -9130,7 +9154,7 @@ async function trImprimirSeparacao(id) {
     <div class="sub">pedida em ${ddmm(lista.data_pedido)} · ${itens.length} itens · impressa em ${ddmm(trHoje())} · marque ☑ ao separar e anote a quantidade separada</div>
     ${Object.keys(porGrupo).sort().map(g => `<h2>${g}</h2><table>
       <tr><th class="cx"></th><th>Item</th><th>Un</th><th class="q">Solicitado</th><th class="risco">Separado</th></tr>
-      ${porGrupo[g].map(i => `<tr><td class="cx">☐</td><td>${i.item}</td><td>${i.un_medida || ''}</td>
+      ${porGrupo[g].map(i => `<tr><td class="cx">☐</td><td>${i.item}${i.observacao ? `<br><span style="font-size:10.5px; color:#444;">${i.observacao}</span>` : ''}</td><td>${i.un_medida || ''}</td>
         <td class="q"><b>${Number(i.qtd_solicitada || 0)}</b></td><td class="risco"><span></span></td></tr>`).join('')}
     </table>`).join('')}
   </body></html>`);
@@ -9159,7 +9183,7 @@ async function trTelaConferencia() {
 
 async function trAbrirConferencia(id) {
   const alvo = document.getElementById('trTelaConteudo');
-  const ri = await trFetch(`tr_lista_itens?id_lista=eq.${id}&order=item&select=id,item,un_medida,qtd_separada,qtd_recebida,avulso`);
+  const ri = await trFetch(`tr_lista_itens?id_lista=eq.${id}&order=item&select=id,item,un_medida,qtd_separada,qtd_recebida,avulso,observacao`);
   const itens = await ri.json();
   window._trItensConf = itens;
   alvo.innerHTML = `
@@ -9167,7 +9191,7 @@ async function trAbrirConferencia(id) {
       Conferência da lista <b>#${id}</b> — o campo vem preenchido com o separado; <b>corrija o que veio diferente</b>.</div>
     <div id="tabelaTrOpConf"><table>
       <tr><th>Item</th><th>Separado</th><th>Recebido</th></tr>
-      ${itens.map((i, idx) => `<tr><td>${i.item} <span class="dre-av">${i.un_medida || ''}</span>${i.avulso ? ' <span style="color:#f5a623; font-size:11px;">🆕 fora da grade</span>' : ''}</td>
+      ${itens.map((i, idx) => `<tr><td>${i.item} <span class="dre-av">${i.un_medida || ''}</span>${i.avulso ? ' <span style="color:#f5a623; font-size:11px;">🆕 fora da grade</span>' : ''}${i.observacao ? ` <span style="color:#f5a623; font-size:11px;">${i.observacao}</span>` : ''}</td>
         <td>${Number(i.qtd_separada || 0)}</td>
         <td><input type="number" min="0" step="any" id="trc_${idx}" value="${i.qtd_recebida ?? i.qtd_separada ?? 0}"
           style="width:80px; background:#232321; border:1px solid #34332f; border-radius:6px; color:#fff; padding:4px 6px; text-align:right;"></td></tr>`).join('')}
