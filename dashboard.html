@@ -11184,17 +11184,28 @@ const dreAberto = new Set();
 let DRE_METAS = null;    // fin_metas_dre: chave -> {sentido, meta}
 let DRE_FIN = null;      // vw_fin_dre_mensal: financeiro Saipos por COMPETENCIA (desde jan/26)
 let DRE_VENDAS = null;   // vw_vendas_canal_mensal: receita bruta por canal (PDV Saipos)
-let DRE_TAXAS = null;    // mv_conciliacao_agregado (Agua Verde): extrato oficial do iFood por grupo
+let DRE_CANAL = null;    // vw_canal_custo_mes (3 lojas): custo dos canais por FATO, cada cobranca com nome
 
 // Agrupamento das funcoes da DRE -> tipos do plano de contas
-// Nomes e ordem da DRE classica (Lei 11.638), pedido do dono em 16/08/2026 —
-// so renomeia e realoca categorias existentes, nao cria nenhuma.
+// Estrutura do fechamento do Matheus (MA Consultoria), decisao do dono em
+// 03/09/2026: "somente a estrutura, os calculos de cada linha sao nossos".
+// Ordem de exibicao: CMV -> margem de contribuicao -> pessoal -> administrativas
+// e imovel -> comerciais -> resultado operacional. A ORDEM DESTE ARRAY nao muda
+// (a ponte papel x caixa e os cards do fechamento indexam por posicao).
+// Anuncios do iFood e comissoes de vendedores sairam de VENDA e viraram
+// DEDUCOES DA RECEITA (posicao do Matheus; substitui a decisao de 16/08 que
+// tratava anuncio como marketing). O resultado operacional nao muda com isso.
 const DRE_GRUPOS = [
-  ['CUSTO',   '(−) CMV — CUSTO DA MERCADORIA VENDIDA (insumos + uso e consumo)', ['MATERIA PRIMA', 'USO E CONSUMO']],
-  ['PESSOAL', '(−) DESPESAS COM PESSOAL (salários, encargos, pró-labore)',        ['PESSOAL', 'PRO LABORE']],
-  ['VENDA',   '(−) DESPESAS COM VENDAS (comercial, logística, marketing)', ['DESPESAS COMERCIAIS', 'DESPESAS LOGISTICA', 'DESPESAS MARKETING']],
-  ['ADMIN',   '(−) DESPESAS ADMINISTRATIVAS (aluguel, energia, manutenção, taxas)', ['DESPESAS ADMINISTRATIVAS', 'DESPESAS MANUTENÇÃO', 'IMPOSTOS E TAXAS']],
+  ['CUSTO',   '(−) CMV — MERCADORIA (insumos, embalagens, uso e consumo)', ['MATERIA PRIMA', 'USO E CONSUMO']],
+  ['PESSOAL', '(−) PESSOAL (salários e encargos, diretoria)',        ['PESSOAL', 'PRO LABORE']],
+  ['VENDA',   '(−) COMERCIAIS (motoboys, marketing, fretes)', ['DESPESAS COMERCIAIS', 'DESPESAS LOGISTICA', 'DESPESAS MARKETING']],
+  ['ADMIN',   '(−) ADMINISTRATIVAS E IMÓVEL (aluguel, energia, manutenção, sistemas)', ['DESPESAS ADMINISTRATIVAS', 'DESPESAS MANUTENÇÃO', 'IMPOSTOS E TAXAS']],
 ];
+// rotulos dos tipos dentro de cada grupo, na lingua do fechamento do Matheus
+const DRE_TIPO_ROTULO = { 'PESSOAL': 'SALÁRIOS, ENCARGOS E BENEFÍCIOS', 'PRO LABORE': 'DIRETORIA (PRÓ-LABORE)',
+  'DESPESAS LOGISTICA': 'ENTREGA (MOTOBOYS)', 'DESPESAS MARKETING': 'MARKETING', 'DESPESAS COMERCIAIS': 'COMERCIAIS (fretes, atendimento)',
+  'DESPESAS ADMINISTRATIVAS': 'ADMINISTRATIVAS E IMÓVEL', 'DESPESAS MANUTENÇÃO': 'MANUTENÇÃO', 'IMPOSTOS E TAXAS': 'IMPOSTOS E TAXAS',
+  'MATERIA PRIMA': 'MATÉRIA-PRIMA', 'USO E CONSUMO': 'EMBALAGENS, DESCARTÁVEIS, GÁS E USO' };
 
 // ---------------------------------------------------------------
 // Farol do beneficio de R$ 500 mil do iFood (aplicado da fila em 16/08/2026).
@@ -11301,7 +11312,7 @@ async function entrarDre() {
   if (DRE_RAW === null) {   // DRE_FIN e derivado; quem diz se ja buscou e o cru
     alvo.innerHTML = '<div class="contexto">Carregando DRE...</div>';
     let metas, benefMes;
-    [DRE_RAW, DRE_VENDAS_RAW, metas, BENEF_FAROL, benefMes, DRE_TAXAS] = await Promise.all([
+    [DRE_RAW, DRE_VENDAS_RAW, metas, BENEF_FAROL, benefMes, DRE_CANAL] = await Promise.all([
       consultarTudo('vw_fin_dre_mensal?select=unidade,mes,natureza,tipo,subtipo,ordem,credito,debito&order=mes,ordem'),
       consultarTudo('vw_vendas_canal_mensal?select=unidade,mes,canal,vendas,receita&order=mes'),
       consultarTudo('fin_metas_dre?select=chave,sentido,pct_meta&order=ordem'),
@@ -11311,7 +11322,9 @@ async function entrarDre() {
       // (achado 24/08/2026 — a linha do beneficio ficava menor que a verdade
       // no consolidado e trocada de loja quando o dono filtrava).
       consultarTudo('vw_fin_dre_beneficio?select=mes,unidade,beneficio_ifood&order=mes'),
-      consultarTudo('mv_conciliacao_agregado?select=data,grupo,valor&unidade=eq.AGUA%20VERDE'),
+      // custo dos canais por FATO nas 3 lojas (vw_canal_custo_mes, 03/09/2026):
+      // cada cobranca do iFood e da Rede com nome — abre a linha de deducoes
+      consultarTudo('vw_canal_custo_mes?select=mes,unidade,linha,classe,rotulo,custo&mes=gte.2026-01-01'),
       garantirDadosFin(),   // DFC (caixa) para a ponte DRE x DFC do mes fechado
     ]);
     // "Pra onde foi o dinheiro": do resultado à variação real do caixa operacional
@@ -11415,39 +11428,45 @@ function renderModuloDRE() {
   const SUBT_PDV = ['RECEITAS CARTAO', 'RECEITAS ONLINE', 'RECEITAS DINHEIRO', 'RECEITAS FIADO'];
   const recPdvFin = somar(r => r.natureza === 'RECEITAS' && SUBT_PDV.includes(r.subtipo));
   const outrasRec = somar(r => r.natureza === 'RECEITAS' && !SUBT_PDV.includes(r.subtipo));
-  // extrato oficial do iFood (conciliacao, por data de repasse) aberto por grupo
-  const taxasIfGrupo = {};
-  (DRE_TAXAS || []).forEach(r => {
-    const i = idxMes[r.data.slice(0, 7) + '-01'];
+  // Custo dos canais por FATO (vw_canal_custo_mes, 03/09/2026): cada cobranca do
+  // iFood (promocao da loja, anuncios, taxa de transacao, comissao, retencoes,
+  // ressarcimentos, repasses alem dos itens) e da Rede (MDR, antecipacao) com
+  // nome, nas 3 lojas. A linha-MAE continua sendo a NOSSA conta: vendido no PDV
+  // menos o que caiu na conta. As filhas nomeadas vem do fato, e o que sobra e'
+  // a diferenca vendido x recebido (defasagem semanal do repasse + o que ainda
+  // nao tem fonte, ex.: vouchers). Estrutura do Matheus, calculo nosso.
+  const canalLinha = {}, canalRotulo = {}, canalOrdem = [];
+  (DRE_CANAL || []).forEach(r => {
+    if (LOJA_FIN !== 'REDE' && r.unidade !== LOJA_FIN) return;
+    const i = idxMes[r.mes];
     if (i === undefined) return;
-    if (!taxasIfGrupo[r.grupo]) taxasIfGrupo[r.grupo] = Array(nM).fill(0);
-    taxasIfGrupo[r.grupo][i] -= Number(r.valor);   // cobranca (negativa no extrato) vira custo
+    if (!canalLinha[r.linha]) { canalLinha[r.linha] = Array(nM).fill(0); canalRotulo[r.linha] = r.rotulo; canalOrdem.push(r.linha); }
+    canalLinha[r.linha][i] += Number(r.custo);
   });
-  // ANUNCIOS saem das taxas e entram em MARKETING (decisao do dono, 16/08):
-  // anuncio e' alavanca que se decide, nao pedagio do canal. O EBITDA nao muda —
-  // o custo so troca de crachá. Conciliacao comeca em abril: jan-mar os anuncios
-  // seguem embutidos na taxa estimada (declarado na legenda).
-  const anunciosIf = taxasIfGrupo.ANUNCIOS || Array(nM).fill(0);
-  // taxas de canais estimada: o que foi vendido no PDV menos o que efetivamente
-  // entrou (comissões iFood/adquirentes), ja sem os anuncios realocados acima.
-  const taxasCanais = menos(recBruta, recPdvFin).map((v, i) => v - anunciosIf[i]);
+  const anunciosIf = canalLinha.ANUNCIOS || Array(nM).fill(0);
+  // deducoes dos canais: tudo que ficou entre a venda no PDV e o que caiu na
+  // conta — promocoes, anuncios, taxas do iFood, tarifas de cartao, defasagem.
+  const taxasCanais = menos(recBruta, recPdvFin);
+  const somaCanalFato = meses.map((_, i) => canalOrdem.reduce((s, k) => s + canalLinha[k][i], 0));
+  // comissoes de vendedores: deducao da receita na estrutura do Matheus (03/09/2026)
+  const comissoesVend = somar(r => r.natureza === 'DESPESAS' && r.subtipo === 'COMISSOES', -1);
 
   const ehInvest = (r) => r.tipo === 'INVESTIMENTOS';
   // classico: IRPJ e' imposto sobre o LUCRO, nao sobre a venda — sai das
   // deducoes e desce para logo antes do resultado liquido (Lei 11.638)
   const deducoes = somar(r => r.natureza === 'DEDUÇOES DA RECEITA' && r.subtipo !== 'IRPJ', -1);
   const irpj     = somar(r => r.natureza === 'DEDUÇOES DA RECEITA' && r.subtipo === 'IRPJ', -1);
-  const recLiq   = meses.map((_, i) => recBruta[i] + outrasRec[i] - taxasCanais[i] - deducoes[i]);
+  const recLiq   = meses.map((_, i) => recBruta[i] + outrasRec[i] - taxasCanais[i] - comissoesVend[i] - deducoes[i]);
+  const deducoesTot = meses.map((_, i) => taxasCanais[i] + comissoesVend[i] + deducoes[i]);
   // base dos percentuais (AV, metas, fechamento) = receita BRUTA (vendas + outras
   // receitas), decisao do dono em 16/08: e' o numero que o operador conhece, o que
   // os benchmarks de restaurante usam, e nao oscila com a defasagem dos repasses
   // (em jul/26 a liquida ficou MAIOR que a bruta por causa da linha estimada).
   const baseAV = meses.map((_, i) => recBruta[i] + outrasRec[i]);
 
-  const predGrupo = (tipos) => (r) => r.natureza === 'DESPESAS' && !ehInvest(r) && tipos.includes(r.tipo);
+  // COMISSOES (de vendedores) saiu de COMERCIAIS: e' deducao da receita (03/09/2026)
+  const predGrupo = (tipos) => (r) => r.natureza === 'DESPESAS' && !ehInvest(r) && tipos.includes(r.tipo) && r.subtipo !== 'COMISSOES';
   const gruposVals = DRE_GRUPOS.map(([chave, rotulo, tipos]) => [chave, rotulo, tipos, somar(predGrupo(tipos), -1)]);
-  // os anuncios do iFood realocados entram no grupo DESPESAS COM VENDAS
-  gruposVals[2][3] = gruposVals[2][3].map((v, i) => v + anunciosIf[i]);
   // tipos de despesa que nao entraram em nenhum grupo (menos financeiras, tratadas abaixo)
   const tiposMapeados = DRE_GRUPOS.flatMap(g => g[2]).concat(['DESPESAS FINANCEIRAS']);
   const outrasDesp = somar(r => r.natureza === 'DESPESAS' && !ehInvest(r) && !tiposMapeados.includes(r.tipo), -1);
@@ -11553,51 +11572,46 @@ function renderModuloDRE() {
   if (dreAberto.has('RECBRUTA')) canais.forEach(c => {
     corpo += linha('dfc-linha', c, porCanal[c], { kind: 'ganho' });
   });
-  corpo += linha('dfc-bloco', '(+) OUTRAS RECEITAS (revenda, filiais, aluguéis)', outrasRec, { chave: 'OUTREC', kind: 'ganho' });
+  corpo += linha('dfc-bloco', '(+) OUTRAS RECEITAS DA OPERAÇÃO (atacado, empresas, listas às filiais, royalties)', outrasRec, { chave: 'OUTREC', kind: 'ganho' });
   corpo += blocoSubtipos('OUTREC', r => r.natureza === 'RECEITAS' && !SUBT_PDV.includes(r.subtipo), 1, 'ganho');
-  corpo += linha('dfc-bloco', '(−) DEDUÇÕES E ABATIMENTOS (ICMS, devoluções)', deducoes, { chave: 'DEDUC', kind: 'custo' });
-  corpo += blocoSubtipos('DEDUC', r => r.natureza === 'DEDUÇOES DA RECEITA' && r.subtipo !== 'IRPJ', -1, 'custo');
-  // a linha de taxas ABRE no extrato oficial do iFood (conciliacao, por data de
-  // repasse) — o que sobra e' cartoes/vouchers + a defasagem semanal do repasse.
-  // Taxas exatas de Rede/Alelo/Pluxee/VR/Ticket/Tuna dependem de fonte nova
-  // (extratos das adquirentes) — pedido do dono em 16/08, ainda sem fonte.
-  corpo += linha('dfc-bloco', '(−) TAXAS DE CANAIS (comissões iFood e cartões)', taxasCanais, { chave: 'TAXASCAN', kind: 'custo' });
-  if (dreAberto.has('TAXASCAN')) {
-    const TAXA_ROTULOS = {
-      COMISSAO_VENDAS: 'iFood — comissão sobre vendas',
-      TAXA_CARTAO: 'iFood — taxa de pagamento online',
-      RESSARCIMENTO_CANCELAMENTO: 'iFood — ressarcimentos de cancelamento (crédito)',
-      OUTROS_AJUSTES: 'iFood — outros ajustes',
-    };
-    let somaIf = Array(nM).fill(0);
-    Object.keys(taxasIfGrupo).forEach(g => {
-      if (g === 'ANUNCIOS') return;   // realocados para DESPESAS COM VENDAS
-      if (!taxasIfGrupo[g].some(v => Math.abs(v) > 0.005)) return;
-      corpo += linha('dfc-linha', TAXA_ROTULOS[g] || ('iFood — ' + g.toLowerCase().replace(/_/g, ' ')), taxasIfGrupo[g], { kind: 'custo' });
-      somaIf = somaIf.map((v, i) => v + taxasIfGrupo[g][i]);
+  // Bloco de deducoes na estrutura do Matheus (03/09/2026): o que os canais e
+  // o fisco levam antes de a receita ser nossa. A linha-mae e' a nossa conta
+  // (vendido no PDV − recebido) + comissoes de vendedores + ICMS/devolucoes;
+  // aberta, mostra cada cobranca pelo nome (fato) e a diferenca que sobra.
+  corpo += linha('dfc-bloco', '(−) DEDUÇÕES DA RECEITA (promoções, anúncios, taxas iFood, cartões, comissões, ICMS)', deducoesTot, { chave: 'DEDUC', kind: 'custo' });
+  if (dreAberto.has('DEDUC')) {
+    canalOrdem.forEach(k => {
+      if (!canalLinha[k].some(v => Math.abs(v) > 0.005)) return;
+      corpo += linha('dfc-linha', canalRotulo[k] || k, canalLinha[k], { kind: 'custo' });
     });
-    corpo += linha('dfc-linha', 'Cartões, vouchers e defasagem de repasse (estimado)', taxasCanais.map((v, i) => v - somaIf[i]), { kind: 'custo' });
+    corpo += linha('dfc-linha', 'Diferença vendido × recebido (defasagem do repasse, vouchers e o que ainda não tem fonte)', taxasCanais.map((v, i) => v - somaCanalFato[i]), { kind: 'custo' });
+    if (comissoesVend.some(v => Math.abs(v) > 0.005)) corpo += linha('dfc-linha', 'Comissões de vendedores', comissoesVend, { kind: 'custo' });
+    corpo += blocoSubtipos('DEDUC', r => r.natureza === 'DEDUÇOES DA RECEITA' && r.subtipo !== 'IRPJ', -1, 'custo');
   }
   corpo += linha('dfc-resultado', '(=) RECEITA LÍQUIDA', recLiq, { kind: 'ganho' });
 
-  gruposVals.forEach(([chave, rotulo, tipos, vals], gi) => {
+  // ordem de exibicao do Matheus: CMV -> margem de contribuicao -> pessoal ->
+  // administrativas e imovel -> comerciais -> resultado operacional
+  const blocoGrupo = (gi) => {
+    const [chave, rotulo, tipos, vals] = gruposVals[gi];
     corpo += linha('dfc-bloco', rotulo, vals, { chave: 'G:' + chave, kind: 'custo', metaChave: chave });
     if (dreAberto.has('G:' + chave)) {
       tipos.forEach(t => {
         const predT = predGrupo([t]);
-        corpo += linha('dfc-grupo', t, somar(predT, -1), { chave: 'GT:' + t, kind: 'custo' });
+        corpo += linha('dfc-grupo', DRE_TIPO_ROTULO[t] || t, somar(predT, -1), { chave: 'GT:' + t, kind: 'custo' });
         corpo += blocoSubtipos('GT:' + t, predT, -1, 'custo');
       });
-      if (chave === 'VENDA' && anunciosIf.some(v => v > 0.005)) {
-        corpo += linha('dfc-grupo', 'ANÚNCIOS IFOOD (do extrato da conciliação)', anunciosIf, { kind: 'custo' });
-      }
     }
-    if (gi === 0) corpo += linha('dfc-resultado', '(=) LUCRO BRUTO', lucroBruto, { kind: 'ganho', metaChave: 'LUCRO_BRUTO' });
-  });
+  };
+  blocoGrupo(0);
+  corpo += linha('dfc-resultado', '(=) MARGEM DE CONTRIBUIÇÃO (receita líquida − mercadoria)', lucroBruto, { kind: 'ganho', metaChave: 'LUCRO_BRUTO' });
+  blocoGrupo(1);
+  blocoGrupo(3);
+  blocoGrupo(2);
   if (outrasDesp.some(v => Math.abs(v) > 0.005)) {
     corpo += linha('dfc-bloco', '(−) OUTRAS DESPESAS', outrasDesp, { kind: 'custo' });
   }
-  corpo += linha('dfc-resultado', '(=) RESULTADO OPERACIONAL (EBITDA gerencial)', ebitda, { kind: 'ganho', metaChave: 'EBITDA' });
+  corpo += linha('dfc-resultado', '(=) RESULTADO OPERACIONAL', ebitda, { kind: 'ganho', metaChave: 'EBITDA' });
 
   // Linha do beneficio iFood (aplicado da fila em 16/08/2026): o beneficio nao
   // e receita nova — e comissao que o iFood deixou de cobrar, diluida em
@@ -11610,7 +11624,7 @@ function renderModuloDRE() {
     corpo += linha('dfc-resultado', '(=) RESULTADO RECORRENTE (pagando comissão cheia)', ebitda.map((v, i) => v - benefVals[i]), { kind: 'ganho' });
   }
 
-  corpo += linha('dfc-bloco', '(±) RESULTADO FINANCEIRO (rendimentos − juros/tarifas)', resFin, { chave: 'FIN', kind: 'ganho' });
+  corpo += linha('dfc-bloco', '(±) FINANCEIRAS (rendimentos − juros e tarifas)', resFin, { chave: 'FIN', kind: 'ganho' });
   if (dreAberto.has('FIN')) {
     corpo += linha('dfc-grupo', 'RENDIMENTOS DE APLICAÇÕES', recFin, { kind: 'ganho' });
     corpo += linha('dfc-grupo', 'DESPESAS FINANCEIRAS', despFin.map(v => -v), { kind: 'ganho' });
@@ -11622,17 +11636,50 @@ function renderModuloDRE() {
     corpo += linha('dfc-resultado', '(=) RESULTADO ANTES DO IMPOSTO DE RENDA', resultadoAntes, { kind: 'ganho' });
     corpo += linha('dfc-linha', '(−) Imposto de renda (IRPJ)', irpj, { kind: 'custo' });
   }
-  corpo += linha('dfc-resultado', '(=) RESULTADO LÍQUIDO GERENCIAL', resultado, { kind: 'ganho', metaChave: 'RESULTADO' });
+  corpo += linha('dfc-resultado', '(=) RESULTADO LÍQUIDO', resultado, { kind: 'ganho', metaChave: 'RESULTADO' });
+
+  // ---- Abaixo do resultado (estrutura do Matheus, 03/09/2026): o que nao e'
+  // resultado da operacao da loja mas mexe no dinheiro dela. ----
+  // Lucro repassado pelas filiais = REGRA DO DONO (03/09/2026): o TOTAL que a
+  // filial mandou no mes (bruto, com o bonus do iFood, que ele manda contar
+  // como lucro da filial) menos a lista do mes. Na AV: creditos de RECEITAS
+  // AHU/SAO BRAZ + BONUS − LISTAS AHU/SB. Na filial, o espelho: −(FILIAL AGUA
+  // VERDE + BONUS) + MERCADORIAS AV. Na REDE os dois lados se anulam — o que
+  // sobrar e' repasse sem contrapartida (ex.: cofre do SB, R$ 3.077 em ago/26).
+  const somaCol = (pred, col) => {
+    const v = Array(nM).fill(0);
+    DRE_FIN.forEach(r => { if (pred(r) && idxMes[r.mes] !== undefined) v[idxMes[r.mes]] += r[col]; });
+    return v;
+  };
+  const SUBT_ENTRADA_FILIAL = ['RECEITAS AHU', 'RECEITAS SAO BRAZ', 'BONUS COMISSAO IFOOD'];
+  const SUBT_SAIDA_FILIAL = ['FILIAL AGUA VERDE', 'BONUS COMISSAO IFOOD'];
+  const entFil = somaCol(r => r.natureza === 'APORTE VALORES' && SUBT_ENTRADA_FILIAL.includes(r.subtipo), 'credito');
+  const saiFil = somaCol(r => r.natureza === 'APORTE VALORES' && SUBT_SAIDA_FILIAL.includes(r.subtipo), 'debito');
+  const listasRec = somaCol(r => ['LISTAS AHU', 'LISTAS SAO BRAZ'].includes(r.subtipo), 'credito');
+  const listasCusto = somaCol(r => r.subtipo === 'MERCADORIAS AV', 'debito');
+  const lucroFiliais = meses.map((_, i) => entFil[i] - saiFil[i] - listasRec[i] + listasCusto[i]);
+  const SUBT_FILIAL_TODOS = [...SUBT_ENTRADA_FILIAL, ...SUBT_SAIDA_FILIAL];
+  const outrosNaoOper = somar(r => r.natureza === 'APORTE VALORES' && !SUBT_FILIAL_TODOS.includes(r.subtipo));
 
   corpo += `<tr class="dfc-saldo"><td colspan="${cols.length + 2}" style="text-align:left; color:#a5a49a; font-weight:normal;">
-    Destino do resultado (informativo — não entra na DRE):</td></tr>`;
-  corpo += linha('dfc-bloco', 'Investimentos no período', invest.map(v => -v), { chave: 'INFOINV' });
+    Abaixo do resultado (não é resultado da operação desta loja — é destino ou origem do dinheiro):</td></tr>`;
+  if (lucroFiliais.some(v => Math.abs(v) > 0.005)) {
+    corpo += linha('dfc-bloco', LOJA_FIN === 'AGUA VERDE' ? '(+) Lucro repassado pelas filiais (enviado − lista do mês)'
+      : LOJA_FIN === 'REDE' ? '(±) Lucro repassado entre lojas (deveria zerar na rede)' : '(−) Lucro enviado à Água Verde (enviado − lista do mês)', lucroFiliais, { chave: 'INFOLUC' });
+    if (dreAberto.has('INFOLUC')) {
+      if (entFil.some(v => v > 0.005)) corpo += linha('dfc-linha', 'Recebido das filiais (listas, lucro e bônus do iFood)', entFil);
+      if (saiFil.some(v => v > 0.005)) corpo += linha('dfc-linha', 'Enviado à Água Verde (listas, lucro e bônus do iFood)', saiFil.map(v => -v));
+      if (listasRec.some(v => v > 0.005)) corpo += linha('dfc-linha', '− Listas do mês (já na receita acima)', listasRec.map(v => -v));
+      if (listasCusto.some(v => v > 0.005)) corpo += linha('dfc-linha', '+ Listas do mês (já no CMV acima)', listasCusto);
+    }
+  }
+  corpo += linha('dfc-bloco', '(−) Investimentos no período', invest.map(v => -v), { chave: 'INFOINV' });
   corpo += blocoSubtipos('INFOINV', r => ehInvest(r) || r.natureza === 'INVESTIMENTOS', -1);
-  corpo += linha('dfc-bloco', 'Distribuição de lucros / retiradas', retiradas.map(v => -v), { chave: 'INFORET' });
+  corpo += linha('dfc-bloco', '(−) Distribuição de lucros / retiradas', retiradas.map(v => -v), { chave: 'INFORET' });
   corpo += blocoSubtipos('INFORET', r => r.natureza === 'DISTRIBUICAO DE LUCROS', -1);
-  if (naoOper.some(v => Math.abs(v) > 0.005)) {
-    corpo += linha('dfc-bloco', 'Fluxo não operacional (lucros filiais, aportes)', naoOper, { chave: 'INFONOP' });
-    corpo += blocoSubtipos('INFONOP', r => r.natureza === 'APORTE VALORES', 1);
+  if (outrosNaoOper.some(v => Math.abs(v) > 0.005)) {
+    corpo += linha('dfc-bloco', '(±) Outros movimentos entre empresas e aportes', outrosNaoOper, { chave: 'INFONOP' });
+    corpo += blocoSubtipos('INFONOP', r => r.natureza === 'APORTE VALORES' && !SUBT_FILIAL_TODOS.includes(r.subtipo), 1);
   }
 
   // ---- FECHAMENTO DO MES (estrutura absorvida do fechamento do consultor
@@ -11749,8 +11796,8 @@ function renderModuloDRE() {
       <div class="caption-label" style="text-align:center;">
         Os demais indicadores estão na própria tabela: o % ao lado de cada número é a fatia da receita bruta,
         colorido pela meta (verde dentro, âmbar perto, vermelho fora). Prime Cost = CMV + pessoal, os dois maiores
-        custos da casa. Ponto de equilíbrio = (pessoal + despesas com vendas + administrativas + outras) ÷ lucro
-        bruto % — quanto precisava faturar para empatar. Metas editáveis na tabela <b>fin_metas_dre</b>.
+        custos da casa. Ponto de equilíbrio = (pessoal + comerciais + administrativas + outras) ÷ margem de
+        contribuição % — quanto precisava faturar para empatar. Metas editáveis na tabela <b>fin_metas_dre</b>.
       </div>`;
     }
   }
@@ -11786,20 +11833,20 @@ function renderModuloDRE() {
   <details class="detalhes-extra" style="margin-top:12px;">
     <summary>📖 O que significa cada linha (guia rápido)</summary>
     <div style="font-size:12.5px; color:#c3c2b7; line-height:1.8; margin-top:10px;">
-      <b>Receita bruta de vendas</b> — tudo que os clientes pagaram nos canais (iFood, salão, balcão, site), antes de qualquer desconto.<br>
-      <b>(+) Outras receitas</b> — o que entra fora do balcão: revenda para as filiais, atacado e aluguéis.<br>
-      <b>(−) Deduções e abatimentos</b> — impostos sobre a venda (ICMS) e devoluções: dinheiro que passa pela mão mas nunca foi nosso.<br>
-      <b>(−) Taxas de canais</b> — comissões do iFood e das máquinas de cartão.<br>
+      <b>Receita bruta de vendas</b> — tudo que os clientes pagaram nos canais (iFood, salão, balcão, site), pelo valor cheio do PDV, antes de promoção e de taxa.<br>
+      <b>(+) Outras receitas da operação</b> — o que a loja vende fora do balcão: atacado, vendas para empresas, listas para as filiais e royalties do Boqueirão.<br>
+      <b>(−) Deduções da receita</b> — o que os canais e o fisco levam antes de o dinheiro ser nosso: promoções pagas pela loja, anúncios, taxas do iFood, tarifas de cartão, comissões de vendedores e ICMS. Abra a linha para ver cada cobrança pelo nome.<br>
       <b>(=) Receita líquida</b> — o que sobrou de verdade para pagar a operação.<br>
-      <b>(−) CMV</b> — custo da mercadoria vendida: insumos, uso e consumo da cozinha e embalagens, inclusive as de envio (desde 03/09/2026; antes ficavam em despesas com vendas).<br>
-      <b>(=) Lucro bruto</b> — receita líquida menos mercadoria; daqui saem todas as outras contas.<br>
-      <b>(−) Despesas com pessoal</b> — salários, encargos, benefícios e pró-labore.<br>
-      <b>(−) Despesas com vendas</b> — o que gastamos para vender: comercial, entrega (motoboys) e marketing.<br>
-      <b>(−) Despesas administrativas</b> — o que mantém a casa aberta: aluguel, energia, manutenção, taxas.<br>
-      <b>(=) Resultado operacional (EBITDA)</b> — o que a operação gera sozinha, antes de banco e imposto sobre o lucro.<br>
-      <b>(±) Resultado financeiro</b> — rendimentos das aplicações menos juros e tarifas de banco.<br>
+      <b>(−) CMV</b> — mercadoria: insumos, embalagens (inclusive as de envio, desde 03/09/2026), descartáveis, gás e uso e consumo.<br>
+      <b>(=) Margem de contribuição</b> — receita líquida menos mercadoria; é o que cada venda deixa para pagar a casa. (Chamava-se lucro bruto até 03/09/2026.)<br>
+      <b>(−) Pessoal</b> — salários, encargos e benefícios da equipe, mais a diretoria (pró-labore).<br>
+      <b>(−) Administrativas e imóvel</b> — o que mantém a casa aberta: aluguel, energia, gás, manutenção, sistemas, honorários.<br>
+      <b>(−) Comerciais</b> — o que gastamos para entregar e vender: motoboys, marketing, fretes.<br>
+      <b>(=) Resultado operacional</b> — o que a operação gera sozinha, antes de banco e imposto sobre o lucro.<br>
+      <b>(±) Financeiras</b> — rendimentos das aplicações menos juros e tarifas de banco.<br>
       <b>(−) Imposto de renda (IRPJ)</b> — imposto sobre o LUCRO (o imposto sobre a venda ficou lá em cima, nas deduções).<br>
-      <b>(=) Resultado líquido</b> — o que sobrou no fim do mês: lucro ou prejuízo.
+      <b>(=) Resultado líquido</b> — o que sobrou no fim do mês: lucro ou prejuízo.<br>
+      <b>Abaixo do resultado</b> — o que não é resultado da operação da loja, mas mexe no dinheiro dela: o lucro que as filiais repassam (total enviado menos a lista do mês, com o bônus do iFood dentro), investimentos, retiradas e aportes. A ordem e os nomes seguem o fechamento da MA Consultoria (03/09/2026); os cálculos são nossos.
     </div>
   </details>
   <div id="tabelaDRE">
