@@ -8860,6 +8860,9 @@ function trRenderOperacao() {
   let telas = [];
   if (papel === 'FILIAL' || papel === 'DONO') telas.push(['pedido', '📝 Novo pedido']);
   if (papel === 'SEPARACAO' || papel === 'DONO') telas.push(['separacao', '📦 Fila de separação']);
+  // o "balcao" (04/09/2026): quem separa tambem digita pedido que chegou por
+  // WhatsApp/papel, escolhendo a filial — a fila continua sendo a tela inicial
+  if (papel === 'SEPARACAO') telas.push(['pedido', '📝 Novo pedido']);
   if (papel === 'FILIAL' || papel === 'DONO') telas.push(['conferencia', '✅ Conferência']);
   telas.push(['precos', '💰 Tabela de preços']);
   if (papel === 'SEPARACAO' || papel === 'DONO') telas.push(['fechamento', '🧾 Fechamento do mês']);
