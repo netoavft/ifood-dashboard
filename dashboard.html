@@ -24,12 +24,12 @@
   }
   .app-layout { display:flex; min-height:100vh; align-items:stretch; }
   .sidebar {
-    width:250px; flex:0 0 250px; background:#ffffff; border-right:1px solid #dcdad3;
+    width:250px; flex:0 0 250px; background:#1a1a19; border-right:1px solid #34332f;
     padding:16px 12px; display:flex; flex-direction:column; gap:2px;
     position:sticky; top:0; align-self:flex-start; max-height:100vh; overflow-y:auto;
   }
   .sidebar-btn {
-    background:none; border:none; color:#4d545b; font-size:13.5px; font-weight:700;
+    background:none; border:none; color:#c3c2b7; font-size:13.5px; font-weight:700;
     text-align:left; padding:9px 12px; cursor:pointer; border-radius:10px;
     font-family:inherit; display:flex; align-items:center; gap:9px;
   }
@@ -53,24 +53,24 @@
      16/08 a noite): agora ele le como CABECALHO DE DIVISORIA — risco curto no
      gradiente da marca (amarelo permitido: area de navegacao), linha separando
      do grupo anterior, cor mais apagada e a seta encostada na direita. */
-  .sidebar-secao { color:#7d858c; font-size:11px; font-weight:800; text-transform:uppercase;
+  .sidebar-secao { color:#8a897e; font-size:11px; font-weight:800; text-transform:uppercase;
                    letter-spacing:.8px; padding:14px 12px 6px; cursor:pointer; user-select:none;
                    display:flex; align-items:center; gap:8px;
-                   background:none; border:none; border-top:1px solid #ebe9e3; margin-top:8px;
+                   background:none; border:none; border-top:1px solid #232321; margin-top:8px;
                    width:100%; font-family:inherit; text-align:left; }
   .sidebar-marca + .sidebar-secao { border-top:none; margin-top:0; }
   .sidebar-secao::before { content:''; width:14px; height:3px; border-radius:2px; flex-shrink:0;
                            background:#1e2226; opacity:.85; }
-  .sidebar-secao:hover { color:#1e2226; }
+  .sidebar-secao:hover { color:#ffffff; }
   .sidebar-secao .seta { font-size:8px; transition:transform .15s; margin-left:auto; }
   .sidebar-secao.aberto .seta { transform:rotate(90deg); }
   .sidebar-grupo { display:none; flex-direction:column; gap:2px; }
   .sidebar-grupo.aberto { display:flex; }
-  .sidebar-btn.breve { color:#8f959b; cursor:default; font-weight:normal; }
-  .sidebar-btn.breve:hover { color:#8f959b; background:none; }
-  .sidebar-btn.breve::after { content:' · em breve'; font-size:9px; color:#8f959b; }
+  .sidebar-btn.breve { color:#57564e; cursor:default; font-weight:normal; }
+  .sidebar-btn.breve:hover { color:#57564e; background:none; }
+  .sidebar-btn.breve::after { content:' · em breve'; font-size:9px; color:#45443f; }
 
-  .sidebar-btn:hover { background:#efede6; }
+  .sidebar-btn:hover { background:#232321; }
   /* Modulo ativo = letreiro aceso (16/08/2026): o mesmo gradiente da marca com
      texto preto. Amarelo permitido aqui: sidebar e area de navegacao/marca,
      o farol nunca aparece nela. */
@@ -544,7 +544,7 @@
   .dre-sub b { font-weight:600; }
   .dre-farol { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:3px; vertical-align:middle; }
 
-  /* ===== TEMA CLARO "PAPEL" (03/09/2026). Pedido do dono: o fundo preto com
+  /* ===== TEMA CLARO "PAPEL" (03/09/2026; painel inteiro desde a noite do mesmo dia — a BARRA LATERAL fica ESCURA de proposito, e' a moldura da marca). Pedido do dono: o fundo preto com
      contornos amarelos pesava a leitura de tabela de numero. Comeca pela DRE e
      pelo Fechamento (class="papel" no modulo); vai para os outros modulos
      conforme ele aprovar. Regras: amarelo/laranja da marca ficam SO na barra
@@ -667,7 +667,7 @@
   @media (max-width: 640px) {
     .wrap { padding: 20px 16px 40px; }
     .app-layout { flex-direction: column; }
-    .sidebar { width:100%; flex:0 0 auto; flex-direction:row; overflow-x:auto; border-right:none; border-bottom:1px solid #dcdad3; padding:8px; }
+    .sidebar { width:100%; flex:0 0 auto; flex-direction:row; overflow-x:auto; border-right:none; border-bottom:1px solid #34332f; padding:8px; }
     .sidebar-btn { padding:9px 14px; white-space:nowrap; }
     /* no menu horizontal do celular a sanfona atrapalha: tudo fica visivel */
     .sidebar-rodape { flex-direction:column; align-items:stretch; }
@@ -686,12 +686,12 @@
 
 <style>
   /* rodape da barra lateral: quem esta logado + sair (21/08/2026) */
-  .sidebar-rodape { margin-top:14px; padding:10px 12px; border-top:1px solid #dcdad3;
-    display:flex; align-items:center; gap:8px; font-size:11px; color:#7d858c; }
+  .sidebar-rodape { margin-top:14px; padding:10px 12px; border-top:1px solid #34332f;
+    display:flex; align-items:center; gap:8px; font-size:11px; color:#8a897e; }
   .sidebar-rodape span { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .sidebar-rodape button { background:none; border:1px solid #cfcdc5; color:#4d545b;
+  .sidebar-rodape button { background:none; border:1px solid #45443f; color:#c3c2b7;
     border-radius:6px; padding:4px 10px; font-size:11px; cursor:pointer; }
-  .sidebar-rodape button:hover { border-color:#c8102e; color:#1e2226; }
+  .sidebar-rodape button:hover { border-color:#c8102e; color:#ffffff; }
   #loginEmail { margin-bottom:8px; }
 
   /* recados nos itens do Plano (21/08/2026) */
