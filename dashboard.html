@@ -10565,8 +10565,8 @@ function renderFechamento() {
   const nomesOutras = { 'RECEITAS REVENDA': 'atacado', 'LISTAS SAO BRAZ': 'mercadoria vendida ao São Braz', 'LISTAS AHU': 'mercadoria vendida ao Ahú', 'RECEITAS BOQUEIRAO': 'royalties do Boqueirão', 'OUTRAS RECEITAS': 'eventos e outros' };
   h += `<div class="fx-nota">${a.outras > 0.5 ? `Além das vendas, entraram <b>${fxMil(a.outras)}</b> de outras receitas (${Object.entries(a.outrasDet).filter(([, v]) => Math.abs(v) > 0.5).sort((x, y) => y[1] - x[1]).map(([k, v]) => `${nomesOutras[k] || k.toLowerCase()} ${fxMil(v)}`).join(', ')}). Somando tudo, o mês movimentou <b>${fxMil(a.base)}</b>; é sobre esse total que a seção 2 divide os R$ 100.` : `O total do mês é <b>${fxMil(a.base)}</b>; é sobre ele que a seção 2 divide os R$ 100.`}</div>`;
   // 2. de cada R$ 100
-  const baldes = x => [['CUSTO', 'Mercadoria', 'insumos, bebidas, embalagens de uso', x.grupos.CUSTO], ['PESSOAL', 'Pessoas', 'salários, encargos, pró-labore', x.grupos.PESSOAL],
-    ['VENDA', 'Entrega, comercial e marketing', 'motoboys, embalagens de envio, anúncios', x.grupos.VENDA], ['ADMIN', 'A casa', 'aluguel, energia, gás, manutenção, sistemas', x.grupos.ADMIN],
+  const baldes = x => [['CUSTO', 'Mercadoria', 'insumos, bebidas, embalagens (inclusive as de envio)', x.grupos.CUSTO], ['PESSOAL', 'Pessoas', 'salários, encargos, pró-labore', x.grupos.PESSOAL],
+    ['VENDA', 'Entrega, comercial e marketing', 'motoboys, anúncios, marketing', x.grupos.VENDA], ['ADMIN', 'A casa', 'aluguel, energia, gás, manutenção, sistemas', x.grupos.ADMIN],
     ['TAXAS', 'Taxas dos canais e impostos', 'comissão e taxas do iFood e dos cartões, ICMS', x.taxasCanais + x.deducoes],
     ['OUTROS', 'Juros, tarifas e outros', '', x.despFin - x.recFin - x.semClass + x.irpj + x.outrasDesp]].map(b => [b[0], b[1], b[2], x.base ? b[3] / x.base * 100 : 0]);
   const ba = baldes(a), bj = j ? baldes(j) : null;
@@ -11791,7 +11791,7 @@ function renderModuloDRE() {
       <b>(−) Deduções e abatimentos</b> — impostos sobre a venda (ICMS) e devoluções: dinheiro que passa pela mão mas nunca foi nosso.<br>
       <b>(−) Taxas de canais</b> — comissões do iFood e das máquinas de cartão.<br>
       <b>(=) Receita líquida</b> — o que sobrou de verdade para pagar a operação.<br>
-      <b>(−) CMV</b> — custo da mercadoria vendida: insumos, uso e consumo da cozinha.<br>
+      <b>(−) CMV</b> — custo da mercadoria vendida: insumos, uso e consumo da cozinha e embalagens, inclusive as de envio (desde 03/09/2026; antes ficavam em despesas com vendas).<br>
       <b>(=) Lucro bruto</b> — receita líquida menos mercadoria; daqui saem todas as outras contas.<br>
       <b>(−) Despesas com pessoal</b> — salários, encargos, benefícios e pró-labore.<br>
       <b>(−) Despesas com vendas</b> — o que gastamos para vender: comercial, entrega (motoboys) e marketing.<br>
