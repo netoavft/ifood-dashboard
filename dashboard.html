@@ -6143,9 +6143,11 @@ function renderForaFolha() {
   }
   let h = `<div class="caption-label" style="max-width:820px;">
     <b>Como funciona:</b> quem está sem registro recebe pelo cálculo daqui, não pela folha. Entram salário, gratificação fixa e a
-    <b>gratificação do salão</b> (varia — informe aqui todo mês). Não entram INSS nem vale alimentação (vai pelo cartão da Flash).
-    O <b>adiantamento</b> sai no dia 20 (ou no dia útil anterior) e é descontado do <b>saldo</b>, pago no <b>5º dia útil</b> do mês
-    seguinte. As duas parcelas aparecem no Fluxo projetado até serem marcadas como pagas aqui.
+    <b>gratificação do salão</b> (varia — informe aqui todo mês); desconta-se a parte dela do vale transporte. Não entram INSS,
+    vale alimentação (vai pelo cartão da Flash) nem consumo (não se marca mais).
+    O <b>adiantamento</b> sai no dia 20 e é descontado do <b>saldo</b>, pago no <b>5º dia útil</b> do mês seguinte
+    (o 5º dia útil conta o sábado; se cair no fim de semana ou feriado, antecipa para o dia útil anterior).
+    As duas parcelas aparecem no Fluxo projetado até serem marcadas como pagas aqui.
     <span id="ffMsg" style="margin-left:6px;"></span></div>`;
 
   for (const p of FF.pessoas) {
@@ -6228,7 +6230,8 @@ function renderForaFolha() {
     }
     h += `</table>
       <div class="caption-label" style="margin-top:6px;">Saldo = salário + gratificação fixa + salão + ajuste − consumo − VT − adiantamento.
-        O 5º dia útil conta segunda a sexta fora de feriado (tabela <code>feriados</code>: nacional, Paraná e Curitiba).
+        O 5º dia útil conta segunda a sábado fora de feriado (tabela <code>feriados</code>: nacional, Paraná e Curitiba) e,
+        se cair em sábado, domingo ou feriado, antecipa para a sexta — é como a folha desta empresa sempre saiu.
         Mês em que a pessoa entra ou sai no meio é proporcional em trintavos.</div>
     </div>`;
   }
