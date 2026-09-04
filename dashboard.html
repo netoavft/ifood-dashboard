@@ -9137,67 +9137,70 @@ async function trEditarPedido(id) {
   ]);
   const itens = await ri.json();
   const catalogo = rc.ok ? await rc.json() : [];
-  window._trEdit = { id, unidade: lista.unidade, itens, catalogo };
   const nomes = new Set(itens.map(i => i.item));
+  // grade dos que FALTAM: mesma cara do pedido (alfabetica, busca, embalagens
+  // — item com 2a embalagem vira duas linhas)
+  const novos = [];
+  catalogo.filter(x => !nomes.has(x.item)).forEach(i => {
+    novos.push(i);
+    if (i.emb2_fator) novos.push({ ...i, emb_nome: i.emb2_nome, emb_fator: i.emb2_fator });
+  });
+  window._trEdit = { id, unidade: lista.unidade, itens };
+  window._trEditNovos = novos;
   alvo.innerHTML = `
-    <div class="caption-label"><button class="preset-btn" onclick="trTelaPedido('${lista.unidade}')">← pedido</button>
-      Editando a lista <b>#${id}</b> · ${lista.unidade} — corrija as quantidades (em ${'kg/un'}; <b>0 tira o item</b>) e salve.
-      Linha mexida ganha o selo ✏️ para a separação saber.</div>
+    <div class="caption-label"><button class="preset-btn" onclick="trListaAberta=${id}; trTelaSeparacao();">← lista</button>
+      Editando a lista <b>#${id}</b> · ${lista.unidade} — corrija as quantidades (<b>0 tira o item</b>), preencha
+      os que faltam na grade de baixo e <b>salve uma vez só</b>. Linha mexida ganha o selo ✏️.</div>
     <div id="tabelaTrEdit"><table>
       <tr><th>Item</th><th>Qtd</th></tr>
       ${itens.map((i, idx) => `<tr><td>${i.item} <span class="dre-av">${i.un_medida || ''}</span>${i.avulso ? ' <span style="color:#f5a623; font-size:11px;">🆕</span>' : ''}${i.observacao ? ` <span style="color:#f5a623; font-size:11px;">${i.observacao}</span>` : ''}${i.editado ? ' <span style="color:#f5a623; font-size:11px;">✏️</span>' : ''}</td>
         <td><input type="number" min="0" step="any" id="tre_${idx}" value="${Number(i.qtd_solicitada || 0)}"
           style="width:80px; background:#232321; border:1px solid #34332f; border-radius:6px; color:#fff; padding:4px 6px; text-align:right;"></td></tr>`).join('')}
     </table></div>
-    <div style="margin-top:10px;">
+    <div style="margin-top:12px;">
       <button class="preset-btn" onclick="trSalvarEdicao()">Salvar alterações</button>
       <span id="trEditMsg" style="font-size:12px; margin-left:8px;"></span>
     </div>
-    <div class="section-label" style="margin-top:16px;">INCLUIR ITEM ESQUECIDO</div>
-    <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
-      <input id="trEditNovoNome" list="trEditCatalogo" placeholder="nome do item" oninput="trEditNovoHint()"
-        style="flex:1; min-width:200px; background:#232321; border:1px solid #34332f; border-radius:6px; color:#fff; padding:6px 8px;">
-      <datalist id="trEditCatalogo">${catalogo.filter(x => !nomes.has(x.item)).map(x => `<option value="${x.item}">`).join('')}</datalist>
-      <input id="trEditNovoQtd" type="number" min="0" step="any" placeholder="qtd" oninput="trEditNovoHint()"
-        style="width:80px; background:#232321; border:1px solid #34332f; border-radius:6px; color:#fff; padding:6px 8px; text-align:right;">
-      <button class="preset-btn" onclick="trEditIncluir()">incluir</button>
+
+    <div class="section-label" style="margin-top:18px;">INCLUIR O QUE FALTOU</div>
+    <input id="trEditBusca" type="search" placeholder="buscar item... (o que você digitou continua guardado)" oninput="trEditFiltra()"
+      style="width:100%; max-width:360px; margin:8px 0; background:#232321; border:1px solid #34332f; border-radius:8px; color:#fff; padding:8px 10px;">
+    <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:6px 14px;">
+      ${novos.map((i, idx) => `
+        <label data-busca2="${i.item.toLowerCase()}" style="display:grid; grid-template-columns:1fr 76px; gap:2px 10px; align-items:center; font-size:12.5px; color:#c3c2b7; padding:2px 0;">
+          <span>${i.item} <span style="color:#8a897e;">(${i.emb_fator ? 'pede em ' + i.emb_nome + ' de ' + trEmbDesc(i) : (i.un_medida || 'un')}${i.nao_cobrado ? ' · não cobrado' : (i.preco_tabela ? ' · R$ ' + Number(i.preco_tabela).toFixed(2) + '/' + (i.un_medida || 'un').toLowerCase() : '')})</span>${i.emb_fator ? `<br><span id="trne_${idx}" style="color:#3fb950; font-size:11px;"></span>` : ''}</span>
+          <input type="number" min="0" step="any" id="trn_${idx}" placeholder="${i.emb_fator ? i.emb_nome + 's' : ''}"${i.emb_fator ? ` oninput="trEditHint(${idx})"` : ''}
+            style="width:72px; justify-self:end; background:#232321; border:1px solid #34332f; border-radius:6px; color:#fff; padding:4px 6px; text-align:right;">
+        </label>`).join('')}
     </div>
-    <div id="trEditNovoDica" class="caption-label"></div>`;
+    <div class="section-label" style="margin-top:16px;">FORA DA GRADE?</div>
+    <div id="trAvulsos"></div>
+    <button class="preset-btn" onclick="trAddAvulso()">+ item fora da grade</button>
+    <div style="margin-top:14px;">
+      <button class="preset-btn" onclick="trSalvarEdicao()">Salvar alterações</button>
+    </div>`;
+  trAvulsoN = 0;
 }
-function trEditCat(nome) { return (window._trEdit?.catalogo || []).find(x => x.item === nome); }
-function trEditNovoHint() {
-  const nome = (document.getElementById('trEditNovoNome')?.value || '').trim().toUpperCase();
-  const q = Number(document.getElementById('trEditNovoQtd')?.value || 0);
-  const cat = trEditCat(nome);
-  const el = document.getElementById('trEditNovoDica');
-  if (!el) return;
-  el.textContent = cat && cat.emb_fator
-    ? `${nome} pede em ${cat.emb_nome} de ${trEmbDesc(cat)}${q > 0 ? ` — ${q} ${cat.emb_nome}(s) ≈ ${(q * cat.emb_fator).toLocaleString('pt-BR', { maximumFractionDigits: 2 })} ${(cat.un_medida || 'un').toLowerCase()}` : ' (digite a quantidade em ' + cat.emb_nome + 's)'}`
-    : (cat ? `${nome} pede em ${(cat.un_medida || 'un').toLowerCase()}` : (nome ? 'item fora da grade — entra sem preço, para vincular depois' : ''));
-}
-async function trEditIncluir() {
-  const msg = document.getElementById('trEditMsg');
-  const nome = (document.getElementById('trEditNovoNome')?.value || '').trim().toUpperCase();
-  const q = Number(document.getElementById('trEditNovoQtd')?.value || 0);
-  if (!nome || q <= 0) { msg.textContent = 'Preencha o item e a quantidade.'; msg.style.color = '#f5a623'; return; }
-  const cat = trEditCat(nome);
-  const r = await trFetch('tr_lista_itens', {
-    method: 'POST',
-    body: JSON.stringify({
-      id_lista: window._trEdit.id, item: nome,
-      un_medida: cat ? cat.un_medida : 'KG',
-      qtd_solicitada: cat && cat.emb_fator ? Math.round(q * cat.emb_fator * 1000) / 1000 : q,
-      observacao: cat && cat.emb_fator ? `pedido: ${q} ${cat.emb_nome}(s)` : null,
-      editado: true,
-    }),
+function trEditFiltra() {
+  const q = (document.getElementById('trEditBusca')?.value || '').toLowerCase();
+  document.querySelectorAll('label[data-busca2]').forEach(el => {
+    el.style.display = !q || el.dataset.busca2.includes(q) ? 'grid' : 'none';
   });
-  if (!r.ok) { msg.textContent = 'Não deu: ' + await trErroDe(r); msg.style.color = '#ff6b6b'; return; }
-  trEditarPedido(window._trEdit.id);
+}
+function trEditHint(idx) {
+  const i = (window._trEditNovos || [])[idx];
+  const el = document.getElementById('trne_' + idx);
+  if (!i || !el) return;
+  const n = Number(document.getElementById('trn_' + idx)?.value || 0);
+  el.textContent = n > 0
+    ? `${n} × ${trEmbDesc(i)} ≈ ${(n * i.emb_fator).toLocaleString('pt-BR', { maximumFractionDigits: 2 })} ${(i.un_medida || 'un').toLowerCase()}`
+    : '';
 }
 async function trSalvarEdicao() {
   const msg = document.getElementById('trEditMsg');
   msg.textContent = 'Salvando...'; msg.style.color = '#8a897e';
   const { id, itens } = window._trEdit;
+  // 1. o que mudou nos itens que ja estavam na lista
   for (const [idx, i] of itens.entries()) {
     const campo = document.getElementById('tre_' + idx);
     if (!campo) continue;
@@ -9207,6 +9210,33 @@ async function trSalvarEdicao() {
       ? await trFetch(`tr_lista_itens?id=eq.${i.id}`, { method: 'DELETE' })
       : await trFetch(`tr_lista_itens?id=eq.${i.id}`, { method: 'PATCH', body: JSON.stringify({ qtd_solicitada: v, editado: true }) });
     if (!r.ok) { msg.textContent = `Item ${i.item}: ` + await trErroDe(r); msg.style.color = '#ff6b6b'; return; }
+  }
+  // 2. os que faltaram, preenchidos na grade (duas embalagens somam na mesma linha)
+  const porItem = {};
+  (window._trEditNovos || []).forEach((n, idx) => {
+    const q = Number(document.getElementById('trn_' + idx)?.value || 0);
+    if (q <= 0) return;
+    const qtd = n.emb_fator ? Math.round(q * n.emb_fator * 1000) / 1000 : q;
+    const p = porItem[n.item] = porItem[n.item] || { item: n.item, un_medida: n.un_medida, qtd: 0, obs: [] };
+    p.qtd = Math.round((p.qtd + qtd) * 1000) / 1000;
+    if (n.emb_fator) p.obs.push(`${q} ${n.emb_nome}(s)`);
+  });
+  const avulsos = [];
+  for (let k = 1; k <= trAvulsoN; k++) {
+    const nEl = document.getElementById('trav_n_' + k);
+    if (!nEl) continue;
+    const nome = nEl.value.trim().toUpperCase();
+    const q = Number(document.getElementById('trav_q_' + k)?.value || 0);
+    if (nome && q > 0) avulsos.push({ item: nome, un_medida: document.getElementById('trav_u_' + k).value, qtd_solicitada: q });
+  }
+  const rows = Object.values(porItem).map(p => ({
+    id_lista: id, item: p.item, un_medida: p.un_medida, qtd_solicitada: p.qtd,
+    observacao: p.obs.length ? 'pedido: ' + p.obs.join(' + ') : null, editado: true,
+  })).concat(avulsos.map(a => ({ id_lista: id, item: a.item, un_medida: a.un_medida,
+    qtd_solicitada: a.qtd_solicitada, observacao: null, editado: true })));
+  if (rows.length) {
+    const r = await trFetch('tr_lista_itens', { method: 'POST', body: JSON.stringify(rows) });
+    if (!r.ok) { msg.textContent = 'Itens novos falharam: ' + await trErroDe(r); msg.style.color = '#ff6b6b'; return; }
   }
   msg.textContent = 'Alterações salvas — a separação já vê a lista corrigida.'; msg.style.color = '#3fb950';
   setTimeout(() => trEditarPedido(id), 900);
