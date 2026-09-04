@@ -10724,7 +10724,8 @@ function renderFechamento() {
       pr.forEach(r => { const g = agr[r.ordem] || (agr[r.ordem] = { ...r, valor_a: 0, valor_b: 0 }); g.valor_a += fxN(r.valor_a); g.valor_b += fxN(r.valor_b); });
       const linhas = Object.values(agr).sort((x, y) => x.ordem - y.ordem).map(g => {
         const pct = g.valor_b ? (g.valor_a - g.valor_b) / g.valor_b * 100 : null, tol = fxN(g.tolerancia_pct);
-        const sit = pct === null ? 'SEM FONTE' : Math.abs(pct) <= tol ? 'BATE' : Math.abs(pct) <= 2 * tol ? 'ATENÇÃO' : 'CONFERIR';
+        // mesma regra da view: piso de R$ 1.000 (base pequena grita por centavos), depois a tolerancia em %
+        const sit = pct === null ? 'SEM FONTE' : (Math.abs(g.valor_a - g.valor_b) <= 1000 || Math.abs(pct) <= tol) ? 'BATE' : Math.abs(pct) <= 2 * tol ? 'ATENÇÃO' : 'CONFERIR';
         return { ...g, pct, sit };
       });
       const ruins = linhas.filter(l => l.sit === 'CONFERIR'), aten = linhas.filter(l => l.sit === 'ATENÇÃO');
