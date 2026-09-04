@@ -9301,7 +9301,8 @@ async function trAbrirSeparacao(id) {
   alvo.innerHTML = `
     <div class="caption-label"><button class="preset-btn" onclick="trListaAberta=null; trTelaSeparacao();">← fila</button>
       Lista <b>#${id}</b> · ${lista.unidade} · status <b>${lista.status}</b>
-      <button class="preset-btn" style="margin-left:8px;" onclick="trImprimirSeparacao(${id})">🖨️ Gerar PDF</button></div>
+      <button class="preset-btn" style="margin-left:8px;" onclick="trImprimirSeparacao(${id})">🖨️ Gerar PDF</button>
+      ${lista.status === 'SOLICITADA' ? `<button class="preset-btn" onclick="trListaAberta=null; trEditarPedido(${id})">✏️ corrigir pedido</button>` : ''}</div>
     <div id="tabelaTrOpSep"><table>
       <tr><th>Item</th><th>Solicitado</th><th>Separado</th></tr>
       ${itens.map((i, idx) => `<tr><td>${i.item} <span class="dre-av">${i.un_medida || ''}</span>${i.avulso ? ' <span style="color:#f5a623; font-size:11px;">🆕 fora da grade</span>' : ''}${i.observacao ? ` <span style="color:#f5a623; font-size:11px;">${i.observacao}</span>` : ''}${i.editado ? ' <span style="color:#f5a623; font-size:11px;">✏️ editado</span>' : ''}</td>
