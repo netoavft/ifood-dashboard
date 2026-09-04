@@ -10589,16 +10589,18 @@ async function entrarFechamento() {
   const alvo = document.getElementById('view-fechamento');
   if (!FX_M) {
     alvo.innerHTML = '<div class="contexto">Carregando o fechamento...</div>';
-    const [dre, vendas, taxas, benef, ponte, metas] = await Promise.all([
+    const [dre, vendas, taxas, benef, ponte, metas, prova] = await Promise.all([
       consultarTudo('vw_fin_dre_mensal?select=unidade,mes,natureza,tipo,subtipo,credito,debito&mes=gte.2026-01-01'),
       consultarTudo('vw_mes_vendas?select=mes,unidade,canal,pedidos,faturamento&mes=gte.2026-01-01'),
       consultarTudo('mv_conciliacao_agregado?select=data,grupo,valor&unidade=eq.AGUA%20VERDE'),
       consultarTudo('vw_fin_dre_beneficio?select=mes,unidade,beneficio_ifood'),
       consultarTudo('vw_fin_ponte_mensal?select=*'),
       consultarTudo('fin_metas_dre?select=chave,sentido,pct_meta'),
+      // prova dos nove (04/09/2026): a venda do PDV conferida contra iFood, Rede e vales
+      consultarTudo('vw_fechamento_prova_nove?select=mes,unidade,ordem,linha,fonte_a,fonte_b,valor_a,valor_b,diferenca,pct,tolerancia_pct,situacao&order=mes,ordem').catch(() => []),
     ]);
     const metasMap = {}; metas.forEach(m => { metasMap[m.chave] = { sentido: m.sentido, meta: fxN(m.pct_meta) }; });
-    FX_M = { dre, vendas, taxas, benef, ponte, metas: metasMap };
+    FX_M = { dre, vendas, taxas, benef, ponte, metas: metasMap, prova: prova || [] };
     const meses = [...new Set(dre.map(r => r.mes))].sort().filter(m => m.slice(0, 7) < mesCorrenteSP());
     FX_MES_SEL = meses[meses.length - 1];
   }
@@ -10710,6 +10712,28 @@ function renderFechamento() {
       <div class="fx-extra">saldo do Saipos no fim do mês contra o saldo declarado pelo banco, conta a conta (a XP, contra o saldo da corretora). Conta que difere tem lançamento faltando ou sobrando — é o que a conferência da planilha antiga garantia.</div>
       <ul class="fx-lista">${comRef.map(r => { const d = Number(r.diferenca); return `<li><span>${r.conta_exibida}<small>saldo em ${dd(r.ref_fim_data)}${r.ancora_antes_do_fim ? ' — o extrato não cobre o fim do mês' : ''}${r.situacao === 'BATEU' && r.explicacao && Math.abs(d) > 0.015 ? ' — diferença de data já explicada: ' + r.explicacao : ''}</small></span><b>${r.situacao === 'BATEU' ? '✓ bate' : (d < 0 ? 'faltam R$ ' + fmt(-d) + ' de lançamento' : 'R$ ' + fmt(d) + ' lançados a mais')}</b></li>`; }).join('')}
       ${semC.length ? `<li><span>sem extrato para conferir<small>${semC.map(r => r.conta_exibida).join(', ')}</small></span><b>—</b></li>` : ''}</ul></div>`;
+  }
+  // 4b. prova dos nove (decisao do dono, 04/09/2026): a venda do PDV, que e' a fonte da
+  // DRE, conferida contra o iFood, a Rede e os vales — por loja; na REDE, cada linha soma
+  // as tres lojas. Fonte: vw_fechamento_prova_nove.
+  {
+    const L = fxLojas();
+    const pr = (FX_M.prova || []).filter(r => r.mes.slice(0, 7) === mes.slice(0, 7) && L.includes(r.unidade));
+    if (pr.length) {
+      const agr = {};
+      pr.forEach(r => { const g = agr[r.ordem] || (agr[r.ordem] = { ...r, valor_a: 0, valor_b: 0 }); g.valor_a += fxN(r.valor_a); g.valor_b += fxN(r.valor_b); });
+      const linhas = Object.values(agr).sort((x, y) => x.ordem - y.ordem).map(g => {
+        const pct = g.valor_b ? (g.valor_a - g.valor_b) / g.valor_b * 100 : null, tol = fxN(g.tolerancia_pct);
+        const sit = pct === null ? 'SEM FONTE' : Math.abs(pct) <= tol ? 'BATE' : Math.abs(pct) <= 2 * tol ? 'ATENÇÃO' : 'CONFERIR';
+        return { ...g, pct, sit };
+      });
+      const ruins = linhas.filter(l => l.sit === 'CONFERIR'), aten = linhas.filter(l => l.sit === 'ATENÇÃO');
+      const pal = l => l.sit === 'BATE' ? '✓ bate' : l.sit === 'SEM FONTE' ? 'sem fonte' : `${l.sit.toLowerCase()}: ${l.pct > 0 ? 'PDV acima' : 'PDV abaixo'} ${fxPct1(Math.abs(l.pct))} (${fxMil(Math.abs(l.valor_a - l.valor_b))})`;
+      h += `<div class="fx-tile" style="margin-top:12px"><div class="fx-rotulo">A venda do PDV bate com o iFood, a Rede e os vales? (prova dos nove)</div>
+        <div class="fx-valor${ruins.length ? ' neg' : ''}" style="font-size:20px">${ruins.length ? `${ruins.length} de ${linhas.length} linhas para conferir` : aten.length ? `${linhas.length - aten.length} de ${linhas.length} batem · ${aten.length} em atenção` : `${linhas.length} de ${linhas.length} batem`}</div>
+        <div class="fx-extra">a venda bruta da DRE vem do PDV (Saipos); antes de o número sair, ela é conferida contra as fontes de fora, cada uma com a sua tolerância. "PDV acima" do iFood costuma ser cancelamento parcial contado pelo valor cheio; "PDV abaixo" da Rede é detalhe de pagamento faltando no Saipos.</div>
+        <ul class="fx-lista">${linhas.map(l => `<li><span>${l.linha}<small>${l.fonte_a} ${fxMil(l.valor_a)} × ${l.fonte_b} ${fxMil(l.valor_b)} · tolerância ${fxPct1(fxN(l.tolerancia_pct))}</small></span><b>${pal(l)}</b></li>`).join('')}</ul></div>`;
+    }
   }
   // 5. frases
   const piores = Object.entries(FX_GRUPOS).map(([k]) => ({ k, v: cem(a.grupos[k]), meta: M[k] ? M[k].meta : null })).filter(x => x.meta !== null).map(x => ({ ...x, dist: x.v - x.meta })).sort((x, y) => y.dist - x.dist);
