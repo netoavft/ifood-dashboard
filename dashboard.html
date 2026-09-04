@@ -6132,7 +6132,15 @@ async function entrarForaFolha() {
 }
 function ffDdmm(d) { return d ? d.slice(8, 10) + '/' + d.slice(5, 7) : '—'; }
 function ffMesTxt(d) { return new Date(d + 'T12:00:00').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }); }
-function ffNum(v) { return Number(String(v ?? '').replace(/\./g, '').replace(',', '.')) || 0; }
+// Aceita "3.261,66", "3261,66", "298.19" e "298" — o campo mostra em pt-BR, mas
+// quem digita costuma usar ponto como decimal (foi assim que o 298,19 entrou).
+function ffNum(v) {
+  let s = String(v ?? '').trim().replace(/\s|R\$/g, '');
+  if (!s) return 0;
+  if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.');
+  else if (/^-?\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, '');   // 3.261 = milhar
+  return Number(s) || 0;
+}
 function ffDecidir(v) { return v === null || v === undefined ? '<i style="color:#e3b341;">a decidir</i>' : (Number(v) ? 'R$ ' + fmt(Number(v)) : 'não entra'); }
 
 function renderForaFolha() {
@@ -6202,38 +6210,63 @@ function renderForaFolha() {
       </div>`;
     }
 
-    h += `<table style="margin-top:10px;">
-      <tr><th>Mês</th><th>Salário</th><th>Grat. fixa</th><th>Salão do mês</th><th>Ajuste (+/−) e motivo</th><th>Consumo</th><th>VT</th><th>Bruto</th>
-          <th>Adiantamento</th><th>Saldo</th><th>Pendências</th></tr>`;
+    // Duas tabelas, de proposito: o CALCULO do mes (numeros numa linha so, com o
+    // salao e o ajuste editaveis) e as PARCELAS a pagar (uma linha por parcela,
+    // com baixa e recibo). Tudo junto dava 11 colunas e linhas de 3 andares.
+    const inp = (id, v, ph, w, borda) => `<input id="${id}" value="${v ?? ''}" placeholder="${ph}" style="background:#232321; border:1px solid ${borda || '#34332f'}; border-radius:6px; color:#fff; padding:4px 6px; width:${w}px; text-align:right;">`;
+    const temConsumo = meses.some(m => m.desconto_consumo === null || Number(m.desconto_consumo) > 0);
+    const desc = (v) => v === null ? '<i style="color:#e3b341;">a decidir</i>' : (Number(v) ? '−' + fmt(Number(v)) : '—');
+    h += `<div class="caption-label" style="margin-top:14px;"><b>Cálculo do mês</b> — informe o salão (e um ajuste, se houver) e clique em salvar; o saldo recalcula na hora.</div>
+      <div style="overflow-x:auto;"><table style="white-space:nowrap;">
+      <tr><th>Mês</th><th style="text-align:right;">Salário</th><th style="text-align:right;">Grat. fixa</th><th style="text-align:right;">Salão do mês</th>
+          <th style="text-align:right;">Ajuste (+/−)</th><th>Motivo</th><th></th>${temConsumo ? '<th style="text-align:right;">Consumo</th>' : ''}<th style="text-align:right;">VT</th>
+          <th style="text-align:right;">Bruto</th><th style="text-align:right;">Adiantamento</th><th style="text-align:right;">Saldo</th></tr>`;
     for (const m of meses) {
       const key = `${p.id}_${m.mes.slice(0, 7)}`;
-      const parcela = (nome, venc, valor, pagoEm, valorPago) => {
-        const vencida = !pagoEm && venc < hoje;
-        return `<div><b>R$ ${fmt(Number(valor))}</b> <span style="color:${vencida ? '#ff6b6b' : '#a5a49a'};">vence ${ffDdmm(venc)}${vencida ? ' VENCIDA' : ''}</span>
-            <a href="javascript:void(0)" style="color:#a5a49a; margin-left:6px;" title="abre o recibo pronto para imprimir ou salvar em PDF" onclick="ffRecibo(${p.id}, '${m.mes}', '${nome}')">🧾 recibo</a></div>
-          ${pagoEm
-            ? `<div style="color:#3fb950;">paga em ${ffDdmm(pagoEm)} (R$ ${fmt(Number(valorPago))}) <a href="javascript:void(0)" style="color:#a5a49a;" onclick="ffDesfazer(${p.id}, '${m.mes}', '${nome}')">desfazer</a></div>`
-            : `<div style="margin-top:3px;"><input type="date" id="ffDt_${key}_${nome}" value="${hoje}" style="background:#232321; border:1px solid #34332f; border-radius:6px; color:#fff; padding:3px 5px;">
-               <button class="preset-btn" onclick="ffBaixar(${p.id}, '${m.mes}', '${nome}', ${Number(valor)})">marcar paga</button></div>`}`;
-      };
       h += `<tr>
-        <td><b>${ffMesTxt(m.mes)}</b>${Number(m.fracao) < 1 ? `<br><small style="color:#e3b341;">${m.dias}/30 dias (${ffDdmm(m.periodo_ini)} a ${ffDdmm(m.periodo_fim)})</small>` : ''}</td>
-        <td>${fmt(Number(m.salario))}</td>
-        <td>${fmt(Number(m.gratificacao_fixa))}</td>
-        <td><input id="ffSalao_${key}" value="${m.gratificacao_salao ?? ''}" placeholder="informar" style="background:#232321; border:1px solid ${m.gratificacao_salao === null ? '#e3b341' : '#34332f'}; border-radius:6px; color:#fff; padding:4px 6px; width:90px;"></td>
-        <td><input id="ffAj_${key}" value="${Number(m.ajuste) ? m.ajuste : ''}" placeholder="0" style="background:#232321; border:1px solid #34332f; border-radius:6px; color:#fff; padding:4px 6px; width:70px;">
-            <input id="ffMot_${key}" value="${m.ajuste_motivo || ''}" placeholder="motivo" style="background:#232321; border:1px solid #34332f; border-radius:6px; color:#fff; padding:4px 6px; width:130px;">
-            <button class="preset-btn" onclick="ffInformar(${p.id}, '${m.mes}')">salvar</button>
-            ${m.informado_por ? `<br><small style="color:#a5a49a;">por ${m.informado_por.split('@')[0]}${m.informado_em ? ' em ' + ffDdmm(m.informado_em.slice(0, 10)) : ''}</small>` : ''}</td>
-        <td>${m.desconto_consumo === null ? '<i style="color:#e3b341;">a decidir</i>' : '−' + fmt(Number(m.desconto_consumo))}</td>
-        <td>${m.vale_transporte === null ? '<i style="color:#e3b341;">a decidir</i>' : '−' + fmt(Number(m.vale_transporte))}</td>
-        <td><b>${fmt(Number(m.bruto))}</b></td>
-        <td>${Number(m.adiantamento) > 0 ? parcela('ADIANTAMENTO', m.vence_adiantamento, m.adiantamento, m.adiantamento_pago_em, m.adiantamento_pago) : '—'}</td>
-        <td>${parcela('SALDO', m.vence_saldo, m.saldo, m.saldo_pago_em, m.saldo_pago)}</td>
-        <td style="color:#e3b341; font-size:12px;">${(m.pendencias || []).join('<br>') || '<span style="color:#3fb950;">nenhuma</span>'}</td>
+        <td><b>${ffMesTxt(m.mes)}</b>${Number(m.fracao) < 1 ? `<br><small style="color:#e3b341;">${m.dias}/30 dias (${ffDdmm(m.periodo_ini)} a ${ffDdmm(m.periodo_fim)})</small>` : ''}
+            ${m.informado_por ? `<br><small style="color:#a5a49a;">salão por ${m.informado_por.split('@')[0].split(' ')[0]}${m.informado_em ? ' em ' + ffDdmm(m.informado_em.slice(0, 10)) : ''}</small>` : ''}</td>
+        <td style="text-align:right;">${fmt(Number(m.salario))}</td>
+        <td style="text-align:right;">${fmt(Number(m.gratificacao_fixa))}</td>
+        <td style="text-align:right;">${inp('ffSalao_' + key, m.gratificacao_salao === null ? '' : fmt(Number(m.gratificacao_salao)), 'informar', 90, m.gratificacao_salao === null ? '#e3b341' : null)}</td>
+        <td style="text-align:right;">${inp('ffAj_' + key, Number(m.ajuste) ? fmt(Number(m.ajuste)) : '', '0', 70)}</td>
+        <td><input id="ffMot_${key}" value="${m.ajuste_motivo || ''}" placeholder="motivo" style="background:#232321; border:1px solid #34332f; border-radius:6px; color:#fff; padding:4px 6px; width:120px;"></td>
+        <td><button class="preset-btn" onclick="ffInformar(${p.id}, '${m.mes}')">salvar</button></td>
+        ${temConsumo ? `<td style="text-align:right;">${desc(m.desconto_consumo)}</td>` : ''}
+        <td style="text-align:right;">${desc(m.vale_transporte)}</td>
+        <td style="text-align:right;"><b>${fmt(Number(m.bruto))}</b></td>
+        <td style="text-align:right;">−${fmt(Number(m.adiantamento))}</td>
+        <td style="text-align:right;"><b>${fmt(Number(m.saldo))}</b>${(m.pendencias || []).length ? '<br><small style="color:#e3b341;">' + m.pendencias.join('<br>') + '</small>' : ''}</td>
       </tr>`;
     }
-    h += `</table>
+    h += `</table></div>
+      <div class="caption-label" style="margin-top:14px;"><b>Parcelas a pagar</b> — marque como paga quando o dinheiro sair; o recibo abre pronto para imprimir ou salvar em PDF.</div>
+      <div style="overflow-x:auto;"><table style="white-space:nowrap;">
+      <tr><th>Mês</th><th>Parcela</th><th>Vencimento</th><th style="text-align:right;">Valor</th><th>Situação</th><th>Baixa</th><th>Recibo</th></tr>`;
+    const parcelas = [];
+    meses.forEach(m => {
+      if (Number(m.adiantamento) > 0) parcelas.push({ m, nome: 'ADIANTAMENTO', rot: 'Adiantamento', venc: m.vence_adiantamento, valor: Number(m.adiantamento), pagoEm: m.adiantamento_pago_em, valorPago: m.adiantamento_pago });
+      parcelas.push({ m, nome: 'SALDO', rot: 'Saldo do mês', venc: m.vence_saldo, valor: Number(m.saldo), pagoEm: m.saldo_pago_em, valorPago: m.saldo_pago });
+    });
+    parcelas.sort((a, b) => a.venc.localeCompare(b.venc));
+    for (const x of parcelas) {
+      const key = `${p.id}_${x.m.mes.slice(0, 7)}`;
+      const vencida = !x.pagoEm && x.venc < hoje;
+      const hojeVence = !x.pagoEm && x.venc === hoje;
+      h += `<tr>
+        <td>${ffMesTxt(x.m.mes)}</td><td>${x.rot}</td>
+        <td style="color:${vencida ? '#ff6b6b' : hojeVence ? '#e3b341' : 'inherit'}; font-weight:${vencida || hojeVence ? 'bold' : 'normal'};">${ffDdmm(x.venc)}/${x.venc.slice(0, 4)}${vencida ? ' · VENCIDA' : hojeVence ? ' · HOJE' : ''}</td>
+        <td style="text-align:right;"><b>R$ ${fmt(x.valor)}</b></td>
+        <td>${x.pagoEm ? `<span style="color:#3fb950;">paga em ${ffDdmm(x.pagoEm)} (R$ ${fmt(Number(x.valorPago))})</span>` : 'em aberto'}</td>
+        <td>${x.pagoEm
+            ? `<a href="javascript:void(0)" style="color:#a5a49a;" onclick="ffDesfazer(${p.id}, '${x.m.mes}', '${x.nome}')">desfazer</a>`
+            : `<input type="date" id="ffDt_${key}_${x.nome}" value="${hoje}" style="background:#232321; border:1px solid #34332f; border-radius:6px; color:#fff; padding:3px 5px;">
+               <button class="preset-btn" onclick="ffBaixar(${p.id}, '${x.m.mes}', '${x.nome}', ${x.valor})">marcar paga</button>`}</td>
+        <td><a href="javascript:void(0)" style="color:#a5a49a;" title="abre o recibo pronto para imprimir ou salvar em PDF" onclick="ffRecibo(${p.id}, '${x.m.mes}', '${x.nome}')">🧾 recibo</a></td>
+      </tr>`;
+    }
+    h += `</table></div>`;
+    h += `
       <div class="caption-label" style="margin-top:6px;">Saldo = salário + gratificação fixa + salão + ajuste − consumo − VT − adiantamento.
         O 5º dia útil conta segunda a sábado fora de feriado (tabela <code>feriados</code>: nacional, Paraná e Curitiba) e,
         se cair em sábado, domingo ou feriado, antecipa para a sexta — é como a folha desta empresa sempre saiu.
