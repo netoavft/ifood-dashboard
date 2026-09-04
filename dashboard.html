@@ -6193,6 +6193,8 @@ function renderForaFolha() {
           <span>Fora da folha desde</span>${inp('ffIni' + p.id, p.inicio, 'type="date"')}
           <span>Até <small style="color:#a5a49a;">(vazio = segue até avisar)</small></span>${inp('ffFim' + p.id, p.fim, 'type="date"')}
           <span>Observação</span>${inp('ffObs' + p.id, p.observacao, 'style="width:360px;"')}
+          <span>Empregador (sai no recibo)</span>${inp('ffEmp' + p.id, p.empregador, 'style="width:360px;"')}
+          <span>CNPJ (sai no recibo)</span>${inp('ffCnpj' + p.id, p.cnpj, 'style="width:200px;"')}
         </div>
         <div style="margin-top:8px;"><button class="preset-btn" onclick="ffSalvarPessoa(${p.id})">salvar parâmetros</button></div>
       </div>`;
@@ -6205,7 +6207,8 @@ function renderForaFolha() {
       const key = `${p.id}_${m.mes.slice(0, 7)}`;
       const parcela = (nome, venc, valor, pagoEm, valorPago) => {
         const vencida = !pagoEm && venc < hoje;
-        return `<div><b>R$ ${fmt(Number(valor))}</b> <span style="color:${vencida ? '#ff6b6b' : '#a5a49a'};">vence ${ffDdmm(venc)}${vencida ? ' VENCIDA' : ''}</span></div>
+        return `<div><b>R$ ${fmt(Number(valor))}</b> <span style="color:${vencida ? '#ff6b6b' : '#a5a49a'};">vence ${ffDdmm(venc)}${vencida ? ' VENCIDA' : ''}</span>
+            <a href="javascript:void(0)" style="color:#a5a49a; margin-left:6px;" title="abre o recibo pronto para imprimir ou salvar em PDF" onclick="ffRecibo(${p.id}, '${m.mes}', '${nome}')">🧾 recibo</a></div>
           ${pagoEm
             ? `<div style="color:#3fb950;">paga em ${ffDdmm(pagoEm)} (R$ ${fmt(Number(valorPago))}) <a href="javascript:void(0)" style="color:#a5a49a;" onclick="ffDesfazer(${p.id}, '${m.mes}', '${nome}')">desfazer</a></div>`
             : `<div style="margin-top:3px;"><input type="date" id="ffDt_${key}_${nome}" value="${hoje}" style="background:#232321; border:1px solid #34332f; border-radius:6px; color:#fff; padding:3px 5px;">
@@ -6237,6 +6240,102 @@ function renderForaFolha() {
   }
   alvo.innerHTML = h;
 }
+// Valor por extenso em reais (recibo). Cobre ate 999 milhoes.
+function ffExtenso(valor) {
+  const u = ['', 'um', 'dois', 'três', 'quatro', 'cinco', 'seis', 'sete', 'oito', 'nove', 'dez', 'onze', 'doze', 'treze', 'quatorze', 'quinze', 'dezesseis', 'dezessete', 'dezoito', 'dezenove'];
+  const d = ['', '', 'vinte', 'trinta', 'quarenta', 'cinquenta', 'sessenta', 'setenta', 'oitenta', 'noventa'];
+  const c = ['', 'cento', 'duzentos', 'trezentos', 'quatrocentos', 'quinhentos', 'seiscentos', 'setecentos', 'oitocentos', 'novecentos'];
+  const ate999 = (n) => {
+    if (n === 0) return '';
+    if (n === 100) return 'cem';
+    const p = [];
+    if (n >= 100) p.push(c[Math.floor(n / 100)]);
+    const r = n % 100;
+    if (r >= 20) { p.push(d[Math.floor(r / 10)]); if (r % 10) p.push(u[r % 10]); }
+    else if (r > 0) p.push(u[r]);
+    return p.join(' e ');
+  };
+  const inteiro = (n) => {
+    if (n === 0) return 'zero';
+    const partes = [];
+    const mi = Math.floor(n / 1e6), mil = Math.floor((n % 1e6) / 1000), resto = n % 1000;
+    if (mi) partes.push(mi === 1 ? 'um milhão' : ate999(mi) + ' milhões');
+    if (mil) partes.push(mil === 1 ? 'mil' : ate999(mil) + ' mil');
+    if (resto) partes.push(ate999(resto));
+    // "e" antes do ultimo bloco quando ele e' menor que cem ou redondo de centena
+    if (partes.length > 1 && (resto < 100 || resto % 100 === 0) && resto) { const ult = partes.pop(); return partes.join(', ') + ' e ' + ult; }
+    return partes.join(', ');
+  };
+  const cent = Math.round(Math.abs(valor) * 100);
+  const reais = Math.floor(cent / 100), cents = cent % 100;
+  let s = reais ? inteiro(reais) + (reais === 1 ? ' real' : ' reais') : '';
+  if (cents) s += (s ? ' e ' : '') + inteiro(cents) + (cents === 1 ? ' centavo' : ' centavos');
+  return s || 'zero reais';
+}
+
+// Recibo da parcela (adiantamento ou saldo) pronto para imprimir / salvar em PDF —
+// mesmo mecanismo da lista de separacao: janela nova + print(). O demonstrativo
+// e' o calculo do mes que a tela mostra; nada e' recalculado aqui.
+function ffRecibo(pessoaId, mes, parcela) {
+  const p = FF.pessoas.find(x => x.id === pessoaId);
+  const m = FF.meses.find(x => x.pessoa_id === pessoaId && x.mes === mes);
+  if (!p || !m) return;
+  const n = (v) => Number(v) || 0;
+  const dLong = (iso) => new Date(iso + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+  const mesLong = ffMesTxt(mes);
+  const saldo = parcela === 'SALDO';
+  const valor = saldo ? n(m.saldo) : n(m.adiantamento);
+  const pagoEm = saldo ? m.saldo_pago_em : m.adiantamento_pago_em;
+  const venc = saldo ? m.vence_saldo : m.vence_adiantamento;
+  const dataRecibo = pagoEm || (venc <= trHoje() ? venc : trHoje());
+  const titulo = saldo ? 'RECIBO DE PAGAMENTO' : 'RECIBO DE ADIANTAMENTO SALARIAL';
+  const referente = saldo
+    ? `ao pagamento do saldo de <b>${mesLong}</b>, conforme demonstrativo abaixo`
+    : `ao adiantamento salarial de <b>${mesLong}</b>, a ser descontado no pagamento do saldo do mês`;
+  const linha = (rot, v, neg) => v ? `<tr><td>${rot}</td><td class="v">${neg ? '−' : ''}${fmt(Math.abs(v))}</td></tr>` : '';
+  const demonstrativo = saldo ? `
+    <h2>Demonstrativo de ${mesLong}${n(m.fracao) < 1 ? ` (${m.dias}/30 dias)` : ''}</h2>
+    <table>
+      ${linha('Salário', n(m.salario))}
+      ${linha('Gratificação', n(m.gratificacao_fixa))}
+      ${linha('Gratificação salão', n(m.gratificacao_salao))}
+      ${n(m.ajuste) > 0 ? linha('Ajuste' + (m.ajuste_motivo ? ' — ' + m.ajuste_motivo : ''), n(m.ajuste)) : ''}
+      <tr class="tot"><td>Total de vencimentos</td><td class="v">${fmt(n(m.salario) + n(m.gratificacao_fixa) + n(m.gratificacao_salao) + Math.max(0, n(m.ajuste)))}</td></tr>
+      ${n(m.ajuste) < 0 ? linha('Ajuste' + (m.ajuste_motivo ? ' — ' + m.ajuste_motivo : ''), n(m.ajuste), true) : ''}
+      ${linha('Desconto consumo', n(m.desconto_consumo), true)}
+      ${linha('Vale transporte', n(m.vale_transporte), true)}
+      ${linha('Adiantamento salarial' + (m.adiantamento_pago_em ? ' (pago em ' + ffDdmm(m.adiantamento_pago_em) + ')' : ''), n(m.adiantamento), true)}
+      <tr class="tot"><td>Valor líquido</td><td class="v">${fmt(valor)}</td></tr>
+    </table>` : '';
+  const w = window.open('', '_blank');
+  if (!w) { alert('O navegador bloqueou a janela do recibo — libere pop-ups para este site.'); return; }
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Recibo — ${p.nome.split(' ')[0]} — ${mesLong}</title><style>
+    body { font-family:Arial, sans-serif; color:#000; margin:36px 48px; max-width:720px; font-size:14px; line-height:1.5; }
+    h1 { font-size:18px; letter-spacing:1px; text-align:center; margin:0 0 4px; }
+    .valor { text-align:right; font-size:16px; margin-bottom:18px; }
+    h2 { font-size:12px; text-transform:uppercase; border-bottom:1.5px solid #000; padding-bottom:2px; margin:22px 0 6px; }
+    table { width:100%; border-collapse:collapse; }
+    td { padding:4px 6px; border-bottom:1px solid #ccc; }
+    td.v { text-align:right; white-space:nowrap; width:130px; }
+    tr.tot td { font-weight:bold; border-bottom:2px solid #000; }
+    .ass { margin-top:60px; }
+    .ass .linha { border-top:1px solid #000; width:320px; padding-top:4px; }
+    @media print { .naoimprime { display:none; } body { margin:0; } }
+  </style></head><body>
+    <button class="naoimprime" onclick="window.print()" style="float:right; padding:8px 14px;">Imprimir / salvar PDF</button>
+    <h1>${titulo}</h1>
+    <div class="valor"><b>R$ ${fmt(valor)}</b></div>
+    <p>Recebi de <b>${p.empregador || '(empregador não informado — preencha em "editar parâmetros")'}</b>${p.cnpj ? `, CNPJ ${p.cnpj},` : ''}
+      a importância de <b>R$ ${fmt(valor)}</b> (${ffExtenso(valor)}), referente ${referente}.</p>
+    ${demonstrativo}
+    <p style="margin-top:24px;">Curitiba, ${dLong(dataRecibo)}.</p>
+    <div class="ass"><div class="linha"><b>${p.nome}</b></div></div>
+  </body></html>`);
+  w.document.close();
+  w.focus();
+  setTimeout(() => { try { w.print(); } catch (e) {} }, 400);
+}
+
 function ffAviso(txt, ok) {
   const el = document.getElementById('ffMsg');
   if (!el) return;
@@ -6275,6 +6374,7 @@ async function ffSalvarPessoa(id) {
   const r = await trRpc('rh_ff_salvar_pessoa', {
     p_id: id, p_salario: ffNum(v('ffSal')), p_gratificacao: ffNum(v('ffGra')), p_adiantamento: ffNum(v('ffAdi')),
     p_consumo: opc('ffCon'), p_vt: opc('ffVt'), p_inicio: v('ffIni'), p_fim: v('ffFim') || null, p_observacao: v('ffObs'),
+    p_empregador: v('ffEmp'), p_cnpj: v('ffCnpj'),
   });
   if (!r.ok) { ffAviso('Não deu: ' + await trErroDe(r), false); return; }
   FF.editando = null;
