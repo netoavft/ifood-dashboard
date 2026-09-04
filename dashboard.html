@@ -10730,7 +10730,7 @@ function renderFechamento() {
       });
       const ruins = linhas.filter(l => l.sit === 'CONFERIR'), aten = linhas.filter(l => l.sit === 'ATENÇÃO');
       const pal = l => l.sit === 'BATE' ? '✓ bate' : l.sit === 'SEM FONTE' ? 'sem fonte' : `${l.sit.toLowerCase()}: ${l.pct > 0 ? 'PDV acima' : 'PDV abaixo'} ${fxPct1(Math.abs(l.pct))} (${fxMil(Math.abs(l.valor_a - l.valor_b))})`;
-      h += `<div class="fx-tile" style="margin-top:12px"><div class="fx-rotulo">A venda bate com o iFood, a Rede, os vales e o ePadoca? (prova dos nove)</div>
+      h += `<div class="fx-tile" style="margin-top:12px"><div class="fx-rotulo">A venda do PDV bate com o iFood, a Rede e os vales? (prova dos nove)</div>
         <div class="fx-valor${ruins.length ? ' neg' : ''}" style="font-size:20px">${ruins.length ? `${ruins.length} de ${linhas.length} linhas para conferir` : aten.length ? `${linhas.length - aten.length} de ${linhas.length} batem · ${aten.length} em atenção` : `${linhas.length} de ${linhas.length} batem`}</div>
         <div class="fx-extra">a venda bruta da DRE vem do PDV (Saipos); antes de o número sair, ela é conferida contra as fontes de fora, cada uma com a sua tolerância. "PDV acima" do iFood costuma ser cancelamento parcial contado pelo valor cheio; "PDV abaixo" da Rede é detalhe de pagamento faltando no Saipos.</div>
         <ul class="fx-lista">${linhas.map(l => `<li><span>${l.linha}<small>${l.fonte_a} ${fxMil(l.valor_a)} × ${l.fonte_b} ${fxMil(l.valor_b)} · tolerância ${fxPct1(fxN(l.tolerancia_pct))}</small></span><b>${pal(l)}</b></li>`).join('')}</ul></div>`;
