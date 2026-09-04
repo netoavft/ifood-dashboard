@@ -9148,8 +9148,28 @@ async function trTelaSeparacao() {
         <td>#${l.id}</td><td>${l.unidade}</td><td>${l.data_pedido ? l.data_pedido.slice(8,10)+'/'+l.data_pedido.slice(5,7) : '—'}</td>
         <td>${l.status}</td><td>${l.itens}</td><td>${l.itens_separados}</td>
         <td>R$ ${fmt(Number(l.valor_estimado || 0))}</td>
-        <td><button class="preset-btn" onclick="trListaAberta=${l.id}; trTelaSeparacao();">abrir</button></td></tr>`).join('')}
-    </table></div>` : '<div class="contexto">Fila vazia — nenhum pedido aguardando separação. 🎉</div>';
+        <td><button class="preset-btn" onclick="trListaAberta=${l.id}; trTelaSeparacao();">abrir</button>
+          ${['SOLICITADA', 'SEPARADA'].includes(l.status) ? `<button class="preset-btn" onclick="trExcluirLista(${l.id}, '${l.unidade}')">🗑 excluir</button>` : ''}</td></tr>`).join('')}
+    </table></div>
+    <div class="caption-label">Excluir é para pedido lançado errado — some para todo mundo, sem volta.
+      De ENVIADA em diante não dá mais (já tem frete e conferência no meio): fale com o Neto.</div>` :
+    '<div class="contexto">Fila vazia — nenhum pedido aguardando separação. 🎉</div>';
+}
+
+// exclusao de lista lancada errada (dono, 04/09/2026): so ate SEPARADA — a
+// policy do banco e o segundo cadeado, a UI e so a porta. DELETE com RLS
+// nega em silencio (0 linhas), por isso o return=representation confere.
+async function trExcluirLista(id, unidade) {
+  if (!confirm(`Excluir a lista #${id} (${unidade})? Ela some para todo mundo — só use para pedido lançado errado.`)) return;
+  const r = await trFetch(`tr_listas?id=eq.${id}`, { method: 'DELETE', headers: { Prefer: 'return=representation' } });
+  const linhas = r.ok ? await r.json() : [];
+  if (!r.ok || !linhas.length) {
+    alert(!r.ok ? 'Não deu para excluir: ' + await trErroDe(r)
+                : 'Não deu para excluir — a lista já avançou de etapa (fale com o Neto).');
+    return;
+  }
+  trListaAberta = null;
+  trTelaSeparacao();
 }
 
 async function trAbrirSeparacao(id) {
