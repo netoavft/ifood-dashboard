@@ -8971,9 +8971,13 @@ async function trTelaPedido(unidadeEscolhida) {
     return;
   }
   // 04/09/2026, dono: sem grupos — grade unica em ordem alfabetica, com busca no topo
-  const r = await trFetch(`vw_tr_itens_pedido?unidade=eq.${encodeURIComponent(unidade)}&order=item`);
+  const [r, ra] = await Promise.all([
+    trFetch(`vw_tr_itens_pedido?unidade=eq.${encodeURIComponent(unidade)}&order=item`),
+    trFetch(`tr_listas?fonte=eq.PAINEL&status=eq.SOLICITADA&unidade=eq.${encodeURIComponent(unidade)}&select=id,data_pedido&order=id.desc`),
+  ]);
   if (!r.ok) { alvo.innerHTML = `<div class="contexto" style="border-color:#ff6b6b;">${await trErroDe(r)}</div>`; return; }
   const itens = await r.json();
+  const abertas = ra.ok ? await ra.json() : [];
   const dataCusto = itens.find(i => i.custo_atualizado_em)?.custo_atualizado_em;
   // item com 2a embalagem (ex.: pernil desfiado) vira DUAS linhas na tela,
   // uma por pacote — o envio soma tudo numa linha so da lista
@@ -8986,6 +8990,8 @@ async function trTelaPedido(unidadeEscolhida) {
   alvo.innerHTML = `
     <div class="caption-label">Pedido para <b>${unidade}</b> — preencha só o que precisa; itens em branco ficam fora.
       O preço é congelado pelo sistema no ato (Formação de preços${dataCusto ? ' de ' + dataCusto.slice(8,10) + '/' + dataCusto.slice(5,7) : ''}).</div>
+    ${abertas.length ? `<div class="contexto" style="margin:8px 0;">✏️ Esqueceu um item? Pedido lançado e ainda não separado dá para corrigir:
+      ${abertas.map(a => `<button class="preset-btn" onclick="trEditarPedido(${a.id})">editar lista #${a.id}${a.data_pedido ? ' (' + a.data_pedido.slice(8,10) + '/' + a.data_pedido.slice(5,7) + ')' : ''}</button>`).join(' ')}</div>` : ''}
     <input id="trPedidoBusca" type="search" placeholder="buscar item... (o que você digitou continua guardado)" oninput="trPedidoFiltra()"
       style="width:100%; max-width:360px; margin:8px 0; background:#232321; border:1px solid #34332f; border-radius:8px; color:#ffffff; padding:8px 10px;">
     <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:6px 14px;">
@@ -9111,6 +9117,101 @@ async function trCriarPedido() {
   msg.style.color = '#3fb950';
 }
 
+// ---- edicao de pedido salvo (dono, 04/09/2026) ----
+// So lista SOLICITADA (a separacao ainda nao comecou). Linha mexida ou
+// incluida ganha editado=true e o selo ✏️ na separacao/conferencia/PDF.
+// A edicao das quantidades e na unidade de CONTROLE (kg/un); a inclusao de
+// item novo respeita a embalagem, como no pedido.
+async function trEditarPedido(id) {
+  const alvo = document.getElementById('trTelaConteudo');
+  const rl = await trFetch(`tr_listas?id=eq.${id}&select=id,unidade,status`);
+  const lista = (await rl.json())[0];
+  if (!lista || lista.status !== 'SOLICITADA') {
+    alvo.innerHTML = `<div class="contexto">A lista #${id} está <b>${lista ? lista.status : '?'}</b> — só dá para editar
+      antes de a separação começar. <button class="preset-btn" onclick="trTelaPedido(${lista ? `'${lista.unidade}'` : ''})">← voltar</button></div>`;
+    return;
+  }
+  const [ri, rc] = await Promise.all([
+    trFetch(`tr_lista_itens?id_lista=eq.${id}&order=item&select=id,item,un_medida,qtd_solicitada,observacao,avulso,editado`),
+    trFetch(`vw_tr_itens_pedido?unidade=eq.${encodeURIComponent(lista.unidade)}&order=item`),
+  ]);
+  const itens = await ri.json();
+  const catalogo = rc.ok ? await rc.json() : [];
+  window._trEdit = { id, unidade: lista.unidade, itens, catalogo };
+  const nomes = new Set(itens.map(i => i.item));
+  alvo.innerHTML = `
+    <div class="caption-label"><button class="preset-btn" onclick="trTelaPedido('${lista.unidade}')">← pedido</button>
+      Editando a lista <b>#${id}</b> · ${lista.unidade} — corrija as quantidades (em ${'kg/un'}; <b>0 tira o item</b>) e salve.
+      Linha mexida ganha o selo ✏️ para a separação saber.</div>
+    <div id="tabelaTrEdit"><table>
+      <tr><th>Item</th><th>Qtd</th></tr>
+      ${itens.map((i, idx) => `<tr><td>${i.item} <span class="dre-av">${i.un_medida || ''}</span>${i.avulso ? ' <span style="color:#f5a623; font-size:11px;">🆕</span>' : ''}${i.observacao ? ` <span style="color:#f5a623; font-size:11px;">${i.observacao}</span>` : ''}${i.editado ? ' <span style="color:#f5a623; font-size:11px;">✏️</span>' : ''}</td>
+        <td><input type="number" min="0" step="any" id="tre_${idx}" value="${Number(i.qtd_solicitada || 0)}"
+          style="width:80px; background:#232321; border:1px solid #34332f; border-radius:6px; color:#fff; padding:4px 6px; text-align:right;"></td></tr>`).join('')}
+    </table></div>
+    <div style="margin-top:10px;">
+      <button class="preset-btn" onclick="trSalvarEdicao()">Salvar alterações</button>
+      <span id="trEditMsg" style="font-size:12px; margin-left:8px;"></span>
+    </div>
+    <div class="section-label" style="margin-top:16px;">INCLUIR ITEM ESQUECIDO</div>
+    <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+      <input id="trEditNovoNome" list="trEditCatalogo" placeholder="nome do item" oninput="trEditNovoHint()"
+        style="flex:1; min-width:200px; background:#232321; border:1px solid #34332f; border-radius:6px; color:#fff; padding:6px 8px;">
+      <datalist id="trEditCatalogo">${catalogo.filter(x => !nomes.has(x.item)).map(x => `<option value="${x.item}">`).join('')}</datalist>
+      <input id="trEditNovoQtd" type="number" min="0" step="any" placeholder="qtd" oninput="trEditNovoHint()"
+        style="width:80px; background:#232321; border:1px solid #34332f; border-radius:6px; color:#fff; padding:6px 8px; text-align:right;">
+      <button class="preset-btn" onclick="trEditIncluir()">incluir</button>
+    </div>
+    <div id="trEditNovoDica" class="caption-label"></div>`;
+}
+function trEditCat(nome) { return (window._trEdit?.catalogo || []).find(x => x.item === nome); }
+function trEditNovoHint() {
+  const nome = (document.getElementById('trEditNovoNome')?.value || '').trim().toUpperCase();
+  const q = Number(document.getElementById('trEditNovoQtd')?.value || 0);
+  const cat = trEditCat(nome);
+  const el = document.getElementById('trEditNovoDica');
+  if (!el) return;
+  el.textContent = cat && cat.emb_fator
+    ? `${nome} pede em ${cat.emb_nome} de ${trEmbDesc(cat)}${q > 0 ? ` — ${q} ${cat.emb_nome}(s) ≈ ${(q * cat.emb_fator).toLocaleString('pt-BR', { maximumFractionDigits: 2 })} ${(cat.un_medida || 'un').toLowerCase()}` : ' (digite a quantidade em ' + cat.emb_nome + 's)'}`
+    : (cat ? `${nome} pede em ${(cat.un_medida || 'un').toLowerCase()}` : (nome ? 'item fora da grade — entra sem preço, para vincular depois' : ''));
+}
+async function trEditIncluir() {
+  const msg = document.getElementById('trEditMsg');
+  const nome = (document.getElementById('trEditNovoNome')?.value || '').trim().toUpperCase();
+  const q = Number(document.getElementById('trEditNovoQtd')?.value || 0);
+  if (!nome || q <= 0) { msg.textContent = 'Preencha o item e a quantidade.'; msg.style.color = '#f5a623'; return; }
+  const cat = trEditCat(nome);
+  const r = await trFetch('tr_lista_itens', {
+    method: 'POST',
+    body: JSON.stringify({
+      id_lista: window._trEdit.id, item: nome,
+      un_medida: cat ? cat.un_medida : 'KG',
+      qtd_solicitada: cat && cat.emb_fator ? Math.round(q * cat.emb_fator * 1000) / 1000 : q,
+      observacao: cat && cat.emb_fator ? `pedido: ${q} ${cat.emb_nome}(s)` : null,
+      editado: true,
+    }),
+  });
+  if (!r.ok) { msg.textContent = 'Não deu: ' + await trErroDe(r); msg.style.color = '#ff6b6b'; return; }
+  trEditarPedido(window._trEdit.id);
+}
+async function trSalvarEdicao() {
+  const msg = document.getElementById('trEditMsg');
+  msg.textContent = 'Salvando...'; msg.style.color = '#8a897e';
+  const { id, itens } = window._trEdit;
+  for (const [idx, i] of itens.entries()) {
+    const campo = document.getElementById('tre_' + idx);
+    if (!campo) continue;
+    const v = Number(campo.value === '' ? i.qtd_solicitada : campo.value);
+    if (v === Number(i.qtd_solicitada)) continue;
+    const r = v <= 0
+      ? await trFetch(`tr_lista_itens?id=eq.${i.id}`, { method: 'DELETE' })
+      : await trFetch(`tr_lista_itens?id=eq.${i.id}`, { method: 'PATCH', body: JSON.stringify({ qtd_solicitada: v, editado: true }) });
+    if (!r.ok) { msg.textContent = `Item ${i.item}: ` + await trErroDe(r); msg.style.color = '#ff6b6b'; return; }
+  }
+  msg.textContent = 'Alterações salvas — a separação já vê a lista corrigida.'; msg.style.color = '#3fb950';
+  setTimeout(() => trEditarPedido(id), 900);
+}
+
 // ---- tela: tabela de precos (todos os papeis, so leitura) ----
 // O cardapio vivo: CMV da Formacao de precos x (1 + custo de producao) x
 // fator da unidade, pela regra vigente HOJE (vw_tr_tabela_precos). O que
@@ -9192,7 +9293,7 @@ async function trAbrirSeparacao(id) {
   const alvo = document.getElementById('trTelaConteudo');
   const [rl, ri] = await Promise.all([
     trFetch(`tr_listas?id=eq.${id}&select=id,unidade,status,data_pedido`),
-    trFetch(`tr_lista_itens?id_lista=eq.${id}&order=item&select=id,item,un_medida,qtd_solicitada,qtd_separada,avulso,observacao`),
+    trFetch(`tr_lista_itens?id_lista=eq.${id}&order=item&select=id,item,un_medida,qtd_solicitada,qtd_separada,avulso,observacao,editado`),
   ]);
   const lista = (await rl.json())[0];
   const itens = await ri.json();
@@ -9203,7 +9304,7 @@ async function trAbrirSeparacao(id) {
       <button class="preset-btn" style="margin-left:8px;" onclick="trImprimirSeparacao(${id})">🖨️ Gerar PDF</button></div>
     <div id="tabelaTrOpSep"><table>
       <tr><th>Item</th><th>Solicitado</th><th>Separado</th></tr>
-      ${itens.map((i, idx) => `<tr><td>${i.item} <span class="dre-av">${i.un_medida || ''}</span>${i.avulso ? ' <span style="color:#f5a623; font-size:11px;">🆕 fora da grade</span>' : ''}${i.observacao ? ` <span style="color:#f5a623; font-size:11px;">${i.observacao}</span>` : ''}</td>
+      ${itens.map((i, idx) => `<tr><td>${i.item} <span class="dre-av">${i.un_medida || ''}</span>${i.avulso ? ' <span style="color:#f5a623; font-size:11px;">🆕 fora da grade</span>' : ''}${i.observacao ? ` <span style="color:#f5a623; font-size:11px;">${i.observacao}</span>` : ''}${i.editado ? ' <span style="color:#f5a623; font-size:11px;">✏️ editado</span>' : ''}</td>
         <td>${Number(i.qtd_solicitada || 0)}</td>
         <td><input type="number" min="0" step="any" id="trs_${idx}" value="${i.qtd_separada ?? i.qtd_solicitada ?? ''}"
           style="width:80px; background:#232321; border:1px solid #34332f; border-radius:6px; color:#fff; padding:4px 6px; text-align:right;"></td></tr>`).join('')}
@@ -9211,11 +9312,13 @@ async function trAbrirSeparacao(id) {
     <div style="margin-top:12px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
       <button class="preset-btn" onclick="trSalvarSeparacao(${id})">Salvar separação</button>
       <span>entrega: <input type="date" id="trDataEntrega" value="${trHoje()}" style="background:#232321; border:1px solid #34332f; border-radius:6px; color:#fff; padding:4px 6px;"></span>
+      <label style="font-size:12.5px; color:#c3c2b7;"><input type="checkbox" id="trFreteMichiro"> 🛵 o Michiro levou (gera o frete de R$ 50)</label>
       <button class="preset-btn" onclick="trEnviarLista(${id})">Enviar para a filial</button>
       <span id="trSepMsg" style="font-size:12px;"></span>
     </div>
-    <div class="caption-label">Salvar grava as quantidades e marca a lista como SEPARADA. Enviar fecha a etapa
-      (no Boqueirão o frete de R$ 50 nasce sozinho) — a filial passa a ver a lista na Conferência.</div>`;
+    <div class="caption-label">Salvar grava as quantidades e marca a lista como SEPARADA. Enviar fecha a etapa —
+      a filial passa a ver a lista na Conferência. <b>Marque o 🛵 só quando for o Michiro</b>: é a marcação que
+      gera a cobrança do frete (desmarcado = outro portador, sem frete).</div>`;
 }
 
 async function trSalvarSeparacao(id) {
@@ -9235,7 +9338,8 @@ async function trSalvarSeparacao(id) {
 async function trEnviarLista(id) {
   const msg = document.getElementById('trSepMsg');
   const data = document.getElementById('trDataEntrega').value;
-  const r = await trRpc('tr_enviar_lista', { p_id: id, p_data_entrega: data });
+  const michiro = !!document.getElementById('trFreteMichiro')?.checked;
+  const r = await trRpc('tr_enviar_lista', { p_id: id, p_data_entrega: data, p_frete_michiro: michiro });
   if (!r.ok) { msg.textContent = 'Não deu: ' + await trErroDe(r); msg.style.color = '#ff6b6b'; return; }
   msg.textContent = 'Enviada! A filial confere no recebimento.'; msg.style.color = '#3fb950';
   trListaAberta = null;
@@ -9280,7 +9384,7 @@ async function trImprimirSeparacao(id) {
     <div class="sub">pedida em ${ddmm(lista.data_pedido)} · ${itens.length} itens · impressa em ${ddmm(trHoje())} · marque ☑ ao separar e anote a quantidade separada</div>
     ${Object.keys(porGrupo).sort().map(g => `<h2>${g}</h2><table>
       <tr><th class="cx"></th><th>Item</th><th>Un</th><th class="q">Solicitado</th><th class="risco">Separado</th></tr>
-      ${porGrupo[g].map(i => `<tr><td class="cx">☐</td><td>${i.item}${i.observacao ? `<br><span style="font-size:10.5px; color:#444;">${i.observacao}</span>` : ''}</td><td>${i.un_medida || ''}</td>
+      ${porGrupo[g].map(i => `<tr><td class="cx">☐</td><td>${i.item}${i.editado ? ' ✏️' : ''}${i.observacao ? `<br><span style="font-size:10.5px; color:#444;">${i.observacao}</span>` : ''}</td><td>${i.un_medida || ''}</td>
         <td class="q"><b>${Number(i.qtd_solicitada || 0)}</b></td><td class="risco"><span></span></td></tr>`).join('')}
     </table>`).join('')}
   </body></html>`);
@@ -9309,7 +9413,7 @@ async function trTelaConferencia() {
 
 async function trAbrirConferencia(id) {
   const alvo = document.getElementById('trTelaConteudo');
-  const ri = await trFetch(`tr_lista_itens?id_lista=eq.${id}&order=item&select=id,item,un_medida,qtd_separada,qtd_recebida,avulso,observacao`);
+  const ri = await trFetch(`tr_lista_itens?id_lista=eq.${id}&order=item&select=id,item,un_medida,qtd_separada,qtd_recebida,avulso,observacao,editado`);
   const itens = await ri.json();
   window._trItensConf = itens;
   alvo.innerHTML = `
@@ -9317,7 +9421,7 @@ async function trAbrirConferencia(id) {
       Conferência da lista <b>#${id}</b> — o campo vem preenchido com o separado; <b>corrija o que veio diferente</b>.</div>
     <div id="tabelaTrOpConf"><table>
       <tr><th>Item</th><th>Separado</th><th>Recebido</th></tr>
-      ${itens.map((i, idx) => `<tr><td>${i.item} <span class="dre-av">${i.un_medida || ''}</span>${i.avulso ? ' <span style="color:#f5a623; font-size:11px;">🆕 fora da grade</span>' : ''}${i.observacao ? ` <span style="color:#f5a623; font-size:11px;">${i.observacao}</span>` : ''}</td>
+      ${itens.map((i, idx) => `<tr><td>${i.item} <span class="dre-av">${i.un_medida || ''}</span>${i.avulso ? ' <span style="color:#f5a623; font-size:11px;">🆕 fora da grade</span>' : ''}${i.observacao ? ` <span style="color:#f5a623; font-size:11px;">${i.observacao}</span>` : ''}${i.editado ? ' <span style="color:#f5a623; font-size:11px;">✏️ editado</span>' : ''}</td>
         <td>${Number(i.qtd_separada || 0)}</td>
         <td><input type="number" min="0" step="any" id="trc_${idx}" value="${i.qtd_recebida ?? i.qtd_separada ?? 0}"
           style="width:80px; background:#232321; border:1px solid #34332f; border-radius:6px; color:#fff; padding:4px 6px; text-align:right;"></td></tr>`).join('')}
