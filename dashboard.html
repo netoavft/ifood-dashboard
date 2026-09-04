@@ -8975,14 +8975,21 @@ async function trTelaPedido(unidadeEscolhida) {
   if (!r.ok) { alvo.innerHTML = `<div class="contexto" style="border-color:#ff6b6b;">${await trErroDe(r)}</div>`; return; }
   const itens = await r.json();
   const dataCusto = itens.find(i => i.custo_atualizado_em)?.custo_atualizado_em;
-  window._trItensPedido = itens; window._trPedidoUnidade = unidade;
+  // item com 2a embalagem (ex.: pernil desfiado) vira DUAS linhas na tela,
+  // uma por pacote — o envio soma tudo numa linha so da lista
+  const linhas = [];
+  itens.forEach(i => {
+    linhas.push(i);
+    if (i.emb2_fator) linhas.push({ ...i, emb_nome: i.emb2_nome, emb_fator: i.emb2_fator });
+  });
+  window._trItensPedido = linhas; window._trPedidoUnidade = unidade;
   alvo.innerHTML = `
     <div class="caption-label">Pedido para <b>${unidade}</b> — preencha só o que precisa; itens em branco ficam fora.
       O preço é congelado pelo sistema no ato (Formação de preços${dataCusto ? ' de ' + dataCusto.slice(8,10) + '/' + dataCusto.slice(5,7) : ''}).</div>
     <input id="trPedidoBusca" type="search" placeholder="buscar item... (o que você digitou continua guardado)" oninput="trPedidoFiltra()"
       style="width:100%; max-width:360px; margin:8px 0; background:#232321; border:1px solid #34332f; border-radius:8px; color:#ffffff; padding:8px 10px;">
     <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:6px 14px;">
-      ${itens.map((i, idx) => `
+      ${linhas.map((i, idx) => `
         <label data-busca="${i.item.toLowerCase()}" style="display:grid; grid-template-columns:1fr 76px; gap:2px 10px; align-items:center; font-size:12.5px; color:#c3c2b7; padding:2px 0;">
           <span>${i.item} <span style="color:#8a897e;">(${i.emb_fator ? 'pede em ' + i.emb_nome + ' de ' + trEmbDesc(i) : (i.un_medida || 'un')}${i.nao_cobrado ? ' · não cobrado' : (i.preco_tabela ? ' · R$ ' + Number(i.preco_tabela).toFixed(2) + '/' + (i.un_medida || 'un').toLowerCase() : '')})${i.sem_custo ? ' ⚠️ sem custo' : ''}</span>${i.emb_fator ? `<br><span id="trqe_${idx}" style="color:#3fb950; font-size:11px;"></span>` : ''}</span>
           <input type="number" min="0" step="any" id="trq_${idx}" placeholder="${i.emb_fator ? i.emb_nome + 's' : (i.minimo || i.maximo ? (i.minimo ?? '') + '–' + (i.maximo ?? '') : '')}"${i.emb_fator ? ` oninput="trEmbHint(${idx})"` : ''}
@@ -9071,16 +9078,24 @@ async function trCriarPedido() {
   });
   if (!rl.ok) { msg.textContent = 'Não deu: ' + await trErroDe(rl); msg.style.color = '#ff6b6b'; return; }
   const lista = (await rl.json())[0];
-  // TODAS as linhas com as MESMAS chaves (observacao: null quando nao ha) —
+  // Uma linha por ITEM na lista: as duas embalagens do mesmo item (pernil)
+  // somam na mesma linha, com a observacao guardando o pedido original.
+  // E TODAS as linhas com as MESMAS chaves (observacao: null quando nao ha) —
   // o PostgREST recusa lote com objetos de campos diferentes ("All object
   // keys must match"; mordeu no 1o pedido real do Ahu em 04/09/2026).
+  const porItem = {};
+  escolhidos.forEach(x => {
+    const qtd = x.i.emb_fator ? Math.round(x.q * x.i.emb_fator * 1000) / 1000 : x.q;
+    const p = porItem[x.i.item] = porItem[x.i.item] ||
+      { id_lista: lista.id, item: x.i.item, un_medida: x.i.un_medida, qtd_solicitada: 0, obs: [] };
+    p.qtd_solicitada = Math.round((p.qtd_solicitada + qtd) * 1000) / 1000;
+    if (x.i.emb_fator) p.obs.push(`${x.q} ${x.i.emb_nome}(s)`);
+  });
   const ri = await trFetch('tr_lista_itens', {
     method: 'POST',
-    body: JSON.stringify(escolhidos.map(x => ({
-      id_lista: lista.id, item: x.i.item, un_medida: x.i.un_medida,
-      // com embalagem, o campo e "quantos potes": grava o convertido e anota o original
-      qtd_solicitada: x.i.emb_fator ? Math.round(x.q * x.i.emb_fator * 1000) / 1000 : x.q,
-      observacao: x.i.emb_fator ? `pedido: ${x.q} ${x.i.emb_nome}(s)` : null,
+    body: JSON.stringify(Object.values(porItem).map(p => ({
+      id_lista: p.id_lista, item: p.item, un_medida: p.un_medida, qtd_solicitada: p.qtd_solicitada,
+      observacao: p.obs.length ? 'pedido: ' + p.obs.join(' + ') : null,
     })).concat(avulsos.map(a => ({ id_lista: lista.id, item: a.item, un_medida: a.un_medida,
       qtd_solicitada: a.qtd_solicitada, observacao: null })))),
   });
@@ -9091,7 +9106,7 @@ async function trCriarPedido() {
     msg.textContent = 'O pedido não entrou (' + erro + ') — nada foi criado, pode tentar de novo.';
     msg.style.color = '#ff6b6b'; return;
   }
-  msg.textContent = `Pedido enviado — lista #${lista.id} com ${escolhidos.length + avulsos.length} itens`
+  msg.textContent = `Pedido enviado — lista #${lista.id} com ${Object.keys(porItem).length + avulsos.length} itens`
     + (avulsos.length ? ` (${avulsos.length} fora da grade, entram sem preço até a vinculação)` : '') + '. A separação já enxerga.';
   msg.style.color = '#3fb950';
 }
@@ -9105,7 +9120,7 @@ async function trTelaPrecos(unidadeEscolhida) {
   let unidade = TR_OP.unidade || unidadeEscolhida || window._trPrecosUnidade;
   if (!unidade) unidade = 'AHU'; // desde 01/09/2026 as tres pagam a mesma tabela
   window._trPrecosUnidade = unidade;
-  const r = await trFetch(`vw_tr_tabela_precos?unidade=eq.${encodeURIComponent(unidade)}&order=grupo_separacao,item&select=item,classe,grupo_separacao,un,cmv,pct_producao,preco,cmv_atualizado_em,emb_nome,emb_fator,nao_cobrado`);
+  const r = await trFetch(`vw_tr_tabela_precos?unidade=eq.${encodeURIComponent(unidade)}&order=grupo_separacao,item&select=item,classe,grupo_separacao,un,cmv,pct_producao,preco,cmv_atualizado_em,emb_nome,emb_fator,emb2_nome,emb2_fator,nao_cobrado`);
   if (!r.ok) { alvo.innerHTML = `<div class="contexto" style="border-color:#ff6b6b;">${await trErroDe(r)}</div>`; return; }
   const itens = await r.json();
   const pct = itens.length ? Math.round(Number(itens[0].pct_producao) * 100) : 0;
@@ -9122,7 +9137,8 @@ async function trTelaPrecos(unidadeEscolhida) {
       <tr><th>Item</th><th>Grupo</th><th>Un</th><th>Como se pede</th><th>CMV</th><th>Preço</th></tr>
       ${itens.map(i => `<tr data-busca="${(i.item + ' ' + (i.grupo_separacao || '') + ' ' + (i.classe || '')).toLowerCase()}">
         <td>${i.item}</td><td>${i.grupo_separacao || i.classe || '—'}</td><td>${i.un || '—'}</td>
-        <td>${i.emb_fator ? i.emb_nome + ' de ' + trEmbDesc({ un_medida: i.un, emb_fator: i.emb_fator }) : '—'}</td>
+        <td>${i.emb_fator ? i.emb_nome + ' de ' + trEmbDesc({ un_medida: i.un, emb_fator: i.emb_fator })
+              + (i.emb2_fator ? ' ou ' + i.emb2_nome + ' de ' + trEmbDesc({ un_medida: i.un, emb_fator: i.emb2_fator }) : '') : '—'}</td>
         <td>R$ ${Number(i.cmv).toFixed(2)}</td><td><b>${i.nao_cobrado ? 'não cobrado' : 'R$ ' + Number(i.preco).toFixed(2)}</b></td>
       </tr>`).join('')}
     </table></div>`;
