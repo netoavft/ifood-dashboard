@@ -10730,7 +10730,7 @@ function renderFechamento() {
       });
       const ruins = linhas.filter(l => l.sit === 'CONFERIR'), aten = linhas.filter(l => l.sit === 'ATENÇÃO');
       const pal = l => l.sit === 'BATE' ? '✓ bate' : l.sit === 'SEM FONTE' ? 'sem fonte' : `${l.sit.toLowerCase()}: ${l.pct > 0 ? 'PDV acima' : 'PDV abaixo'} ${fxPct1(Math.abs(l.pct))} (${fxMil(Math.abs(l.valor_a - l.valor_b))})`;
-      h += `<div class="fx-tile" style="margin-top:12px"><div class="fx-rotulo">A venda do PDV bate com o iFood, a Rede e os vales? (prova dos nove)</div>
+      h += `<div class="fx-tile" style="margin-top:12px"><div class="fx-rotulo">A venda bate com o iFood, a Rede, os vales e o ePadoca? (prova dos nove)</div>
         <div class="fx-valor${ruins.length ? ' neg' : ''}" style="font-size:20px">${ruins.length ? `${ruins.length} de ${linhas.length} linhas para conferir` : aten.length ? `${linhas.length - aten.length} de ${linhas.length} batem · ${aten.length} em atenção` : `${linhas.length} de ${linhas.length} batem`}</div>
         <div class="fx-extra">a venda bruta da DRE vem do PDV (Saipos); antes de o número sair, ela é conferida contra as fontes de fora, cada uma com a sua tolerância. "PDV acima" do iFood costuma ser cancelamento parcial contado pelo valor cheio; "PDV abaixo" da Rede é detalhe de pagamento faltando no Saipos.</div>
         <ul class="fx-lista">${linhas.map(l => `<li><span>${l.linha}<small>${l.fonte_a} ${fxMil(l.valor_a)} × ${l.fonte_b} ${fxMil(l.valor_b)} · tolerância ${fxPct1(fxN(l.tolerancia_pct))}</small></span><b>${pal(l)}</b></li>`).join('')}</ul></div>`;
@@ -12010,6 +12010,7 @@ let PROJ_VENC = null;     // vw_fin_vencidas_status: vencida ja saiu do banco ou
 let PROJ_RECEB_SUB = null; // vw_fin_receitas_diarias_subtipo: a mesma media, aberta por tipo
 let PROJ_CAIXA = null;    // vw_fin_caixa_do_dia: saldo x o que vence, conta a conta
 let PROJ_COM_ATACADO = null; // vw_comissao_atacado_semanal: 7,5% Jane + 7,5% Fabio sobre a revenda
+let PROJ_ATACADO_RECEBER = null; // vw_atacado_receber: boletos do atacado em aberto no portal do ePadoca (04/09/2026)
 let PROJ_FILTRO = { unidade: '', conta: '' };  // filtros do quadro de pagamento
 
 // contas que nao sao caixa operacional (investimentos, pessoais e cartoes)
@@ -12021,7 +12022,7 @@ async function entrarProjecao() {
   if (PROJ_PAGAR === null) alvo.innerHTML = '<div class="contexto">Carregando projeção...</div>';
   const corte = new Date(); corte.setDate(corte.getDate() - 35);
   const corteIso = corte.toISOString().slice(0, 10);
-  const [pagar, receb, ancora, vencStatus, caixaDia, comAtacado, recebSub, benefSem, benefXp, benefCobr] = await Promise.all([
+  const [pagar, receb, ancora, vencStatus, caixaDia, comAtacado, recebSub, benefSem, benefXp, benefCobr, _fin, atacadoReceber] = await Promise.all([
     consultarTudo('vw_fin_contas_pagar?select=vencimento,conta,conta_exibida,unidade,situacao,dias_vencida,sentido,subtipo,tipo,natureza,descricao,credito,debito&order=vencimento'),
     consultarTudo(`vw_fin_receitas_diarias?select=data,recebido&data=gte.${corteIso}&order=data`),
     consultarTudo('vw_fin_saldo_banco_atual?select=conta,data_saldo,saldo_banco,idade_dias,saldo_saipos,diferenca'),
@@ -12035,7 +12036,10 @@ async function entrarProjecao() {
     consultarTudo('vw_beneficio_xp_pendente?select=semana,valor,falta'),
     consultarTudo('tr_cobrancas?select=unidade,tipo,valor_total,vencimento,status&tipo=in.(BENEFICIO,ACERTO)'),
     garantirDadosFin(),
+    // contas a receber do atacado, lido do portal do ePadoca (rotina atacado-epadoca-portal)
+    consultarTudo('vw_atacado_receber?select=pedido,cliente,status,valor,data_pedido,vencimento,dias_atraso,faixa,capturado_em&order=vencimento').catch(() => []),
   ]);
+  PROJ_ATACADO_RECEBER = (atacadoReceber || []).map(r => ({ ...r, valor: Number(r.valor), dias_atraso: Number(r.dias_atraso) }));
   PROJ_BENEF = { sem: benefSem || [], xp: benefXp || [], cobr: benefCobr || [] };
   PROJ_RECEB_SUB = recebSub;
   PROJ_RECEB_SUB.forEach(r => { r.recebido = Number(r.recebido); });
@@ -12055,6 +12059,35 @@ async function entrarProjecao() {
 // Quadro semanal do benefício do iFood (comissão zero) — feito para a Hellen:
 // quanto cada loja "deixou de pagar" na semana, o que as filiais devem à AV e
 // o total que a AV manda para a XP na quarta. Regra do Fabio: não é dinheiro do fluxo.
+// Atacado: o que está para receber e quem está atrasado, lido do portal do ePadoca
+// (rotina atacado-epadoca-portal, 04/09/2026 — pedido do dono: "placar da inadimplência").
+// Os boletos em aberto já entram no fluxo dia a dia (vw_fin_contas_pagar); aqui é o placar.
+function blocoAtacadoReceber() {
+  const L = PROJ_ATACADO_RECEBER || [];
+  if (!L.length) return '';
+  const reais = (v) => 'R$ ' + fmt(Number(v || 0));
+  const soma = (arr) => arr.reduce((s, r) => s + r.valor, 0);
+  const vencidos = L.filter(r => r.dias_atraso > 0), aVencer = L.filter(r => r.dias_atraso <= 0);
+  const sete = aVencer.filter(r => r.dias_atraso >= -7);
+  const porCliente = {};
+  vencidos.forEach(r => { const c = r.cliente.split(' - ')[0]; const g = porCliente[c] || (porCliente[c] = { valor: 0, n: 0, maior: 0 }); g.valor += r.valor; g.n += 1; g.maior = Math.max(g.maior, r.dias_atraso); });
+  const lidoEm = L.reduce((m, r) => r.capturado_em > m ? r.capturado_em : m, '');
+  const dd = (s) => s ? s.slice(8, 10) + '/' + s.slice(5, 7) : '';
+  return `
+  <div class="section-label">Atacado — a receber e inadimplência (portal do ePadoca)</div>
+  <div class="caption-label" style="text-align:center;">Boletos do atacado em aberto no portal do ePadoca, por vencimento. Prazo padrão 7 dias (Quermesse Bom Retiro 7/14).
+    Os boletos a vencer já estão somados no fluxo dia a dia acima. Portal lido em ${lidoEm ? dd(lidoEm) + ' ' + lidoEm.slice(11, 16) : '—'}.</div>
+  <div class="cards cards-3">
+    <div class="card"><div class="card-lbl">A receber (boletos em aberto)</div><div class="card-val">${reais(soma(L))}</div><div class="card-pct">${L.length} boleto${L.length > 1 ? 's' : ''}</div></div>
+    <div class="card"><div class="card-lbl">Vence nos próximos 7 dias</div><div class="card-val">${reais(soma(sete))}</div><div class="card-pct">${sete.length} boleto${sete.length !== 1 ? 's' : ''}</div></div>
+    <div class="card ${vencidos.length ? 'neg' : 'pos'}"><div class="card-lbl">Vencido sem pagamento</div><div class="card-val">${reais(soma(vencidos))}</div><div class="card-pct">${vencidos.length ? `${vencidos.length} boleto${vencidos.length > 1 ? 's' : ''} · ${Object.keys(porCliente).length} cliente${Object.keys(porCliente).length > 1 ? 's' : ''}` : 'ninguém atrasado'}</div></div>
+  </div>
+  ${vencidos.length ? `<div id="tabelaAtacadoInadimplencia"><table>
+    <tr><th>Cliente</th><th>Boletos vencidos</th><th>Valor</th><th>Maior atraso</th></tr>
+    ${Object.entries(porCliente).sort((a, b) => b[1].valor - a[1].valor).map(([c, g]) => `<tr><td>${c}</td><td>${g.n}</td><td class="negativo">${reais(g.valor)}</td><td>${g.maior} dia${g.maior > 1 ? 's' : ''}</td></tr>`).join('')}
+  </table></div>` : ''}`;
+}
+
 function blocoBeneficio() {
   if (!PROJ_BENEF || !PROJ_BENEF.sem.length) return '';
   const reais = (v) => 'R$ ' + fmt(Number(v || 0));
@@ -12561,6 +12594,7 @@ function renderModuloProjecao() {
     com duas exceções que entram sozinhas: as cobranças das filiais (listas e benefício) e o envio do benefício para a XP.
   </div>
   <div id="projCaixaWrap">${blocoCaixaDoDia()}</div>
+  ${blocoAtacadoReceber()}
   ${blocoComissaoAtacado()}
   ${blocoBeneficio()}
   ${temAncora && idadeMax > 1 ? `<div class="contexto" style="border-color:#f5a623;">
