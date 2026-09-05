@@ -680,6 +680,28 @@
   @media (max-width: 820px) {
     #trOperacao input, #trOperacao select, #trOperacao textarea { font-size:16px; }
   }
+
+  /* ---- ILHA CLARA do modulo Listas (amostra aprovada pelo dono, 05/09/2026).
+     Por ora so a tela de PEDIDO usa; o resto do painel segue escuro. A paleta
+     e a "papel" da pagina dos Pesos: creme + tinta + vermelho da identidade.
+     .trc-in tem o visual ESCURO por padrao (serve as outras telas do modulo)
+     e vira claro dentro da ilha. */
+  .trc-in { background:#232321; border:1px solid #34332f; border-radius:6px; color:#fff; padding:4px 6px; }
+  .tr-ilha { background:#faf6ef; color:#2b2620; border-radius:14px; padding:16px 16px 20px; margin-top:8px; }
+  .tr-ilha .caption-label { color:#6f675c; font-size:12.5px; }
+  .tr-ilha .caption-label b, .tr-ilha .contexto b { color:#2b2620; }
+  .tr-ilha .section-label { color:#c8102e; font-size:12px; letter-spacing:1px; border-top:none;
+    border-bottom:2px solid #2b2620; padding:0 0 5px; margin:18px 0 8px; text-align:left; }
+  .tr-ilha .contexto { background:#ffffff; border:1px solid #e5ddd0; color:#2b2620; }
+  .tr-ilha .preset-btn { background:#ffffff; border:1px solid #e5ddd0; color:#2b2620; }
+  .tr-ilha .preset-btn:hover { border-color:#c8102e; color:#c8102e; }
+  .tr-ilha .tr-btn-cheio, .tr-ilha .tr-btn-cheio:hover { background:#c8102e; border-color:#c8102e; color:#fff; }
+  .tr-ilha .trc-in { background:#fdfbf7; border:1px solid #d5cbbb; color:#2b2620; }
+  .tr-ilha .trc-in:focus { outline:2px solid #c8102e; outline-offset:1px; }
+  .tr-ilha .trc-in.tem { border-color:#2e7d4f; background:#f2f8f2; font-weight:700; }
+  .tr-ilha .tr-linha { border-bottom:1px solid #e5ddd0; color:#2b2620; }
+  .tr-ilha .tr-det { color:#6f675c; }
+  .tr-ilha .tr-conv { color:#2e7d4f; font-weight:600; }
 </style>
 </head>
 <body>
@@ -9293,8 +9315,8 @@ async function trTelaPedido(unidadeEscolhida) {
   if (!unidade) {
     const r = await trFetch('vw_tr_itens_pedido?select=unidade');
     const us = [...new Set((await r.json()).map(x => x.unidade))].filter(Boolean).sort();
-    alvo.innerHTML = `<div class="contexto">Pedido em nome de qual filial? ${us.map(u =>
-      `<button class="preset-btn" onclick="trTelaPedido('${u}')">${u}</button>`).join(' ')}</div>`;
+    alvo.innerHTML = `<div class="tr-ilha"><div class="contexto">Pedido em nome de qual filial? ${us.map(u =>
+      `<button class="preset-btn" onclick="trTelaPedido('${u}')">${u}</button>`).join(' ')}</div></div>`;
     return;
   }
   // 04/09/2026, dono: sem grupos — grade unica em ordem alfabetica, com busca no topo
@@ -9314,19 +9336,22 @@ async function trTelaPedido(unidadeEscolhida) {
     if (i.emb2_fator) linhas.push({ ...i, emb_nome: i.emb2_nome, emb_fator: i.emb2_fator });
   });
   window._trItensPedido = linhas; window._trPedidoUnidade = unidade;
-  alvo.innerHTML = `
+  // ilha CLARA (amostra aprovada 05/09/2026): a tela de pedido e a primeira do
+  // modulo em tema papel — cores vem das classes .tr-ilha/.trc-in, nunca inline
+  alvo.innerHTML = `<div class="tr-ilha">
     <div class="caption-label">Pedido para <b>${unidade}</b> — preencha só o que precisa; itens em branco ficam fora.
       O preço é congelado pelo sistema no ato (Formação de preços${dataCusto ? ' de ' + dataCusto.slice(8,10) + '/' + dataCusto.slice(5,7) : ''}).</div>
     ${abertas.length ? `<div class="contexto" style="margin:8px 0;">✏️ Esqueceu um item? Pedido lançado e ainda não separado dá para corrigir:
       ${abertas.map(a => `<button class="preset-btn" onclick="trEditarPedido(${a.id})">editar lista #${a.id}${a.data_pedido ? ' (' + a.data_pedido.slice(8,10) + '/' + a.data_pedido.slice(5,7) + ')' : ''}</button>`).join(' ')}</div>` : ''}
-    <input id="trPedidoBusca" type="search" placeholder="buscar item... (o que você digitou continua guardado)" oninput="trPedidoFiltra()"
-      style="width:100%; max-width:360px; margin:8px 0; background:#232321; border:1px solid #34332f; border-radius:8px; color:#ffffff; padding:8px 10px;">
-    <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:6px 14px;">
+    <input id="trPedidoBusca" type="search" class="trc-in" placeholder="buscar item... (o que você digitou continua guardado)" oninput="trPedidoFiltra()"
+      style="width:100%; max-width:360px; margin:8px 0; border-radius:8px; padding:8px 10px;">
+    <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:0 18px;">
       ${linhas.map((i, idx) => `
-        <label data-busca="${i.item.toLowerCase()}" style="display:grid; grid-template-columns:1fr 76px; gap:2px 10px; align-items:center; font-size:12.5px; color:#c3c2b7; padding:2px 0;">
-          <span>${i.item} <span style="color:#8a897e;">(${i.emb_fator ? 'pede em ' + i.emb_nome + ' de ' + trEmbDesc(i) : (i.un_medida || 'un')}${i.nao_cobrado ? ' · não cobrado' : (i.preco_tabela ? ' · R$ ' + Number(i.preco_tabela).toFixed(2) + '/' + (i.un_medida || 'un').toLowerCase() : '')})${i.sem_custo ? ' ⚠️ sem custo' : ''}</span>${i.emb_fator ? `<br><span id="trqe_${idx}" style="color:#3fb950; font-size:11px;"></span>` : ''}</span>
-          <input type="number" min="0" step="any" id="trq_${idx}" placeholder="${i.emb_fator ? i.emb_nome + 's' : (i.minimo || i.maximo ? (i.minimo ?? '') + '–' + (i.maximo ?? '') : '')}"${i.emb_fator ? ` oninput="trEmbHint(${idx})"` : ''}
-            style="width:72px; justify-self:end; background:#232321; border:1px solid #34332f; border-radius:6px; color:#ffffff; padding:4px 6px; text-align:right;">
+        <label data-busca="${i.item.toLowerCase()}" class="tr-linha" style="display:grid; grid-template-columns:1fr 76px; gap:2px 10px; align-items:center; font-size:12.5px; padding:5px 2px;">
+          <span>${i.item} <span class="tr-det">(${i.emb_fator ? 'pede em ' + i.emb_nome + ' de ' + trEmbDesc(i) : (i.un_medida || 'un')}${i.nao_cobrado ? ' · não cobrado' : (i.preco_tabela ? ' · R$ ' + Number(i.preco_tabela).toFixed(2) + '/' + (i.un_medida || 'un').toLowerCase() : '')})${i.sem_custo ? ' ⚠️ sem custo' : ''}</span>${i.emb_fator ? `<br><span id="trqe_${idx}" class="tr-conv" style="font-size:11px;"></span>` : ''}</span>
+          <input type="number" min="0" step="any" id="trq_${idx}" class="trc-in" placeholder="${i.emb_fator ? i.emb_nome + 's' : (i.minimo || i.maximo ? (i.minimo ?? '') + '–' + (i.maximo ?? '') : '')}"
+            oninput="trqTem(this)${i.emb_fator ? `; trEmbHint(${idx})` : ''}"
+            style="width:72px; justify-self:end; text-align:right;">
         </label>`).join('')}
     </div>
     <div class="section-label" style="margin-top:16px;">PRECISA DE ALGO FORA DA GRADE?</div>
@@ -9335,11 +9360,15 @@ async function trTelaPedido(unidadeEscolhida) {
     <div id="trAvulsos"></div>
     <button class="preset-btn" onclick="trAddAvulso()">+ item fora da grade</button>
     <div style="margin-top:14px;">
-      <button class="preset-btn" onclick="trCriarPedido()">Enviar pedido</button>
+      <button class="preset-btn tr-btn-cheio" onclick="trCriarPedido()">Enviar pedido</button>
       <span id="trPedidoMsg" style="font-size:12px; margin-left:8px;"></span>
-    </div>`;
+    </div>
+  </div>`;
   trAvulsoN = 0;
 }
+
+// campo preenchido ganha borda verde na ilha clara (ver de relance o que ja foi pedido)
+function trqTem(el) { el.classList.toggle('tem', el.value !== ''); }
 
 // Busca da grade do pedido: esconde o que nao casa, sem perder o que ja foi
 // digitado (display:none mantem o valor do campo; o envio le por id).
@@ -9378,11 +9407,11 @@ function trAddAvulso() {
   const d = document.createElement('div');
   d.style.cssText = 'display:flex; gap:6px; margin:4px 0; align-items:center; flex-wrap:wrap;';
   d.innerHTML = `
-    <input type="text" id="trav_n_${trAvulsoN}" placeholder="nome do item" maxlength="80"
-      style="flex:1; min-width:170px; background:#232321; border:1px solid #34332f; border-radius:6px; color:#fff; padding:6px 8px;">
-    <input type="number" min="0" step="any" id="trav_q_${trAvulsoN}" placeholder="qtd"
-      style="width:72px; background:#232321; border:1px solid #34332f; border-radius:6px; color:#fff; padding:6px 8px; text-align:right;">
-    <select id="trav_u_${trAvulsoN}" style="background:#232321; border:1px solid #34332f; border-radius:6px; color:#fff; padding:6px 8px;">
+    <input type="text" id="trav_n_${trAvulsoN}" class="trc-in" placeholder="nome do item" maxlength="80"
+      style="flex:1; min-width:170px; padding:6px 8px;">
+    <input type="number" min="0" step="any" id="trav_q_${trAvulsoN}" class="trc-in" placeholder="qtd"
+      style="width:72px; padding:6px 8px; text-align:right;">
+    <select id="trav_u_${trAvulsoN}" class="trc-in" style="padding:6px 8px;">
       <option>KG</option><option>UN</option><option>LT</option>
     </select>`;
   document.getElementById('trAvulsos').appendChild(d);
