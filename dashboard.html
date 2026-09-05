@@ -9221,13 +9221,14 @@ async function entrarOperacaoListas() {
     return;
   }
   if (!TR_OP) {
-    const [rp, ru] = await Promise.all([trRpc('tr_meu_papel'), trRpc('tr_minha_unidade')]);
+    const [rp, ru, rv] = await Promise.all([trRpc('tr_meu_papel'), trRpc('tr_minha_unidade'), trRpc('tr_vejo_valores')]);
     if (!rp.ok) {
       alvo.innerHTML = `<div class="contexto" style="border-color:#ff6b6b;">Logado como ${sessao.email}, mas o banco não reconheceu o papel (${await trErroDe(rp)}).
         Confira o cadastro em tr_usuarios. <button class="preset-btn" onclick="trSair()">sair</button></div>`;
       return;
     }
-    TR_OP = { papel: await rp.json(), unidade: ru.ok ? await ru.json() : null };
+    TR_OP = { papel: await rp.json(), unidade: ru.ok ? await ru.json() : null,
+              veValores: rv.ok ? await rv.json() : true };
     // Papel nulo = login existe no painel mas nao esta em tr_usuarios (hoje e o
     // caso do Fabio). Sem isto a tela caia na fila de separacao, que ele nao
     // pode operar — melhor dizer o que falta do que abrir uma tela quebrada.
@@ -9258,6 +9259,11 @@ function trRenderOperacao() {
   if (papel === 'SEPARACAO' || papel === 'DONO') telas.push(['fechamento', '🧾 Fechamento do mês']);
   telas.push(['contas', '💳 Contas a pagar']);
   telas.push(['cmv', '📈 CMV semanal']);
+  // login operacional sem valores (05/09/2026): as abas de dinheiro somem —
+  // e o banco ja devolve NULL nos precos mesmo que alguem chame a API na mao
+  if (TR_OP.veValores === false) {
+    telas = telas.filter(([id]) => !['precos', 'contas', 'cmv', 'fechamento'].includes(id));
+  }
   // cada modulo mostra so as suas telas (a permissao continua a mesma)
   telas = telas.filter(([id]) => TR_TELAS_MODULO[TR_MODULO].includes(id));
   if (!telas.length) {
