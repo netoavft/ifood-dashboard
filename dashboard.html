@@ -690,8 +690,10 @@
   .tr-ilha { background:#faf6ef; color:#2b2620; border-radius:14px; padding:16px 16px 20px; margin-top:8px; }
   .tr-ilha .caption-label { color:#6f675c; font-size:12.5px; }
   .tr-ilha .caption-label b, .tr-ilha .contexto b { color:#2b2620; }
-  .tr-ilha .section-label { color:#c8102e; font-size:12px; letter-spacing:1px; border-top:none;
-    border-bottom:2px solid #2b2620; padding:0 0 5px; margin:18px 0 8px; text-align:left; }
+  .tr-ilha .section-label { color:#2b2620; border-top-color:#e5ddd0; }
+  .tr-ilha .tr-secao { color:#c8102e; font-size:12px; font-weight:800; letter-spacing:1px;
+    text-transform:uppercase; border-bottom:2px solid #2b2620; padding:0 0 5px; margin:18px 0 8px; }
+  .tr-ilha .preset-btn.active { background:#c8102e; border-color:#c8102e; color:#fff; }
   .tr-ilha .contexto { background:#ffffff; border:1px solid #e5ddd0; color:#2b2620; }
   .tr-ilha .preset-btn { background:#ffffff; border:1px solid #e5ddd0; color:#2b2620; }
   .tr-ilha .preset-btn:hover { border-color:#c8102e; color:#c8102e; }
@@ -9040,6 +9042,7 @@ const TR_TELAS_MODULO = {
 async function entrarListas() {   // Listas · Pedidos
   const alvo = document.getElementById('view-listas');
   if (!alvo) return;
+  alvo.classList.remove('tr-ilha');   // o render religa quando a tela de pedido abrir
   const outro = document.getElementById('view-listasfin');
   if (outro) outro.innerHTML = '';
   if (TR_MODULO !== 'pedidos') trTela = null;
@@ -9059,7 +9062,7 @@ async function entrarListasFin() {   // Listas · Financeiro
   const alvo = document.getElementById('view-listasfin');
   if (!alvo) return;
   const outro = document.getElementById('view-listas');
-  if (outro) outro.innerHTML = '';
+  if (outro) { outro.innerHTML = ''; outro.classList.remove('tr-ilha'); }
   if (TR_MODULO !== 'financeiro') trTela = null;
   TR_MODULO = 'financeiro';
   if (LISTAS === null) {
@@ -9302,6 +9305,10 @@ function trRenderOperacao() {
       ${telas.map(([id, rotulo]) => `<button class="preset-btn ${trTela === id ? 'active' : ''}" onclick="trTelaSet('${id}')">${rotulo}</button>`).join('')}
     </div>
     <div id="trTelaConteudo"><div class="contexto">Carregando...</div></div>`;
+  // ilha clara cobre o MODULO inteiro (titulo, abas e tela juntos, como no
+  // modelo aprovado em 05/09) — so enquanto a tela de PEDIDO esta ativa
+  const mod = document.getElementById('view-listas');
+  if (mod) mod.classList.toggle('tr-ilha', TR_MODULO === 'pedidos' && trTela === 'pedido');
   ({ pedido: trTelaPedido, separacao: trTelaSeparacao, conferencia: trTelaConferencia,
      fechamento: trTelaFechamento, contas: trTelaContas, precos: trTelaPrecos,
      cmv: trTelaCmv }[trTela])();
@@ -9315,8 +9322,8 @@ async function trTelaPedido(unidadeEscolhida) {
   if (!unidade) {
     const r = await trFetch('vw_tr_itens_pedido?select=unidade');
     const us = [...new Set((await r.json()).map(x => x.unidade))].filter(Boolean).sort();
-    alvo.innerHTML = `<div class="tr-ilha"><div class="contexto">Pedido em nome de qual filial? ${us.map(u =>
-      `<button class="preset-btn" onclick="trTelaPedido('${u}')">${u}</button>`).join(' ')}</div></div>`;
+    alvo.innerHTML = `<div class="contexto">Pedido em nome de qual filial? ${us.map(u =>
+      `<button class="preset-btn" onclick="trTelaPedido('${u}')">${u}</button>`).join(' ')}</div>`;
     return;
   }
   // 04/09/2026, dono: sem grupos — grade unica em ordem alfabetica, com busca no topo
@@ -9336,9 +9343,10 @@ async function trTelaPedido(unidadeEscolhida) {
     if (i.emb2_fator) linhas.push({ ...i, emb_nome: i.emb2_nome, emb_fator: i.emb2_fator });
   });
   window._trItensPedido = linhas; window._trPedidoUnidade = unidade;
-  // ilha CLARA (amostra aprovada 05/09/2026): a tela de pedido e a primeira do
-  // modulo em tema papel — cores vem das classes .tr-ilha/.trc-in, nunca inline
-  alvo.innerHTML = `<div class="tr-ilha">
+  // tema papel: as cores vem das classes .tr-ilha/.trc-in, nunca inline — a
+  // ilha em si e ligada no MODULO inteiro por trRenderOperacao (titulo, abas e
+  // tela juntos, como no modelo aprovado), so enquanto a tela de pedido esta ativa
+  alvo.innerHTML = `
     <div class="caption-label">Pedido para <b>${unidade}</b> — preencha só o que precisa; itens em branco ficam fora.
       O preço é congelado pelo sistema no ato (Formação de preços${dataCusto ? ' de ' + dataCusto.slice(8,10) + '/' + dataCusto.slice(5,7) : ''}).</div>
     ${abertas.length ? `<div class="contexto" style="margin:8px 0;">✏️ Esqueceu um item? Pedido lançado e ainda não separado dá para corrigir:
@@ -9354,7 +9362,7 @@ async function trTelaPedido(unidadeEscolhida) {
             style="width:72px; justify-self:end; text-align:right;">
         </label>`).join('')}
     </div>
-    <div class="section-label" style="margin-top:16px;">PRECISA DE ALGO FORA DA GRADE?</div>
+    <div class="section-label tr-secao" style="margin-top:16px;">PRECISA DE ALGO FORA DA GRADE?</div>
     <div class="caption-label">Escreva o nome do item, a quantidade e a unidade. Ele entra no pedido <b>sem preço</b> —
       o preço é definido quando o item for vinculado à base (antes do fechamento do mês), e daí ele passa a aparecer na grade.</div>
     <div id="trAvulsos"></div>
@@ -9362,8 +9370,7 @@ async function trTelaPedido(unidadeEscolhida) {
     <div style="margin-top:14px;">
       <button class="preset-btn tr-btn-cheio" onclick="trCriarPedido()">Enviar pedido</button>
       <span id="trPedidoMsg" style="font-size:12px; margin-left:8px;"></span>
-    </div>
-  </div>`;
+    </div>`;
   trAvulsoN = 0;
 }
 
