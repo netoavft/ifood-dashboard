@@ -713,6 +713,11 @@
   .tr-ilha div[id^="tabela"] th { background:#f3eee3; color:#6f675c; }
   /* a zebra escura das tabelas virava "linha preta" dentro da ilha (dono, 05/09) */
   .tr-ilha div[id^="tabela"] tr:nth-child(even) { background:#f6f1e7; }
+  /* ...e a PRIMEIRA COLUNA (fixa, pinta o proprio fundo para rolar por cima)
+     tambem ficava preta — repintada na paleta papel, casando com a zebra */
+  .tr-ilha div[id^="tabela"] td:first-child { background:#faf6ef; }
+  .tr-ilha div[id^="tabela"] tr:nth-child(even) td:first-child { background:#f6f1e7; }
+  .tr-ilha div[id^="tabela"] th:first-child { background:#f3eee3; }
   .tr-tag { color:#f5a623; font-size:11px; }
   .tr-ilha .tr-tag { color:#a05c00; }
 
