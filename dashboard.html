@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap">
 <title>Painel Cidadão do Mundo</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#111110">
@@ -19,7 +22,7 @@
   body {
     margin: 0; padding: 0;
     background: #111110; color: #ffffff;
-    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
     min-height: 100vh;
   }
   .app-layout { display:flex; min-height:100vh; align-items:stretch; }
@@ -708,8 +711,36 @@
   .tr-ilha div[id^="tabela"] table { color:#2b2620; }
   .tr-ilha div[id^="tabela"] th, .tr-ilha div[id^="tabela"] td { border-color:#e5ddd0; }
   .tr-ilha div[id^="tabela"] th { background:#f3eee3; color:#6f675c; }
+  /* a zebra escura das tabelas virava "linha preta" dentro da ilha (dono, 05/09) */
+  .tr-ilha div[id^="tabela"] tr:nth-child(even) { background:#f6f1e7; }
   .tr-tag { color:#f5a623; font-size:11px; }
   .tr-ilha .tr-tag { color:#a05c00; }
+
+  /* ==================================================================
+     TIPOGRAFIA NOVA (dono, 05/09/2026 — amostra aprovada): Inter no painel
+     inteiro + PISO DE TAMANHO. Regra: texto de leitura nunca abaixo de
+     12,5px; cabecalho de tabela 12px; selo/badge minimo 11px. Numeros
+     tabulares nas tabelas (colunas de R$ alinham de verdade). Este bloco
+     SOBRESCREVE os tamanhos antigos de proposito — mexa aqui, nao la.
+     ================================================================== */
+  button, input, select, textarea { font-family:inherit; }
+  div[id^="tabela"] table, .fx-tabela table, .plano-tab, .telas-tab { font-variant-numeric:tabular-nums; }
+  .caption-label { font-size:12.5px; }
+  .contexto { font-size:14px; line-height:1.55; }
+  .footer { font-size:12px; }
+  .chart-title, .fx-rotulo, .hero-lbl { font-size:12px; }
+  div[id^="tabela"] table { font-size:13.5px; }
+  div[id^="tabela"] th, .fx-tabela th, #extratoFin th, #tabelaVendasCanal th, #tabelaVendasLojas th,
+  #tabelaFunil th, #tabelaLojasResumo th, #tabelaDFC th { font-size:12px; }
+  #tabelaDFC .dfc-conf, #tabelaDFC tr.dfc-confer td { font-size:12px; }
+  .card-lbl, .card-delta { font-size:11.5px; }
+  .fx-eixo, .dre-av, .meta-pill, .dre-sub, .ficha-tag, .plano-selo { font-size:11px; }
+  .fx-pill, .sidebar-secao, .tr-tag { font-size:11.5px; }
+  .plano-quem, .plano-apr-bt, .plano-apr-vazio, .plano-carimbo { font-size:12px; }
+  .plano-tab th, .telas-tab th, .telas-grupo td { font-size:12px; }
+  .telas-campo, .plano-apr textarea, .plano-dep, .plano-bt { font-size:12.5px; }
+  .plano-fase-quando, .plano-apr-carimbo, .telas-dest button { font-size:11.5px; }
+  .th-emcurso, .sidebar-btn.breve::after { font-size:10px; }
 </style>
 </head>
 <body>
