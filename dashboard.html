@@ -704,6 +704,12 @@
   .tr-ilha .tr-linha { border-bottom:1px solid #e5ddd0; color:#2b2620; }
   .tr-ilha .tr-det { color:#6f675c; }
   .tr-ilha .tr-conv { color:#2e7d4f; font-weight:600; }
+  /* tabelas e selos do modulo dentro da ilha (extensao de 05/09/2026) */
+  .tr-ilha div[id^="tabela"] table { color:#2b2620; }
+  .tr-ilha div[id^="tabela"] th, .tr-ilha div[id^="tabela"] td { border-color:#e5ddd0; }
+  .tr-ilha div[id^="tabela"] th { background:#f3eee3; color:#6f675c; }
+  .tr-tag { color:#f5a623; font-size:11px; }
+  .tr-ilha .tr-tag { color:#a05c00; }
 </style>
 </head>
 <body>
@@ -9305,10 +9311,10 @@ function trRenderOperacao() {
       ${telas.map(([id, rotulo]) => `<button class="preset-btn ${trTela === id ? 'active' : ''}" onclick="trTelaSet('${id}')">${rotulo}</button>`).join('')}
     </div>
     <div id="trTelaConteudo"><div class="contexto">Carregando...</div></div>`;
-  // ilha clara cobre o MODULO inteiro (titulo, abas e tela juntos, como no
-  // modelo aprovado em 05/09) — so enquanto a tela de PEDIDO esta ativa
+  // ilha clara cobre o MODULO Listas · Pedidos inteiro (titulo, abas e todas
+  // as telas — aprovado tela a tela pelo dono em 05/09); o Financeiro segue escuro
   const mod = document.getElementById('view-listas');
-  if (mod) mod.classList.toggle('tr-ilha', TR_MODULO === 'pedidos' && trTela === 'pedido');
+  if (mod) mod.classList.toggle('tr-ilha', TR_MODULO === 'pedidos');
   ({ pedido: trTelaPedido, separacao: trTelaSeparacao, conferencia: trTelaConferencia,
      fechamento: trTelaFechamento, contas: trTelaContas, precos: trTelaPrecos,
      cmv: trTelaCmv }[trTela])();
@@ -9516,27 +9522,28 @@ async function trEditarPedido(id) {
       os que faltam na grade de baixo e <b>salve uma vez só</b>. Linha mexida ganha o selo ✏️.</div>
     <div id="tabelaTrEdit"><table>
       <tr><th>Item</th><th>Qtd</th></tr>
-      ${itens.map((i, idx) => `<tr><td>${i.item} <span class="dre-av">${i.un_medida || ''}</span>${i.avulso ? ' <span style="color:#f5a623; font-size:11px;">🆕</span>' : ''}${i.observacao ? ` <span style="color:#f5a623; font-size:11px;">${i.observacao}</span>` : ''}${i.editado ? ' <span style="color:#f5a623; font-size:11px;">✏️</span>' : ''}</td>
-        <td><input type="number" min="0" step="any" id="tre_${idx}" value="${Number(i.qtd_solicitada || 0)}"
-          style="width:80px; background:#232321; border:1px solid #34332f; border-radius:6px; color:#fff; padding:4px 6px; text-align:right;"></td></tr>`).join('')}
+      ${itens.map((i, idx) => `<tr><td>${i.item} <span class="dre-av">${i.un_medida || ''}</span>${i.avulso ? ' <span class="tr-tag">🆕</span>' : ''}${i.observacao ? ` <span class="tr-tag">${i.observacao}</span>` : ''}${i.editado ? ' <span class="tr-tag">✏️</span>' : ''}</td>
+        <td><input type="number" min="0" step="any" id="tre_${idx}" class="trc-in" value="${Number(i.qtd_solicitada || 0)}"
+          style="width:80px; text-align:right;"></td></tr>`).join('')}
     </table></div>
     <div style="margin-top:12px;">
       <button class="preset-btn" onclick="trSalvarEdicao()">Salvar alterações</button>
       <span id="trEditMsg" style="font-size:12px; margin-left:8px;"></span>
     </div>
 
-    <div class="section-label" style="margin-top:18px;">INCLUIR O QUE FALTOU</div>
-    <input id="trEditBusca" type="search" placeholder="buscar item... (o que você digitou continua guardado)" oninput="trEditFiltra()"
-      style="width:100%; max-width:360px; margin:8px 0; background:#232321; border:1px solid #34332f; border-radius:8px; color:#fff; padding:8px 10px;">
-    <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:6px 14px;">
+    <div class="section-label tr-secao" style="margin-top:18px;">INCLUIR O QUE FALTOU</div>
+    <input id="trEditBusca" type="search" class="trc-in" placeholder="buscar item... (o que você digitou continua guardado)" oninput="trEditFiltra()"
+      style="width:100%; max-width:360px; margin:8px 0; border-radius:8px; padding:8px 10px;">
+    <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:0 18px;">
       ${novos.map((i, idx) => `
-        <label data-busca2="${i.item.toLowerCase()}" style="display:grid; grid-template-columns:1fr 76px; gap:2px 10px; align-items:center; font-size:12.5px; color:#c3c2b7; padding:2px 0;">
-          <span>${i.item} <span style="color:#8a897e;">(${i.emb_fator ? 'pede em ' + i.emb_nome + ' de ' + trEmbDesc(i) : (i.un_medida || 'un')}${i.nao_cobrado ? ' · não cobrado' : (i.preco_tabela ? ' · R$ ' + Number(i.preco_tabela).toFixed(2) + '/' + (i.un_medida || 'un').toLowerCase() : '')})</span>${i.emb_fator ? `<br><span id="trne_${idx}" style="color:#3fb950; font-size:11px;"></span>` : ''}</span>
-          <input type="number" min="0" step="any" id="trn_${idx}" placeholder="${i.emb_fator ? i.emb_nome + 's' : ''}"${i.emb_fator ? ` oninput="trEditHint(${idx})"` : ''}
-            style="width:72px; justify-self:end; background:#232321; border:1px solid #34332f; border-radius:6px; color:#fff; padding:4px 6px; text-align:right;">
+        <label data-busca2="${i.item.toLowerCase()}" class="tr-linha" style="display:grid; grid-template-columns:1fr 76px; gap:2px 10px; align-items:center; font-size:12.5px; padding:5px 2px;">
+          <span>${i.item} <span class="tr-det">(${i.emb_fator ? 'pede em ' + i.emb_nome + ' de ' + trEmbDesc(i) : (i.un_medida || 'un')}${i.nao_cobrado ? ' · não cobrado' : (i.preco_tabela ? ' · R$ ' + Number(i.preco_tabela).toFixed(2) + '/' + (i.un_medida || 'un').toLowerCase() : '')})</span>${i.emb_fator ? `<br><span id="trne_${idx}" class="tr-conv" style="font-size:11px;"></span>` : ''}</span>
+          <input type="number" min="0" step="any" id="trn_${idx}" class="trc-in" placeholder="${i.emb_fator ? i.emb_nome + 's' : ''}"
+            oninput="trqTem(this)${i.emb_fator ? `; trEditHint(${idx})` : ''}"
+            style="width:72px; justify-self:end; text-align:right;">
         </label>`).join('')}
     </div>
-    <div class="section-label" style="margin-top:16px;">FORA DA GRADE?</div>
+    <div class="section-label tr-secao" style="margin-top:16px;">FORA DA GRADE?</div>
     <div id="trAvulsos"></div>
     <button class="preset-btn" onclick="trAddAvulso()">+ item fora da grade</button>
     <div style="margin-top:14px;">
@@ -9625,8 +9632,8 @@ async function trTelaPrecos(unidadeEscolhida) {
     <div class="caption-label">Preço de transferência de <b>${unidade}</b> = CMV + <b>${pct}%</b> de custo de produção
       (rateio da central, revisado por vigência)${dataCusto ? ` · CMV da Formação de preços de ${dataCusto.slice(8,10)}/${dataCusto.slice(5,7)}` : ''}.
       Na cobrança vale o preço congelado no ato do pedido. ${seletor}</div>
-    <input id="trPrecosBusca" type="search" placeholder="buscar item..." oninput="trPrecosFiltra()"
-      style="width:100%; max-width:340px; margin:8px 0; background:#232321; border:1px solid #34332f; border-radius:8px; color:#fff; padding:8px 10px;">
+    <input id="trPrecosBusca" type="search" class="trc-in" placeholder="buscar item..." oninput="trPrecosFiltra()"
+      style="width:100%; max-width:340px; margin:8px 0; border-radius:8px; padding:8px 10px;">
     <div id="tabelaTrPrecos"><table>
       <tr><th>Item</th><th>Grupo</th><th>Un</th><th>Como se pede</th><th>CMV</th><th>Preço</th></tr>
       ${itens.map(i => `<tr data-busca="${(i.item + ' ' + (i.grupo_separacao || '') + ' ' + (i.classe || '')).toLowerCase()}">
@@ -9698,15 +9705,15 @@ async function trAbrirSeparacao(id) {
       ${lista.status === 'SOLICITADA' ? `<button class="preset-btn" onclick="trListaAberta=null; trEditarPedido(${id})">✏️ corrigir pedido</button>` : ''}</div>
     <div id="tabelaTrOpSep"><table>
       <tr><th>Item</th><th>Solicitado</th><th>Separado</th></tr>
-      ${itens.map((i, idx) => `<tr><td>${i.item} <span class="dre-av">${i.un_medida || ''}</span>${i.avulso ? ' <span style="color:#f5a623; font-size:11px;">🆕 fora da grade</span>' : ''}${i.observacao ? ` <span style="color:#f5a623; font-size:11px;">${i.observacao}</span>` : ''}${i.editado ? ' <span style="color:#f5a623; font-size:11px;">✏️ editado</span>' : ''}</td>
+      ${itens.map((i, idx) => `<tr><td>${i.item} <span class="dre-av">${i.un_medida || ''}</span>${i.avulso ? ' <span class="tr-tag">🆕 fora da grade</span>' : ''}${i.observacao ? ` <span class="tr-tag">${i.observacao}</span>` : ''}${i.editado ? ' <span class="tr-tag">✏️ editado</span>' : ''}</td>
         <td>${Number(i.qtd_solicitada || 0)}</td>
-        <td><input type="number" min="0" step="any" id="trs_${idx}" value="${i.qtd_separada ?? i.qtd_solicitada ?? ''}"
-          style="width:80px; background:#232321; border:1px solid #34332f; border-radius:6px; color:#fff; padding:4px 6px; text-align:right;"></td></tr>`).join('')}
+        <td><input type="number" min="0" step="any" id="trs_${idx}" class="trc-in" value="${i.qtd_separada ?? i.qtd_solicitada ?? ''}"
+          style="width:80px; text-align:right;"></td></tr>`).join('')}
     </table></div>
     <div style="margin-top:12px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
       <button class="preset-btn" onclick="trSalvarSeparacao(${id})">Salvar separação</button>
-      <span>entrega: <input type="date" id="trDataEntrega" value="${trHoje()}" style="background:#232321; border:1px solid #34332f; border-radius:6px; color:#fff; padding:4px 6px;"></span>
-      <label style="font-size:12.5px; color:#c3c2b7;"><input type="checkbox" id="trFreteMichiro"> 🛵 o Michiro levou (gera o frete de R$ 50)</label>
+      <span>entrega: <input type="date" id="trDataEntrega" class="trc-in" value="${trHoje()}"></span>
+      <label style="font-size:12.5px;"><input type="checkbox" id="trFreteMichiro"> 🛵 o Michiro levou (gera o frete de R$ 50)</label>
       <button class="preset-btn" onclick="trEnviarLista(${id})">Enviar para a filial</button>
       <span id="trSepMsg" style="font-size:12px;"></span>
     </div>
@@ -9815,13 +9822,13 @@ async function trAbrirConferencia(id) {
       Conferência da lista <b>#${id}</b> — o campo vem preenchido com o separado; <b>corrija o que veio diferente</b>.</div>
     <div id="tabelaTrOpConf"><table>
       <tr><th>Item</th><th>Separado</th><th>Recebido</th></tr>
-      ${itens.map((i, idx) => `<tr><td>${i.item} <span class="dre-av">${i.un_medida || ''}</span>${i.avulso ? ' <span style="color:#f5a623; font-size:11px;">🆕 fora da grade</span>' : ''}${i.observacao ? ` <span style="color:#f5a623; font-size:11px;">${i.observacao}</span>` : ''}${i.editado ? ' <span style="color:#f5a623; font-size:11px;">✏️ editado</span>' : ''}</td>
+      ${itens.map((i, idx) => `<tr><td>${i.item} <span class="dre-av">${i.un_medida || ''}</span>${i.avulso ? ' <span class="tr-tag">🆕 fora da grade</span>' : ''}${i.observacao ? ` <span class="tr-tag">${i.observacao}</span>` : ''}${i.editado ? ' <span class="tr-tag">✏️ editado</span>' : ''}</td>
         <td>${Number(i.qtd_separada || 0)}</td>
-        <td><input type="number" min="0" step="any" id="trc_${idx}" value="${i.qtd_recebida ?? i.qtd_separada ?? 0}"
-          style="width:80px; background:#232321; border:1px solid #34332f; border-radius:6px; color:#fff; padding:4px 6px; text-align:right;"></td></tr>`).join('')}
+        <td><input type="number" min="0" step="any" id="trc_${idx}" class="trc-in" value="${i.qtd_recebida ?? i.qtd_separada ?? 0}"
+          style="width:80px; text-align:right;"></td></tr>`).join('')}
     </table></div>
     <div style="margin-top:12px;">
-      <label style="font-size:12.5px; color:#c3c2b7;"><input type="checkbox" id="trConfOk"> Conferi item a item, quantidade por quantidade</label><br>
+      <label style="font-size:12.5px;"><input type="checkbox" id="trConfOk"> Conferi item a item, quantidade por quantidade</label><br>
       <button class="preset-btn" style="margin-top:8px;" onclick="trFecharConferencia(${id})">Registrar recebimento e fechar a lista</button>
       <span id="trConfMsg" style="font-size:12px; margin-left:8px;"></span>
     </div>`;
