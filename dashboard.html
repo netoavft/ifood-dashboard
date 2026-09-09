@@ -13492,7 +13492,8 @@ async function entrarCaixa() {
     });
     CAIXA_CONTAGENS.forEach(c => { c.contado = Number(c.contado); });
     CAIXA_CARTAO.forEach(r => { ['saipos', 'rede', 'diferenca', 'saldo_acumulado'].forEach(k => { r[k] = Number(r[k]); }); });
-    CAIXA_PIX.forEach(r => { ['pdv', 'recebido', 'sem_par', 'aguardando'].forEach(k => { r[k] = Number(r[k]); }); });
+    CAIXA_PIX.forEach(r => { ['pdv', 'recebido', 'sem_par', 'aguardando', 'pdv_qr', 'recebido_qr', 'sem_par_qr', 'aguardando_qr',
+                              'pdv_chave', 'recebido_chave', 'sem_par_chave', 'aguardando_chave'].forEach(k => { r[k] = Number(r[k]); }); });
     CONCARTAO_DADOS = { dias: CAIXA_CARTAO, motoboy, semCobranca, pixSem };   // renderConcartaoMotoboy le daqui
   }
   renderModuloCaixa();
@@ -13567,13 +13568,15 @@ function renderModuloCaixa() {
           <th colspan="3" style="padding:2px 6px; text-align:center; font-weight:normal;">dinheiro</th>
           <th colspan="3" style="padding:2px 6px; text-align:center; font-weight:normal;${sep}">cartão × maquininha</th>
           <th colspan="3" style="padding:2px 6px; text-align:center; font-weight:normal;${sep}">vale × maquininha</th>
-          <th colspan="3" style="padding:2px 6px; text-align:center; font-weight:normal;${sep}">PIX × banco</th>
+          <th colspan="3" style="padding:2px 6px; text-align:center; font-weight:normal;${sep}">PIX maquininha (QR) × banco</th>
+          <th colspan="3" style="padding:2px 6px; text-align:center; font-weight:normal;${sep}">PIX chave × banco</th>
           <th></th></tr>
         <tr style="color:#9aa4af; text-align:left;">
           <th style="padding:3px 6px; font-weight:normal;">dia</th>
           <th style="${th}">PDV</th><th style="${th}">fechado no Saipos</th><th style="${th}">diferença</th>
           <th style="${th}${sep}">PDV</th><th style="${th}">maquininha</th><th style="${th}">diferença</th>
           <th style="${th}${sep}">PDV</th><th style="${th}">maquininha</th><th style="${th}">diferença</th>
+          <th style="${th}${sep}">PDV</th><th style="${th}">no banco</th><th style="${th}">sem par</th>
           <th style="${th}${sep}">PDV</th><th style="${th}">no banco</th><th style="${th}">sem par</th>
           <th style="padding:3px 6px; font-weight:normal;">turno</th></tr>`;
 
@@ -13633,9 +13636,12 @@ function renderModuloCaixa() {
       else if (r.situacao === 'OK') { situacaoHtml = '<span style="color:#3f9c5a;">✔ fechou</span>'; cor = ''; }
       else if (r.situacao === 'SEM FECHAMENTO') { situacaoHtml = '<b style="color:#ff6b6b;">não fechou</b>'; cor = 'background:rgba(255,107,107,.07);'; }
       else { situacaoHtml = '<b style="color:#f5a623;">não bate</b>'; cor = 'background:rgba(245,166,35,.07);'; }
-      const pixFalta = aberto ? vazio
-        : p.sem_par > 0 ? '<b style="color:#ff6b6b;">R$ ' + fmt(p.sem_par) + '</b>'
-        : p.aguardando > 0 ? '<span style="color:#9aa4af;" title="PIX com menos de 3 dias: o extrato ainda pode sincronizar">aguardando</span>'
+      // dois PIX, dois pares (dono, 09/09/2026): o QR da maquininha cai no banco
+      // linha a linha ("PIX QRS <cliente>"); o avulso na chave CNPJ cai como
+      // "PIX TRANSF"/"PIX RECEBIDO". Cada um confere contra o seu padrao.
+      const pixFaltaDe = (semPar, aguard) => aberto ? vazio
+        : semPar > 0 ? '<b style="color:#ff6b6b;">R$ ' + fmt(semPar) + '</b>'
+        : aguard > 0 ? '<span style="color:#9aa4af;" title="PIX com menos de 3 dias: o extrato ainda pode sincronizar">aguardando</span>'
         : vazio;
       return `<tr style="${cor} cursor:pointer;" onclick="abrirDiaConcartao('${unidade.replace(/'/g, "\\'")}', '${iso}')" title="clique para abrir as transações do dia e o que cada caixa fechou">
         <td style="padding:3px 6px; white-space:nowrap;">${fmtDia(iso)}</td>
@@ -13648,9 +13654,12 @@ function renderModuloCaixa() {
         <td style="${td}${sep}">${num(v.saipos)}</td>
         <td style="${td}">${num(v.rede)}</td>
         <td style="${td}">${aberto ? vazio : dif(v.diferenca)}</td>
-        <td style="${td}${sep}">${num(p.pdv)}</td>
-        <td style="${td}">${num(p.recebido)}</td>
-        <td style="${td}">${pixFalta}</td>
+        <td style="${td}${sep}">${num(p.pdv_qr)}</td>
+        <td style="${td}">${num(p.recebido_qr)}</td>
+        <td style="${td}">${pixFaltaDe(p.sem_par_qr, p.aguardando_qr)}</td>
+        <td style="${td}${sep}">${num(p.pdv_chave)}</td>
+        <td style="${td}">${num(p.recebido_chave)}</td>
+        <td style="${td}">${pixFaltaDe(p.sem_par_chave, p.aguardando_chave)}</td>
         <td style="padding:3px 6px; white-space:nowrap;">${situacaoHtml}</td></tr>`;
     }).join('');
 
@@ -13712,7 +13721,7 @@ function renderModuloCaixa() {
         cartão <b style="color:${corSaldo(saldoC)};">${saldoC === null ? '—' : 'R$ ' + fmt(saldoC)}</b> ·
         vale <b style="color:${corSaldo(saldoV)};">${saldoV === null ? '—' : 'R$ ' + fmt(saldoV)}</b>
         — diferença que aparece num dia e some no seguinte é horário; a que fica é venda sem par.</div>
-      <div style="overflow-x:auto;"><table style="border-collapse:collapse; width:100%; font-size:12px; min-width:980px;">
+      <div style="overflow-x:auto;"><table style="border-collapse:collapse; width:100%; font-size:12px; min-width:1180px;">
         ${cabecalho}${linhas}</table></div>
       ${contagemHtml}
     </div>`;
@@ -13723,7 +13732,8 @@ function renderModuloCaixa() {
     <div class="contexto" style="text-align:left;">
       Cada turno fecha o seu caixa no Saipos (Salão e Delivery) <b>sem digitar bandeira</b>. A conferência é feita
       aqui, no dia seguinte: <b>dinheiro</b> contra a gaveta contada, <b>cartão e vale</b> contra as maquininhas da
-      Rede (VR, Ticket, Alelo e Pluxee passam na mesma máquina), <b>PIX</b> contra o crédito no banco. Clique no dia
+      Rede (VR, Ticket, Alelo e Pluxee passam na mesma máquina), <b>PIX</b> contra o crédito no banco — o QR da maquininha
+      cai lá linha a linha com o nome do cliente ("PIX QRS"), o avulso na chave CNPJ cai como transferência. Clique no dia
       para ver as transações lado a lado e o que cada caixa fechou.
       ${semFechamentoTotal
         ? `<div style="margin-top:8px;">Agora: <b class="negativo">${semFechamentoTotal} turno(s) sem fechamento</b> nas lojas, R$ ${fmt(valorPerdidoTotal)} vendidos em dinheiro sem registro.</div>`
