@@ -9125,10 +9125,13 @@ async function entrarListasFin() {   // Listas · Financeiro
   if (LISTAS === null) {
     alvo.innerHTML = '<div class="contexto">Carregando as transferências...</div>';
     // historico da era planilha vive nas planilhas; aqui e do corte em diante.
-    // (a listagem de listas saiu daqui em 09/09 — era duplicata da aba
-    // "finalizadas" da Conferencia)
-    const mensal = await consultarTudo('vw_tr_conta_listas_mensal?select=*&mes=gte.2026-08-01&order=mes.desc');
-    LISTAS = { mensal };
+    // listasMes alimenta o drill do quadro do mes (filial -> listas -> itens)
+    const mesIni = trHoje().slice(0, 7) + '-01';
+    const [mensal, listasMes] = await Promise.all([
+      consultarTudo('vw_tr_conta_listas_mensal?select=*&mes=gte.2026-08-01&order=mes.desc'),
+      consultarTudo(`vw_tr_listas?select=id,unidade,data_pedido,data_entrega,status,itens,total_lista,itens_divergentes&fonte=eq.PAINEL&data_pedido=gte.${mesIni}&order=id.desc`),
+    ]);
+    LISTAS = { mensal, listasMes };
   }
   renderModuloListasFin();
 }
@@ -9140,9 +9143,10 @@ async function entrarListasFin() {   // Listas · Financeiro
 function renderModuloListasFin() {
   const alvo = document.getElementById('view-listasfin');
   if (!alvo || LISTAS === null) return;
-  const { mensal } = LISTAS;
+  const { mensal, listasMes } = LISTAS;
   const nu = (v) => Number(v) || 0;
   const mesTxt = (m) => { const [a, mm] = m.split('-'); return MESES_ABREV[Number(mm) - 1] + '/' + a.slice(2); };
+  window._trFinListas = listasMes || [];
 
   if (!mensal.length) {
     alvo.innerHTML = '<div class="contexto">Sem listas importadas — rode <b>script/import_listas.py</b>.</div>';
@@ -9174,17 +9178,30 @@ function renderModuloListasFin() {
 
     <div class="section-label">${parciais.length ? mesTxt(parciais[0].mes).toUpperCase() : 'MÊS'} EM ANDAMENTO — fechamento parcial por filial</div>
     <div class="caption-label" style="text-align:center;">
-      O que cada filial já deve pelo mês corrente: listas conferidas até agora + frete marcado + royalty da regra.
-      O número cresce a cada lista e vira cobrança no <b>Fechamento do mês</b>.
+      Clique na filial para abrir as listas do mês; clique na lista para ver os itens.
+      "Frete Michiro" de Ahú/S.Braz é pago direto por elas (não entra no devido); o do Boqueirão a Água Verde recobra.
     </div>
     ${parciais.length ? `<div id="tabelaTrParcial"><table>
-      <tr><th>Filial</th><th>Listas</th><th>Itens (R$)</th><th>Frete</th><th>Royalty</th><th>Parcial devido</th></tr>
-      ${parciais.map(r => `<tr>
-        <td>${r.unidade}</td><td>${r.listas}</td>
+      <tr><th>Filial</th><th>Listas</th><th>Itens (R$)</th><th>Frete Michiro</th><th>Royalty</th><th>Parcial devido</th></tr>
+      ${parciais.map((r, ix) => {
+        const doMes = (listasMes || []).filter(l => l.unidade === r.unidade);
+        const freteDir = nu(r.frete_pago_direto);
+        return `<tr onclick="trFinToggle(${ix})" style="cursor:pointer;" title="clique para abrir as listas">
+        <td>▸ ${r.unidade}</td><td>${r.listas}</td>
         <td>R$ ${fmt(nu(r.valor_lista))}</td>
-        <td>${nu(r.frete) ? 'R$ ' + fmt(nu(r.frete)) : '—'}</td>
+        <td>${nu(r.frete) ? 'R$ ' + fmt(nu(r.frete)) : (freteDir ? `<span style="color:#8a897e;">R$ ${fmt(freteDir)} (pago direto)</span>` : '—')}</td>
         <td>${nu(r.royalty) ? 'R$ ' + fmt(nu(r.royalty)) + ' <span style="color:#8a897e; font-size:11px;">(regra)</span>' : '—'}</td>
-        <td><b>R$ ${fmt(nu(r.total_devido))}</b></td></tr>`).join('')}
+        <td><b>R$ ${fmt(nu(r.total_devido))}</b></td></tr>
+        <tr id="trFinFil_${ix}" hidden><td colspan="6" style="text-align:left; white-space:normal; padding:8px 14px;">
+          ${doMes.length ? doMes.map(l => `
+            <div onclick="trFinVerLista(${l.id}); event.stopPropagation();" style="cursor:pointer; padding:5px 0; border-bottom:1px solid #2e2d2a;" title="clique para ver os itens">
+              ▸ Lista <b>#${l.id}</b> · ${l.data_pedido ? l.data_pedido.slice(8,10)+'/'+l.data_pedido.slice(5,7) : '—'}
+              · ${l.status} · ${l.itens} itens · <b>R$ ${fmt(nu(l.total_lista))}</b>
+              ${nu(l.itens_divergentes) ? `<span class="tr-tag">· ${l.itens_divergentes} diferença(s)</span>` : ''}
+              <div id="trFinLista_${l.id}" hidden style="margin:6px 0 4px 14px; font-size:12.5px;"></div>
+            </div>`).join('') : '<span style="color:#8a897e;">nenhuma lista neste mês</span>'}
+        </td></tr>`;
+      }).join('')}
     </table></div>` : '<div class="contexto">Nenhuma lista fechada ainda neste mês — a primeira conferência acende esta tabela.</div>'}
 
     <div id="trOperacao"><div class="contexto">Carregando a operação...</div></div>
@@ -9204,6 +9221,34 @@ function renderModuloListasFin() {
         (deriva de R$ ${fmt(Math.abs(derivaTotal))} — positiva = cobrou a menos). Mês fechado vale pelo congelado.</div>` : ''}
     </details>`;
   entrarOperacaoListas();
+}
+
+// drill do quadro do mes (09/09/2026): filial -> listas -> itens da lista
+function trFinToggle(ix) {
+  const el = document.getElementById('trFinFil_' + ix);
+  if (el) el.hidden = !el.hidden;
+}
+async function trFinVerLista(id) {
+  const el = document.getElementById('trFinLista_' + id);
+  if (!el) return;
+  if (!el.hidden) { el.hidden = true; return; }
+  if (!el.dataset.pronto) {
+    el.innerHTML = 'carregando...';
+    el.hidden = false;
+    const itens = await consultarTudo(`tr_lista_itens?id_lista=eq.${id}&order=item&select=item,un_medida,qtd_solicitada,qtd_separada,qtd_recebida,observacao,avulso,editado`);
+    el.innerHTML = `<table style="border-collapse:collapse;">
+      <tr><th style="text-align:left; padding:2px 10px 2px 0;">Item</th><th style="padding:2px 8px;">Pedido</th><th style="padding:2px 8px;">Separado</th><th style="padding:2px 8px;">Recebido</th></tr>
+      ${itens.map(i => { const dif = Number(i.qtd_recebida ?? 0) !== Number(i.qtd_separada ?? 0); return `<tr>
+        <td style="text-align:left; padding:2px 10px 2px 0;">${i.item} <span class="dre-av">${i.un_medida || ''}</span>${i.avulso ? ' <span class="tr-tag">🆕</span>' : ''}${i.editado ? ' <span class="tr-tag">✏️</span>' : ''}${i.observacao ? ` <span class="tr-tag">${i.observacao}</span>` : ''}</td>
+        <td style="padding:2px 8px;">${Number(i.qtd_solicitada || 0)}</td>
+        <td style="padding:2px 8px;">${Number(i.qtd_separada ?? 0)}</td>
+        <td style="padding:2px 8px;${dif ? ' color:#ff6b6b; font-weight:700;' : ''}">${Number(i.qtd_recebida ?? 0)}</td>
+      </tr>`; }).join('')}
+    </table>`;
+    el.dataset.pronto = '1';
+    return;
+  }
+  el.hidden = false;
 }
 
 // ------------------------------------------------------------------
