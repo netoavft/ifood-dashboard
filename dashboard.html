@@ -4402,9 +4402,13 @@ async function abrirDiaConcartao(unidade, dia) {
   const cont = document.getElementById('concartao-dia');
   if (!cont) return;
   cont.innerHTML = '<div class="contexto">Carregando transações do dia...</div>';
+  // vespera e dia seguinte entram como CANDIDATOS ao par (cartao passado 23:50 e
+  // comanda fechada 00:29 nao pode aparecer sem par nos dois dias — dono, 09/09/2026);
+  // so as linhas do proprio dia sao mostradas.
+  const diaMais = k => { const x = new Date(dia + 'T12:00:00'); x.setDate(x.getDate() + k); return x.toLocaleDateString('en-CA'); };
   const [trs, pix, cobr, forma] = await Promise.all([
-    consultarTudo('vw_cartao_transacoes?select=*&dia=eq.' + dia +
-      '&unidade=eq.' + encodeURIComponent(unidade) + '&order=hora'),
+    consultarTudo('vw_cartao_transacoes?select=*&dia=in.(' + [diaMais(-1), dia, diaMais(1)].join(',') + ')' +
+      '&unidade=eq.' + encodeURIComponent(unidade) + '&order=dia,hora'),
     // PIX do dia (09/09/2026): QR da maquininha e chave, com o credito do banco que casou
     consultarTudo('vw_pix_conciliacao?select=id_sale,tipo,valor,entrega,entregador,subgrupo,recebido,aguardando,memo_banco,data_banco,conta_banco&dia=eq.' + dia +
       '&unidade=eq.' + encodeURIComponent(unidade) + '&order=entrega'),
@@ -4417,6 +4421,9 @@ async function abrirDiaConcartao(unidade, dia) {
   ]);
   const reaisCc = v => 'R$ ' + Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const min = h => { const p = (h || '0:0:0').split(':'); return (+p[0]) * 60 + (+p[1]); };
+  // minutos contados a partir da meia-noite do dia aberto (vespera negativa, seguinte > 1440)
+  trs.forEach(x => { x.t = min(x.hora) + Math.round((new Date(x.dia + 'T12:00:00') - new Date(dia + 'T12:00:00')) / 864e5) * 1440; });
+  const doDia = x => x.dia === dia;
 
   const saipos = trs.filter(t => t.origem === 'SAIPOS').map(t => ({ ...t, par: null }));
   const rede = trs.filter(t => t.origem === 'REDE').map(t => ({ ...t, usado: false }));
@@ -4424,14 +4431,14 @@ async function abrirDiaConcartao(unidade, dia) {
     let melhor = null, dist = 181;                       // tolerância: 3 h
     rede.forEach(r => {
       if (r.usado || Math.abs(+r.valor - +s.valor) > 0.005) return;
-      const d = Math.abs(min(r.hora) - min(s.hora));
+      const d = Math.abs(r.t - s.t);
       if (d < dist) { dist = d; melhor = r; }
     });
-    if (melhor) { melhor.usado = true; s.par = melhor; s.dist = dist; }
+    if (melhor) { melhor.usado = true; melhor.parDe = s; s.par = melhor; s.dist = dist; }
   });
   let semParS = saipos.filter(s => !s.par);
   let semParR = rede.filter(r => !r.usado);
-  const casados = saipos.filter(s => s.par);
+  let casados = saipos.filter(s => s.par);
 
   // Conta dividida (regra do dono, 28/08/2026): uma transação de um lado
   // composta pela soma de 2–3 do outro, componentes até 45 min entre si.
@@ -4447,9 +4454,9 @@ async function abrirDiaConcartao(unidade, dia) {
       })(0, []);
       for (const itens of combos) {
         const soma = itens.reduce((a, t) => a + +t.valor, 0);
-        const ms = itens.map(t => min(t.hora));
+        const ms = itens.map(t => t.t);
         if (Math.abs(soma - +alvo.valor) < 0.005 && Math.max(...ms) - Math.min(...ms) <= 45
-            && ms.some(m => Math.abs(m - min(alvo.hora)) <= 180)) return itens;
+            && ms.some(m => Math.abs(m - alvo.t) <= 180)) return itens;
       }
     }
     return null;
@@ -4480,7 +4487,7 @@ async function abrirDiaConcartao(unidade, dia) {
   [...semParS].forEach(s => {
     let melhor = null, nota = Infinity;
     semParR.filter(r => !r._quase).forEach(r => {
-      const dv = Math.abs(+r.valor - +s.valor), dt = Math.abs(min(r.hora) - min(s.hora));
+      const dv = Math.abs(+r.valor - +s.valor), dt = Math.abs(r.t - s.t);
       if (dv > 0 && dv <= 2.00 && dt <= 30 && dv * 1000 + dt < nota) { nota = dv * 1000 + dt; melhor = r; }
     });
     if (melhor) {
@@ -4491,6 +4498,11 @@ async function abrirDiaConcartao(unidade, dia) {
   });
   semParS = semParS.filter(t => !t._quase);
   semParR = semParR.filter(t => !t._quase);
+  // vespera/dia seguinte serviram so de candidatos: daqui em diante, so o dia aberto
+  semParS = semParS.filter(doDia); semParR = semParR.filter(doDia); casados = casados.filter(doDia);
+  compostos.splice(0, compostos.length, ...compostos.filter(c => c.alvo.dia === dia));
+  arredond.splice(0, arredond.length, ...arredond.filter(q => q.s.dia === dia));
+  conferir.splice(0, conferir.length, ...conferir.filter(q => q.s.dia === dia));
 
   // ---- Mergulho do dia, versao transparente (dono, 09/09/2026: "a tela mais
   // transparente e funcional possivel"). UMA lista do que falta conferir, em
@@ -4571,11 +4583,14 @@ async function abrirDiaConcartao(unidade, dia) {
     // (decisao do dono, 09/09/2026: nada se corrige no Saipos). Fica so o registro.
     ...(forma || []).map(f => ({ hora: hhmm(String(f.hora || '').slice(11)), tipo: 'forma diferente (' + String(f.nivel).toLowerCase() + ')', texto: `registrado ${f.registrado}, passou ${f.passou} — ${reaisCc(f.valor)}; o painel já usa o que passou` })),
   ];
-  const somaS = saipos.reduce((a, t) => a + +t.valor, 0), somaR = rede.reduce((a, t) => a + +t.valor, 0);
+  const somaS = saipos.filter(doDia).reduce((a, t) => a + +t.valor, 0), somaR = rede.filter(doDia).reduce((a, t) => a + +t.valor, 0);
   const pixPdv = pix.reduce((a, x) => a + +x.valor, 0), pixNoBanco = pix.filter(x => x.recebido).reduce((a, x) => a + +x.valor, 0);
   const bateram = casados.length + compostos.reduce((a, c) => a + c.itens.length + 1, 0) + arredond.length * 2 + pix.filter(x => x.recebido).length;
   const num = (v, cor) => `<b style="color:${cor || '#e8e6dc'};">${reaisCc(v)}</b>`;
   const difMaq = somaS - somaR;
+  // o que casou atravessando a meia-noite explica parte da diferenca crua do dia
+  const viradaSaipos = casados.filter(x => x.par && !doDia(x.par)).reduce((a, x) => a + +x.valor, 0);
+  const viradaRede = rede.filter(r => doDia(r) && r.parDe && !doDia(r.parDe)).reduce((a, r) => a + +r.valor, 0);
 
   // O que cada CAIXA do Saipos fechou no turno (dono, 09/09/2026): Salao e
   // Delivery, forma a forma — para bater com a tela de fechamento de cada
@@ -4590,6 +4605,15 @@ async function abrirDiaConcartao(unidade, dia) {
     }).join('')}</div>`;
 
   const th = 'padding:4px 8px; font-weight:normal; color:#a5a49a; font-size:11px; text-transform:uppercase; text-align:left;';
+  // Quatro blocos por DIRECAO (dono, 09/09/2026): cada direcao pede uma acao diferente,
+  // e o titulo em palavras dispensa legenda de cor.
+  const GRUPOS_PEND = [
+    { id: 'saipos', cor: '#ff6b6b', titulo: 'O Saipos registrou, mas a maquininha ou o banco não tem', sub: 'dinheiro que pode não ter entrado — ou vale ainda por aparecer', hora: 'hora no Saipos / da entrega' },
+    { id: 'maquina', cor: '#f5a623', titulo: 'A maquininha tem, mas o Saipos não registrou', sub: 'venda sem registro no Saipos, ou lançada em outra forma', hora: 'hora na maquininha' },
+    { id: 'quase', cor: '#f5a623', titulo: 'Quase bate — conferir', sub: 'valor quase igual no mesmo horário, ou o mesmo crédito do banco servindo a mais de um PIX', hora: 'hora no Saipos' },
+    { id: 'auto', cor: '#9aa4af', titulo: 'Deve se resolver sozinho', sub: 'mesmo valor dos dois lados com horários distantes, ou PIX de fim de semana ainda por cair no banco', hora: 'hora no Saipos' },
+  ];
+  const grupoDe = x => x.cor === '#9aa4af' ? 'auto' : x.chave.startsWith('rede:') ? 'maquina' : (x.chave.startsWith('quase:') || x.chave.startsWith('pixdup:')) ? 'quase' : 'saipos';
   const btnExp = x => podeExplicar ? `<button onclick="caixaExplicar(${x.i})" style="font:inherit; font-size:11px; padding:2px 8px; cursor:pointer;">explicar</button>` : '';
   const linhaP = p => `<tr style="color:${p.cor}; border-top:1px solid rgba(154,164,175,.12);">
     <td style="padding:5px 8px; white-space:nowrap;">${p.hora}</td>
@@ -4609,16 +4633,18 @@ async function abrirDiaConcartao(unidade, dia) {
   cont.innerHTML = `<div class="card" style="margin:14px 0;">
     <div style="font-size:15px; font-weight:700; margin-bottom:6px;">${unidade} — ${dia.split('-').reverse().join('/')}</div>
     <div style="display:flex; flex-wrap:wrap; gap:6px 18px; font-size:12px; color:#a5a49a; margin-bottom:6px;">
-      <span>Cartão + vale: Saipos ${num(somaS)} · maquininha ${num(somaR)} · diferença ${num(difMaq, Math.abs(difMaq) < 0.01 ? '#7bc47f' : '#f5a623')}</span>
+      <span>Cartão + vale: Saipos ${num(somaS)} · maquininha ${num(somaR)} · diferença ${num(difMaq, Math.abs(difMaq) < 0.01 ? '#7bc47f' : '#f5a623')}${viradaSaipos || viradaRede ? ` <span title="pagamentos que casaram com a véspera ou com a madrugada seguinte — a diferença do dia se resolve no dia vizinho">(na virada do dia: ${viradaSaipos ? reaisCc(viradaSaipos) + ' do Saipos veio da véspera' : ''}${viradaSaipos && viradaRede ? ', ' : ''}${viradaRede ? reaisCc(viradaRede) + ' da maquininha caiu na madrugada seguinte' : ''})</span>` : ''}</span>
       ${pix.length ? `<span>PIX: Saipos ${num(pixPdv)} · no banco ${num(pixNoBanco, Math.abs(pixPdv - pixNoBanco) < 0.01 ? '#7bc47f' : '#f5a623')}</span>` : ''}
       <span>${bateram} pagamento(s) bateram sozinhos</span>
     </div>
     ${turnoHtml}
-    ${abertas.length ? `<div style="font-size:12px; color:#a5a49a; text-transform:uppercase; margin:10px 0 2px;">Para conferir (${abertas.length})</div>
+    ${abertas.length ? `<div style="font-size:12px; color:#a5a49a; text-transform:uppercase; margin:10px 0 2px;">Para conferir (${abertas.length})${podeExplicar ? ' <span style="text-transform:none; color:#8a897e;">— "explicar" grava o motivo e tira a linha daqui</span>' : ''}</div>
+      ${GRUPOS_PEND.map(g => { const lst = abertas.filter(x => grupoDe(x) === g.id); return !lst.length ? '' : `
+      <div style="margin:8px 0 2px; font-size:13px; font-weight:600; color:${g.cor};">${g.titulo} (${lst.length})</div>
+      <div style="font-size:11px; color:#8a897e; margin-bottom:2px;">${g.sub}</div>
       <div style="overflow-x:auto;"><table style="border-collapse:collapse; font-size:12px; width:100%; min-width:760px;">
-        <tr><th style="${th}">hora</th><th style="${th}">o Saipos diz</th><th style="${th}">a maquininha / o banco diz</th><th style="${th} text-align:right;">valor</th><th style="${th}">o que parece</th><th style="${th}">o que fazer</th><th></th></tr>
-        ${abertas.map(linhaP).join('')}</table></div>
-      <div style="font-size:11px; color:#8a897e; margin-top:6px;">vermelho = dinheiro que pode não ter entrado · laranja = provável erro de registro · cinza = deve se resolver sozinho${podeExplicar ? ' · <b>explicar</b> grava o motivo e tira a linha daqui' : ''}</div>`
+        <tr><th style="${th}">${g.hora}</th><th style="${th}">o Saipos diz</th><th style="${th}">a maquininha / o banco diz</th><th style="${th} text-align:right;">valor</th><th style="${th}">o que parece</th><th style="${th}">o que fazer</th><th></th></tr>
+        ${lst.map(linhaP).join('')}</table></div>`; }).join('')}`
       : `<div style="color:#7bc47f; margin:10px 0;">✔ Nada para conferir neste dia${explicadas.length ? ` — ${explicadas.length} pendência(s) explicada(s)` : ': tudo o que o Saipos registrou bateu com a maquininha e com o banco'}.</div>`}
     ${explicadas.length ? `<details open style="margin-top:10px;"><summary style="cursor:pointer; font-size:12px; color:#a5a49a;">Explicadas (${explicadas.length})</summary>
       <div style="overflow-x:auto;"><table style="border-collapse:collapse; font-size:12px; width:100%;">
