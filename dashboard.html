@@ -13496,12 +13496,13 @@ function renderCaixaBandeira() {
       <td style="padding:3px 8px; text-align:right;">R$ ${fmt(r.valor)}</td>
       <td style="padding:3px 8px; color:${corNivel(r.nivel)};">${r.nivel.toLowerCase()}${r.candidatas > 1 ? ` <span style="color:#9aa4af;" title="havia ${r.candidatas} transações do mesmo valor na janela; nenhuma com a bandeira registrada">(${r.candidatas} candidatas)</span>` : ''}</td>
     </tr>`).join('');
-  return `<details style="margin:14px 0;"><summary style="cursor:pointer; font-size:14px; font-weight:600;">💳 Bandeira diferente da registrada
-      <span style="color:#9aa4af; font-weight:normal;">(${lista.length} em 60 dias: ${Object.entries(porNivel).map(([n, q]) => `<span style="color:${corNivel(n)};">${q} ${n.toLowerCase()}</span>`).join(' · ')})</span></summary>
+  return `<details style="margin:14px 0;"><summary style="cursor:pointer; font-size:14px; font-weight:600;">💳 Forma diferente da registrada — absorvida aqui
+      <span style="color:#9aa4af; font-weight:normal;">(${lista.length}: ${Object.entries(porNivel).map(([n, q]) => `<span style="color:${corNivel(n)};">${q} ${n.toLowerCase()}</span>`).join(' · ')})</span></summary>
     <div class="card" style="margin:8px 0; overflow-x:auto;">
-      <div style="font-size:12px; color:#8a897e; margin-bottom:6px;">O PDV registrou uma forma e a maquininha (ou o banco, no PIX) diz que passou outra. <b>forma</b> (cartão × vale × PIX) e
-        <b>crédito/débito</b> mudam a taxa e o prazo — corrigir no Saipos; <b>bandeira</b> (Master × Visa) é só cadastro. Só entra aqui quando nenhuma transação
-        do mesmo valor na janela tem a bandeira registrada.</div>
+      <div style="font-size:12px; color:#8a897e; margin-bottom:6px;">O PDV registrou uma forma e a maquininha (ou o banco, no PIX) diz que passou outra. <b>Nada a corrigir no Saipos</b>:
+        o fechamento já usa a forma que passou de fato (regra do dono, 09/09/2026). A lista fica para conhecimento — serve para mostrar à equipe o botão certo.
+        <b>forma</b> (cartão × vale × PIX) e <b>crédito/débito</b> mudam a taxa e o prazo; <b>bandeira</b> (Master × Visa) é só cadastro. Só entra aqui quando
+        nenhuma transação do mesmo valor na janela tem a bandeira registrada.</div>
       <table style="border-collapse:collapse; font-size:12px; min-width:640px;">
         <tr style="color:#a5a49a; text-transform:uppercase; font-size:11px;">
           <td style="padding:3px 8px;">quando</td><td style="padding:3px 8px;">loja</td><td style="padding:3px 8px;">canal</td>
@@ -13537,8 +13538,9 @@ async function entrarCaixa() {
       consultarTudo('vw_cartao_motoboy_mensal?select=*&sem_cobranca=gt.0&order=mes.desc,valor_sem_cobranca.desc&limit=60'),
       consultarTudo('vw_cartao_entrega_cobranca?select=dia,unidade,entregador,tipo,valor,entrega&cobrado=eq.false&aguardando=eq.false&order=dia.desc&limit=40'),
       consultarTudo('vw_pix_conciliacao?select=dia,unidade,canal,entregador,tipo,valor&recebido=eq.false&aguardando=eq.false&order=dia.desc&limit=40'),
-      // varredura "bandeira diferente da registrada" (dono, 09/09/2026)
-      consultarTudo('vw_cartao_bandeira_divergente?select=*&order=dia.desc,hora.desc&limit=300'),
+      // forma registrada x forma que passou (dono, 09/09/2026): a base ja absorve; a
+      // lista e informativa, so os ultimos 60 dias
+      consultarTudo('vw_cartao_bandeira_divergente?select=*&dia=gte.' + new Date(Date.now() - 60 * 864e5).toLocaleDateString('en-CA') + '&order=dia.desc,hora.desc&limit=300'),
     ]);
     CAIXA_BANDEIRA.forEach(r => { r.valor = Number(r.valor); });
     CAIXA_DIAS.forEach(r => {
