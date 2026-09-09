@@ -5737,8 +5737,13 @@ function renderConcbanco() {
     // que aparece e atraso da FONTE, nao lancamento faltando — e cobrar por isso
     // ensina todo mundo a ignorar a lista.
     const semExtrato = c.temOntem && !c.temOfx && !fechou;
-    const cor = !c.temOntem ? '#a5a49a' : fechou ? '#2e7d32' : semExtrato ? '#b8860b' : '#c8102e';
-    const marca = !c.temOntem ? '—' : fechou ? '✓' : semExtrato ? '?' : '✗';
+    // O TRAVESSAO AQUI E PROVISORIO: conta que nao movimentou no dia nao tem o que
+    // fechar, mas TEM saldo — e o saldo pode estar conferido. Mais abaixo, quando a
+    // coluna do saldo souber a resposta, esta marca e promovida a ✓ ou ✗. Sem isso a
+    // linha se contradizia: travessao cinza no status e "Saipos igual" em verde no
+    // saldo, na mesma linha (dono, 09/09/2026, olhando PARTICIPACOES e SANTANDER).
+    let cor = !c.temOntem ? '#a5a49a' : fechou ? '#2e7d32' : semExtrato ? '#b8860b' : '#c8102e';
+    let marca = !c.temOntem ? '—' : fechou ? '✓' : semExtrato ? '?' : '✗';
     // total do banco em cima; embaixo, quando os totais do dia nao batem, a
     // diferenca contra o Saipos daquele lado — e o numero que diz ONDE procurar
     // (entrada ou saida) antes de abrir os quadros linha a linha.
@@ -5818,6 +5823,12 @@ function renderConcbanco() {
         // conciliado, aquilo era aviso de nada. Aviso que não pede ação treina a
         // pessoa a ignorar a coluna inteira, e junto vai o aviso que importa.
         const bateu = Math.abs(dif) < TOL_SALDO;
+        // Conta parada no dia: o status vem do SALDO, que é a única pergunta que
+        // ela ainda responde. Verde quando banco e Saipos dão o mesmo número.
+        if (!c.temOntem) {
+          marca = bateu ? '✓' : '✗';
+          cor = bateu ? '#2e7d32' : '#c8102e';
+        }
         // A decomposição (fila, outra data, varredura) só existe para ONTEM: ela
         // depende do resíduo acumulado que o comparador grava. Em dia anterior eu
         // tenho só os dois saldos — então a diferença crua vira o alerta, sem
