@@ -877,6 +877,7 @@
       <button class="sidebar-btn" id="navBtnProjecao" onclick="mostrarModulo('projecao')"><span class="mico">🔮</span>Fluxo projetado</button>
       <button class="sidebar-btn" id="navBtnConcbanco" onclick="mostrarModulo('concbanco')"><span class="mico">🏦</span>Conciliação bancária</button>
       <button class="sidebar-btn" id="navBtnCaixa" onclick="mostrarModulo('caixa')"><span class="mico">🗃️</span>Fechamento de Caixas</button>
+      <button class="sidebar-btn" id="navBtnRede" onclick="mostrarModulo('rede')"><span class="mico">🏧</span>Taxas da maquininha</button>
       <button class="sidebar-btn" id="navBtnDespesas" onclick="mostrarModulo('despesas')"><span class="mico">🧾</span>Análise de despesas</button>
       <button class="sidebar-btn" id="navBtnReembolsos" onclick="mostrarModulo('reembolsos')"><span class="mico">💸</span>Reembolsos</button>
       <button class="sidebar-btn" id="navBtnRh" onclick="mostrarModulo('rh')"><span class="mico">💳</span>Descontos em folha</button>
@@ -1015,6 +1016,11 @@
       <div id="view-concbanco"></div>
     </div>
 
+    <!-- Taxas da maquininha (09/09/2026): modulo proprio de novo — cobrado x combinado -->
+    <div id="modulo-rede" class="modulo" style="display:none;">
+      <div id="view-rede"></div>
+    </div>
+
     <div id="modulo-reembolsos" class="modulo" style="display:none;">
       <div id="view-reembolsos"></div>
     </div>
@@ -1112,9 +1118,6 @@
     <div id="modulo-caixa" class="modulo" style="display:none;">
       <div id="view-caixa"></div>
       <div id="concartao-dia"></div>
-      <details style="margin:14px 0;"><summary style="cursor:pointer; font-size:14px; font-weight:600;">🏧 Taxas &amp; aluguel das maquininhas (Rede)</summary>
-        <div id="view-rede"></div>
-      </details>
     </div>
 
     <div id="modulo-indicadores" class="modulo" style="display:none;">
@@ -1667,7 +1670,7 @@ function abrirGrupoDoModulo(nome) {
                     site: 'gSite',
                     atrasos: 'gEntrega', frete: 'gEntrega', logfin: 'gEntrega',
                     fluxo: 'gFinanceiro', projecao: 'gFinanceiro', despesas: 'gFinanceiro',
-                    concbanco: 'gFinanceiro', caixa: 'gFinanceiro',
+                    concbanco: 'gFinanceiro', caixa: 'gFinanceiro', rede: 'gFinanceiro',
                     reembolsos: 'gFinanceiro', rh: 'gFinanceiro',
                     listas: 'gProducao',
                     qualidade: 'gIfood',
@@ -1697,9 +1700,10 @@ const MODULOS_COM_FILTRO_TOPO = new Set(['estasemana', 'resumo', 'cancelamentos'
   'promocoes', 'qualidade', 'site']);
 
 function mostrarModulo(nome) {
-  // 09/09/2026: Cartao & maquininha e Conciliacao de cartao viraram secoes do
-  // Fechamento de Caixas — link antigo cai no modulo unico em vez de quebrar.
-  if (nome === 'rede' || nome === 'concartao') nome = 'caixa';
+  // 09/09/2026: Conciliacao de cartao virou parte do Fechamento de Caixas — link
+  // antigo cai no modulo unico em vez de quebrar. (Taxas da maquininha voltou a
+  // ser modulo proprio no mesmo dia.)
+  if (nome === 'concartao') nome = 'caixa';
   MODULO_ATUAL = nome; // usado pelo setPerimetro para reentrar no modulo atual
   abrirGrupoDoModulo(nome);
   const rodape = document.querySelector('.footer');
@@ -1752,6 +1756,7 @@ function mostrarModulo(nome) {
     forafolha: ['modulo-forafolha', 'navBtnForafolha'],
     concbanco: ['modulo-concbanco', 'navBtnConcbanco'],
     caixa: ['modulo-caixa', 'navBtnCaixa'],
+    rede: ['modulo-rede', 'navBtnRede'],
   };
   Object.entries(modulos).forEach(([chave, [idDiv, idBtn]]) => {
     // Tolerante a botao/div ausente: o menu e mexido com frequencia e um id
@@ -1799,6 +1804,7 @@ function mostrarModulo(nome) {
   if (nome === 'telas') entrarTelas();
   if (nome === 'concbanco') entrarConcbanco();
   if (nome === 'caixa') entrarCaixa();
+  if (nome === 'rede') entrarRede();
   if (nome === 'reembolsos') entrarReembolsos();
   if (nome === 'rh') entrarRh();
   if (nome === 'forafolha') entrarForaFolha();
@@ -4659,133 +4665,193 @@ async function caixaDesfazer(i) {
 }
 
 let REDE_DADOS = null;
+// TAXAS DA MAQUININHA (dono, 09/09/2026): "a ideia aqui e verificar se as taxas e os
+// custos com maquininha estao batendo" — batendo com o COMBINADO. Modulo proprio de
+// novo (saiu do Fechamento de Caixas), com filtro de loja e mes. O combinado e DADO
+// (rede_taxa_combinada / rede_aluguel_combinado), digitado pelo dono aqui mesmo.
+let REDE_FILTRO = { loja: '', mes: null };   // mes null = ultimo mes com dado; '' = tudo
+function redeFiltrar(campo, valor) { REDE_FILTRO[campo] = valor; renderModuloRede(REDE_DADOS); }
 
 async function carregarRede() {
-  const [taxas, aluguel] = await Promise.all([
-    consultarTudo('vw_rede_taxas_efetivas?select=unidade,modalidade,n_vendas,bruto,mdr_cobrado&ambiente=eq.producao'),
-    consultarTudo('vw_rede_aluguel?select=unidade,mes,aluguel&ambiente=eq.producao&order=unidade,mes'),
+  await carregarEmailDono();   // decide se aparecem os botoes "definir combinado"
+  const [taxas, aluguel, cobrancas, depara, taxaComb, alugComb] = await Promise.all([
+    consultarTudo('vw_rede_taxas_efetivas?select=unidade,mes,modalidade,bandeira_codigo,parcelas,n_vendas,bruto,mdr_cobrado&ambiente=eq.producao'),
+    consultarTudo('vw_rede_aluguel?select=unidade,mes,n_cobrancas,aluguel&ambiente=eq.producao'),
+    consultarTudo('vw_rede_cobrancas?select=unidade,mes,tipo_codigo,tipo_descricao,n,valor&ambiente=eq.producao'),
+    consultarTudo('cartao_bandeira_de_para?select=modalidade,bandeira_codigo,bandeira'),
+    consultarTudo('rede_taxa_combinada?select=*'),
+    consultarTudo('rede_aluguel_combinado?select=*'),
   ]);
-  return { taxas, aluguel };
+  return { taxas, aluguel, cobrancas, depara, taxaComb, alugComb };
 }
 
 async function entrarRede() {
   const alvo = document.getElementById('view-rede');
   if (!alvo) return;
   if (REDE_DADOS === null) {
-    alvo.innerHTML = '<div class="contexto">Carregando cartão e maquininha (dados da Rede)...</div>';
+    alvo.innerHTML = '<div class="contexto">Carregando taxas da maquininha (dados da Rede)...</div>';
     REDE_DADOS = await carregarRede();
   }
   renderModuloRede(REDE_DADOS);
 }
+async function redeRecarregar() { REDE_DADOS = await carregarRede(); renderModuloRede(REDE_DADOS); }
 
-function renderModuloRede({ taxas, aluguel }) {
+// O combinado so o dono grava (policy eh_dono). prompt() basta: sao poucos numeros.
+async function redeGravar(tabela, conflito, corpo) {
+  const s = rmbSessao();
+  if (!s || !s.email) { alert('Sessão expirada — faça login de novo.'); return false; }
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${tabela}?on_conflict=${conflito}`, {
+    method: 'POST', headers: rmbHeaders({ Prefer: 'resolution=merge-duplicates' }),
+    body: JSON.stringify({ ...corpo, quem: s.email, atualizado_em: new Date().toISOString() }),
+  });
+  if (!r.ok) { alert('Não consegui gravar: ' + (await r.text()).slice(0, 160)); return false; }
+  return true;
+}
+async function redeDefinirTaxa(modalidade, bandeira, parcelas) {
+  const v = prompt(`Taxa combinada com a Rede para ${modalidade === 'CREDIT' ? 'crédito' : modalidade === 'DEBIT' ? 'débito' : 'vale'} ${bandeira}${parcelas > 1 ? ' em ' + parcelas + 'x' : ''} (% sobre a venda, ex.: 1,43):`);
+  if (v === null) return;
+  const pct = Number(String(v).replace(',', '.'));
+  if (!(pct >= 0 && pct < 20)) { alert('Digite a taxa em %, como 1,43.'); return; }
+  if (await redeGravar('rede_taxa_combinada', 'modalidade,bandeira,parcelas', { modalidade, bandeira, parcelas, taxa_pct: pct })) await redeRecarregar();
+}
+async function redeDefinirAluguel(unidade) {
+  const v = prompt(`Aluguel combinado por máquina, por mês, em ${unidade} (R$, ex.: 69):`);
+  if (v === null) return;
+  const valor = Number(String(v).replace('.', '').replace(',', '.'));
+  if (!(valor >= 0)) { alert('Digite o valor em reais, como 69 ou 69,00.'); return; }
+  const q = prompt(`Quantas máquinas em ${unidade}?`, '1');
+  if (q === null) return;
+  const maquinas = parseInt(q, 10);
+  if (!(maquinas >= 0)) { alert('Digite a quantidade de máquinas.'); return; }
+  if (await redeGravar('rede_aluguel_combinado', 'unidade', { unidade, valor_mes: valor, maquinas })) await redeRecarregar();
+}
+
+function renderModuloRede(d) {
   const alvo = document.getElementById('view-rede');
-  if (!alvo) return;
-  const reais = (v) => 'R$ ' + Number(v).toLocaleString('pt-BR', { minimumFractionDigits:2, maximumFractionDigits:2 });
+  if (!alvo || !d) return;
+  const { taxas, aluguel, cobrancas, depara, taxaComb, alugComb } = d;
+  const reais = (v) => 'R$ ' + Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const pc = (v) => Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '%';
   const efetiva = (mdr, br) => br > 0 ? (100 * mdr / br) : 0;
-  const MOD_ROTULO = { CREDIT:'Crédito', DEBIT:'Débito', VAN:'Voucher (VAN)' };
+  const MOD = { CREDIT: 'crédito', DEBIT: 'débito', VAN: 'vale' };
+  const nomeBand = {};
+  depara.forEach(x => { nomeBand[x.modalidade + '|' + x.bandeira_codigo] = x.bandeira; });
+  const band = (m, c) => nomeBand[m + '|' + c] || ('bandeira ' + c);
+  const mesLabel = (m) => m ? new Date(m + 'T12:00:00').toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }) : '';
 
-  // por loja: faturamento no cartao, MDR e aluguel
-  const lojas = {};
-  const garante = (u) => (lojas[u] = lojas[u] || { bruto:0, mdr:0, nvendas:0, aluguel:0, meses:new Set() });
-  taxas.forEach(t => { const l = garante(t.unidade || '(sem loja)');
-    l.bruto += +t.bruto||0; l.mdr += +t.mdr_cobrado||0; l.nvendas += +t.n_vendas||0; });
-  aluguel.forEach(a => { const l = garante(a.unidade || '(sem loja)');
-    l.aluguel += +a.aluguel||0; if (a.mes) l.meses.add(a.mes); });
+  // filtros: loja e mes (ultimos 6 com dado + "tudo")
+  const meses = [...new Set([...taxas, ...aluguel].map(x => x.mes).filter(Boolean))].sort().reverse();
+  if (REDE_FILTRO.mes === null) REDE_FILTRO.mes = meses[0] || '';
+  const F = REDE_FILTRO;
+  const lojasTodas = [...new Set([...taxas, ...aluguel].map(x => x.unidade).filter(Boolean))].sort();
+  const btn = (ativo, onclick, rotulo) => `<button class="navbtn ${ativo ? 'active' : ''}" onclick="${onclick}">${rotulo}</button>`;
+  const filtros = `<div style="display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin:8px 0;">
+    ${btn(!F.loja, "redeFiltrar('loja','')", 'Todas')}${lojasTodas.map(u => btn(F.loja === u, `redeFiltrar('loja','${u}')`, u)).join('')}
+    <span style="width:12px;"></span>
+    ${meses.slice(0, 6).map(m => btn(F.mes === m, `redeFiltrar('mes','${m}')`, mesLabel(m))).join('')}${btn(F.mes === '', "redeFiltrar('mes','')", 'tudo')}
+  </div>`;
+  const dentro = x => (!F.loja || x.unidade === F.loja) && (!F.mes || x.mes === F.mes);
+  const tx = taxas.filter(dentro), al = aluguel.filter(dentro), cb = cobrancas.filter(dentro);
 
-  // por modalidade (rede toda)
-  const mods = {};
-  taxas.forEach(t => { const m = t.modalidade || '(sem)';
-    mods[m] = mods[m] || { bruto:0, mdr:0, nvendas:0 };
-    mods[m].bruto += +t.bruto||0; mods[m].mdr += +t.mdr_cobrado||0; mods[m].nvendas += +t.n_vendas||0; });
+  // cards
+  const totBruto = tx.reduce((a, t) => a + +t.bruto, 0), totMdr = tx.reduce((a, t) => a + +t.mdr_cobrado, 0);
+  const totAlug = al.reduce((a, x) => a + +x.aluguel, 0);
+  const card = (rot, val, sub, cor) => `<div class="card"${cor ? ` style="border:1px solid ${cor};"` : ''}><div style="font-size:12px; color:#a5a49a; text-transform:uppercase;">${rot}</div>
+      <div style="font-size:24px; font-weight:700;${cor ? ` color:${cor};` : ''}">${val}</div><div style="font-size:12px; color:#8a897e;">${sub}</div></div>`;
+  const cards = card('Passou na maquininha', reais(totBruto), F.mes ? mesLabel(F.mes) : 'todo o período')
+    + card('Taxa cobrada', reais(totMdr), 'taxa efetiva média <b style="color:#e8e6dc;">' + pc(efetiva(totMdr, totBruto)) + '</b>')
+    + card('Aluguel cobrado', reais(totAlug), al.reduce((a, x) => a + +x.n_cobrancas, 0) + ' cobrança(s) de máquina')
+    + card('Custo total com a Rede', reais(totMdr + totAlug), 'taxa + aluguel', '#f5a623');
 
-  const totBruto = Object.values(lojas).reduce((a,l)=>a+l.bruto,0);
-  const totMdr   = Object.values(lojas).reduce((a,l)=>a+l.mdr,0);
-  const totAlug  = Object.values(lojas).reduce((a,l)=>a+l.aluguel,0);
-  const custoTot = totMdr + totAlug;
-
-  // periodo coberto (dos meses de aluguel)
-  const todosMeses = aluguel.map(a => a.mes).filter(Boolean).sort();
-  const mesLabel = (m) => m ? new Date(m + 'T12:00:00').toLocaleDateString('pt-BR',{month:'short',year:'2-digit'}) : '';
-  const periodo = todosMeses.length ? `${mesLabel(todosMeses[0])} a ${mesLabel(todosMeses[todosMeses.length-1])}` : '';
-
-  const cards = `
-    <div class="card"><div style="font-size:12px; color:#a5a49a; text-transform:uppercase;">Faturamento no cartão</div>
-      <div style="font-size:26px; font-weight:700;">${reais(totBruto)}</div>
-      <div style="font-size:12px; color:#8a897e;">o que passou nas maquininhas no período</div></div>
-    <div class="card"><div style="font-size:12px; color:#a5a49a; text-transform:uppercase;">Taxa de cartão (MDR)</div>
-      <div style="font-size:26px; font-weight:700;">${reais(totMdr)}</div>
-      <div style="font-size:12px; color:#8a897e;">taxa efetiva média <b style="color:#e8e6dc;">${pct(efetiva(totMdr,totBruto))}%</b></div></div>
-    <div class="card"><div style="font-size:12px; color:#a5a49a; text-transform:uppercase;">Aluguel de maquininha</div>
-      <div style="font-size:26px; font-weight:700;">${reais(totAlug)}</div>
-      <div style="font-size:12px; color:#8a897e;">cobrado uma vez por mês, por máquina</div></div>
-    <div class="card" style="border:1px solid #6b5b2e;"><div style="font-size:12px; color:#a5a49a; text-transform:uppercase;">Custo total com a Rede</div>
-      <div style="font-size:26px; font-weight:700; color:#f5a623;">${reais(custoTot)}</div>
-      <div style="font-size:12px; color:#8a897e;">taxa + aluguel no período</div></div>`;
-
-  // taxa por modalidade
-  const ordemMod = ['CREDIT','DEBIT','VAN'];
-  const linhasMod = Object.entries(mods)
-    .sort((a,b)=> (ordemMod.indexOf(a[0])+99)%100 - (ordemMod.indexOf(b[0])+99)%100 || b[1].bruto-a[1].bruto)
-    .map(([m,v]) => `<tr>
-      <td style="padding:5px 8px;">${MOD_ROTULO[m] || m}</td>
-      <td style="padding:5px 8px; text-align:right; color:#a5a49a;">${v.nvendas.toLocaleString('pt-BR')}</td>
-      <td style="padding:5px 8px; text-align:right;">${reais(v.bruto)}</td>
-      <td style="padding:5px 8px; text-align:right;">${reais(v.mdr)}</td>
-      <td style="padding:5px 8px; text-align:right; font-weight:600;">${pct(efetiva(v.mdr,v.bruto))}%</td></tr>`).join('');
-
-  // custo por loja, com o fato do aluguel vs MDR (sem julgar — so o numero)
-  const lojasOrd = Object.entries(lojas).sort((a,b)=> b[1].bruto - a[1].bruto);
-  const linhasLoja = lojasOrd.map(([u,l]) => {
-    const custo = l.mdr + l.aluguel;
-    const razao = l.mdr > 0 ? l.aluguel / l.mdr : null;   // aluguel como multiplo do MDR
-    // fato, nao julgamento: aluguel MAIOR que a taxa que a Rede ganha usando a maquina
-    const alugMaior = razao !== null && razao > 1;
-    const corAlug = alugMaior ? '#ff6b6b' : '#e8e6dc';
+  // taxa cobrada x combinada, por modalidade + bandeira + parcelas
+  const comb = {};
+  taxaComb.forEach(c => { comb[c.modalidade + '|' + c.bandeira + '|' + c.parcelas] = +c.taxa_pct; });
+  const combinada = (m, b, p) => comb[m + '|' + b + '|' + p] ?? comb[m + '|*|' + p] ?? null;
+  const grupos = {};
+  tx.forEach(t => {
+    const b = band(t.modalidade, t.bandeira_codigo), p = +t.parcelas || 1;
+    const k = t.modalidade + '|' + b + '|' + p;
+    const g = (grupos[k] = grupos[k] || { modalidade: t.modalidade, bandeira: b, parcelas: p, n: 0, bruto: 0, mdr: 0 });
+    g.n += +t.n_vendas; g.bruto += +t.bruto; g.mdr += +t.mdr_cobrado;
+  });
+  const ordemMod = { CREDIT: 0, DEBIT: 1, VAN: 2 };
+  const dono = souODono();
+  let foraDoCombinado = 0, semCombinado = 0;
+  const linhasTaxa = Object.values(grupos).sort((a, b) => (ordemMod[a.modalidade] ?? 9) - (ordemMod[b.modalidade] ?? 9) || b.bruto - a.bruto).map(g => {
+    const ef = efetiva(g.mdr, g.bruto), cmb = combinada(g.modalidade, g.bandeira, g.parcelas);
+    let sit, cor = '#e8e6dc';
+    if (g.modalidade === 'VAN') { sit = 'a Rede só captura; a taxa é da bandeira'; cor = '#8a897e'; }
+    else if (cmb === null) { sit = 'sem combinado cadastrado'; cor = '#9aa4af'; semCombinado++; }
+    else if (Math.abs(ef - cmb) < 0.02) { sit = '✔ bate com o combinado'; cor = '#3f9c5a'; }
+    else { const d = ef - cmb; sit = `cobrou ${pc(Math.abs(d))} ${d > 0 ? 'a MAIS' : 'a menos'} que o combinado (${reais(g.bruto * d / 100)})`; cor = d > 0 ? '#ff6b6b' : '#f5a623'; foraDoCombinado++; }
+    const definir = dono && g.modalidade !== 'VAN' ? ` <button onclick="redeDefinirTaxa('${g.modalidade}','${g.bandeira}',${g.parcelas})" style="font:inherit; font-size:11px; padding:1px 7px; cursor:pointer;">${cmb === null ? 'definir' : 'alterar'}</button>` : '';
     return `<tr>
-      <td style="padding:5px 8px; font-weight:600;">${u}</td>
-      <td style="padding:5px 8px; text-align:right;">${reais(l.bruto)}</td>
-      <td style="padding:5px 8px; text-align:right;">${reais(l.mdr)}</td>
-      <td style="padding:5px 8px; text-align:right; color:#a5a49a;">${pct(efetiva(l.mdr,l.bruto))}%</td>
-      <td style="padding:5px 8px; text-align:right; color:${corAlug};">${reais(l.aluguel)}</td>
-      <td style="padding:5px 8px; text-align:right; font-weight:600;">${reais(custo)}</td>
-      <td style="padding:5px 8px; color:#8a897e; font-size:11px;">${
-        razao === null ? '' :
-        alugMaior ? `aluguel = <b style="color:#ff6b6b;">${razao.toLocaleString('pt-BR',{maximumFractionDigits:1})}×</b> a taxa`
-                  : `aluguel = ${Math.round(100*razao)}% da taxa`}</td></tr>`;
+      <td style="padding:5px 8px;">${MOD[g.modalidade] || g.modalidade} ${g.bandeira.charAt(0) + g.bandeira.slice(1).toLowerCase()}${g.parcelas > 1 ? ' ' + g.parcelas + 'x' : ''}</td>
+      <td style="padding:5px 8px; text-align:right; color:#a5a49a;">${g.n.toLocaleString('pt-BR')}</td>
+      <td style="padding:5px 8px; text-align:right;">${reais(g.bruto)}</td>
+      <td style="padding:5px 8px; text-align:right;">${reais(g.mdr)}</td>
+      <td style="padding:5px 8px; text-align:right; font-weight:600;">${g.modalidade === 'VAN' ? '—' : pc(ef)}</td>
+      <td style="padding:5px 8px; text-align:right; color:#a5a49a;">${cmb === null ? '—' : pc(cmb)}${definir}</td>
+      <td style="padding:5px 8px; color:${cor};">${sit}</td></tr>`;
   }).join('');
 
-  // alguma loja com aluguel maior que a taxa? vira uma frase de fato no topo da tabela
-  const lojaFlag = lojasOrd.find(([u,l]) => l.mdr > 0 && l.aluguel > l.mdr);
-  const avisoAlug = lojaFlag
-    ? `<div class="contexto" style="border-left:3px solid #ff6b6b; padding-left:10px;">Em <b>${lojaFlag[0]}</b>, o aluguel das maquininhas foi <b>maior</b> que o total de taxa que a Rede ganhou sobre as vendas dessa loja no período. É um fato a olhar: pode haver máquina parada gerando aluguel. Não é um erro do dado.</div>`
-    : '';
+  // aluguel cobrado x combinado, por loja e mes
+  const alugCombDe = {};
+  alugComb.forEach(c => { alugCombDe[c.unidade] = c; });
+  let alugFora = 0;
+  const linhasAlug = al.slice().sort((a, b) => (a.unidade < b.unidade ? -1 : 1) || (a.mes < b.mes ? 1 : -1)).map(x => {
+    const c = alugCombDe[x.unidade];
+    let sit, cor = '#e8e6dc';
+    if (!c) { sit = 'sem combinado cadastrado'; cor = '#9aa4af'; semCombinado++; }
+    else {
+      const esperado = +c.valor_mes * +c.maquinas;
+      if (Math.abs(+x.aluguel - esperado) < 0.01) { sit = '✔ bate com o combinado'; cor = '#3f9c5a'; }
+      else { const d = +x.aluguel - esperado; sit = `${d > 0 ? 'cobrou a MAIS' : 'cobrou a menos'}: ${reais(Math.abs(d))} (combinado ${reais(esperado)} = ${c.maquinas} × ${reais(c.valor_mes)})`; cor = d > 0 ? '#ff6b6b' : '#f5a623'; alugFora++; }
+    }
+    const definir = dono ? ` <button onclick="redeDefinirAluguel('${x.unidade}')" style="font:inherit; font-size:11px; padding:1px 7px; cursor:pointer;">${c ? 'alterar' : 'definir'}</button>` : '';
+    return `<tr>
+      <td style="padding:5px 8px; font-weight:600;">${x.unidade}</td>
+      <td style="padding:5px 8px;">${mesLabel(x.mes)}</td>
+      <td style="padding:5px 8px; text-align:right; color:#a5a49a;">${x.n_cobrancas}</td>
+      <td style="padding:5px 8px; text-align:right;">${reais(x.aluguel)}</td>
+      <td style="padding:5px 8px; text-align:right; color:#a5a49a;">${c ? reais(+c.valor_mes * +c.maquinas) : '—'}${definir}</td>
+      <td style="padding:5px 8px; color:${cor};">${sit}</td></tr>`;
+  }).join('');
+  const outras = cb.filter(x => +x.tipo_codigo !== 20);
+  const linhasOutras = outras.map(x => `<tr><td style="padding:5px 8px;">${x.unidade}</td><td style="padding:5px 8px;">${mesLabel(x.mes)}</td>
+      <td style="padding:5px 8px;">${x.tipo_descricao || x.tipo_codigo}</td><td style="padding:5px 8px; text-align:right; color:#a5a49a;">${x.n}</td>
+      <td style="padding:5px 8px; text-align:right;">${reais(x.valor)}</td></tr>`).join('');
 
+  const resumo = foraDoCombinado || alugFora
+    ? `<b class="negativo">${foraDoCombinado + alugFora} item(ns) fora do combinado</b>${semCombinado ? ` · ${semCombinado} sem combinado cadastrado` : ''}.`
+    : semCombinado ? `Nada fora do combinado nos itens cadastrados · <b>${semCombinado} sem combinado</b>${dono ? ' — defina nas linhas abaixo' : ' — o dono define'}.`
+    : '<b style="color:#3f9c5a;">Tudo dentro do combinado.</b>';
+  const th = 'padding:4px 8px; font-weight:normal; color:#a5a49a; font-size:11px; text-transform:uppercase;';
   alvo.innerHTML = `
-    <div class="contexto">Custo com a <b>Rede</b> (adquirente do cartão, do grupo Itaú), direto da API da Rede — o que
-      efetivamente foi cobrado, não uma estimativa. Cobre <b>${periodo}</b>, nas lojas Água Verde, Ahú e São Braz
-      (Boqueirão fora por ora). Dois custos: a <b>taxa de cartão (MDR)</b> sobre cada venda e o <b>aluguel das
-      maquininhas</b>, cobrado por máquina todo mês.</div>
-
+    <div class="section-label">Taxas da maquininha</div>
+    <div class="contexto" style="text-align:left;">
+      O que a <b>Rede</b> cobrou de fato (direto da API), comparado com o <b>combinado</b>. ${resumo}
+      <details style="margin-top:6px; font-size:12px; color:#9aa4af;"><summary style="cursor:pointer;">como ler</summary>
+        Taxa efetiva = taxa cobrada dividida pelo que passou, por tipo e bandeira. O combinado é o que foi negociado com a Rede;
+        quem grava é o dono (botão "definir"). Vale (VR, Ticket, Alelo, Pluxee) a Rede só captura: a taxa é da bandeira e não aparece aqui.
+        Aluguel é cobrado por máquina, uma vez por mês. Boqueirão fica fora (máquinas fora do credenciamento). Atualiza na rotina das APIs, 08:00.</details>
+      ${filtros}
+    </div>
     <div class="cards" style="display:flex; flex-wrap:wrap; gap:12px; margin:14px 0;">${cards}</div>
-
-    <div class="section-label">Taxa efetiva por tipo de pagamento</div>
-    <div class="contexto">A taxa efetiva é a taxa real paga: soma do MDR dividida pelo que passou. Voucher (VAN) a Rede
-      só captura — a taxa é da bandeira, por isso aparece zerada aqui.</div>
-    <table><thead><tr><th style="text-align:left">Tipo</th><th style="text-align:right">Vendas</th>
-      <th style="text-align:right">Faturamento</th><th style="text-align:right">Taxa (R$)</th>
-      <th style="text-align:right">Taxa efetiva</th></tr></thead><tbody>${linhasMod}</tbody></table>
-
-    <div class="section-label" style="margin-top:18px;">Custo por loja</div>
-    ${avisoAlug}
-    <table><thead><tr><th style="text-align:left">Loja</th><th style="text-align:right">Faturamento</th>
-      <th style="text-align:right">Taxa (MDR)</th><th style="text-align:right">Taxa efetiva</th>
-      <th style="text-align:right">Aluguel</th><th style="text-align:right">Custo total</th>
-      <th></th></tr></thead><tbody>${linhasLoja}</tbody></table>
-
-    <div class="contexto" style="margin-top:14px; color:#8a897e; font-size:11.5px;">Fonte: API da Rede em produção,
-      lida pela conciliadora VICENTE E IKOMA. Atualiza na rotina diária das APIs (08:00). A agenda de recebíveis não
-      entra aqui — está fora do ar do lado da Rede.</div>`;
+    <div class="section-label">Taxa cobrada × combinada</div>
+    <div class="card" style="overflow-x:auto;"><table style="border-collapse:collapse; font-size:12px; width:100%; min-width:760px;">
+      <tr><th style="${th} text-align:left;">tipo e bandeira</th><th style="${th} text-align:right;">vendas</th><th style="${th} text-align:right;">passou</th>
+        <th style="${th} text-align:right;">taxa cobrada</th><th style="${th} text-align:right;">efetiva</th><th style="${th} text-align:right;">combinada</th><th style="${th} text-align:left;">situação</th></tr>
+      ${linhasTaxa || '<tr><td colspan="7" style="padding:8px; color:#9aa4af;">sem venda no filtro</td></tr>'}</table></div>
+    <div class="section-label" style="margin-top:18px;">Aluguel cobrado × combinado</div>
+    <div class="card" style="overflow-x:auto;"><table style="border-collapse:collapse; font-size:12px; width:100%; min-width:640px;">
+      <tr><th style="${th} text-align:left;">loja</th><th style="${th} text-align:left;">mês</th><th style="${th} text-align:right;">máquinas cobradas</th>
+        <th style="${th} text-align:right;">cobrado</th><th style="${th} text-align:right;">combinado</th><th style="${th} text-align:left;">situação</th></tr>
+      ${linhasAlug || '<tr><td colspan="6" style="padding:8px; color:#9aa4af;">sem cobrança de aluguel no filtro</td></tr>'}</table></div>
+    ${outras.length ? `<div class="section-label" style="margin-top:18px;">Outras cobranças da Rede</div>
+    <div class="card" style="overflow-x:auto;"><table style="border-collapse:collapse; font-size:12px; width:100%;">
+      <tr><th style="${th} text-align:left;">loja</th><th style="${th} text-align:left;">mês</th><th style="${th} text-align:left;">o que</th><th style="${th} text-align:right;">n</th><th style="${th} text-align:right;">valor</th></tr>${linhasOutras}</table></div>` : ''}
+    <div class="contexto" style="margin-top:14px; color:#8a897e; font-size:11.5px;">Fonte: API da Rede em produção. A agenda de recebíveis não entra aqui — está fora do ar do lado da Rede.</div>`;
 }
 
 async function entrarReembolsos() {
@@ -13580,7 +13646,6 @@ async function entrarCaixa() {
                               'pdv_chave', 'recebido_chave', 'sem_par_chave', 'aguardando_chave'].forEach(k => { r[k] = Number(r[k]); }); });
   }
   renderModuloCaixa();
-  entrarRede();   // taxas & aluguel das maquininhas, no fim da tela (cache proprio)
 }
 
 // Salva (ou corrige) a contagem do dia. Upsert por (unidade, data): contagem
