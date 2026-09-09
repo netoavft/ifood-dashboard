@@ -9124,22 +9124,24 @@ async function entrarListasFin() {   // Listas · Financeiro
   TR_MODULO = 'financeiro';
   if (LISTAS === null) {
     alvo.innerHTML = '<div class="contexto">Carregando as transferências...</div>';
-    // historico da era planilha vive nas planilhas; aqui e do corte em diante
-    const [mensal, listas] = await Promise.all([
-      consultarTudo('vw_tr_conta_listas_mensal?select=*&mes=gte.2026-08-01&order=mes.desc'),
-      consultarTudo('vw_tr_listas?select=unidade,data_pedido,status,itens,valor_cobrado,frete,total_lista,itens_conferidos,itens_divergentes&fonte=eq.PAINEL&order=data_pedido.desc&limit=30'),
-    ]);
-    LISTAS = { mensal, listas };
+    // historico da era planilha vive nas planilhas; aqui e do corte em diante.
+    // (a listagem de listas saiu daqui em 09/09 — era duplicata da aba
+    // "finalizadas" da Conferencia)
+    const mensal = await consultarTudo('vw_tr_conta_listas_mensal?select=*&mes=gte.2026-08-01&order=mes.desc');
+    LISTAS = { mensal };
   }
   renderModuloListasFin();
 }
 
+// Reorganizado em 09/09/2026 (dono): em cima o MES EM ANDAMENTO — o
+// fechamento parcial por filial, que e o numero vivo; embaixo o historico
+// fechado RECOLHIDO, so para consulta. Os cartoes-farol e a listagem de
+// listas sairam: duplicavam a tabela mensal e a aba "finalizadas".
 function renderModuloListasFin() {
   const alvo = document.getElementById('view-listasfin');
   if (!alvo || LISTAS === null) return;
-  const { mensal, listas } = LISTAS;
+  const { mensal } = LISTAS;
   const nu = (v) => Number(v) || 0;
-  const ddmm = (d) => d ? d.slice(8, 10) + '/' + d.slice(5, 7) + '/' + d.slice(2, 4) : '—';
   const mesTxt = (m) => { const [a, mm] = m.split('-'); return MESES_ABREV[Number(mm) - 1] + '/' + a.slice(2); };
 
   if (!mensal.length) {
@@ -9147,46 +9149,21 @@ function renderModuloListasFin() {
     return;
   }
 
-  // farol do mes por filial: o mes mais recente de cada unidade
-  const unidades = [...new Set(mensal.map(r => r.unidade))].sort();
-  const cardsFarol = unidades.map(u => {
-    const meses = mensal.filter(r => r.unidade === u);
-    const semFechar = meses.filter(r => r.sem_fechar);
-    const m = meses[0];
-    const cor = semFechar.length ? '#ff6b6b' : '#3fb950';
-    return `<div class="card" style="border:1px solid ${cor};">
-      <div class="card-lbl">${u}</div>
-      <div class="card-val">R$ ${fmt(nu(m.total_devido))}</div>
-      <div class="card-pct">${mesTxt(m.mes)} · pago R$ ${fmt(nu(m.total_pago))}${
-        semFechar.length ? ` · <b style="color:${cor};">${semFechar.length} mês(es) sem fechar</b>` : ' · em dia'}</div>
-    </div>`;
-  }).join('');
-
-  // conferencia: o zero que doi
-  const totItens = listas.reduce((s, l) => s + nu(l.itens), 0);
-  const totConf = listas.reduce((s, l) => s + nu(l.itens_conferidos), 0);
-  const pctConf = totItens ? (totConf / totItens * 100) : 0;
-
-  // deriva: meses fechados que a planilha ja reescreveu
-  const derivas = mensal.filter(r => Math.abs(nu(r.deriva_custo)) > 0.005);
+  const mesAtual = trHoje().slice(0, 7);
+  const parciais = mensal.filter(r => (r.mes || '').slice(0, 7) === mesAtual);
+  const historico = mensal.filter(r => (r.mes || '').slice(0, 7) !== mesAtual);
+  const atrasados = historico.filter(r => r.sem_fechar).length;
+  const derivas = historico.filter(r => Math.abs(nu(r.deriva_custo)) > 0.005);
   const derivaTotal = derivas.reduce((s, r) => s + nu(r.deriva_custo), 0);
 
-  const linhasMes = mensal.map(r => `<tr>
+  const linhaMes = (r, situacao) => `<tr>
     <td>${mesTxt(r.mes)}</td><td>${r.unidade}</td><td>${r.listas}</td>
     <td>R$ ${fmt(nu(r.valor_lista))}</td>
     <td>${nu(r.frete) ? 'R$ ' + fmt(nu(r.frete)) : '—'}</td>
-    <td>${nu(r.royalty) ? 'R$ ' + fmt(nu(r.royalty)) + ' <span style="color:#8a897e; font-size:10px;">(regra)</span>' : '—'}</td>
+    <td>${nu(r.royalty) ? 'R$ ' + fmt(nu(r.royalty)) + ' <span style="color:#8a897e; font-size:11px;">(regra)</span>' : '—'}</td>
     <td><b>R$ ${fmt(nu(r.total_devido))}</b></td>
-    <td>R$ ${fmt(nu(r.total_pago))}</td>
-    <td class="${r.sem_fechar ? 'negativo' : ''}">${r.sem_fechar ? 'SEM FECHAR' : 'fechado'}</td>
-  </tr>`).join('');
-
-  const linhasListas = listas.map(l => `<tr>
-    <td>${ddmm(l.data_pedido)}</td><td>${l.unidade}</td><td>${l.itens}</td>
-    <td>R$ ${fmt(nu(l.total_lista))}</td>
-    <td>${l.status || '—'}</td>
-    <td class="${nu(l.itens_conferidos) ? '' : 'negativo'}">${nu(l.itens_conferidos) ? l.itens_conferidos + '/' + l.itens : 'não conferida'}</td>
-  </tr>`).join('');
+    ${situacao}
+  </tr>`;
 
   alvo.innerHTML = `
     <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Listas · Financeiro</div>
@@ -9194,33 +9171,37 @@ function renderModuloListasFin() {
       O dinheiro das transferências: fechamento do mês (a Rita valida), contas a pagar
       (Água Verde e Michiro) e a conta mês a mês. O ciclo do pedido vive em <b>Listas · Pedidos</b>.
     </div>
+
+    <div class="section-label">${parciais.length ? mesTxt(parciais[0].mes).toUpperCase() : 'MÊS'} EM ANDAMENTO — fechamento parcial por filial</div>
+    <div class="caption-label" style="text-align:center;">
+      O que cada filial já deve pelo mês corrente: listas conferidas até agora + frete marcado + royalty da regra.
+      O número cresce a cada lista e vira cobrança no <b>Fechamento do mês</b>.
+    </div>
+    ${parciais.length ? `<div id="tabelaTrParcial"><table>
+      <tr><th>Filial</th><th>Listas</th><th>Itens (R$)</th><th>Frete</th><th>Royalty</th><th>Parcial devido</th></tr>
+      ${parciais.map(r => `<tr>
+        <td>${r.unidade}</td><td>${r.listas}</td>
+        <td>R$ ${fmt(nu(r.valor_lista))}</td>
+        <td>${nu(r.frete) ? 'R$ ' + fmt(nu(r.frete)) : '—'}</td>
+        <td>${nu(r.royalty) ? 'R$ ' + fmt(nu(r.royalty)) + ' <span style="color:#8a897e; font-size:11px;">(regra)</span>' : '—'}</td>
+        <td><b>R$ ${fmt(nu(r.total_devido))}</b></td></tr>`).join('')}
+    </table></div>` : '<div class="contexto">Nenhuma lista fechada ainda neste mês — a primeira conferência acende esta tabela.</div>'}
+
     <div id="trOperacao"><div class="contexto">Carregando a operação...</div></div>
 
     <details style="margin-top:26px;">
-      <summary style="cursor:pointer; color:#a5a49a;" class="section-label">A conta dos últimos meses e as listas do painel</summary>
-      <div class="cards" style="margin-top:10px;">${cardsFarol}
-        ${listas.length ? `<div class="card ${totConf ? 'neutral' : 'neg'}"><div class="card-lbl">Conferência na chegada</div>
-          <div class="card-val">${pctConf.toFixed(0)}%</div>
-          <div class="card-pct">${totConf + ' de ' + totItens + ' itens conferidos nas listas do painel'}</div></div>` : ''}
-        ${derivas.length ? `<div class="card neg"><div class="card-lbl">Meses fechados reescritos</div>
-          <div class="card-val">R$ ${fmt(Math.abs(derivaTotal))}</div>
-          <div class="card-pct">${derivas.length} mês(es) — deriva positiva = cobrou a menos</div></div>` : ''}
-      </div>
-
-      <div class="section-label">A conta, mês a mês (do corte de ago/26 em diante)</div>
-      <div class="caption-label" style="text-align:center;">
-        O histórico anterior vive nas planilhas aposentadas (e no banco, para consulta) — a tela é do módulo operante.
+      <summary style="cursor:pointer; color:#a5a49a;" class="section-label">Histórico fechado — abrir para consulta${
+        atrasados ? ` <span style="color:#ff6b6b;">(${atrasados} mês(es) sem fechar)</span>` : ''}</summary>
+      <div class="caption-label" style="text-align:center; margin-top:10px;">
+        Do corte de ago/26 em diante; o anterior vive nas planilhas aposentadas (e no banco, para consulta).
       </div>
       <div id="tabelaTrMensal"><table>
         <tr><th>Mês</th><th>Filial</th><th>Listas</th><th>Itens (R$)</th><th>Frete</th><th>Royalty</th><th>Devido</th><th>Pago</th><th>Situação</th></tr>
-        ${linhasMes}
+        ${historico.map(r => linhaMes(r, `<td>R$ ${fmt(nu(r.total_pago))}</td>
+          <td class="${r.sem_fechar ? 'negativo' : ''}">${r.sem_fechar ? 'SEM FECHAR' : 'fechado'}</td>`)).join('')}
       </table></div>
-
-      ${listas.length ? `<div class="section-label">Listas do painel</div>
-      <div id="tabelaTrListas"><table>
-        <tr><th>Pedida em</th><th>Filial</th><th>Itens</th><th>Valor</th><th>Status</th><th>Conferida?</th></tr>
-        ${linhasListas}
-      </table></div>` : ''}
+      ${derivas.length ? `<div class="caption-label" style="color:#ff6b6b;">⚠ ${derivas.length} mês(es) fechado(s) com custo reescrito pela planilha
+        (deriva de R$ ${fmt(Math.abs(derivaTotal))} — positiva = cobrou a menos). Mês fechado vale pelo congelado.</div>` : ''}
     </details>`;
   entrarOperacaoListas();
 }
