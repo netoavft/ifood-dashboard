@@ -4385,71 +4385,9 @@ async function carregarReembolsos() {
 // outro é desencontro de horário (madrugada, comanda fechada depois); a que
 // aparece e FICA é venda sem par, dinheiro para caçar. O vale-refeição
 // (VR/Ticket/Alelo/Pluxee) também passa na maquininha da Rede, então entra.
-let CONCARTAO_DADOS = null;
-
-// entrarConcartao/renderConcartao sairam em 09/09/2026: a tabela diaria de
-// cartao/vale virou colunas da linha do dia em renderModuloCaixa (Fechamento
-// de Caixas). Ficam aqui o controle por motoboy e o mergulho do dia.
-
-// Controle por motoboy (ideia do dono, 28/08/2026): entrega com cartão/vale no
-// PDV sem transação igual na maquininha até 45 min da entrega. É INDÍCIO para
-// conferir com o motoboy — conta dividida e centavos também caem aqui — nunca
-// acusação pronta.
-function renderConcartaoMotoboy() {
-  // respeita o filtro de loja do Fechamento de Caixas (09/09/2026)
-  const lojaF = (typeof CAIXA_FILTRO !== 'undefined' && CAIXA_FILTRO.loja) || '';
-  const daLoja = l => (l || []).filter(r => !lojaF || r.unidade === lojaF);
-  const motoboy = daLoja(CONCARTAO_DADOS.motoboy), semCobranca = daLoja(CONCARTAO_DADOS.semCobranca), pixSem = daLoja(CONCARTAO_DADOS.pixSem);
-  if ((!semCobranca || !semCobranca.length) && (!pixSem || !pixSem.length)) return '';
-  const reaisCc = v => 'R$ ' + Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const dBr = d => d.split('-').reverse().slice(0, 2).join('/');
-  const pixLinhas = (pixSem || []).map(r => `<tr>
-      <td style="padding:4px 8px;">${dBr(r.dia)}</td>
-      <td style="padding:4px 8px;">${r.unidade}</td>
-      <td style="padding:4px 8px; color:#8a897e;">${r.canal || ''}</td>
-      <td style="padding:4px 8px; font-weight:600;">${r.entregador || '—'}</td>
-      <td style="padding:4px 8px;">${r.tipo}</td>
-      <td style="padding:4px 8px; text-align:right;">${reaisCc(r.valor)}</td></tr>`).join('');
-  const linhas = semCobranca.map(r => `<tr>
-      <td style="padding:4px 8px;">${dBr(r.dia)}</td>
-      <td style="padding:4px 8px;">${r.unidade}</td>
-      <td style="padding:4px 8px; font-weight:600;">${r.entregador || '(sem nome no Foody)'}</td>
-      <td style="padding:4px 8px;">${r.tipo}</td>
-      <td style="padding:4px 8px; text-align:right;">${reaisCc(r.valor)}</td>
-      <td style="padding:4px 8px; color:#8a897e;">${(r.entrega || '').slice(11, 16)}</td></tr>`).join('');
-  const mesLinhas = (motoboy || []).slice(0, 15).map(m => `<tr>
-      <td style="padding:4px 8px;">${new Date(m.mes + 'T12:00:00').toLocaleDateString('pt-BR', { month: 'short' })}</td>
-      <td style="padding:4px 8px;">${m.unidade}</td>
-      <td style="padding:4px 8px; font-weight:600;">${m.entregador || '(sem nome)'}</td>
-      <td style="padding:4px 8px; text-align:right; color:#8a897e;">${m.entregas_cartao}</td>
-      <td style="padding:4px 8px; text-align:right;">${m.sem_cobranca}</td>
-      <td style="padding:4px 8px; text-align:right; font-weight:600;">${reaisCc(m.valor_sem_cobranca)}</td></tr>`).join('');
-  return `<div class="card" style="margin:14px 0; border:1px solid #6b5b2e; overflow-x:auto;">
-    <div style="font-size:15px; font-weight:700; margin-bottom:4px;">🛵 Cartão, vale e PIX — cobranças sem par encontrado</div>
-    <div style="font-size:12px; color:#8a897e; margin-bottom:8px;">Entregas em que o PDV diz "cartão/vale na entrega" e a maquininha não tem transação
-      do mesmo valor (cartão: até 45 min da entrega; <b>vale: até 7 dias</b> — voucher demora até dias para aparecer na Rede, e vale entregue há menos
-      de 8 dias nem entra nesta lista). É um <b>indício para conferir com o motoboy</b> (o esquecimento clássico da pressa) — conta dividida e
-      diferença de centavos também caem aqui, então confirme antes de qualquer conversa.</div>
-    <table style="border-collapse:collapse; font-size:12px; min-width:520px;">
-      <tr style="color:#a5a49a; text-transform:uppercase; font-size:11px;">
-        <td style="padding:4px 8px;">dia</td><td style="padding:4px 8px;">loja</td><td style="padding:4px 8px;">motoboy</td>
-        <td style="padding:4px 8px;">forma</td><td style="padding:4px 8px; text-align:right;">valor</td><td style="padding:4px 8px;">entrega</td></tr>
-      ${linhas}</table>
-    ${pixLinhas ? `<div style="font-size:12px; color:#a5a49a; text-transform:uppercase; margin:12px 0 4px;">PIX registrado no PDV sem crédito no banco</div>
-    <div style="font-size:11px; color:#8a897e; margin-bottom:4px;">QRCode da maquininha e chave CNPJ, conferidos contra o extrato (crédito "PIX" de mesmo valor, do dia da venda a 2 dias depois). PIX de menos de 3 dias fica de fora — o extrato ainda pode sincronizar. Se o motoboy esqueceu a máquina e o cliente pagou na chave, o dinheiro chega do mesmo jeito e a linha NÃO aparece aqui.</div>
-    <table style="border-collapse:collapse; font-size:12px; min-width:520px;">
-      <tr style="color:#a5a49a; text-transform:uppercase; font-size:11px;">
-        <td style="padding:4px 8px;">dia</td><td style="padding:4px 8px;">loja</td><td style="padding:4px 8px;">canal</td>
-        <td style="padding:4px 8px;">motoboy</td><td style="padding:4px 8px;">forma</td><td style="padding:4px 8px; text-align:right;">valor</td></tr>
-      ${pixLinhas}</table>` : ''}
-    ${mesLinhas ? `<div style="font-size:12px; color:#a5a49a; text-transform:uppercase; margin:12px 0 4px;">Por motoboy, no mês</div>
-    <table style="border-collapse:collapse; font-size:12px; min-width:520px;">
-      <tr style="color:#a5a49a; text-transform:uppercase; font-size:11px;">
-        <td style="padding:4px 8px;">mês</td><td style="padding:4px 8px;">loja</td><td style="padding:4px 8px;">motoboy</td>
-        <td style="padding:4px 8px; text-align:right;">entregas c/ cartão ou PIX</td><td style="padding:4px 8px; text-align:right;">sem cobrança</td>
-        <td style="padding:4px 8px; text-align:right;">valor</td></tr>
-      ${mesLinhas}</table>` : ''}</div>`;
-}
+// entrarConcartao/renderConcartao/renderConcartaoMotoboy sairam em 09/09/2026: a
+// tabela diaria virou a linha do dia do Fechamento de Caixas e as pendencias
+// (inclusive por motoboy) vivem no mergulho do dia, abrirDiaConcartao.
 
 // Transações de um dia, lado a lado, com pareamento simples por valor + hora
 // mais próxima (até 3 h — relógio de maquininha e comanda de salão atrasam).
@@ -4458,7 +4396,7 @@ async function abrirDiaConcartao(unidade, dia) {
   const cont = document.getElementById('concartao-dia');
   if (!cont) return;
   cont.innerHTML = '<div class="contexto">Carregando transações do dia...</div>';
-  const [trs, pix, cobr] = await Promise.all([
+  const [trs, pix, cobr, forma] = await Promise.all([
     consultarTudo('vw_cartao_transacoes?select=*&dia=eq.' + dia +
       '&unidade=eq.' + encodeURIComponent(unidade) + '&order=hora'),
     // PIX do dia (09/09/2026): QR da maquininha e chave, com o credito do banco que casou
@@ -4467,6 +4405,9 @@ async function abrirDiaConcartao(unidade, dia) {
     // quem entregou cada venda de cartao/vale (para dizer "confirmar com o motoboy X")
     consultarTudo('vw_cartao_entrega_cobranca?select=id_sale,entregador&dia=eq.' + dia +
       '&unidade=eq.' + encodeURIComponent(unidade)),
+    // forma registrada no PDV diferente da que passou (absorvida pela base; aqui so informa)
+    consultarTudo('vw_cartao_bandeira_divergente?select=hora,registrado,passou,valor,nivel&dia=eq.' + dia +
+      '&unidade=eq.' + encodeURIComponent(unidade) + '&order=hora'),
   ]);
   const reaisCc = v => 'R$ ' + Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const min = h => { const p = (h || '0:0:0').split(':'); return (+p[0]) * 60 + (+p[1]); };
@@ -4586,6 +4527,9 @@ async function abrirDiaConcartao(unidade, dia) {
   const resolvidos = [
     ...compostos.map(c => ({ hora: hhmm(c.alvo.hora), tipo: 'conta dividida', texto: `${c.rotulo}: ${reaisCc(c.alvo.valor)} (${limpa(c.alvo.detalhe)}) = ${c.itens.map(t => reaisCc(t.valor) + ' às ' + hhmm(t.hora)).join(' + ')}` })),
     ...arredond.map(q => ({ hora: hhmm(q.s.hora), tipo: 'centavos', texto: `${limpa(q.s.detalhe)} ${reaisCc(q.s.valor)} × maquininha ${reaisCc(q.r.valor)}` })),
+    // forma diferente da registrada: o Saipos diz X, passou Y — a base ja usa o Y
+    // (decisao do dono, 09/09/2026: nada se corrige no Saipos). Fica so o registro.
+    ...(forma || []).map(f => ({ hora: hhmm(String(f.hora || '').slice(11)), tipo: 'forma diferente (' + String(f.nivel).toLowerCase() + ')', texto: `registrado ${f.registrado}, passou ${f.passou} — ${reaisCc(f.valor)}; o painel já usa o que passou` })),
   ];
   const somaS = saipos.reduce((a, t) => a + +t.valor, 0), somaR = rede.reduce((a, t) => a + +t.valor, 0);
   const pixPdv = pix.reduce((a, x) => a + +x.valor, 0), pixNoBanco = pix.filter(x => x.recebido).reduce((a, x) => a + +x.valor, 0);
@@ -4627,7 +4571,7 @@ async function abrirDiaConcartao(unidade, dia) {
         ${pend.map(linhaP).join('')}</table></div>
       <div style="font-size:11px; color:#8a897e; margin-top:6px;">vermelho = dinheiro que pode não ter entrado · laranja = provável erro de registro · cinza = deve se resolver sozinho</div>`
       : '<div style="color:#7bc47f; margin:10px 0;">✔ Nada para conferir neste dia: tudo o que o Saipos registrou bateu com a maquininha e com o banco.</div>'}
-    ${resolvidos.length ? `<details style="margin-top:10px;"><summary style="cursor:pointer; font-size:12px; color:#a5a49a;">Resolvido pelo painel (${resolvidos.length}): conta dividida e diferença de centavos</summary>
+    ${resolvidos.length ? `<details style="margin-top:10px;"><summary style="cursor:pointer; font-size:12px; color:#a5a49a;">Absorvido pelo painel (${resolvidos.length}): conta dividida, centavos e forma diferente da registrada</summary>
       ${resolvidos.map(r => `<div style="font-size:12px; padding:2px 8px; color:#8a897e;">${r.hora} · ${r.tipo}: ${r.texto}</div>`).join('')}</details>` : ''}
     ${casados.length ? `<details style="margin-top:6px;"><summary style="cursor:pointer; font-size:12px; color:#a5a49a;">Ver ${casados.length} pagamento(s) de cartão/vale que bateram</summary>
       <table style="border-collapse:collapse; font-size:12px;">${casados.map(s => `<tr style="color:#5f5e54;"><td style="padding:2px 8px;">${hhmm(s.hora)}</td><td style="padding:2px 8px;">${limpa(s.detalhe)}</td><td style="padding:2px 8px;">${limpa(s.par.detalhe)} às ${hhmm(s.par.hora)}</td><td style="padding:2px 8px; text-align:right;">${reaisCc(s.valor)}</td></tr>`).join('')}</table></details>` : ''}
@@ -13520,46 +13464,7 @@ function renderModuloDespesas() {
 // PC) vem depois. Serie comeca em 01/08/2026 (antes nao ha coluna dinheiro).
 // ------------------------------------------------------------------
 let CAIXA_DIAS = null, CAIXA_CONTAGENS = null, CAIXA_RESP = null;
-let CAIXA_CARTAO = null, CAIXA_PIX = null, CAIXA_TURNOS = null, CAIXA_BANDEIRA = null;
-
-// Varredura "bandeira diferente da registrada" (dono, 09/09/2026): o cliente paga
-// numa bandeira/forma diferente da que o PDV registrou. A view so acusa quando
-// NENHUMA transacao da janela tem a bandeira registrada — mesa dividida e dois
-// cartoes do mesmo valor nao viram falso alarme. FORMA (cartao x vale x PIX) e
-// credito x debito mudam a taxa; bandeira (Master x Visa) e so cadastro.
-function renderCaixaBandeira() {
-  const F = CAIXA_FILTRO;
-  const lista = (CAIXA_BANDEIRA || []).filter(r => !F.loja || r.unidade === F.loja);
-  if (!lista.length) return '';
-  const porNivel = {};
-  lista.forEach(r => { porNivel[r.nivel] = (porNivel[r.nivel] || 0) + 1; });
-  const corNivel = n => n === 'FORMA' ? '#ff6b6b' : n === 'CRÉDITO/DÉBITO' ? '#f5a623' : '#9aa4af';
-  const dBr = d => d.split('-').reverse().slice(0, 2).join('/');
-  const linhas = lista.slice(0, 80).map(r => `<tr>
-      <td style="padding:3px 8px; white-space:nowrap;">${dBr(r.dia)} ${(r.hora || '').slice(11, 16)}</td>
-      <td style="padding:3px 8px;">${r.unidade}</td>
-      <td style="padding:3px 8px; color:#9aa4af;">${r.canal || ''}</td>
-      <td style="padding:3px 8px;">${r.registrado}</td>
-      <td style="padding:3px 8px; font-weight:600;">${r.passou}</td>
-      <td style="padding:3px 8px; text-align:right;">R$ ${fmt(r.valor)}</td>
-      <td style="padding:3px 8px; color:${corNivel(r.nivel)};">${r.nivel.toLowerCase()}${r.candidatas > 1 ? ` <span style="color:#9aa4af;" title="havia ${r.candidatas} transações do mesmo valor na janela; nenhuma com a bandeira registrada">(${r.candidatas} candidatas)</span>` : ''}</td>
-    </tr>`).join('');
-  return `<details style="margin:14px 0;"><summary style="cursor:pointer; font-size:14px; font-weight:600;">💳 Forma diferente da registrada — absorvida aqui
-      <span style="color:#9aa4af; font-weight:normal;">(${lista.length}: ${Object.entries(porNivel).map(([n, q]) => `<span style="color:${corNivel(n)};">${q} ${n.toLowerCase()}</span>`).join(' · ')})</span></summary>
-    <div class="card" style="margin:8px 0; overflow-x:auto;">
-      <div style="font-size:12px; color:#8a897e; margin-bottom:6px;">O PDV registrou uma forma e a maquininha (ou o banco, no PIX) diz que passou outra. <b>Nada a corrigir no Saipos</b>:
-        o fechamento já usa a forma que passou de fato (regra do dono, 09/09/2026). A lista fica para conhecimento — serve para mostrar à equipe o botão certo.
-        <b>forma</b> (cartão × vale × PIX) e <b>crédito/débito</b> mudam a taxa e o prazo; <b>bandeira</b> (Master × Visa) é só cadastro. Só entra aqui quando
-        nenhuma transação do mesmo valor na janela tem a bandeira registrada.</div>
-      <table style="border-collapse:collapse; font-size:12px; min-width:640px;">
-        <tr style="color:#a5a49a; text-transform:uppercase; font-size:11px;">
-          <td style="padding:3px 8px;">quando</td><td style="padding:3px 8px;">loja</td><td style="padding:3px 8px;">canal</td>
-          <td style="padding:3px 8px;">registrado no PDV</td><td style="padding:3px 8px;">passou de fato</td>
-          <td style="padding:3px 8px; text-align:right;">valor</td><td style="padding:3px 8px;">nível</td></tr>
-        ${linhas}</table>
-      ${lista.length > 80 ? `<div style="font-size:11px; color:#8a897e; margin-top:4px;">mostrando 80 de ${lista.length}</div>` : ''}
-    </div></details>`;
-}
+let CAIXA_CARTAO = null, CAIXA_PIX = null, CAIXA_TURNOS = null;
 
 // FECHAMENTO DE CAIXAS (09/09/2026) — modulo unico, decisao do dono: absorveu
 // "Cartao & maquininha" (taxas/aluguel, secao no fim da tela) e "Conciliacao de
@@ -13572,9 +13477,7 @@ async function entrarCaixa() {
   const alvo = document.getElementById('view-caixa');
   if (CAIXA_DIAS === null) {
     alvo.innerHTML = '<div class="contexto">Carregando fechamento de caixas (PDV × gaveta × maquininhas × banco)...</div>';
-    let motoboy, semCobranca, pixSem;
-    [CAIXA_DIAS, CAIXA_CONTAGENS, CAIXA_RESP, CAIXA_CARTAO, CAIXA_PIX, CAIXA_TURNOS,
-     motoboy, semCobranca, pixSem, CAIXA_BANDEIRA] = await Promise.all([
+    [CAIXA_DIAS, CAIXA_CONTAGENS, CAIXA_RESP, CAIXA_CARTAO, CAIXA_PIX, CAIXA_TURNOS] = await Promise.all([
       consultarTudo('vw_caixa_fechamento_dia?select=*&order=data.desc'),
       consultarTudo('caixa_contagem?select=*&order=data.desc'),
       consultarTudo('caixa_responsaveis?select=email,unidade'),
@@ -13583,16 +13486,7 @@ async function entrarCaixa() {
       consultarTudo('vw_cartao_conciliacao_dia?select=*&dia=gte.2026-08-01&order=dia'),
       consultarTudo('vw_pix_conciliacao_dia?select=*&dia=gte.2026-08-01&order=dia'),
       consultarTudo('vw_fechamento_caixa_turno?select=*&dia=gte.2026-08-01&order=dia'),
-      // consultarTudo pagina de 1000 em 1000 e IGNORA um limit= no caminho (o dele vem
-      // depois) — por isso as listas sao limitadas por DATA: 60 dias, como o filtro da tela
-      consultarTudo('vw_cartao_motoboy_mensal?select=*&sem_cobranca=gt.0&mes=gte.' + new Date(Date.now() - 90 * 864e5).toLocaleDateString('en-CA').slice(0, 8) + '01&order=mes.desc,valor_sem_cobranca.desc'),
-      consultarTudo('vw_cartao_entrega_cobranca?select=dia,unidade,entregador,tipo,valor,entrega&cobrado=eq.false&aguardando=eq.false&dia=gte.' + new Date(Date.now() - 60 * 864e5).toLocaleDateString('en-CA') + '&order=dia.desc'),
-      consultarTudo('vw_pix_conciliacao?select=dia,unidade,canal,entregador,tipo,valor&recebido=eq.false&aguardando=eq.false&dia=gte.' + new Date(Date.now() - 60 * 864e5).toLocaleDateString('en-CA') + '&order=dia.desc'),
-      // forma registrada x forma que passou (dono, 09/09/2026): a base ja absorve; a
-      // lista e informativa, so os ultimos 60 dias
-      consultarTudo('vw_cartao_bandeira_divergente?select=*&dia=gte.' + new Date(Date.now() - 60 * 864e5).toLocaleDateString('en-CA') + '&order=dia.desc,hora.desc&limit=300'),
     ]);
-    CAIXA_BANDEIRA.forEach(r => { r.valor = Number(r.valor); });
     CAIXA_DIAS.forEach(r => {
       r.dinheiro_pdv = Number(r.dinheiro_pdv); r.lancado_cofre = Number(r.lancado_cofre);
       r.diferenca = Number(r.diferenca); r.quebra_registrada = Number(r.quebra_registrada);
@@ -13602,7 +13496,6 @@ async function entrarCaixa() {
     CAIXA_CARTAO.forEach(r => { ['saipos', 'rede', 'diferenca', 'saldo_acumulado'].forEach(k => { r[k] = Number(r[k]); }); });
     CAIXA_PIX.forEach(r => { ['pdv', 'recebido', 'sem_par', 'aguardando', 'pdv_qr', 'recebido_qr', 'sem_par_qr', 'aguardando_qr',
                               'pdv_chave', 'recebido_chave', 'sem_par_chave', 'aguardando_chave'].forEach(k => { r[k] = Number(r[k]); }); });
-    CONCARTAO_DADOS = { dias: CAIXA_CARTAO, motoboy, semCobranca, pixSem };   // renderConcartaoMotoboy le daqui
   }
   renderModuloCaixa();
   entrarRede();   // taxas & aluguel das maquininhas, no fim da tela (cache proprio)
@@ -13846,8 +13739,6 @@ function renderModuloCaixa() {
     </div>`;
   }
 
-  const motoboy = renderConcartaoMotoboy();
-  const nMoto = [...(CONCARTAO_DADOS.semCobranca || []), ...(CONCARTAO_DADOS.pixSem || [])].filter(r => !F.loja || r.unidade === F.loja).length;
   alvo.innerHTML = `
     <div class="section-label">Fechamento de Caixas</div>
     <div class="contexto" style="text-align:left;">
@@ -13866,9 +13757,7 @@ function renderModuloCaixa() {
         pagamento online (iFood/site) e Boqueirão.</details>
       ${filtros}
     </div>
-    ${blocos}
-    ${renderCaixaBandeira()}
-    ${motoboy ? `<details style="margin:14px 0;"><summary style="cursor:pointer; font-size:14px; font-weight:600;">🛵 Cobranças sem par por motoboy <span style="color:#9aa4af; font-weight:normal;">(${nMoto})</span></summary>${motoboy}</details>` : ''}`;
+    ${blocos}`;
 }
 
 // ------------------------------------------------------------------
