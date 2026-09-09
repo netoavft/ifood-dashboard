@@ -13472,7 +13472,45 @@ function renderModuloDespesas() {
 // PC) vem depois. Serie comeca em 01/08/2026 (antes nao ha coluna dinheiro).
 // ------------------------------------------------------------------
 let CAIXA_DIAS = null, CAIXA_CONTAGENS = null, CAIXA_RESP = null;
-let CAIXA_CARTAO = null, CAIXA_PIX = null, CAIXA_TURNOS = null;
+let CAIXA_CARTAO = null, CAIXA_PIX = null, CAIXA_TURNOS = null, CAIXA_BANDEIRA = null;
+
+// Varredura "bandeira diferente da registrada" (dono, 09/09/2026): o cliente paga
+// numa bandeira/forma diferente da que o PDV registrou. A view so acusa quando
+// NENHUMA transacao da janela tem a bandeira registrada — mesa dividida e dois
+// cartoes do mesmo valor nao viram falso alarme. FORMA (cartao x vale x PIX) e
+// credito x debito mudam a taxa; bandeira (Master x Visa) e so cadastro.
+function renderCaixaBandeira() {
+  const F = CAIXA_FILTRO;
+  const lista = (CAIXA_BANDEIRA || []).filter(r => !F.loja || r.unidade === F.loja);
+  if (!lista.length) return '';
+  const porNivel = {};
+  lista.forEach(r => { porNivel[r.nivel] = (porNivel[r.nivel] || 0) + 1; });
+  const corNivel = n => n === 'FORMA' ? '#ff6b6b' : n === 'CRÉDITO/DÉBITO' ? '#f5a623' : '#9aa4af';
+  const dBr = d => d.split('-').reverse().slice(0, 2).join('/');
+  const linhas = lista.slice(0, 80).map(r => `<tr>
+      <td style="padding:3px 8px; white-space:nowrap;">${dBr(r.dia)} ${(r.hora || '').slice(11, 16)}</td>
+      <td style="padding:3px 8px;">${r.unidade}</td>
+      <td style="padding:3px 8px; color:#9aa4af;">${r.canal || ''}</td>
+      <td style="padding:3px 8px;">${r.registrado}</td>
+      <td style="padding:3px 8px; font-weight:600;">${r.passou}</td>
+      <td style="padding:3px 8px; text-align:right;">R$ ${fmt(r.valor)}</td>
+      <td style="padding:3px 8px; color:${corNivel(r.nivel)};">${r.nivel.toLowerCase()}${r.candidatas > 1 ? ` <span style="color:#9aa4af;" title="havia ${r.candidatas} transações do mesmo valor na janela; nenhuma com a bandeira registrada">(${r.candidatas} candidatas)</span>` : ''}</td>
+    </tr>`).join('');
+  return `<details style="margin:14px 0;"><summary style="cursor:pointer; font-size:14px; font-weight:600;">💳 Bandeira diferente da registrada
+      <span style="color:#9aa4af; font-weight:normal;">(${lista.length} em 60 dias: ${Object.entries(porNivel).map(([n, q]) => `<span style="color:${corNivel(n)};">${q} ${n.toLowerCase()}</span>`).join(' · ')})</span></summary>
+    <div class="card" style="margin:8px 0; overflow-x:auto;">
+      <div style="font-size:12px; color:#8a897e; margin-bottom:6px;">O PDV registrou uma forma e a maquininha (ou o banco, no PIX) diz que passou outra. <b>forma</b> (cartão × vale × PIX) e
+        <b>crédito/débito</b> mudam a taxa e o prazo — corrigir no Saipos; <b>bandeira</b> (Master × Visa) é só cadastro. Só entra aqui quando nenhuma transação
+        do mesmo valor na janela tem a bandeira registrada.</div>
+      <table style="border-collapse:collapse; font-size:12px; min-width:640px;">
+        <tr style="color:#a5a49a; text-transform:uppercase; font-size:11px;">
+          <td style="padding:3px 8px;">quando</td><td style="padding:3px 8px;">loja</td><td style="padding:3px 8px;">canal</td>
+          <td style="padding:3px 8px;">registrado no PDV</td><td style="padding:3px 8px;">passou de fato</td>
+          <td style="padding:3px 8px; text-align:right;">valor</td><td style="padding:3px 8px;">nível</td></tr>
+        ${linhas}</table>
+      ${lista.length > 80 ? `<div style="font-size:11px; color:#8a897e; margin-top:4px;">mostrando 80 de ${lista.length}</div>` : ''}
+    </div></details>`;
+}
 
 // FECHAMENTO DE CAIXAS (09/09/2026) — modulo unico, decisao do dono: absorveu
 // "Cartao & maquininha" (taxas/aluguel, secao no fim da tela) e "Conciliacao de
@@ -13487,7 +13525,7 @@ async function entrarCaixa() {
     alvo.innerHTML = '<div class="contexto">Carregando fechamento de caixas (PDV × gaveta × maquininhas × banco)...</div>';
     let motoboy, semCobranca, pixSem;
     [CAIXA_DIAS, CAIXA_CONTAGENS, CAIXA_RESP, CAIXA_CARTAO, CAIXA_PIX, CAIXA_TURNOS,
-     motoboy, semCobranca, pixSem] = await Promise.all([
+     motoboy, semCobranca, pixSem, CAIXA_BANDEIRA] = await Promise.all([
       consultarTudo('vw_caixa_fechamento_dia?select=*&order=data.desc'),
       consultarTudo('caixa_contagem?select=*&order=data.desc'),
       consultarTudo('caixa_responsaveis?select=email,unidade'),
@@ -13499,7 +13537,10 @@ async function entrarCaixa() {
       consultarTudo('vw_cartao_motoboy_mensal?select=*&sem_cobranca=gt.0&order=mes.desc,valor_sem_cobranca.desc&limit=60'),
       consultarTudo('vw_cartao_entrega_cobranca?select=dia,unidade,entregador,tipo,valor,entrega&cobrado=eq.false&aguardando=eq.false&order=dia.desc&limit=40'),
       consultarTudo('vw_pix_conciliacao?select=dia,unidade,canal,entregador,tipo,valor&recebido=eq.false&aguardando=eq.false&order=dia.desc&limit=40'),
+      // varredura "bandeira diferente da registrada" (dono, 09/09/2026)
+      consultarTudo('vw_cartao_bandeira_divergente?select=*&order=dia.desc,hora.desc&limit=300'),
     ]);
+    CAIXA_BANDEIRA.forEach(r => { r.valor = Number(r.valor); });
     CAIXA_DIAS.forEach(r => {
       r.dinheiro_pdv = Number(r.dinheiro_pdv); r.lancado_cofre = Number(r.lancado_cofre);
       r.diferenca = Number(r.diferenca); r.quebra_registrada = Number(r.quebra_registrada);
@@ -13774,6 +13815,7 @@ function renderModuloCaixa() {
       ${filtros}
     </div>
     ${blocos}
+    ${renderCaixaBandeira()}
     ${motoboy ? `<details style="margin:14px 0;"><summary style="cursor:pointer; font-size:14px; font-weight:600;">🛵 Cobranças sem par por motoboy <span style="color:#9aa4af; font-weight:normal;">(${nMoto})</span></summary>${motoboy}</details>` : ''}`;
 }
 
