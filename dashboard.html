@@ -9947,7 +9947,10 @@ async function trFecharConferencia(id) {
 async function trTelaContas() {
   const alvo = document.getElementById('trTelaConteudo');
   const filtro = TR_OP.unidade ? `&unidade=eq.${encodeURIComponent(TR_OP.unidade)}` : '';
-  const r = await trFetch(`vw_tr_contas_pagar?order=vencimento${filtro}`);
+  // So o dinheiro DO CICLO DAS LISTAS (dono, 09/09/2026): BENEFICIO/ACERTO sao
+  // as remessas do beneficio iFood -> XP, que vivem no Fluxo Projetado — aqui
+  // misturados confundiam (apareciam com "itens 0,00").
+  const r = await trFetch(`vw_tr_contas_pagar?tipo=in.(LISTA,MENSAL,FRETE_MES)&order=vencimento${filtro}`);
   if (!r.ok) { alvo.innerHTML = `<div class="contexto" style="border-color:#ff6b6b;">${await trErroDe(r)}</div>`; return; }
   const contas = await r.json();
   const dono = TR_OP.papel === 'DONO';
