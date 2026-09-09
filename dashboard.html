@@ -4515,6 +4515,9 @@ async function abrirDiaConcartao(unidade, dia) {
   (cobr || []).forEach(c => { if (c.entregador) moto[String(c.id_sale)] = c.entregador; });
   const quem = t => moto[t.referencia] ? ' · motoboy ' + moto[t.referencia] : '';
   const eVale = t => /^vr\b|ticket|alelo|pluxee|sodexo|^vale/i.test(t.detalhe || '');
+  const turnos = (CAIXA_TURNOS || []).filter(t => t.unidade === unidade && t.dia === dia).sort((a, b) => +b.total - +a.total);
+  const hhmmTs = ts => ts ? String(ts).slice(11, 16) + (String(ts).slice(0, 10) !== dia ? ' (' + String(ts).slice(8, 10) + '/' + String(ts).slice(5, 7) + ')' : '') : '';
+  const rotuloCaixa = t => t.caixa === 'SALÃO' ? 'Caixa Salão' : t.caixa === 'DELIVERY' ? 'Caixa Delivery' : t.caixa + (t.canal_dominante ? ' (' + (['SALÃO', 'BALCÃO'].includes(t.canal_dominante) ? 'salão' : 'delivery') + ')' : '');
   // Cada pendencia leva uma CHAVE estavel (memoria de validacao, 09/09/2026), o
   // BLOCO da linha do dia que ela afeta e o EFEITO assinado na diferenca do bloco.
   const pend = [];
@@ -4555,8 +4558,9 @@ async function abrirDiaConcartao(unidade, dia) {
   const rDin = (CAIXA_DIAS || []).find(r => r.unidade === unidade && r.data === dia);
   if (rDin && (rDin.situacao === 'SEM FECHAMENTO' || rDin.situacao === 'DIVERGENTE')) {
     const semFech = rDin.situacao === 'SEM FECHAMENTO';
+    const abertos = turnos.filter(t => t.fechado === false).map(rotuloCaixa);
     pend.push({ chave: 'dinheiro:' + dia, bloco: 'dinheiro', efeito: +rDin.diferenca, p: 1, cor: semFech ? '#ff6b6b' : '#f5a623', hora: 'turno',
-      saipos: 'dinheiro vendido ' + reaisCc(rDin.dinheiro_pdv), real: semFech ? 'turno não fechou o caixa no Saipos' : 'fechado no Saipos ' + reaisCc(rDin.lancado_cofre),
+      saipos: 'dinheiro vendido ' + reaisCc(rDin.dinheiro_pdv), real: semFech ? (abertos.length ? abertos.join(', ') + ' ainda aberto no Saipos' : 'turno não fechou o caixa no Saipos') : 'fechado no Saipos ' + reaisCc(rDin.lancado_cofre),
       valor: +rDin.diferenca, leitura: semFech ? 'venda em dinheiro sem fechamento de turno' : 'o fechado não bate com o vendido',
       acao: 'conferir com o turno; a contagem da gaveta diz se o dinheiro está lá' });
   }
@@ -4600,12 +4604,14 @@ async function abrirDiaConcartao(unidade, dia) {
   // Delivery, forma a forma — para bater com a tela de fechamento de cada
   // turno. Turno = shift_date; a lista abaixo e por hora da maquina, entao a
   // madrugada pode cair no dia seguinte.
-  const turnos = (CAIXA_TURNOS || []).filter(t => t.unidade === unidade && t.dia === dia);
-  const turnoHtml = !turnos.length ? '' : `<div style="display:flex; flex-wrap:wrap; gap:10px; margin:6px 0 10px;">${['SALÃO', 'DELIVERY'].map(cx => {
-      const t = turnos.find(x => x.caixa === cx);
-      if (!t) return '';
+  // 09/09/2026 (dono): o caixa do Saipos (cashier da venda) diz se o turno fechou.
+  // Uma caixinha por caixa, com abertura/fechamento; dia sem esse dado cai na
+  // aproximacao antiga por canal (SALAO / DELIVERY).
+  const turnoHtml = !turnos.length ? '' : `<div style="display:flex; flex-wrap:wrap; gap:10px; margin:6px 0 10px;">${turnos.map(t => {
       const it = [['dinheiro', t.dinheiro], ['cartão', t.cartao], ['vale', t.voucher], ['PIX', t.pix], ['online', t.online], ['outros', t.outros]].filter(([, v]) => +v > 0);
-      return `<div style="font-size:12px; padding:6px 10px; border:1px solid #3a392f; border-radius:6px;"><b>Caixa ${cx === 'SALÃO' ? 'Salão' : 'Delivery'}</b> (turno de ${dia.split('-').reverse().slice(0, 2).join('/')}): ${it.map(([k, v]) => k + ' ' + reaisCc(v)).join(' · ')} — <b>total ${reaisCc(t.total)}</b></div>`;
+      const estado = t.fechado === false ? '<b style="color:#ff6b6b;">ABERTO</b> desde ' + hhmmTs(t.aberto_em)
+        : t.fechado === true ? '<span style="color:#3f9c5a;">fechado ' + hhmmTs(t.fechado_em) + '</span>' : '';
+      return `<div style="font-size:12px; padding:6px 10px; border:1px solid ${t.fechado === false ? '#ff6b6b' : '#3a392f'}; border-radius:6px;"><b>${rotuloCaixa(t)}</b> (turno de ${dia.split('-').reverse().slice(0, 2).join('/')})${estado ? ' · ' + estado : ''}: ${it.map(([k, v]) => k + ' ' + reaisCc(v)).join(' · ')} — <b>total ${reaisCc(t.total)}</b></div>`;
     }).join('')}</div>`;
 
   const th = 'padding:4px 8px; font-weight:normal; color:#a5a49a; font-size:11px; text-transform:uppercase; text-align:left;';
@@ -13953,7 +13959,7 @@ function renderModuloCaixa() {
         ? `<b class="negativo">${pendTotal} dia(s) para conferir</b>${semFechTotal ? `, ${semFechTotal} com turno sem fechamento` : ''}.`
         : '<b style="color:#3f9c5a;">Nenhuma pendência na janela.</b>'}
       <details style="margin-top:6px; font-size:12px; color:#9aa4af;"><summary style="cursor:pointer;">como ler</summary>
-        <b>Dinheiro</b>: venda em dinheiro no PDV × o que o fechamento do turno registrou no Saipos; a gaveta contada
+        <b>Turno não fechou</b> = o caixa que fez as vendas ainda está aberto no Saipos (o clique no dia diz qual). <b>Dinheiro</b>: venda em dinheiro no PDV × o que o fechamento registrou no cofre; a gaveta contada
         entra pela contagem (Arissa: Água Verde e Ahú · Diego: São Braz). <b>Maquininha</b>: cartão e vale × transações
         da Rede, mais o PIX QR da maquininha × crédito no banco (cai linha a linha, "PIX QRS"). <b>PIX chave</b>: avulso
         na chave CNPJ × transferência no banco. Cartão, vale e PIX contam no dia em que passaram na máquina (madrugada
