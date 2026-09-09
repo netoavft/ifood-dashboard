@@ -876,9 +876,7 @@
       <button class="sidebar-btn" id="navBtnFluxo" onclick="mostrarModulo('fluxo')"><span class="mico">💵</span>Fluxo de caixa</button>
       <button class="sidebar-btn" id="navBtnProjecao" onclick="mostrarModulo('projecao')"><span class="mico">🔮</span>Fluxo projetado</button>
       <button class="sidebar-btn" id="navBtnConcbanco" onclick="mostrarModulo('concbanco')"><span class="mico">🏦</span>Conciliação bancária</button>
-      <button class="sidebar-btn" id="navBtnCaixa" onclick="mostrarModulo('caixa')"><span class="mico">🗃️</span>Fechamento de caixa</button>
-      <button class="sidebar-btn" id="navBtnRede" onclick="mostrarModulo('rede')"><span class="mico">🏧</span>Cartão &amp; maquininha</button>
-      <button class="sidebar-btn" id="navBtnConcartao" onclick="mostrarModulo('concartao')"><span class="mico">🔁</span>Conciliação de cartão</button>
+      <button class="sidebar-btn" id="navBtnCaixa" onclick="mostrarModulo('caixa')"><span class="mico">🗃️</span>Fechamento de Caixas</button>
       <button class="sidebar-btn" id="navBtnDespesas" onclick="mostrarModulo('despesas')"><span class="mico">🧾</span>Análise de despesas</button>
       <button class="sidebar-btn" id="navBtnReembolsos" onclick="mostrarModulo('reembolsos')"><span class="mico">💸</span>Reembolsos</button>
       <button class="sidebar-btn" id="navBtnRh" onclick="mostrarModulo('rh')"><span class="mico">💳</span>Descontos em folha</button>
@@ -1017,14 +1015,6 @@
       <div id="view-concbanco"></div>
     </div>
 
-    <div id="modulo-rede" class="modulo" style="display:none;">
-      <div id="view-rede"></div>
-    </div>
-
-    <div id="modulo-concartao" class="modulo" style="display:none;">
-      <div id="view-concartao"></div>
-    </div>
-
     <div id="modulo-reembolsos" class="modulo" style="display:none;">
       <div id="view-reembolsos"></div>
     </div>
@@ -1117,8 +1107,12 @@
       <div id="view-conciliacao"></div>
     </div>
 
+    <!-- Fechamento de Caixas (09/09/2026): dia a dia + contagens (view-caixa),
+         mergulho do dia (concartao-dia) e taxas/aluguel da Rede (view-rede) -->
     <div id="modulo-caixa" class="modulo" style="display:none;">
       <div id="view-caixa"></div>
+      <div id="concartao-dia"></div>
+      <div id="view-rede"></div>
     </div>
 
     <div id="modulo-indicadores" class="modulo" style="display:none;">
@@ -1671,8 +1665,7 @@ function abrirGrupoDoModulo(nome) {
                     site: 'gSite',
                     atrasos: 'gEntrega', frete: 'gEntrega', logfin: 'gEntrega',
                     fluxo: 'gFinanceiro', projecao: 'gFinanceiro', despesas: 'gFinanceiro',
-                    concbanco: 'gFinanceiro', rede: 'gFinanceiro', caixa: 'gFinanceiro',
-                    concartao: 'gFinanceiro',
+                    concbanco: 'gFinanceiro', caixa: 'gFinanceiro',
                     reembolsos: 'gFinanceiro', rh: 'gFinanceiro',
                     listas: 'gProducao',
                     qualidade: 'gIfood',
@@ -1699,9 +1692,12 @@ const MODULOS_COM_RODAPE = new Set(['estasemana', 'resumo', 'cancelamentos',
 // tambem nao valia ali. Modulo novo entra escondido — se precisar do filtro,
 // e so por o nome aqui.
 const MODULOS_COM_FILTRO_TOPO = new Set(['estasemana', 'resumo', 'cancelamentos',
-  'promocoes', 'qualidade', 'rede', 'site']);
+  'promocoes', 'qualidade', 'site']);
 
 function mostrarModulo(nome) {
+  // 09/09/2026: Cartao & maquininha e Conciliacao de cartao viraram secoes do
+  // Fechamento de Caixas — link antigo cai no modulo unico em vez de quebrar.
+  if (nome === 'rede' || nome === 'concartao') nome = 'caixa';
   MODULO_ATUAL = nome; // usado pelo setPerimetro para reentrar no modulo atual
   abrirGrupoDoModulo(nome);
   const rodape = document.querySelector('.footer');
@@ -1753,8 +1749,6 @@ function mostrarModulo(nome) {
     // forafolha nasceu 04/09 fora deste mapa e abriu em branco — mesma armadilha do rateio.
     forafolha: ['modulo-forafolha', 'navBtnForafolha'],
     concbanco: ['modulo-concbanco', 'navBtnConcbanco'],
-    rede: ['modulo-rede', 'navBtnRede'],
-    concartao: ['modulo-concartao', 'navBtnConcartao'],
     caixa: ['modulo-caixa', 'navBtnCaixa'],
   };
   Object.entries(modulos).forEach(([chave, [idDiv, idBtn]]) => {
@@ -1803,8 +1797,6 @@ function mostrarModulo(nome) {
   if (nome === 'telas') entrarTelas();
   if (nome === 'concbanco') entrarConcbanco();
   if (nome === 'caixa') entrarCaixa();
-  if (nome === 'rede') entrarRede();
-  if (nome === 'concartao') entrarConcartao();
   if (nome === 'reembolsos') entrarReembolsos();
   if (nome === 'rh') entrarRh();
   if (nome === 'forafolha') entrarForaFolha();
@@ -4393,95 +4385,9 @@ async function carregarReembolsos() {
 // (VR/Ticket/Alelo/Pluxee) também passa na maquininha da Rede, então entra.
 let CONCARTAO_DADOS = null;
 
-async function entrarConcartao() {
-  const alvo = document.getElementById('view-concartao');
-  if (!alvo) return;
-  if (CONCARTAO_DADOS === null) {
-    alvo.innerHTML = '<div class="contexto">Carregando conciliação de cartão (PDV × maquininhas)...</div>';
-    const [dias, motoboy, semCobranca, pixSem] = await Promise.all([
-      consultarTudo('vw_cartao_conciliacao_dia?select=*&order=dia'),
-      consultarTudo('vw_cartao_motoboy_mensal?select=*&sem_cobranca=gt.0&order=mes.desc,valor_sem_cobranca.desc&limit=60'),
-      consultarTudo('vw_cartao_entrega_cobranca?select=dia,unidade,entregador,tipo,valor,entrega&cobrado=eq.false&aguardando=eq.false&order=dia.desc&limit=40'),
-      consultarTudo('vw_pix_conciliacao?select=dia,unidade,canal,entregador,tipo,valor&recebido=eq.false&aguardando=eq.false&order=dia.desc&limit=40'),
-    ]);
-    CONCARTAO_DADOS = { dias, motoboy, semCobranca, pixSem };
-  }
-  renderConcartao();
-}
-
-function renderConcartao() {
-  const alvo = document.getElementById('view-concartao');
-  if (!alvo || CONCARTAO_DADOS === null) return;
-  const reaisCc = v => 'R$ ' + Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const diaBr = d => new Date(d + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' });
-
-  // organiza: unidade -> dia -> {CARTAO:{...}, VOUCHER:{...}}
-  const porLoja = {};
-  CONCARTAO_DADOS.dias.forEach(r => {
-    const l = (porLoja[r.unidade] = porLoja[r.unidade] || {});
-    const d = (l[r.dia] = l[r.dia] || {});
-    d[r.grupo] = r;
-  });
-
-  const blocos = Object.keys(porLoja).sort().map(u => {
-    const dias = Object.keys(porLoja[u]).sort().reverse();      // mais novo primeiro
-    const ult = porLoja[u][dias[0]] || {};
-    const saldoC = ult.CARTAO ? +ult.CARTAO.saldo_acumulado : 0;
-    const saldoV = ult.VOUCHER ? +ult.VOUCHER.saldo_acumulado : 0;
-    const corSaldo = s => Math.abs(s) < 0.01 ? '#7bc47f' : '#f5a623';
-
-    const linhas = dias.slice(0, 30).map(dia => {
-      const c = porLoja[u][dia].CARTAO || {}, v = porLoja[u][dia].VOUCHER || {};
-      const cel = (r, campo) => r[campo] === undefined ? '—' : reaisCc(r[campo]);
-      const corDif = r => !r.diferenca || Math.abs(+r.diferenca) < 0.01 ? '#8a897e' : '#e8e6dc';
-      const corSal = r => r.saldo_acumulado === undefined ? '#8a897e'
-        : Math.abs(+r.saldo_acumulado) < 0.01 ? '#7bc47f' : '#f5a623';
-      return `<tr style="cursor:pointer;" onclick="abrirDiaConcartao('${u.replace(/'/g, "\\'")}', '${dia}')" title="clique para abrir as transações do dia">
-        <td style="padding:5px 8px; white-space:nowrap;">${diaBr(dia)}</td>
-        <td style="padding:5px 8px; text-align:right;">${cel(c, 'saipos')}</td>
-        <td style="padding:5px 8px; text-align:right;">${cel(c, 'rede')}</td>
-        <td style="padding:5px 8px; text-align:right; color:${corDif(c)};">${cel(c, 'diferenca')}</td>
-        <td style="padding:5px 8px; text-align:right; font-weight:600; color:${corSal(c)};">${cel(c, 'saldo_acumulado')}</td>
-        <td style="padding:5px 8px; text-align:right; border-left:1px solid #3a392f;">${cel(v, 'saipos')}</td>
-        <td style="padding:5px 8px; text-align:right;">${cel(v, 'rede')}</td>
-        <td style="padding:5px 8px; text-align:right; color:${corDif(v)};">${cel(v, 'diferenca')}</td>
-        <td style="padding:5px 8px; text-align:right; font-weight:600; color:${corSal(v)};">${cel(v, 'saldo_acumulado')}</td></tr>`;
-    }).join('');
-
-    return `<div class="card" style="margin:14px 0; overflow-x:auto;">
-      <div style="display:flex; flex-wrap:wrap; gap:16px; align-items:baseline; margin-bottom:8px;">
-        <div style="font-size:16px; font-weight:700;">${u}</div>
-        <div style="font-size:13px;">saldo cartão: <b style="color:${corSaldo(saldoC)};">${reaisCc(saldoC)}</b></div>
-        <div style="font-size:13px;">saldo vale: <b style="color:${corSaldo(saldoV)};">${reaisCc(saldoV)}</b></div>
-      </div>
-      <table style="border-collapse:collapse; font-size:12px; min-width:640px;">
-        <tr style="color:#a5a49a; text-transform:uppercase; font-size:11px;">
-          <td style="padding:5px 8px;">dia</td>
-          <td style="padding:5px 8px; text-align:right;">PDV cartão</td>
-          <td style="padding:5px 8px; text-align:right;">maquininha</td>
-          <td style="padding:5px 8px; text-align:right;">diferença</td>
-          <td style="padding:5px 8px; text-align:right;">saldo</td>
-          <td style="padding:5px 8px; text-align:right; border-left:1px solid #3a392f;">PDV vale</td>
-          <td style="padding:5px 8px; text-align:right;">maquininha</td>
-          <td style="padding:5px 8px; text-align:right;">diferença</td>
-          <td style="padding:5px 8px; text-align:right;">saldo</td></tr>
-        ${linhas}</table></div>`;
-  }).join('');
-
-  alvo.innerHTML = `
-    <div class="contexto">Compara, dia a dia, o <b>cartão e o vale-refeição registrados no PDV (Saipos)</b> com o que
-      <b>passou nas maquininhas da Rede</b> — inclusive VR, Ticket, Alelo e Pluxee, que rodam na mesma máquina.
-      A régua é o <b>saldo</b>: diferença que aparece num dia e desaparece no outro é desencontro de horário
-      (madrugada, comanda fechada depois do cartão) e se resolve sozinha; diferença que aparece <b>e fica</b> é
-      venda sem par — clique no dia para abrir as transações lado a lado. O dia de ontem quase sempre mostra uma
-      sobra pequena que morre no dia seguinte (a Rede fecha o dia com um dia de atraso). O <b>PIX tem outro par</b>:
-      QRCode da maquininha e chave CNPJ são conferidos contra o crédito no <b>extrato bancário</b> ("PIX QRS"/"PIX TRANSF"),
-      na caixa lá embaixo. Fora daqui: pagamento online (iFood/site), dinheiro e Boqueirão (máquinas fora do credenciamento
-      por enquanto).</div>
-    ${blocos}
-    ${renderConcartaoMotoboy()}
-    <div id="concartao-dia"></div>`;
-}
+// entrarConcartao/renderConcartao sairam em 09/09/2026: a tabela diaria de
+// cartao/vale virou colunas da linha do dia em renderModuloCaixa (Fechamento
+// de Caixas). Ficam aqui o controle por motoboy e o mergulho do dia.
 
 // Controle por motoboy (ideia do dono, 28/08/2026): entrega com cartão/vale no
 // PDV sem transação igual na maquininha até 45 min da entrega. É INDÍCIO para
@@ -4635,8 +4541,21 @@ async function abrirDiaConcartao(unidade, dia) {
     `<div style="min-width:280px; flex:1;"><div style="font-size:12px; color:#a5a49a; text-transform:uppercase; margin:8px 0 4px;">${titulo}</div>
      <table style="border-collapse:collapse; font-size:12px; width:100%;">${lista.map(t => linha(t, cor)).join('')}</table></div>`;
 
+  // O que cada CAIXA do Saipos fechou no turno (dono, 09/09/2026): Salao e
+  // Delivery, forma a forma — para bater com a tela de fechamento de cada
+  // turno. Turno = shift_date; as transacoes abaixo sao por hora da maquina,
+  // entao a madrugada pode cair no dia seguinte.
+  const turnos = (CAIXA_TURNOS || []).filter(t => t.unidade === unidade && t.dia === dia);
+  const turnoHtml = !turnos.length ? '' : `<div style="display:flex; flex-wrap:wrap; gap:10px; margin:6px 0 10px;">${['SALÃO', 'DELIVERY'].map(cx => {
+      const t = turnos.find(x => x.caixa === cx);
+      if (!t) return '';
+      const it = [['dinheiro', t.dinheiro], ['cartão', t.cartao], ['vale', t.voucher], ['PIX', t.pix], ['online', t.online], ['outros', t.outros]].filter(([, v]) => +v > 0);
+      return `<div style="font-size:12px; padding:6px 10px; border:1px solid #3a392f; border-radius:6px;"><b>Caixa ${cx === 'SALÃO' ? 'Salão' : 'Delivery'}</b> (turno de ${dia.split('-').reverse().slice(0, 2).join('/')}): ${it.map(([k, v]) => k + ' ' + reaisCc(v)).join(' · ')} — <b>total ${reaisCc(t.total)}</b></div>`;
+    }).join('')}</div>`;
+
   cont.innerHTML = `<div class="card" style="margin:14px 0;">
     <div style="font-size:15px; font-weight:700; margin-bottom:4px;">${unidade} — ${dia.split('-').reverse().join('/')}</div>
+    ${turnoHtml}
     <div style="font-size:12px; color:#8a897e;">${casados.length} pagamento(s) com par na maquininha${compostos.length ? ', ' + compostos.length + ' resolvidos como conta dividida' : ''}${arredond.length ? ', ' + arredond.length + ' por arredondamento' : ''}${conferir.length ? ', ' + conferir.length + ' quase-par para conferir' : ''}; ${semParS.length} do PDV e ${semParR.length} da maquininha ficaram sem par.
       Sem par dos DOIS lados com o mesmo valor = provável desencontro maior que 3 h. Sem par de um lado só = investigar.</div>
     ${compostos.length ? `<div style="margin:10px 0;"><div style="font-size:12px; color:#a5a49a; text-transform:uppercase; margin-bottom:4px;">Conta dividida (soma fecha)</div>
@@ -13538,15 +13457,33 @@ function renderModuloDespesas() {
 // PC) vem depois. Serie comeca em 01/08/2026 (antes nao ha coluna dinheiro).
 // ------------------------------------------------------------------
 let CAIXA_DIAS = null, CAIXA_CONTAGENS = null, CAIXA_RESP = null;
+let CAIXA_CARTAO = null, CAIXA_PIX = null, CAIXA_TURNOS = null;
 
+// FECHAMENTO DE CAIXAS (09/09/2026) — modulo unico, decisao do dono: absorveu
+// "Cartao & maquininha" (taxas/aluguel, secao no fim da tela) e "Conciliacao de
+// cartao" (colunas de cartao/vale/PIX na linha do dia, mergulho do dia e
+// cobrancas sem par por motoboy). O Saipos deixa de ser ferramenta de
+// conciliacao: cada turno so fecha o caixa la (sem digitar bandeira); a
+// conferencia inteira — dinheiro x gaveta, cartao/vale x Rede, PIX x banco —
+// e feita aqui, pela Arissa (AV e Ahu) e pelo Diego (SB), sobre o dia anterior.
 async function entrarCaixa() {
   const alvo = document.getElementById('view-caixa');
   if (CAIXA_DIAS === null) {
-    alvo.innerHTML = '<div class="contexto">Carregando fechamento de caixa...</div>';
-    [CAIXA_DIAS, CAIXA_CONTAGENS, CAIXA_RESP] = await Promise.all([
+    alvo.innerHTML = '<div class="contexto">Carregando fechamento de caixas (PDV × gaveta × maquininhas × banco)...</div>';
+    let motoboy, semCobranca, pixSem;
+    [CAIXA_DIAS, CAIXA_CONTAGENS, CAIXA_RESP, CAIXA_CARTAO, CAIXA_PIX, CAIXA_TURNOS,
+     motoboy, semCobranca, pixSem] = await Promise.all([
       consultarTudo('vw_caixa_fechamento_dia?select=*&order=data.desc'),
       consultarTudo('caixa_contagem?select=*&order=data.desc'),
       consultarTudo('caixa_responsaveis?select=email,unidade'),
+      // o saldo acumulado da view vem desde 19/02 mesmo filtrando o dia (a janela
+      // e por loja+grupo, o filtro nao entra nela) — e o que se quer: a deriva inteira
+      consultarTudo('vw_cartao_conciliacao_dia?select=*&dia=gte.2026-08-01&order=dia'),
+      consultarTudo('vw_pix_conciliacao_dia?select=*&dia=gte.2026-08-01&order=dia'),
+      consultarTudo('vw_fechamento_caixa_turno?select=*&dia=gte.2026-08-01&order=dia'),
+      consultarTudo('vw_cartao_motoboy_mensal?select=*&sem_cobranca=gt.0&order=mes.desc,valor_sem_cobranca.desc&limit=60'),
+      consultarTudo('vw_cartao_entrega_cobranca?select=dia,unidade,entregador,tipo,valor,entrega&cobrado=eq.false&aguardando=eq.false&order=dia.desc&limit=40'),
+      consultarTudo('vw_pix_conciliacao?select=dia,unidade,canal,entregador,tipo,valor&recebido=eq.false&aguardando=eq.false&order=dia.desc&limit=40'),
     ]);
     CAIXA_DIAS.forEach(r => {
       r.dinheiro_pdv = Number(r.dinheiro_pdv); r.lancado_cofre = Number(r.lancado_cofre);
@@ -13554,8 +13491,12 @@ async function entrarCaixa() {
       r.saidas_cofre = Number(r.saidas_cofre); r.movimento_book = Number(r.movimento_book);
     });
     CAIXA_CONTAGENS.forEach(c => { c.contado = Number(c.contado); });
+    CAIXA_CARTAO.forEach(r => { ['saipos', 'rede', 'diferenca', 'saldo_acumulado'].forEach(k => { r[k] = Number(r[k]); }); });
+    CAIXA_PIX.forEach(r => { ['pdv', 'recebido', 'sem_par', 'aguardando'].forEach(k => { r[k] = Number(r[k]); }); });
+    CONCARTAO_DADOS = { dias: CAIXA_CARTAO, motoboy, semCobranca, pixSem };   // renderConcartaoMotoboy le daqui
   }
   renderModuloCaixa();
+  entrarRede();   // taxas & aluguel das maquininhas, no fim da tela (cache proprio)
 }
 
 // Salva (ou corrige) a contagem do dia. Upsert por (unidade, data): contagem
@@ -13605,6 +13546,36 @@ function renderModuloCaixa() {
   }
   const DIAS_SEMANA = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
   const fmtDia = (iso) => `${iso.slice(8, 10)}/${iso.slice(5, 7)} (${DIAS_SEMANA[new Date(iso + 'T12:00:00').getDay()]})`;
+  const vazio = '<span style="color:#9aa4af;">—</span>';
+  const num = (v) => (v === undefined || v === null || Math.abs(+v) < 0.005) ? vazio : 'R$ ' + fmt(+v);
+  const dif = (v) => (v === undefined || v === null || Math.abs(+v) < 0.01) ? vazio : '<b style="color:#f5a623;">R$ ' + fmt(+v) + '</b>';
+
+  // cartao/vale (PDV x Rede) e PIX (PDV x banco) por loja e dia — dia = dia em
+  // que passou na maquina (entrega de madrugada cai no dia seguinte); dinheiro
+  // e por turno (shift_date). Mesma linha, duas reguas — o texto da tela avisa.
+  const cartaoDe = {}, pixDe = {};
+  CAIXA_CARTAO.forEach(r => { cartaoDe[r.unidade + '|' + r.dia + '|' + r.grupo] = r; });
+  CAIXA_PIX.forEach(r => { pixDe[r.unidade + '|' + r.dia] = r; });
+  const saldoDe = (u, g) => { const l = CAIXA_CARTAO.filter(r => r.unidade === u && r.grupo === g); return l.length ? l[l.length - 1].saldo_acumulado : null; };
+  const corSaldo = s => s === null ? '#9aa4af' : Math.abs(s) < 0.01 ? '#3f9c5a' : '#f5a623';
+  const td = 'padding:3px 6px; text-align:right; white-space:nowrap;';
+  const sep = ' border-left:1px solid rgba(154,164,175,.25);';
+  const th = 'padding:3px 6px; font-weight:normal; text-align:right; white-space:nowrap;';
+  const cabecalho = `
+        <tr style="color:#9aa4af; font-size:11px; text-transform:uppercase;">
+          <th></th>
+          <th colspan="3" style="padding:2px 6px; text-align:center; font-weight:normal;">dinheiro</th>
+          <th colspan="3" style="padding:2px 6px; text-align:center; font-weight:normal;${sep}">cartão × maquininha</th>
+          <th colspan="3" style="padding:2px 6px; text-align:center; font-weight:normal;${sep}">vale × maquininha</th>
+          <th colspan="3" style="padding:2px 6px; text-align:center; font-weight:normal;${sep}">PIX × banco</th>
+          <th></th></tr>
+        <tr style="color:#9aa4af; text-align:left;">
+          <th style="padding:3px 6px; font-weight:normal;">dia</th>
+          <th style="${th}">PDV</th><th style="${th}">fechado no Saipos</th><th style="${th}">diferença</th>
+          <th style="${th}${sep}">PDV</th><th style="${th}">maquininha</th><th style="${th}">diferença</th>
+          <th style="${th}${sep}">PDV</th><th style="${th}">maquininha</th><th style="${th}">diferença</th>
+          <th style="${th}${sep}">PDV</th><th style="${th}">no banco</th><th style="${th}">sem par</th>
+          <th style="padding:3px 6px; font-weight:normal;">turno</th></tr>`;
 
   let blocos = '';
   let semFechamentoTotal = 0, valorPerdidoTotal = 0;
@@ -13641,30 +13612,46 @@ function renderModuloCaixa() {
                   + divergentes.reduce((s, r) => s + Math.max(r.diferenca, 0), 0);
     semFechamentoTotal += semFech.length;
     valorPerdidoTotal += perdido;
+    const saldoC = saldoDe(unidade, 'CARTAO'), saldoV = saldoDe(unidade, 'VOUCHER');
 
     const corBorda = semFech.length ? '#ff6b6b' : (divergentes.length ? '#f5a623' : '#3f9c5a');
     const resumo = semFech.length || divergentes.length
-      ? `<b>${semFech.length}</b> dia(s) com venda em dinheiro e nada lançado no cofre`
-        + (divergentes.length ? ` e <b>${divergentes.length}</b> dia(s) em que o lançado não bate com o vendido` : '')
+      ? `<b>${semFech.length}</b> dia(s) com venda em dinheiro e turno sem fechamento no Saipos`
+        + (divergentes.length ? ` e <b>${divergentes.length}</b> dia(s) em que o fechado não bate com o vendido` : '')
         + ` — <b class="negativo">R$ ${fmt(perdido)}</b> sem registro nos últimos ${dias.length} dias.`
-      : `Todos os dias com venda em dinheiro foram lançados no cofre nos últimos ${dias.length} dias.`;
+      : `Todos os turnos com venda em dinheiro fecharam o caixa nos últimos ${dias.length} dias.`;
 
     const linhas = dias.map(iso => {
       const r = porDia[iso];
       const aberto = iso === hoje;
+      const c = cartaoDe[unidade + '|' + iso + '|CARTAO'] || {};
+      const v = cartaoDe[unidade + '|' + iso + '|VOUCHER'] || {};
+      const p = pixDe[unidade + '|' + iso] || {};
       let situacaoHtml, cor;
-      if (!r || r.situacao === 'SEM MOVIMENTO') { situacaoHtml = '<span style="color:#9aa4af;">sem movimento</span>'; cor = ''; }
+      if (!r || r.situacao === 'SEM MOVIMENTO') { situacaoHtml = '<span style="color:#9aa4af;">sem dinheiro</span>'; cor = ''; }
       else if (aberto) { situacaoHtml = '<span style="color:#9aa4af;">dia em aberto</span>'; cor = ''; }
       else if (r.situacao === 'OK') { situacaoHtml = '<span style="color:#3f9c5a;">✔ fechou</span>'; cor = ''; }
-      else if (r.situacao === 'SEM FECHAMENTO') { situacaoHtml = '<b style="color:#ff6b6b;">sem fechamento</b>'; cor = 'background:rgba(255,107,107,.07);'; }
+      else if (r.situacao === 'SEM FECHAMENTO') { situacaoHtml = '<b style="color:#ff6b6b;">não fechou</b>'; cor = 'background:rgba(255,107,107,.07);'; }
       else { situacaoHtml = '<b style="color:#f5a623;">não bate</b>'; cor = 'background:rgba(245,166,35,.07);'; }
-      const num = (v) => v ? 'R$ ' + fmt(v) : '<span style="color:#9aa4af;">—</span>';
-      return `<tr style="${cor}">
-        <td style="padding:3px 8px;">${fmtDia(iso)}</td>
-        <td style="padding:3px 8px; text-align:right;">${r ? num(r.dinheiro_pdv) : '<span style="color:#9aa4af;">—</span>'}</td>
-        <td style="padding:3px 8px; text-align:right;">${r ? num(r.lancado_cofre) : '<span style="color:#9aa4af;">—</span>'}</td>
-        <td style="padding:3px 8px; text-align:right;">${r && Math.abs(r.diferenca) >= 0.01 && !aberto ? '<b>R$ ' + fmt(r.diferenca) + '</b>' : '<span style="color:#9aa4af;">—</span>'}</td>
-        <td style="padding:3px 8px;">${situacaoHtml}</td></tr>`;
+      const pixFalta = aberto ? vazio
+        : p.sem_par > 0 ? '<b style="color:#ff6b6b;">R$ ' + fmt(p.sem_par) + '</b>'
+        : p.aguardando > 0 ? '<span style="color:#9aa4af;" title="PIX com menos de 3 dias: o extrato ainda pode sincronizar">aguardando</span>'
+        : vazio;
+      return `<tr style="${cor} cursor:pointer;" onclick="abrirDiaConcartao('${unidade.replace(/'/g, "\\'")}', '${iso}')" title="clique para abrir as transações do dia e o que cada caixa fechou">
+        <td style="padding:3px 6px; white-space:nowrap;">${fmtDia(iso)}</td>
+        <td style="${td}">${r ? num(r.dinheiro_pdv) : vazio}</td>
+        <td style="${td}">${r ? num(r.lancado_cofre) : vazio}</td>
+        <td style="${td}">${r && !aberto ? dif(r.diferenca) : vazio}</td>
+        <td style="${td}${sep}">${num(c.saipos)}</td>
+        <td style="${td}">${num(c.rede)}</td>
+        <td style="${td}">${aberto ? vazio : dif(c.diferenca)}</td>
+        <td style="${td}${sep}">${num(v.saipos)}</td>
+        <td style="${td}">${num(v.rede)}</td>
+        <td style="${td}">${aberto ? vazio : dif(v.diferenca)}</td>
+        <td style="${td}${sep}">${num(p.pdv)}</td>
+        <td style="${td}">${num(p.recebido)}</td>
+        <td style="${td}">${pixFalta}</td>
+        <td style="padding:3px 6px; white-space:nowrap;">${situacaoHtml}</td></tr>`;
     }).join('');
 
     let contagemHtml = '';
@@ -13720,37 +13707,39 @@ function renderModuloCaixa() {
     blocos += `
     <div class="section-label">${rotulo}</div>
     <div class="contexto" style="border-color:${corBorda}; text-align:left;">
-      <div style="margin-bottom:8px;">${resumo}</div>
-      <div style="overflow-x:auto;"><table style="border-collapse:collapse; width:100%; font-size:13px;">
-        <tr style="color:#9aa4af; text-align:left;">
-          <th style="padding:3px 8px; font-weight:normal;">dia</th>
-          <th style="padding:3px 8px; font-weight:normal; text-align:right;">vendido em dinheiro (PDV)</th>
-          <th style="padding:3px 8px; font-weight:normal; text-align:right;">lançado no cofre</th>
-          <th style="padding:3px 8px; font-weight:normal; text-align:right;">diferença</th>
-          <th style="padding:3px 8px; font-weight:normal;">situação</th>
-        </tr>${linhas}</table></div>
+      <div style="margin-bottom:6px;">${resumo}</div>
+      <div style="font-size:12px; color:#9aa4af; margin-bottom:6px;">Saldo acumulado PDV − maquininha desde 19/02:
+        cartão <b style="color:${corSaldo(saldoC)};">${saldoC === null ? '—' : 'R$ ' + fmt(saldoC)}</b> ·
+        vale <b style="color:${corSaldo(saldoV)};">${saldoV === null ? '—' : 'R$ ' + fmt(saldoV)}</b>
+        — diferença que aparece num dia e some no seguinte é horário; a que fica é venda sem par.</div>
+      <div style="overflow-x:auto;"><table style="border-collapse:collapse; width:100%; font-size:12px; min-width:980px;">
+        ${cabecalho}${linhas}</table></div>
       ${contagemHtml}
     </div>`;
   }
 
   alvo.innerHTML = `
-    <div class="section-label">Fechamento de caixa — dinheiro do PDV × cofre</div>
+    <div class="section-label">Fechamento de Caixas — o que o PDV registrou × o que de fato chegou</div>
     <div class="contexto" style="text-align:left;">
-      Cada venda paga em <b>dinheiro</b> no PDV tem de virar um lançamento de frente de caixa
-      no cofre. Em julho, 17 dias da Água Verde ficaram sem lançamento (R$ 3.810) e ninguém
-      viu — esta tela existe para o dia esquecido aparecer <b>no dia seguinte</b>, não semanas depois.
+      Cada turno fecha o seu caixa no Saipos (Salão e Delivery) <b>sem digitar bandeira</b>. A conferência é feita
+      aqui, no dia seguinte: <b>dinheiro</b> contra a gaveta contada, <b>cartão e vale</b> contra as maquininhas da
+      Rede (VR, Ticket, Alelo e Pluxee passam na mesma máquina), <b>PIX</b> contra o crédito no banco. Clique no dia
+      para ver as transações lado a lado e o que cada caixa fechou.
       ${semFechamentoTotal
-        ? `<div style="margin-top:8px;">Agora: <b class="negativo">${semFechamentoTotal} dia(s) sem fechamento</b> nas lojas, R$ ${fmt(valorPerdidoTotal)} vendidos em dinheiro sem registro no cofre.</div>`
-        : '<div style="margin-top:8px; color:#3f9c5a;"><b>Nenhum dia sem fechamento nas três lojas.</b></div>'}
+        ? `<div style="margin-top:8px;">Agora: <b class="negativo">${semFechamentoTotal} turno(s) sem fechamento</b> nas lojas, R$ ${fmt(valorPerdidoTotal)} vendidos em dinheiro sem registro.</div>`
+        : '<div style="margin-top:8px; color:#3f9c5a;"><b>Nenhum turno sem fechamento nas três lojas.</b></div>'}
       <div style="font-size:12px; color:#9aa4af; margin-top:6px;">
-        "Sem movimento" = não houve venda em dinheiro nem lançamento — dia legítimo de cartão/Pix apenas.
-        A série começa em 01/08/2026. A <b>contagem da gaveta</b> se registra aqui embaixo, na loja de cada
-        responsável (Arissa: Água Verde e Ahú · Diego: São Braz). Regra do dono: <b>caixa bom não tem
-        quebra</b> — qualquer diferença, de qualquer valor, aparece e pede investigação (conte na observação
-        o que achou). O lançamento da quebra no Saipos vem depois, pela fila do robô.
+        "Fechado no Saipos" é o dinheiro que o fechamento do turno registrou — vazio com venda em dinheiro é turno
+        que não fechou. Cartão, vale e PIX contam no dia em que passaram na máquina (entrega de madrugada cai no dia
+        seguinte); o vale pode demorar dias para aparecer na Rede, e o dia de ontem quase sempre mostra sobra pequena
+        que morre no seguinte. Regra do dono: <b>caixa bom não tem quebra</b> — qualquer diferença aparece e pede
+        investigação (conte na observação o que achou). Quem confere: Arissa (Água Verde e Ahú) e Diego (São Braz).
+        Pagamento online (iFood/site) fica na conciliação do iFood; Boqueirão fica fora (máquinas fora do credenciamento).
       </div>
     </div>
-    ${blocos}`;
+    ${blocos}
+    ${renderConcartaoMotoboy()}
+    <div class="section-label">Taxas &amp; aluguel das maquininhas</div>`;
 }
 
 // ------------------------------------------------------------------
