@@ -1112,7 +1112,9 @@
     <div id="modulo-caixa" class="modulo" style="display:none;">
       <div id="view-caixa"></div>
       <div id="concartao-dia"></div>
-      <div id="view-rede"></div>
+      <details style="margin:14px 0;"><summary style="cursor:pointer; font-size:14px; font-weight:600;">🏧 Taxas &amp; aluguel das maquininhas (Rede)</summary>
+        <div id="view-rede"></div>
+      </details>
     </div>
 
     <div id="modulo-indicadores" class="modulo" style="display:none;">
@@ -4453,8 +4455,13 @@ async function abrirDiaConcartao(unidade, dia) {
   const cont = document.getElementById('concartao-dia');
   if (!cont) return;
   cont.innerHTML = '<div class="contexto">Carregando transações do dia...</div>';
-  const trs = await consultarTudo('vw_cartao_transacoes?select=*&dia=eq.' + dia +
-    '&unidade=eq.' + encodeURIComponent(unidade) + '&order=hora');
+  const [trs, pix] = await Promise.all([
+    consultarTudo('vw_cartao_transacoes?select=*&dia=eq.' + dia +
+      '&unidade=eq.' + encodeURIComponent(unidade) + '&order=hora'),
+    // PIX do dia (09/09/2026): QR da maquininha e chave, com o credito do banco que casou
+    consultarTudo('vw_pix_conciliacao?select=tipo,valor,entrega,entregador,subgrupo,recebido,aguardando,memo_banco&dia=eq.' + dia +
+      '&unidade=eq.' + encodeURIComponent(unidade) + '&order=entrega'),
+  ]);
   const reaisCc = v => 'R$ ' + Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const min = h => { const p = (h || '0:0:0').split(':'); return (+p[0]) * 60 + (+p[1]); };
 
@@ -4552,10 +4559,18 @@ async function abrirDiaConcartao(unidade, dia) {
       const it = [['dinheiro', t.dinheiro], ['cartão', t.cartao], ['vale', t.voucher], ['PIX', t.pix], ['online', t.online], ['outros', t.outros]].filter(([, v]) => +v > 0);
       return `<div style="font-size:12px; padding:6px 10px; border:1px solid #3a392f; border-radius:6px;"><b>Caixa ${cx === 'SALÃO' ? 'Salão' : 'Delivery'}</b> (turno de ${dia.split('-').reverse().slice(0, 2).join('/')}): ${it.map(([k, v]) => k + ' ' + reaisCc(v)).join(' · ')} — <b>total ${reaisCc(t.total)}</b></div>`;
     }).join('')}</div>`;
+  const pixSemPar = pix.filter(x => !x.recebido && !x.aguardando), pixAg = pix.filter(x => x.aguardando), pixOk = pix.filter(x => x.recebido);
+  const pixLinha = (x, cor) => `<tr style="color:${cor};"><td style="padding:3px 8px;">${(x.entrega || '').slice(11, 16)}</td>
+    <td style="padding:3px 8px;">${x.tipo} (${x.subgrupo === 'CHAVE' ? 'chave' : 'QR'})${x.entregador ? ' · ' + x.entregador : ''}</td>
+    <td style="padding:3px 8px; text-align:right;">${reaisCc(x.valor)}</td>
+    <td style="padding:3px 8px; color:#8a897e; font-size:11px;">${x.memo_banco ? String(x.memo_banco).slice(0, 36) : (x.aguardando ? 'aguardando o extrato' : 'sem crédito no banco')}</td></tr>`;
+  const pixHtml = !pix.length ? '' : `<div style="margin:8px 0 10px;"><div style="font-size:12px; color:#a5a49a; text-transform:uppercase; margin-bottom:4px;">PIX do dia — ${pixOk.length} com crédito no banco${pixAg.length ? ', ' + pixAg.length + ' aguardando' : ''}${pixSemPar.length ? ', <b style="color:#ff6b6b;">' + pixSemPar.length + ' sem par</b>' : ''}</div>
+    ${(pixSemPar.length || pixAg.length) ? `<table style="border-collapse:collapse; font-size:12px;">${pixSemPar.map(x => pixLinha(x, '#ff6b6b')).join('')}${pixAg.map(x => pixLinha(x, '#8a897e')).join('')}</table>` : ''}</div>`;
 
   cont.innerHTML = `<div class="card" style="margin:14px 0;">
     <div style="font-size:15px; font-weight:700; margin-bottom:4px;">${unidade} — ${dia.split('-').reverse().join('/')}</div>
     ${turnoHtml}
+    ${pixHtml}
     <div style="font-size:12px; color:#8a897e;">${casados.length} pagamento(s) com par na maquininha${compostos.length ? ', ' + compostos.length + ' resolvidos como conta dividida' : ''}${arredond.length ? ', ' + arredond.length + ' por arredondamento' : ''}${conferir.length ? ', ' + conferir.length + ' quase-par para conferir' : ''}; ${semParS.length} do PDV e ${semParR.length} da maquininha ficaram sem par.
       Sem par dos DOIS lados com o mesmo valor = provável desencontro maior que 3 h. Sem par de um lado só = investigar.</div>
     ${compostos.length ? `<div style="margin:10px 0;"><div style="font-size:12px; color:#a5a49a; text-transform:uppercase; margin-bottom:4px;">Conta dividida (soma fecha)</div>
@@ -13531,14 +13546,30 @@ async function caixaSalvar(unidade, idBase) {
   }
 }
 
+// Filtros do modulo (dono, 09/09/2026: "mais enxuto, com mais filtros"): loja,
+// janela de dias e "so pendencias". Ficam no navegador da pessoa.
+let CAIXA_FILTRO = (() => {
+  const padrao = { loja: '', dias: 15, soPend: false };
+  try { return Object.assign(padrao, JSON.parse(localStorage.getItem('caixaFiltro') || '{}')); } catch (e) { return padrao; }
+})();
+function caixaFiltrar(campo, valor) {
+  CAIXA_FILTRO[campo] = valor;
+  try { localStorage.setItem('caixaFiltro', JSON.stringify(CAIXA_FILTRO)); } catch (e) {}
+  renderModuloCaixa();
+}
+
+// Tres blocos por dia (dono, 09/09/2026): DINHEIRO (PDV x fechado no Saipos, e a
+// gaveta contada), MAQUININHA (tudo que passa na maquina da Rede: cartao + vale +
+// PIX QR — o QR nao vem na API da Rede, mas cai no banco linha a linha) e PIX
+// CHAVE (avulso na chave CNPJ x transferencia no banco).
 function renderModuloCaixa() {
   const alvo = document.getElementById('view-caixa');
   // data local de verdade (toISOString e' UTC e vira amanha depois das 21h)
   const hoje = new Date().toLocaleDateString('en-CA');
   const LOJAS_CAIXA = [['AGUA VERDE', 'Água Verde'], ['AHU', 'Ahú'], ['SÃO BRAZ', 'São Braz']];
-  const DIAS_JANELA = 30;
+  const F = CAIXA_FILTRO;
   const dias = [];
-  for (let i = 0; i < DIAS_JANELA; i++) {
+  for (let i = 0; i < F.dias; i++) {
     const d = new Date(hoje + 'T12:00:00');
     d.setDate(d.getDate() - i);
     const iso = d.toLocaleDateString('en-CA');
@@ -13550,10 +13581,6 @@ function renderModuloCaixa() {
   const vazio = '<span style="color:#9aa4af;">—</span>';
   const num = (v) => (v === undefined || v === null || Math.abs(+v) < 0.005) ? vazio : 'R$ ' + fmt(+v);
   const dif = (v) => (v === undefined || v === null || Math.abs(+v) < 0.01) ? vazio : '<b style="color:#f5a623;">R$ ' + fmt(+v) + '</b>';
-
-  // cartao/vale (PDV x Rede) e PIX (PDV x banco) por loja e dia — dia = dia em
-  // que passou na maquina (entrega de madrugada cai no dia seguinte); dinheiro
-  // e por turno (shift_date). Mesma linha, duas reguas — o texto da tela avisa.
   const cartaoDe = {}, pixDe = {};
   CAIXA_CARTAO.forEach(r => { cartaoDe[r.unidade + '|' + r.dia + '|' + r.grupo] = r; });
   CAIXA_PIX.forEach(r => { pixDe[r.unidade + '|' + r.dia] = r; });
@@ -13566,24 +13593,29 @@ function renderModuloCaixa() {
         <tr style="color:#9aa4af; font-size:11px; text-transform:uppercase;">
           <th></th>
           <th colspan="3" style="padding:2px 6px; text-align:center; font-weight:normal;">dinheiro</th>
-          <th colspan="3" style="padding:2px 6px; text-align:center; font-weight:normal;${sep}">cartão × maquininha</th>
-          <th colspan="3" style="padding:2px 6px; text-align:center; font-weight:normal;${sep}">vale × maquininha</th>
-          <th colspan="3" style="padding:2px 6px; text-align:center; font-weight:normal;${sep}">PIX maquininha (QR) × banco</th>
-          <th colspan="3" style="padding:2px 6px; text-align:center; font-weight:normal;${sep}">PIX chave × banco</th>
+          <th colspan="3" style="padding:2px 6px; text-align:center; font-weight:normal;${sep}">maquininha (cartão, vale e PIX QR)</th>
+          <th colspan="3" style="padding:2px 6px; text-align:center; font-weight:normal;${sep}">PIX chave</th>
           <th></th></tr>
         <tr style="color:#9aa4af; text-align:left;">
           <th style="padding:3px 6px; font-weight:normal;">dia</th>
           <th style="${th}">PDV</th><th style="${th}">fechado no Saipos</th><th style="${th}">diferença</th>
-          <th style="${th}${sep}">PDV</th><th style="${th}">maquininha</th><th style="${th}">diferença</th>
-          <th style="${th}${sep}">PDV</th><th style="${th}">maquininha</th><th style="${th}">diferença</th>
+          <th style="${th}${sep}">PDV</th><th style="${th}" title="cartão e vale na Rede + PIX QR no banco">confirmado</th><th style="${th}">diferença</th>
           <th style="${th}${sep}">PDV</th><th style="${th}">no banco</th><th style="${th}">sem par</th>
-          <th style="${th}${sep}">PDV</th><th style="${th}">no banco</th><th style="${th}">sem par</th>
-          <th style="padding:3px 6px; font-weight:normal;">turno</th></tr>`;
+          <th style="padding:3px 6px; font-weight:normal;">situação</th></tr>`;
+  const btn = (ativo, onclick, rotulo) => `<button class="navbtn ${ativo ? 'active' : ''}" onclick="${onclick}">${rotulo}</button>`;
+  const filtros = `<div style="display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin:8px 0 4px;">
+    ${btn(!F.loja, "caixaFiltrar('loja','')", 'Todas')}${LOJAS_CAIXA.map(([u, r]) => btn(F.loja === u, `caixaFiltrar('loja','${u}')`, r)).join('')}
+    <span style="width:12px;"></span>
+    ${[7, 15, 30, 60].map(n => btn(F.dias === n, `caixaFiltrar('dias',${n})`, n + ' dias')).join('')}
+    <span style="width:12px;"></span>
+    ${btn(F.soPend, `caixaFiltrar('soPend',${!F.soPend})`, 'só pendências')}
+  </div>`;
 
   let blocos = '';
-  let semFechamentoTotal = 0, valorPerdidoTotal = 0;
+  let pendTotal = 0, semFechTotal = 0;
 
   for (const [unidade, rotulo] of LOJAS_CAIXA) {
+    if (F.loja && F.loja !== unidade) continue;
     const porDia = {};
     const diasLoja = CAIXA_DIAS.filter(r => r.unidade === unidade);
     diasLoja.forEach(r => { porDia[r.data] = r; });
@@ -13606,62 +13638,52 @@ function renderModuloCaixa() {
     const podeDigitar = (CAIXA_RESP || []).some(r =>
       r.unidade === unidade && String(r.email).toLowerCase() === eu);
     const idBase = 'cx' + unidade.replace(/[^A-Za-z]/g, '');
-
-    // hoje nao conta como alerta: o caixa do dia ainda esta aberto
-    const fechados = dias.filter(d => d < hoje).map(d => porDia[d]).filter(Boolean);
-    const semFech = fechados.filter(r => r.situacao === 'SEM FECHAMENTO');
-    const divergentes = fechados.filter(r => r.situacao === 'DIVERGENTE');
-    const perdido = semFech.reduce((s, r) => s + r.diferenca, 0)
-                  + divergentes.reduce((s, r) => s + Math.max(r.diferenca, 0), 0);
-    semFechamentoTotal += semFech.length;
-    valorPerdidoTotal += perdido;
     const saldoC = saldoDe(unidade, 'CARTAO'), saldoV = saldoDe(unidade, 'VOUCHER');
 
-    const corBorda = semFech.length ? '#ff6b6b' : (divergentes.length ? '#f5a623' : '#3f9c5a');
-    const resumo = semFech.length || divergentes.length
-      ? `<b>${semFech.length}</b> dia(s) com venda em dinheiro e turno sem fechamento no Saipos`
-        + (divergentes.length ? ` e <b>${divergentes.length}</b> dia(s) em que o fechado não bate com o vendido` : '')
-        + ` — <b class="negativo">R$ ${fmt(perdido)}</b> sem registro nos últimos ${dias.length} dias.`
-      : `Todos os turnos com venda em dinheiro fecharam o caixa nos últimos ${dias.length} dias.`;
-
+    let semFech = 0, pend = 0;
     const linhas = dias.map(iso => {
       const r = porDia[iso];
       const aberto = iso === hoje;
       const c = cartaoDe[unidade + '|' + iso + '|CARTAO'] || {};
       const v = cartaoDe[unidade + '|' + iso + '|VOUCHER'] || {};
       const p = pixDe[unidade + '|' + iso] || {};
-      let situacaoHtml, cor;
-      if (!r || r.situacao === 'SEM MOVIMENTO') { situacaoHtml = '<span style="color:#9aa4af;">sem dinheiro</span>'; cor = ''; }
-      else if (aberto) { situacaoHtml = '<span style="color:#9aa4af;">dia em aberto</span>'; cor = ''; }
-      else if (r.situacao === 'OK') { situacaoHtml = '<span style="color:#3f9c5a;">✔ fechou</span>'; cor = ''; }
-      else if (r.situacao === 'SEM FECHAMENTO') { situacaoHtml = '<b style="color:#ff6b6b;">não fechou</b>'; cor = 'background:rgba(255,107,107,.07);'; }
-      else { situacaoHtml = '<b style="color:#f5a623;">não bate</b>'; cor = 'background:rgba(245,166,35,.07);'; }
-      // dois PIX, dois pares (dono, 09/09/2026): o QR da maquininha cai no banco
-      // linha a linha ("PIX QRS <cliente>"); o avulso na chave CNPJ cai como
-      // "PIX TRANSF"/"PIX RECEBIDO". Cada um confere contra o seu padrao.
-      const pixFaltaDe = (semPar, aguard) => aberto ? vazio
-        : semPar > 0 ? '<b style="color:#ff6b6b;">R$ ' + fmt(semPar) + '</b>'
-        : aguard > 0 ? '<span style="color:#9aa4af;" title="PIX com menos de 3 dias: o extrato ainda pode sincronizar">aguardando</span>'
-        : vazio;
+      // bloco maquininha = cartao + vale + PIX QR (tudo que passa na maquina)
+      const maqPdv = (c.saipos || 0) + (v.saipos || 0) + (p.pdv_qr || 0);
+      const maqReal = (c.rede || 0) + (v.rede || 0) + (p.recebido_qr || 0);
+      const maqDif = (c.diferenca || 0) + (v.diferenca || 0) + (p.sem_par_qr || 0);
+      const maqAguard = p.aguardando_qr || 0;
+      const chavePdv = p.pdv_chave || 0, chaveReal = p.recebido_chave || 0;
+      const chaveSem = p.sem_par_chave || 0, chaveAguard = p.aguardando_chave || 0;
+      const temDinheiro = r && r.situacao !== 'SEM MOVIMENTO';
+      let situacao, cor = '', alerta = false;
+      if (aberto) situacao = '<span style="color:#9aa4af;">dia em aberto</span>';
+      else if (!temDinheiro && maqPdv === 0 && maqReal === 0 && chavePdv === 0) situacao = '<span style="color:#9aa4af;">sem movimento</span>';
+      else if (r && r.situacao === 'SEM FECHAMENTO') { situacao = '<b style="color:#ff6b6b;">turno não fechou</b>'; cor = 'background:rgba(255,107,107,.07);'; alerta = true; semFech++; }
+      else {
+        const o = [];
+        if (r && r.situacao === 'DIVERGENTE') o.push('dinheiro');
+        if (Math.abs(maqDif) >= 0.01) o.push('maquininha');
+        if (chaveSem > 0) o.push('PIX chave');
+        if (o.length) { situacao = `<b style="color:#f5a623;">conferir ${o.join(' + ')}</b>`; cor = 'background:rgba(245,166,35,.07);'; alerta = true; }
+        else situacao = '<span style="color:#3f9c5a;">✔ fechou</span>';
+      }
+      if (alerta) pend++;
+      if (F.soPend && !alerta) return '';
+      const aguardHtml = '<span style="color:#9aa4af;" title="menos de 3 dias: o extrato ainda pode sincronizar">aguardando</span>';
       return `<tr style="${cor} cursor:pointer;" onclick="abrirDiaConcartao('${unidade.replace(/'/g, "\\'")}', '${iso}')" title="clique para abrir as transações do dia e o que cada caixa fechou">
         <td style="padding:3px 6px; white-space:nowrap;">${fmtDia(iso)}</td>
         <td style="${td}">${r ? num(r.dinheiro_pdv) : vazio}</td>
         <td style="${td}">${r ? num(r.lancado_cofre) : vazio}</td>
         <td style="${td}">${r && !aberto ? dif(r.diferenca) : vazio}</td>
-        <td style="${td}${sep}">${num(c.saipos)}</td>
-        <td style="${td}">${num(c.rede)}</td>
-        <td style="${td}">${aberto ? vazio : dif(c.diferenca)}</td>
-        <td style="${td}${sep}">${num(v.saipos)}</td>
-        <td style="${td}">${num(v.rede)}</td>
-        <td style="${td}">${aberto ? vazio : dif(v.diferenca)}</td>
-        <td style="${td}${sep}">${num(p.pdv_qr)}</td>
-        <td style="${td}">${num(p.recebido_qr)}</td>
-        <td style="${td}">${pixFaltaDe(p.sem_par_qr, p.aguardando_qr)}</td>
-        <td style="${td}${sep}">${num(p.pdv_chave)}</td>
-        <td style="${td}">${num(p.recebido_chave)}</td>
-        <td style="${td}">${pixFaltaDe(p.sem_par_chave, p.aguardando_chave)}</td>
-        <td style="padding:3px 6px; white-space:nowrap;">${situacaoHtml}</td></tr>`;
+        <td style="${td}${sep}">${num(maqPdv)}</td>
+        <td style="${td}">${num(maqReal)}</td>
+        <td style="${td}">${aberto ? vazio : (Math.abs(maqDif) >= 0.01 ? dif(maqDif) : (maqAguard > 0 ? aguardHtml : vazio))}</td>
+        <td style="${td}${sep}">${num(chavePdv)}</td>
+        <td style="${td}">${num(chaveReal)}</td>
+        <td style="${td}">${aberto ? vazio : (chaveSem > 0 ? '<b style="color:#ff6b6b;">R$ ' + fmt(chaveSem) + '</b>' : (chaveAguard > 0 ? aguardHtml : vazio))}</td>
+        <td style="padding:3px 6px; white-space:nowrap;">${situacao}</td></tr>`;
     }).join('');
+    pendTotal += pend; semFechTotal += semFech;
 
     let contagemHtml = '';
     if (podeDigitar) {
@@ -13679,8 +13701,7 @@ function renderModuloCaixa() {
     if (conts.length) {
       const ultimas = conts.slice(-10).reverse();
       contagemHtml += `
-      <div style="margin-top:10px;">
-        <b>Contagens registradas</b>
+      <details style="margin-top:10px;"><summary style="cursor:pointer;"><b>Contagens da gaveta</b> <span style="color:#9aa4af;">(${conts.length})</span></summary>
         <div style="overflow-x:auto;"><table style="border-collapse:collapse; width:100%; font-size:13px;">
           <tr style="color:#9aa4af; text-align:left;">
             <th style="padding:3px 8px; font-weight:normal;">dia</th>
@@ -13705,7 +13726,7 @@ function renderModuloCaixa() {
             </tr>`;
           }).join('')}
         </table></div>
-      </div>`;
+      </details>`;
     } else if (podeDigitar) {
       contagemHtml += `
       <div style="margin-top:6px; font-size:12px; color:#9aa4af;">
@@ -13713,43 +13734,47 @@ function renderModuloCaixa() {
       </div>`;
     }
 
+    const corBorda = semFech ? '#ff6b6b' : (pend ? '#f5a623' : '#3f9c5a');
+    const resumo = pend
+      ? `<b>${pend}</b> dia(s) para conferir${semFech ? ` (<b class="negativo">${semFech}</b> com turno sem fechamento)` : ''} nos últimos ${dias.length} dias.`
+      : `Nenhuma pendência nos últimos ${dias.length} dias.`;
     blocos += `
     <div class="section-label">${rotulo}</div>
     <div class="contexto" style="border-color:${corBorda}; text-align:left;">
-      <div style="margin-bottom:6px;">${resumo}</div>
-      <div style="font-size:12px; color:#9aa4af; margin-bottom:6px;">Saldo acumulado PDV − maquininha desde 19/02:
-        cartão <b style="color:${corSaldo(saldoC)};">${saldoC === null ? '—' : 'R$ ' + fmt(saldoC)}</b> ·
-        vale <b style="color:${corSaldo(saldoV)};">${saldoV === null ? '—' : 'R$ ' + fmt(saldoV)}</b>
-        — diferença que aparece num dia e some no seguinte é horário; a que fica é venda sem par.</div>
-      <div style="overflow-x:auto;"><table style="border-collapse:collapse; width:100%; font-size:12px; min-width:1180px;">
-        ${cabecalho}${linhas}</table></div>
+      <div style="display:flex; flex-wrap:wrap; gap:14px; align-items:baseline; margin-bottom:6px;">
+        <div>${resumo}</div>
+        <div style="font-size:12px; color:#9aa4af;" title="PDV − maquininha, acumulado desde 19/02; diferença que aparece e some no dia seguinte é horário, a que fica é venda sem par">saldo desde 19/02:
+          cartão <b style="color:${corSaldo(saldoC)};">${saldoC === null ? '—' : 'R$ ' + fmt(saldoC)}</b> ·
+          vale <b style="color:${corSaldo(saldoV)};">${saldoV === null ? '—' : 'R$ ' + fmt(saldoV)}</b></div>
+      </div>
+      <div style="overflow-x:auto;"><table style="border-collapse:collapse; width:100%; font-size:12px; min-width:900px;">
+        ${cabecalho}${linhas || `<tr><td colspan="11" style="padding:8px 6px; color:#9aa4af;">nenhum dia com pendência na janela</td></tr>`}</table></div>
       ${contagemHtml}
     </div>`;
   }
 
+  const motoboy = renderConcartaoMotoboy();
+  const nMoto = ((CONCARTAO_DADOS.semCobranca || []).length + (CONCARTAO_DADOS.pixSem || []).length);
   alvo.innerHTML = `
-    <div class="section-label">Fechamento de Caixas — o que o PDV registrou × o que de fato chegou</div>
+    <div class="section-label">Fechamento de Caixas</div>
     <div class="contexto" style="text-align:left;">
-      Cada turno fecha o seu caixa no Saipos (Salão e Delivery) <b>sem digitar bandeira</b>. A conferência é feita
-      aqui, no dia seguinte: <b>dinheiro</b> contra a gaveta contada, <b>cartão e vale</b> contra as maquininhas da
-      Rede (VR, Ticket, Alelo e Pluxee passam na mesma máquina), <b>PIX</b> contra o crédito no banco — o QR da maquininha
-      cai lá linha a linha com o nome do cliente ("PIX QRS"), o avulso na chave CNPJ cai como transferência. Clique no dia
-      para ver as transações lado a lado e o que cada caixa fechou.
-      ${semFechamentoTotal
-        ? `<div style="margin-top:8px;">Agora: <b class="negativo">${semFechamentoTotal} turno(s) sem fechamento</b> nas lojas, R$ ${fmt(valorPerdidoTotal)} vendidos em dinheiro sem registro.</div>`
-        : '<div style="margin-top:8px; color:#3f9c5a;"><b>Nenhum turno sem fechamento nas três lojas.</b></div>'}
-      <div style="font-size:12px; color:#9aa4af; margin-top:6px;">
-        "Fechado no Saipos" é o dinheiro que o fechamento do turno registrou — vazio com venda em dinheiro é turno
-        que não fechou. Cartão, vale e PIX contam no dia em que passaram na máquina (entrega de madrugada cai no dia
-        seguinte); o vale pode demorar dias para aparecer na Rede, e o dia de ontem quase sempre mostra sobra pequena
-        que morre no seguinte. Regra do dono: <b>caixa bom não tem quebra</b> — qualquer diferença aparece e pede
-        investigação (conte na observação o que achou). Quem confere: Arissa (Água Verde e Ahú) e Diego (São Braz).
-        Pagamento online (iFood/site) fica na conciliação do iFood; Boqueirão fica fora (máquinas fora do credenciamento).
-      </div>
+      O que o PDV registrou × o que de fato chegou, dia a dia. Cada turno fecha o caixa no Saipos sem digitar
+      bandeira; a conferência é aqui. ${pendTotal
+        ? `<b class="negativo">${pendTotal} dia(s) para conferir</b>${semFechTotal ? `, ${semFechTotal} com turno sem fechamento` : ''}.`
+        : '<b style="color:#3f9c5a;">Nenhuma pendência na janela.</b>'}
+      <details style="margin-top:6px; font-size:12px; color:#9aa4af;"><summary style="cursor:pointer;">como ler</summary>
+        <b>Dinheiro</b>: venda em dinheiro no PDV × o que o fechamento do turno registrou no Saipos; a gaveta contada
+        entra pela contagem (Arissa: Água Verde e Ahú · Diego: São Braz). <b>Maquininha</b>: cartão e vale × transações
+        da Rede, mais o PIX QR da maquininha × crédito no banco (cai linha a linha, "PIX QRS"). <b>PIX chave</b>: avulso
+        na chave CNPJ × transferência no banco. Cartão, vale e PIX contam no dia em que passaram na máquina (madrugada
+        cai no dia seguinte); o vale demora dias para aparecer na Rede e ontem quase sempre mostra sobra que morre no
+        seguinte. Regra do dono: <b>caixa bom não tem quebra</b> — toda diferença aparece e pede investigação.
+        Clique no dia para ver as transações lado a lado e o que cada caixa (Salão / Delivery) fechou. Fora daqui:
+        pagamento online (iFood/site) e Boqueirão.</details>
+      ${filtros}
     </div>
     ${blocos}
-    ${renderConcartaoMotoboy()}
-    <div class="section-label">Taxas &amp; aluguel das maquininhas</div>`;
+    ${motoboy ? `<details style="margin:14px 0;"><summary style="cursor:pointer; font-size:14px; font-weight:600;">🛵 Cobranças sem par por motoboy <span style="color:#9aa4af; font-weight:normal;">(${nMoto})</span></summary>${motoboy}</details>` : ''}`;
 }
 
 // ------------------------------------------------------------------
