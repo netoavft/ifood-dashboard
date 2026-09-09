@@ -4400,7 +4400,7 @@ async function abrirDiaConcartao(unidade, dia) {
     consultarTudo('vw_cartao_transacoes?select=*&dia=eq.' + dia +
       '&unidade=eq.' + encodeURIComponent(unidade) + '&order=hora'),
     // PIX do dia (09/09/2026): QR da maquininha e chave, com o credito do banco que casou
-    consultarTudo('vw_pix_conciliacao?select=tipo,valor,entrega,entregador,subgrupo,recebido,aguardando,memo_banco&dia=eq.' + dia +
+    consultarTudo('vw_pix_conciliacao?select=id_sale,tipo,valor,entrega,entregador,subgrupo,recebido,aguardando,memo_banco&dia=eq.' + dia +
       '&unidade=eq.' + encodeURIComponent(unidade) + '&order=entrega'),
     // quem entregou cada venda de cartao/vale (para dizer "confirmar com o motoboy X")
     consultarTudo('vw_cartao_entrega_cobranca?select=id_sale,entregador&dia=eq.' + dia +
@@ -4497,33 +4497,58 @@ async function abrirDiaConcartao(unidade, dia) {
   (cobr || []).forEach(c => { if (c.entregador) moto[String(c.id_sale)] = c.entregador; });
   const quem = t => moto[t.referencia] ? ' · motoboy ' + moto[t.referencia] : '';
   const eVale = t => /^vr\b|ticket|alelo|pluxee|sodexo|^vale/i.test(t.detalhe || '');
+  // Cada pendencia leva uma CHAVE estavel (memoria de validacao, 09/09/2026), o
+  // BLOCO da linha do dia que ela afeta e o EFEITO assinado na diferenca do bloco.
   const pend = [];
-  // mesmo valor sobrando dos DOIS lados: quase sempre a mesma venda com horario distante
   const restoR = [...semParR];
   semParS.forEach(s => {
     const i = restoR.findIndex(r => Math.abs(+r.valor - +s.valor) < 0.005);
     if (i < 0) return;
     const r = restoR.splice(i, 1)[0];
     s._explicado = true;
-    pend.push({ p: 3, cor: '#9aa4af', hora: hhmm(s.hora), saipos: limpa(s.detalhe) + quem(s), real: limpa(r.detalhe) + ' às ' + hhmm(r.hora), valor: +s.valor,
+    pend.push({ chave: 'par:' + s.referencia + ':' + r.referencia, bloco: 'maquininha', efeito: 0,
+      p: 3, cor: '#9aa4af', hora: hhmm(s.hora), saipos: limpa(s.detalhe) + quem(s), real: limpa(r.detalhe) + ' às ' + hhmm(r.hora), valor: +s.valor,
       leitura: 'mesmo valor dos dois lados, horários mais de 3 h distantes — provavelmente a mesma venda',
       acao: 'nada a fazer se a hora explicar (madrugada, comanda fechada depois)' });
   });
-  semParS.filter(s => !s._explicado).forEach(s => pend.push({ p: eVale(s) ? 2 : 1, cor: eVale(s) ? '#f5a623' : '#ff6b6b', hora: hhmm(s.hora),
+  semParS.filter(s => !s._explicado).forEach(s => pend.push({ chave: 'pdv:' + s.referencia + ':' + (+s.valor).toFixed(2), bloco: 'maquininha', efeito: +s.valor,
+    p: eVale(s) ? 2 : 1, cor: eVale(s) ? '#f5a623' : '#ff6b6b', hora: hhmm(s.hora),
     saipos: limpa(s.detalhe) + quem(s), real: 'nada desse valor na maquininha', valor: +s.valor,
     leitura: eVale(s) ? 'vale pode levar até uma semana para aparecer na Rede' : 'registrado no Saipos, mas não passou na maquininha',
     acao: moto[s.referencia] ? 'confirmar com o motoboy se cobrou' : 'confirmar no caixa se cobrou, ou se passou em outra forma' }));
-  restoR.forEach(r => pend.push({ p: 2, cor: '#f5a623', hora: hhmm(r.hora), saipos: 'nada desse valor no Saipos', real: limpa(r.detalhe), valor: +r.valor,
+  restoR.forEach(r => pend.push({ chave: 'rede:' + r.referencia, bloco: 'maquininha', efeito: -(+r.valor),
+    p: 2, cor: '#f5a623', hora: hhmm(r.hora), saipos: 'nada desse valor no Saipos', real: limpa(r.detalhe), valor: +r.valor,
     leitura: 'passou na maquininha, mas não está registrado no Saipos', acao: 'achar a venda no Saipos (lançada em outra forma ou não lançada)' }));
-  conferir.forEach(q => pend.push({ p: 2, cor: '#f5a623', hora: hhmm(q.s.hora), saipos: limpa(q.s.detalhe) + ' ' + reaisCc(q.s.valor), real: limpa(q.r.detalhe) + ' ' + reaisCc(q.r.valor) + ' às ' + hhmm(q.r.hora),
+  conferir.forEach(q => pend.push({ chave: 'quase:' + q.s.referencia + ':' + q.r.referencia, bloco: 'maquininha', efeito: +q.s.valor - +q.r.valor,
+    p: 2, cor: '#f5a623', hora: hhmm(q.s.hora), saipos: limpa(q.s.detalhe) + ' ' + reaisCc(q.s.valor), real: limpa(q.r.detalhe) + ' ' + reaisCc(q.r.valor) + ' às ' + hhmm(q.r.hora),
     valor: q.dv, leitura: 'quase o mesmo valor no mesmo horário (diferença ' + (q.dv > 0 ? '+' : '') + q.dv.toFixed(2).replace('.', ',') + ')',
     acao: 'conferir se é a mesma venda (gorjeta? digitação?)' }));
-  pix.filter(x => !x.recebido).forEach(x => pend.push({ p: x.aguardando ? 3 : 1, cor: x.aguardando ? '#9aa4af' : '#ff6b6b', hora: hhmm(String(x.entrega || '').slice(11)),
+  pix.filter(x => !x.recebido).forEach(x => pend.push({ chave: 'pix:' + x.id_sale + ':' + (+x.valor).toFixed(2), bloco: x.subgrupo === 'CHAVE' ? 'pix_chave' : 'maquininha', efeito: +x.valor,
+    p: x.aguardando ? 3 : 1, cor: x.aguardando ? '#9aa4af' : '#ff6b6b', hora: hhmm(String(x.entrega || '').slice(11)),
     saipos: x.tipo + (x.subgrupo === 'CHAVE' ? ' (chave CNPJ)' : ' (QR da maquininha)') + (x.entregador ? ' · motoboy ' + x.entregador : ''),
     real: x.aguardando ? 'banco ainda não mostrou' : 'nenhum PIX desse valor no banco', valor: +x.valor,
     leitura: x.aguardando ? 'o extrato pode levar até 2 dias para sincronizar' : 'registrado como PIX, o dinheiro não entrou',
     acao: x.aguardando ? 'esperar' : (x.entregador ? 'confirmar com o motoboy se o cliente pagou' : 'confirmar no caixa') }));
+  // o dinheiro do dia (turno nao fechou / nao bate) tambem e uma pendencia explicavel
+  const rDin = (CAIXA_DIAS || []).find(r => r.unidade === unidade && r.data === dia);
+  if (rDin && (rDin.situacao === 'SEM FECHAMENTO' || rDin.situacao === 'DIVERGENTE')) {
+    const semFech = rDin.situacao === 'SEM FECHAMENTO';
+    pend.push({ chave: 'dinheiro:' + dia, bloco: 'dinheiro', efeito: +rDin.diferenca, p: 1, cor: semFech ? '#ff6b6b' : '#f5a623', hora: 'turno',
+      saipos: 'dinheiro vendido ' + reaisCc(rDin.dinheiro_pdv), real: semFech ? 'turno não fechou o caixa no Saipos' : 'fechado no Saipos ' + reaisCc(rDin.lancado_cofre),
+      valor: +rDin.diferenca, leitura: semFech ? 'venda em dinheiro sem fechamento de turno' : 'o fechado não bate com o vendido',
+      acao: 'conferir com o turno; a contagem da gaveta diz se o dinheiro está lá' });
+  }
   pend.sort((a, b) => a.p - b.p || (a.hora < b.hora ? -1 : 1));
+  pend.forEach((x, i) => { x.i = i; });
+  // memoria de validacao: o que ja foi explicado sai da lista e vai para "Explicadas"
+  const valDe = {};
+  (CAIXA_VALID || []).filter(v => v.unidade === unidade && v.dia === dia).forEach(v => { valDe[v.chave] = v; });
+  const abertas = pend.filter(x => !valDe[x.chave]);
+  const explicadas = pend.filter(x => valDe[x.chave]).map(x => ({ ...x, v: valDe[x.chave] }));
+  CAIXA_DRILL = { unidade, dia, rows: pend };
+  const eu = ((rmbSessao() || {}).email || '').toLowerCase();
+  const podeExplicar = (CAIXA_RESP || []).some(r => r.unidade === unidade && String(r.email).toLowerCase() === eu)
+    || (typeof souODono === 'function' && souODono());
   const resolvidos = [
     ...compostos.map(c => ({ hora: hhmm(c.alvo.hora), tipo: 'conta dividida', texto: `${c.rotulo}: ${reaisCc(c.alvo.valor)} (${limpa(c.alvo.detalhe)}) = ${c.itens.map(t => reaisCc(t.valor) + ' às ' + hhmm(t.hora)).join(' + ')}` })),
     ...arredond.map(q => ({ hora: hhmm(q.s.hora), tipo: 'centavos', texto: `${limpa(q.s.detalhe)} ${reaisCc(q.s.valor)} × maquininha ${reaisCc(q.r.valor)}` })),
@@ -4550,13 +4575,22 @@ async function abrirDiaConcartao(unidade, dia) {
     }).join('')}</div>`;
 
   const th = 'padding:4px 8px; font-weight:normal; color:#a5a49a; font-size:11px; text-transform:uppercase; text-align:left;';
+  const btnExp = x => podeExplicar ? `<button onclick="caixaExplicar(${x.i})" style="font:inherit; font-size:11px; padding:2px 8px; cursor:pointer;">explicar</button>` : '';
   const linhaP = p => `<tr style="color:${p.cor}; border-top:1px solid rgba(154,164,175,.12);">
     <td style="padding:5px 8px; white-space:nowrap;">${p.hora}</td>
     <td style="padding:5px 8px;">${p.saipos}</td>
     <td style="padding:5px 8px;">${p.real}</td>
     <td style="padding:5px 8px; text-align:right; white-space:nowrap; font-weight:600;">${reaisCc(p.valor)}</td>
     <td style="padding:5px 8px; color:#e8e6dc;">${p.leitura}</td>
-    <td style="padding:5px 8px; color:#a5a49a;">${p.acao}</td></tr>`;
+    <td style="padding:5px 8px; color:#a5a49a;">${p.acao}</td>
+    <td style="padding:5px 8px;">${btnExp(p)}</td></tr>`;
+  const linhaE = p => `<tr style="color:#8a897e; border-top:1px solid rgba(154,164,175,.12);">
+    <td style="padding:4px 8px; white-space:nowrap;">${p.hora}</td>
+    <td style="padding:4px 8px;">${p.saipos} × ${p.real}</td>
+    <td style="padding:4px 8px; text-align:right; white-space:nowrap;">${reaisCc(p.valor)}</td>
+    <td style="padding:4px 8px; color:#e8e6dc;">${p.v.motivo}</td>
+    <td style="padding:4px 8px; white-space:nowrap;">${String(p.v.quem || '').split('@')[0]} · ${String(p.v.validado_em || '').slice(0, 10).split('-').reverse().slice(0, 2).join('/')}</td>
+    <td style="padding:4px 8px;">${podeExplicar ? `<button onclick="caixaDesfazer(${p.i})" style="font:inherit; font-size:11px; padding:2px 8px; cursor:pointer;">desfazer</button>` : ''}</td></tr>`;
   cont.innerHTML = `<div class="card" style="margin:14px 0;">
     <div style="font-size:15px; font-weight:700; margin-bottom:6px;">${unidade} — ${dia.split('-').reverse().join('/')}</div>
     <div style="display:flex; flex-wrap:wrap; gap:6px 18px; font-size:12px; color:#a5a49a; margin-bottom:6px;">
@@ -4565,18 +4599,63 @@ async function abrirDiaConcartao(unidade, dia) {
       <span>${bateram} pagamento(s) bateram sozinhos</span>
     </div>
     ${turnoHtml}
-    ${pend.length ? `<div style="font-size:12px; color:#a5a49a; text-transform:uppercase; margin:10px 0 2px;">Para conferir (${pend.length})</div>
+    ${abertas.length ? `<div style="font-size:12px; color:#a5a49a; text-transform:uppercase; margin:10px 0 2px;">Para conferir (${abertas.length})</div>
       <div style="overflow-x:auto;"><table style="border-collapse:collapse; font-size:12px; width:100%; min-width:760px;">
-        <tr><th style="${th}">hora</th><th style="${th}">o Saipos diz</th><th style="${th}">a maquininha / o banco diz</th><th style="${th} text-align:right;">valor</th><th style="${th}">o que parece</th><th style="${th}">o que fazer</th></tr>
-        ${pend.map(linhaP).join('')}</table></div>
-      <div style="font-size:11px; color:#8a897e; margin-top:6px;">vermelho = dinheiro que pode não ter entrado · laranja = provável erro de registro · cinza = deve se resolver sozinho</div>`
-      : '<div style="color:#7bc47f; margin:10px 0;">✔ Nada para conferir neste dia: tudo o que o Saipos registrou bateu com a maquininha e com o banco.</div>'}
+        <tr><th style="${th}">hora</th><th style="${th}">o Saipos diz</th><th style="${th}">a maquininha / o banco diz</th><th style="${th} text-align:right;">valor</th><th style="${th}">o que parece</th><th style="${th}">o que fazer</th><th></th></tr>
+        ${abertas.map(linhaP).join('')}</table></div>
+      <div style="font-size:11px; color:#8a897e; margin-top:6px;">vermelho = dinheiro que pode não ter entrado · laranja = provável erro de registro · cinza = deve se resolver sozinho${podeExplicar ? ' · <b>explicar</b> grava o motivo e tira a linha daqui' : ''}</div>`
+      : `<div style="color:#7bc47f; margin:10px 0;">✔ Nada para conferir neste dia${explicadas.length ? ` — ${explicadas.length} pendência(s) explicada(s)` : ': tudo o que o Saipos registrou bateu com a maquininha e com o banco'}.</div>`}
+    ${explicadas.length ? `<details open style="margin-top:10px;"><summary style="cursor:pointer; font-size:12px; color:#a5a49a;">Explicadas (${explicadas.length})</summary>
+      <div style="overflow-x:auto;"><table style="border-collapse:collapse; font-size:12px; width:100%;">
+        <tr><th style="${th}">hora</th><th style="${th}">o que era</th><th style="${th} text-align:right;">valor</th><th style="${th}">motivo</th><th style="${th}">quem</th><th></th></tr>
+        ${explicadas.map(linhaE).join('')}</table></div></details>` : ''}
     ${resolvidos.length ? `<details style="margin-top:10px;"><summary style="cursor:pointer; font-size:12px; color:#a5a49a;">Absorvido pelo painel (${resolvidos.length}): conta dividida, centavos e forma diferente da registrada</summary>
       ${resolvidos.map(r => `<div style="font-size:12px; padding:2px 8px; color:#8a897e;">${r.hora} · ${r.tipo}: ${r.texto}</div>`).join('')}</details>` : ''}
     ${casados.length ? `<details style="margin-top:6px;"><summary style="cursor:pointer; font-size:12px; color:#a5a49a;">Ver ${casados.length} pagamento(s) de cartão/vale que bateram</summary>
       <table style="border-collapse:collapse; font-size:12px;">${casados.map(s => `<tr style="color:#5f5e54;"><td style="padding:2px 8px;">${hhmm(s.hora)}</td><td style="padding:2px 8px;">${limpa(s.detalhe)}</td><td style="padding:2px 8px;">${limpa(s.par.detalhe)} às ${hhmm(s.par.hora)}</td><td style="padding:2px 8px; text-align:right;">${reaisCc(s.valor)}</td></tr>`).join('')}</table></details>` : ''}
   </div>`;
   cont.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// Memoria de validacao (dono, 09/09/2026). "explicar" grava motivo + quem na
+// caixa_pendencia_validada (policy: responsavel da loja ou dono); a linha sai
+// do "para conferir" e o dia vira "fechou · N explicadas". "desfazer" apaga.
+let CAIXA_DRILL = null;
+const CAIXA_VALID_DESDE = () => new Date(Date.now() - 60 * 864e5).toLocaleDateString('en-CA');
+async function caixaRecarregarValidadas() {
+  CAIXA_VALID = await consultarTudo('caixa_pendencia_validada?select=*&dia=gte.' + CAIXA_VALID_DESDE());
+  renderModuloCaixa();
+  if (CAIXA_DRILL) await abrirDiaConcartao(CAIXA_DRILL.unidade, CAIXA_DRILL.dia);
+}
+async function caixaExplicar(i) {
+  const d = CAIXA_DRILL, x = d && d.rows[i];
+  if (!x) return;
+  const motivo = prompt('Por que essa diferença está explicada?\n\n' + x.hora + ' · ' + x.saipos.replace(/<[^>]+>/g, '') + ' × ' + x.real + ' — R$ ' + fmt(x.valor));
+  if (motivo === null) return;
+  if (!motivo.trim()) { alert('Escreva o motivo — é o que fica registrado.'); return; }
+  const s = rmbSessao();
+  if (!s || !s.email) { alert('Sessão expirada — faça login de novo para registrar.'); return; }
+  try {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/caixa_pendencia_validada?on_conflict=unidade,dia,chave`, {
+      method: 'POST', headers: rmbHeaders({ Prefer: 'resolution=merge-duplicates' }),
+      body: JSON.stringify({ unidade: d.unidade, dia: d.dia, chave: x.chave, bloco: x.bloco,
+        descricao: (x.hora + ' · ' + x.saipos.replace(/<[^>]+>/g, '') + ' × ' + x.real).slice(0, 240),
+        valor: Math.round(x.valor * 100) / 100, efeito: Math.round(x.efeito * 100) / 100,
+        motivo: motivo.trim(), quem: s.email, validado_em: new Date().toISOString() }),
+    });
+    if (!r.ok) throw new Error((await r.text()).slice(0, 160));
+    await caixaRecarregarValidadas();
+  } catch (e) { alert('Não consegui gravar a explicação: ' + e.message); }
+}
+async function caixaDesfazer(i) {
+  const d = CAIXA_DRILL, x = d && d.rows[i];
+  if (!x || !confirm('Reabrir esta pendência? A explicação gravada será apagada.')) return;
+  try {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/caixa_pendencia_validada?unidade=eq.${encodeURIComponent(d.unidade)}&dia=eq.${d.dia}&chave=eq.${encodeURIComponent(x.chave)}`,
+      { method: 'DELETE', headers: rmbHeaders() });
+    if (!r.ok) throw new Error((await r.text()).slice(0, 160));
+    await caixaRecarregarValidadas();
+  } catch (e) { alert('Não consegui desfazer: ' + e.message); }
 }
 
 let REDE_DADOS = null;
@@ -13464,7 +13543,7 @@ function renderModuloDespesas() {
 // PC) vem depois. Serie comeca em 01/08/2026 (antes nao ha coluna dinheiro).
 // ------------------------------------------------------------------
 let CAIXA_DIAS = null, CAIXA_CONTAGENS = null, CAIXA_RESP = null;
-let CAIXA_CARTAO = null, CAIXA_PIX = null, CAIXA_TURNOS = null;
+let CAIXA_CARTAO = null, CAIXA_PIX = null, CAIXA_TURNOS = null, CAIXA_VALID = null;
 
 // FECHAMENTO DE CAIXAS (09/09/2026) — modulo unico, decisao do dono: absorveu
 // "Cartao & maquininha" (taxas/aluguel, secao no fim da tela) e "Conciliacao de
@@ -13477,7 +13556,8 @@ async function entrarCaixa() {
   const alvo = document.getElementById('view-caixa');
   if (CAIXA_DIAS === null) {
     alvo.innerHTML = '<div class="contexto">Carregando fechamento de caixas (PDV × gaveta × maquininhas × banco)...</div>';
-    [CAIXA_DIAS, CAIXA_CONTAGENS, CAIXA_RESP, CAIXA_CARTAO, CAIXA_PIX, CAIXA_TURNOS] = await Promise.all([
+    await carregarEmailDono();   // o dono tambem pode explicar pendencias
+    [CAIXA_DIAS, CAIXA_CONTAGENS, CAIXA_RESP, CAIXA_CARTAO, CAIXA_PIX, CAIXA_TURNOS, CAIXA_VALID] = await Promise.all([
       consultarTudo('vw_caixa_fechamento_dia?select=*&order=data.desc'),
       consultarTudo('caixa_contagem?select=*&order=data.desc'),
       consultarTudo('caixa_responsaveis?select=email,unidade'),
@@ -13486,6 +13566,8 @@ async function entrarCaixa() {
       consultarTudo('vw_cartao_conciliacao_dia?select=*&dia=gte.2026-08-01&order=dia'),
       consultarTudo('vw_pix_conciliacao_dia?select=*&dia=gte.2026-08-01&order=dia'),
       consultarTudo('vw_fechamento_caixa_turno?select=*&dia=gte.2026-08-01&order=dia'),
+      // memoria de validacao (09/09/2026): pendencias explicadas por quem confere
+      consultarTudo('caixa_pendencia_validada?select=*&dia=gte.' + CAIXA_VALID_DESDE()),
     ]);
     CAIXA_DIAS.forEach(r => {
       r.dinheiro_pdv = Number(r.dinheiro_pdv); r.lancado_cofre = Number(r.lancado_cofre);
@@ -13641,17 +13723,26 @@ function renderModuloCaixa() {
       const chavePdv = p.pdv_chave || 0, chaveReal = p.recebido_chave || 0;
       const chaveSem = p.sem_par_chave || 0, chaveAguard = p.aguardando_chave || 0;
       const temDinheiro = r && r.situacao !== 'SEM MOVIMENTO';
+      // memoria de validacao (09/09/2026): o que foi explicado sai da diferenca do
+      // bloco; dia com diferenca ja zerada ignora as explicadas (o vale apareceu)
+      const vals = (CAIXA_VALID || []).filter(v => v.unidade === unidade && v.dia === iso);
+      const efeito = b => vals.filter(v => v.bloco === b).reduce((a, v) => a + +v.efeito, 0);
+      const maqResto = Math.abs(maqDif) < 0.01 ? 0 : maqDif - efeito('maquininha');
+      const chaveResto = chaveSem <= 0 ? 0 : Math.max(0, chaveSem - efeito('pix_chave'));
+      const dinExplicado = vals.some(v => v.bloco === 'dinheiro');
+      const badge = vals.length ? ` <span style="color:#9aa4af; font-weight:normal;" title="pendências explicadas por quem conferiu">· ${vals.length} explicada(s)</span>` : '';
+      const expl = v => '<span style="color:#9aa4af; text-decoration:line-through;" title="explicada">R$ ' + fmt(v) + '</span>';
       let situacao, cor = '', alerta = false;
       if (aberto) situacao = '<span style="color:#9aa4af;">dia em aberto</span>';
       else if (!temDinheiro && maqPdv === 0 && maqReal === 0 && chavePdv === 0) situacao = '<span style="color:#9aa4af;">sem movimento</span>';
-      else if (r && r.situacao === 'SEM FECHAMENTO') { situacao = '<b style="color:#ff6b6b;">turno não fechou</b>'; cor = 'background:rgba(255,107,107,.07);'; alerta = true; semFech++; }
+      else if (r && r.situacao === 'SEM FECHAMENTO' && !dinExplicado) { situacao = '<b style="color:#ff6b6b;">turno não fechou</b>' + badge; cor = 'background:rgba(255,107,107,.07);'; alerta = true; semFech++; }
       else {
         const o = [];
-        if (r && r.situacao === 'DIVERGENTE') o.push('dinheiro');
-        if (Math.abs(maqDif) >= 0.01) o.push('maquininha');
-        if (chaveSem > 0) o.push('PIX chave');
-        if (o.length) { situacao = `<b style="color:#f5a623;">conferir ${o.join(' + ')}</b>`; cor = 'background:rgba(245,166,35,.07);'; alerta = true; }
-        else situacao = '<span style="color:#3f9c5a;">✔ fechou</span>';
+        if (r && r.situacao === 'DIVERGENTE' && !dinExplicado) o.push('dinheiro');
+        if (Math.abs(maqResto) >= 0.01) o.push('maquininha');
+        if (chaveResto > 0) o.push('PIX chave');
+        if (o.length) { situacao = `<b style="color:#f5a623;">conferir ${o.join(' + ')}</b>` + badge; cor = 'background:rgba(245,166,35,.07);'; alerta = true; }
+        else situacao = '<span style="color:#3f9c5a;">✔ fechou</span>' + badge;
       }
       if (alerta) pend++;
       if (F.soPend && !alerta) return '';
@@ -13660,13 +13751,13 @@ function renderModuloCaixa() {
         <td style="padding:3px 6px; white-space:nowrap;">${fmtDia(iso)}</td>
         <td style="${td}">${r ? num(r.dinheiro_pdv) : vazio}</td>
         <td style="${td}">${r ? num(r.lancado_cofre) : vazio}</td>
-        <td style="${td}">${r && !aberto ? dif(r.diferenca) : vazio}</td>
+        <td style="${td}">${r && !aberto ? (dinExplicado && Math.abs(r.diferenca) >= 0.01 ? expl(r.diferenca) : dif(r.diferenca)) : vazio}</td>
         <td style="${td}${sep}">${num(maqPdv)}</td>
         <td style="${td}">${num(maqReal)}</td>
-        <td style="${td}">${aberto ? vazio : (Math.abs(maqDif) >= 0.01 ? dif(maqDif) : (maqAguard > 0 ? aguardHtml : vazio))}</td>
+        <td style="${td}">${aberto ? vazio : (Math.abs(maqResto) >= 0.01 ? dif(maqResto) : (Math.abs(maqDif) >= 0.01 ? expl(maqDif) : (maqAguard > 0 ? aguardHtml : vazio)))}</td>
         <td style="${td}${sep}">${num(chavePdv)}</td>
         <td style="${td}">${num(chaveReal)}</td>
-        <td style="${td}">${aberto ? vazio : (chaveSem > 0 ? '<b style="color:#ff6b6b;">R$ ' + fmt(chaveSem) + '</b>' : (chaveAguard > 0 ? aguardHtml : vazio))}</td>
+        <td style="${td}">${aberto ? vazio : (chaveResto > 0 ? '<b style="color:#ff6b6b;">R$ ' + fmt(chaveResto) + '</b>' : (chaveSem > 0 ? expl(chaveSem) : (chaveAguard > 0 ? aguardHtml : vazio)))}</td>
         <td style="padding:3px 6px; white-space:nowrap;">${situacao}</td></tr>`;
     }).join('');
     pendTotal += pend; semFechTotal += semFech;
