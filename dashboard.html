@@ -5043,15 +5043,26 @@ async function concbEnviarOfx(inp, bt) {
   const texto = bt.textContent;
   bt.disabled = true;
   try {
+    // O token de quem esta logado vale 1 hora, e este caminho era o UNICO do
+    // painel que nao renovava: quem deixava a aba aberta levava
+    // {"code":"PGRST303","message":"JWT expired"} e o extrato nao subia. Quem
+    // envia sem login usa o anon, que nao vence — por isso so aparecia para o
+    // dono. (09/09/2026)
+    await rmbGarantirTokenValido();
     for (let i = 0; i < arquivos.length; i++) {
       bt.textContent = 'enviando ' + (i + 1) + '/' + arquivos.length + '...';
       const conteudo = await arquivos[i].text();
       // OFX é texto puro; arquivo grande demais aqui é sinal de que não é OFX
       if (conteudo.length > 8000000) throw new Error(arquivos[i].name + ' é grande demais');
-      const r = await fetch(`${SUPABASE_URL}/rest/v1/fin_extrato_arquivo`, {
+      const envia = () => fetch(`${SUPABASE_URL}/rest/v1/fin_extrato_arquivo`, {
         method: 'POST', headers: rmbHeaders({ Prefer: 'return=minimal' }),
         body: JSON.stringify({ quem: concbQuem() || 'PAINEL',
                                nome: arquivos[i].name, conteudo }) });
+      let r = await envia();
+      // 401 no meio do envio: renova e repete. Se o refresh tambem morreu, a
+      // sessao e apagada e a repeticao sai no anon — que tem permissao de
+      // inserir aqui. Nos dois casos o extrato sobe.
+      if (r.status === 401) { await rmbRenovarSeExpirado(r); r = await envia(); }
       if (!r.ok) throw new Error((await r.text()).slice(0, 120));
     }
   } catch (e) {
@@ -5069,11 +5080,15 @@ async function concbRodarComparador(bt) {
   bt.disabled = true;
   bt.textContent = 'atualizando...';
   try {
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/fin_conciliacao_pedido`, {
+    // mesma historia do envio de OFX: renova antes, e repete uma vez no 401
+    await rmbGarantirTokenValido();
+    const pede = () => fetch(`${SUPABASE_URL}/rest/v1/fin_conciliacao_pedido`, {
       method: 'POST',
       headers: rmbHeaders({ Prefer: 'return=representation' }),
       body: JSON.stringify({ quem: concbQuem() || 'PAINEL' }),
     });
+    let r = await pede();
+    if (r.status === 401) { await rmbRenovarSeExpirado(r); r = await pede(); }
     if (!r.ok) throw new Error((await r.text()).slice(0, 120));
     const pedido = (await r.json())[0];
 
