@@ -13057,11 +13057,18 @@ function blocoComissaoAtacado() {
   const aberta = PROJ_COM_ATACADO.find(r => !r.semana_fechada);
   const ult = fech[0];
   if (!ult && !aberta) return '';
+  // 10/09/2026: o PIX do iFood Pago chega ao extrato de manha e so vira
+  // lancamento no Saipos quando o robo da conciliacao roda (~12h). Nessa
+  // janela a base do Saipos fica pela metade; a view ja soma o que esta no
+  // banco sem lancamento (no_banco_sem_saipos) e entrega o numero final
+  // (comissao_prevista_cada). O quadro mostra o final e avisa o que falta.
+  const pend = (r) => Number(r.no_banco_sem_saipos || 0);
+  const cada = (r) => pend(r) > 0 ? r.comissao_prevista_cada : r.comissao_jane;
   const linhas = PROJ_COM_ATACADO.slice(0, 5).map(r => `<tr>
       <td>${ddmm(r.semana_ini)} a ${ddmm(r.semana_fim)}${r.semana_fechada ? '' : ' <span style="color:#8a897e">(em andamento)</span>'}</td>
-      <td style="text-align:right">${reais(r.base_revenda)}</td>
-      <td style="text-align:right;font-weight:${r.semana_fechada ? 700 : 400}">${reais(r.comissao_jane)}</td>
-      <td style="text-align:right;font-weight:${r.semana_fechada ? 700 : 400}">${reais(r.comissao_fabio)}</td>
+      <td style="text-align:right">${reais(r.base_revenda)}${pend(r) > 0 ? `<br><span style="color:#e8b04b;font-size:11px" title="PIX do iFood Pago já no extrato, ainda sem lançamento no Saipos">+ ${reais(pend(r))} no banco</span>` : ''}</td>
+      <td style="text-align:right;font-weight:${r.semana_fechada ? 700 : 400}">${reais(cada(r))}</td>
+      <td style="text-align:right;font-weight:${r.semana_fechada ? 700 : 400}">${reais(cada(r))}</td>
       <td>${ddmm(r.pagamento)}</td></tr>`).join('');
   return `
   <div class="section-label">Comissão do atacado — 7,5% Jane + 7,5% Fabio sobre a revenda</div>
@@ -13069,8 +13076,11 @@ function blocoComissaoAtacado() {
     <b>O número de uma semana só é final na quinta</b> — os valores do último dia entram
     durante a tarde de quarta, e é por isso que o pagamento é na quinta.
     ${ult ? `Última semana fechada (${ddmm(ult.semana_ini)} a ${ddmm(ult.semana_fim)}):
-    <b>lançar ${reais(ult.comissao_jane)} para a Jane e ${reais(ult.comissao_fabio)} para o Fabio</b>,
-    vencimento ${ddmm(ult.pagamento)}. A linha de provisão daquela semana no Saipos deve ser ajustada para esse valor.` : ''}</div>
+    <b>lançar ${reais(cada(ult))} para a Jane e ${reais(cada(ult))} para o Fabio</b>,
+    vencimento ${ddmm(ult.pagamento)}. A linha de provisão daquela semana no Saipos deve ser ajustada para esse valor.` : ''}
+    ${ult && pend(ult) > 0 ? `<br><b style="color:#e8b04b">Atenção:</b> ${reais(pend(ult))} do iFood Pago já entrou no banco nessa semana e
+    ainda não está lançado no Saipos (o robô da conciliação lança por volta do meio-dia). O valor acima já conta com ele;
+    no Saipos a base ainda aparece como ${reais(ult.base_revenda)}.` : ''}</div>
   <div id="tabelaComAtacado" style="overflow-x:auto"><table>
     <thead><tr><th>Semana</th><th style="text-align:right">Base revenda</th>
     <th style="text-align:right">Jane (7,5%)</th><th style="text-align:right">Fabio (7,5%)</th><th>Pagar em</th></tr></thead>
