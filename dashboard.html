@@ -4445,10 +4445,13 @@ function renderDiaConcartao(unidade, dia, trs, pix, cobr, forma) {
   const saipos = trs.filter(t => t.origem === 'SAIPOS').map(t => ({ ...t, par: null }));
   const rede = trs.filter(t => t.origem === 'REDE').map(t => ({ ...t, usado: false }));
   saipos.forEach(s => {
-    let melhor = null, dist = 181;                       // tolerância: 3 h
+    let melhor = null, dist = Infinity;
     rede.forEach(r => {
       if (r.usado || Math.abs(+r.valor - +s.valor) > 0.005) return;
-      const d = Math.abs(r.t - s.t);
+      const dt = Math.abs(r.t - s.t);
+      if (dt > 180) return;                              // tolerância: 3 h
+      // mesmo valor em dois caixas: prefere a maquininha do caixa da venda (SD = salao — dono, 10/09/2026)
+      const d = dt + (r.caixa && s.caixa && r.caixa !== s.caixa ? 60 : 0);
       if (d < dist) { dist = d; melhor = r; }
     });
     if (melhor) { melhor.usado = true; melhor.parDe = s; s.par = melhor; s.dist = dist; }
@@ -4568,7 +4571,7 @@ function renderDiaConcartao(unidade, dia, trs, pix, cobr, forma) {
     saipos: limpa(s.detalhe) + ' · ' + rotVenda(s) + quem(s), real: madrugadaSemRede(s) ? 'a Rede ainda não entregou a madrugada' : semForma(s) ? 'nada desse valor na maquininha nem no banco' : 'nada desse valor na maquininha', valor: +s.valor,
     leitura: madrugadaSemRede(s) ? 'pagamento depois da meia-noite: a maquininha só entrega amanhã' : semForma(s) ? 'o Saipos não diz como foi pago (venda ficou "Pendente")' : eVale(s) ? 'vale pode levar até uma semana para aparecer na Rede' : 'registrado no Saipos, mas não passou na maquininha',
     acao: madrugadaSemRede(s) ? 'esperar' : semForma(s) ? 'fechar a venda no Saipos com a forma certa, ou confirmar se foi paga' : moto[s.referencia] ? 'confirmar com o motoboy se cobrou' : 'confirmar no caixa se cobrou, ou se passou em outra forma' }));
-  restoR.forEach(r => pend.push({ caixa: null, chave: 'rede:' + r.referencia, bloco: 'maquininha', efeito: -(+r.valor),
+  restoR.forEach(r => pend.push({ caixa: r.caixa || null, chave: 'rede:' + r.referencia, bloco: 'maquininha', efeito: -(+r.valor),
     p: 2, cor: '#f5a623', hora: hhmm(r.hora), saipos: 'nada desse valor no Saipos', real: limpa(r.detalhe), valor: +r.valor,
     leitura: 'passou na maquininha, mas não está registrado no Saipos', acao: 'achar a venda no Saipos (lançada em outra forma ou não lançada)' }));
   conferir.forEach(q => pend.push({ caixa: q.s.caixa || null, chave: 'quase:' + q.s.referencia + ':' + q.r.referencia, bloco: 'maquininha', efeito: +q.s.valor - +q.r.valor,
