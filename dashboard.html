@@ -4403,6 +4403,26 @@ async function carregarReembolsos() {
 // caixa (transacao da maquininha sem venda) aparece nos dois.
 let CAIXA_DRILL_CX = '';
 let CAIXA_DRILL_DADOS = null;
+// DINHEIRO = CONTAGEM, por caixa (dono, 10/09/2026 noite: "aparece la em cima o valor
+// informado e la embaixo ainda aparece a pendencia"). O que o fechamento do Saipos lancou
+// no cofre deixou de ser regua: a Arissa conta a gaveta e digita (enviado + troco); o
+// painel compara vendido em dinheiro x enviado, caixa a caixa. Sem contagem = falta contar.
+function caixaDinheiroDia(unidade, dia) {
+  const rows = (CAIXA_DIAS_CX || []).filter(r => r.unidade === unidade && r.data === dia);
+  const conts = (CAIXA_CONTAGENS || []).filter(c => c.unidade === unidade && c.data === dia);
+  const caixas = [...new Set([...rows.map(r => r.caixa), ...conts.map(c => c.caixa || 'SALÃO')])].sort();
+  return caixas.map(cx => {
+    const r = rows.find(x => x.caixa === cx) || {};
+    const c = conts.find(x => (x.caixa || 'SALÃO') === cx) || null;
+    const vendido = +(r.dinheiro_pdv || 0), saidas = +(r.saidas || 0);
+    const enviado = c ? (c.troco === null || c.troco === undefined ? +c.contado : Math.round((+c.contado - +c.troco) * 100) / 100) : null;
+    const dif = c ? Math.round((enviado - vendido) * 100) / 100 : null;
+    const porSaidas = !!c && saidas > 0 && Math.abs(enviado - (vendido - saidas)) < 0.01;
+    const bateu = !!c && (Math.abs(dif) < 0.01 || porSaidas);
+    return { caixa: cx, rot: cx === 'SALÃO' ? 'Salão' : 'Delivery', vendido, saidas, contagem: c, enviado, dif, porSaidas, bateu,
+      faltaContar: !c && vendido >= 0.01, aberto: !!r.caixa_aberto };
+  });
+}
 function caixaDrillFiltro(cx) {
   CAIXA_DRILL_CX = cx;
   const d = CAIXA_DRILL_DADOS;
@@ -4586,16 +4606,20 @@ function renderDiaConcartao(unidade, dia, trs, pix, cobr, forma, descs) {
     real: x.aguardando ? 'banco ainda não mostrou' : 'nenhum PIX desse valor no banco até 5 dias depois', valor: +x.valor,
     leitura: x.aguardando ? 'sábado cai na segunda, domingo na segunda, feriado empurra mais — até 5 dias é normal' : 'registrado como PIX, o dinheiro não entrou',
     acao: x.aguardando ? 'esperar' : (x.entregador ? 'confirmar com o motoboy se o cliente pagou' : 'confirmar no caixa') }));
-  // o dinheiro do dia (turno nao fechou / nao bate) tambem e uma pendencia explicavel
-  const rDin = (CAIXA_DIAS || []).find(r => r.unidade === unidade && r.data === dia);
-  if (rDin && (rDin.situacao === 'SEM FECHAMENTO' || rDin.situacao === 'DIVERGENTE')) {
-    const semFech = rDin.situacao === 'SEM FECHAMENTO';
-    const abertos = turnos.filter(t => t.fechado === false).map(rotuloCaixa);
-    pend.push({ caixa: null, chave: 'dinheiro:' + dia, bloco: 'dinheiro', efeito: +rDin.diferenca, p: 1, cor: semFech ? '#ff6b6b' : '#f5a623', hora: 'turno',
-      saipos: 'dinheiro vendido ' + reaisCc(rDin.dinheiro_pdv), real: semFech ? (abertos.length ? abertos.join(', ') + ' ainda aberto no Saipos' : 'turno não fechou o caixa no Saipos') : 'fechado no Saipos ' + reaisCc(rDin.lancado_cofre),
-      valor: +rDin.diferenca, leitura: semFech ? 'venda em dinheiro sem fechamento de turno' : 'o fechado não bate com o vendido',
-      acao: 'conferir com o turno; a contagem da gaveta diz se o dinheiro está lá' });
-  }
+  // DINHEIRO = CONTAGEM, por caixa (10/09/2026 noite). Bateu: nada. Sem contagem: "falta
+  // contar". Faltou/sobrou: pendencia explicavel. O cofre do Saipos nao entra mais aqui.
+  const hojeIso = new Date().toLocaleDateString('en-CA');
+  if (dia < hojeIso) caixaDinheiroDia(unidade, dia).forEach(d => {
+    if (d.bateu) return;
+    if (d.faltaContar) pend.push({ caixa: d.caixa, chave: 'dinheiro:' + dia + ':' + d.caixa, bloco: 'dinheiro', efeito: d.vendido, p: 1, cor: '#f5a623', hora: 'turno',
+      saipos: d.rot + ' vendeu em dinheiro ' + reaisCc(d.vendido), real: d.aberto ? 'caixa ainda aberto no Saipos · gaveta não contada' : 'gaveta ainda não contada', valor: d.vendido,
+      leitura: 'sem a contagem não dá para saber se o dinheiro chegou',
+      acao: 'registrar a contagem do ' + d.rot + ' no alto da loja (dia, dinheiro enviado e troco que ficou)' });
+    else if (d.contagem) pend.push({ caixa: d.caixa, chave: 'dinheiro:' + dia + ':' + d.caixa, bloco: 'dinheiro', efeito: d.dif, p: 1, cor: d.dif < 0 ? '#ff6b6b' : '#f5a623', hora: 'turno',
+      saipos: d.rot + ' vendeu em dinheiro ' + reaisCc(d.vendido), real: 'contado (enviado) ' + reaisCc(d.enviado) + (d.saidas > 0 ? ' · saídas do dia ' + reaisCc(d.saidas) : ''), valor: d.dif,
+      leitura: (d.dif < 0 ? 'faltou ' : 'sobrou ') + reaisCc(Math.abs(d.dif)) + ' na contagem' + (d.contagem.observacao ? ' — obs: ' + d.contagem.observacao : ''),
+      acao: d.dif < 0 ? 'perguntar ao turno: saída paga pela gaveta sem lançar no Saipos? troco digitado errado?' : 'conferir o troco digitado e se alguma venda em dinheiro ficou fora do Saipos' });
+  });
   // o casamento do PIX nao e 1 para 1: dois PIX do mesmo valor podem apontar para o
   // MESMO credito do banco. Quando isso acontece, avisa em vez de esconder.
   const usoBanco = {};
@@ -4748,6 +4772,9 @@ function renderDiaConcartao(unidade, dia, trs, pix, cobr, forma, descs) {
     <div style="font-size:15px; font-weight:700; margin-bottom:6px;">${unidade} — ${dia.split('-').reverse().join('/')}</div>
     <div style="overflow-x:auto;"><table style="border-collapse:collapse; font-size:12px; border:1px solid rgba(154,164,175,.25); margin-top:4px;">
       <tr><th style="${thC} text-align:left;">conferência</th><th style="${thC}">no Saipos</th><th style="${thC}">chegou</th><th style="${thC} border-right:0;">diferença</th></tr>
+      ${caixaDinheiroDia(unidade, dia).filter(d => d.vendido >= 0.01 || d.contagem).map(d => `<tr style="border-top:1px solid rgba(154,164,175,.12);"><td style="${tdC} text-align:left;">Dinheiro ${d.rot} <span style="color:#9aa4af;">× contagem</span></td>
+        <td style="${tdC}">${reaisCc(d.vendido)}</td><td style="${tdC}">${d.contagem ? reaisCc(d.enviado) : '<span style="color:#f5a623;">não contado</span>'}</td>
+        <td style="${tdC} border-right:0; color:${!d.contagem ? '#9aa4af' : d.bateu ? '#7bc47f' : d.dif < 0 ? '#ff6b6b' : '#f5a623'};"><b>${!d.contagem ? '—' : d.bateu ? (d.porSaidas ? reaisCc(d.dif) + ' (saídas)' : 'R$ 0,00') : reaisCc(d.dif)}</b></td></tr>`).join('')}
       <tr style="border-top:1px solid rgba(154,164,175,.12);"><td style="${tdC} text-align:left;">Cartão + vale <span style="color:#9aa4af;">× maquininha</span></td>
         <td style="${tdC}">${reaisCc(somaS)}</td><td style="${tdC}">${reaisCc(somaR)}</td>
         <td style="${tdC} border-right:0; color:${Math.abs(difMaq) < 0.01 ? '#7bc47f' : '#f5a623'};"><b>${reaisCc(difMaq)}</b></td></tr>
@@ -13989,8 +14016,8 @@ function caixaFiltrar(campo, valor) {
   renderModuloCaixa();
 }
 
-// Tres blocos por dia (dono, 09/09/2026): DINHEIRO (PDV x fechado no Saipos, e a
-// gaveta contada), MAQUININHA (tudo que passa na maquina da Rede: cartao + vale +
+// Tres blocos por dia (dono, 09/09/2026): DINHEIRO (PDV x gaveta contada, por caixa —
+// desde 10/09 a noite o cofre do Saipos nao e mais regua), MAQUININHA (tudo que passa na maquina da Rede: cartao + vale +
 // PIX QR — o QR nao vem na API da Rede, mas cai no banco linha a linha) e PIX
 // CHAVE (avulso na chave CNPJ x transferencia no banco).
 function renderModuloCaixa() {
@@ -14029,7 +14056,7 @@ function renderModuloCaixa() {
           <th></th></tr>
         <tr style="color:#9aa4af; text-align:left;">
           <th style="padding:3px 6px; font-weight:normal;">dia</th>
-          <th style="${th}">PDV</th><th style="${th}">fechado no Saipos</th><th style="${th}">diferença</th>
+          <th style="${th}" title="venda em dinheiro registrada no PDV (os dois caixas)">vendeu</th><th style="${th}" title="o que a contagem da gaveta registrou como enviado (contado − troco), somando os caixas contados">contado</th><th style="${th}" title="contado − vendeu: negativo faltou, positivo sobrou; saídas do dia pagas pela gaveta e lançadas no Saipos não contam como diferença">diferença</th>
           <th style="${th}${sep}">PDV</th><th style="${th}" title="cartão e vale na Rede + PIX QR no banco">confirmado</th><th style="${th}">diferença</th>
           <th style="${th}${sep}">PDV</th><th style="${th}">no banco</th><th style="${th}">sem par</th>
           <th style="padding:3px 6px; font-weight:normal;">situação</th>
@@ -14098,6 +14125,14 @@ function renderModuloCaixa() {
       const chavePdv = p.pdv_chave || 0, chaveReal = p.recebido_chave || 0;
       const chaveSem = p.sem_par_chave || 0, chaveAguard = p.aguardando_chave || 0;
       const temDinheiro = r && r.situacao !== 'SEM MOVIMENTO';
+      // dinheiro = contagem por caixa (10/09/2026 noite); o cofre do Saipos saiu da regua
+      const dinCx = aberto ? [] : caixaDinheiroDia(unidade, iso);
+      const dinVend = dinCx.reduce((a, d) => a + d.vendido, 0);
+      const dinCont = dinCx.filter(d => d.contagem);
+      const dinEnv = dinCont.reduce((a, d) => a + d.enviado, 0);
+      const dinDif = Math.round(dinCont.reduce((a, d) => a + (d.bateu ? 0 : d.dif), 0) * 100) / 100;
+      const faltaContar = dinCx.some(d => d.faltaContar);
+      const difDin = v => Math.abs(v) < 0.01 ? vazio : '<b style="color:' + (v < 0 ? '#ff6b6b' : '#f5a623') + ';">R$ ' + fmt(v) + '</b>';
       // memoria de validacao (09/09/2026): o que foi explicado sai da diferenca do
       // bloco; dia com diferenca ja zerada ignora as explicadas (o vale apareceu)
       const vals = (CAIXA_VALID || []).filter(v => v.unidade === unidade && v.dia === iso);
@@ -14113,7 +14148,7 @@ function renderModuloCaixa() {
       else if (r && r.situacao === 'SEM FECHAMENTO' && !dinExplicado) { situacao = '<b style="color:#ff6b6b;">turno não fechou</b>' + badge; cor = 'background:rgba(255,107,107,.07);'; alerta = true; semFech++; }
       else {
         const o = [];
-        if (r && r.situacao === 'DIVERGENTE' && !dinExplicado) o.push('dinheiro');
+        if (!dinExplicado) { if (faltaContar) o.push('dinheiro (falta contar)'); else if (Math.abs(dinDif) >= 0.01) o.push('dinheiro'); }
         if (Math.abs(maqResto) >= 0.01) o.push('maquininha');
         if (chaveResto > 0) o.push('PIX chave');
         if (o.length) { situacao = `<b style="color:#f5a623;">conferir ${o.join(' + ')}</b>` + badge; cor = 'background:rgba(245,166,35,.07);'; alerta = true; }
@@ -14131,9 +14166,9 @@ function renderModuloCaixa() {
       const aguardHtml = '<span style="color:#9aa4af;" title="PIX: até 6 dias (fim de semana e feriado atrasam); maquininha: a madrugada do turno chega amanhã">aguardando</span>';
       return `<tr style="${cor} cursor:pointer;" onclick="abrirDiaConcartao('${unidade.replace(/'/g, "\\'")}', '${iso}')" title="clique para abrir as transações do dia e o que cada caixa fechou">
         <td style="padding:3px 6px; white-space:nowrap;">${fmtDia(iso)}</td>
-        <td style="${td}">${r ? num(r.dinheiro_pdv) : vazio}</td>
-        <td style="${td}">${r ? num(r.lancado_cofre) : vazio}</td>
-        <td style="${td}">${r && !aberto ? (dinExplicado && Math.abs(r.diferenca) >= 0.01 ? expl(r.diferenca) : dif(r.diferenca)) : vazio}</td>
+        <td style="${td}">${aberto ? (r ? num(r.dinheiro_pdv) : vazio) : num(dinVend)}</td>
+        <td style="${td}">${aberto ? vazio : dinCont.length ? num(dinEnv) + (faltaContar ? ' <span style="color:#f5a623; font-size:11px;" title="um dos caixas ainda não foi contado">+ falta um</span>' : '') : (faltaContar ? '<span style="color:#f5a623;">não contado</span>' : vazio)}</td>
+        <td style="${td}">${aberto ? vazio : (dinExplicado && Math.abs(dinDif) >= 0.01 ? expl(dinDif) : difDin(dinDif))}</td>
         <td style="${td}${sep}">${num(maqPdv)}</td>
         <td style="${td}">${num(maqReal)}</td>
         <td style="${td}">${aberto ? vazio : (Math.abs(maqResto) >= 0.01 ? dif(maqResto) : (Math.abs(maqDif) >= 0.01 ? expl(maqDif) : (maqAguard > 0 ? aguardHtml : vazio)))}${!aberto && madrugada > 0 ? ` <span style="color:#9aa4af; font-size:11px;" title="R$ ${fmt(madrugada)} registrados na madrugada: a Rede entrega amanhã">+ madrugada</span>` : ''}</td>
@@ -14234,8 +14269,8 @@ function renderModuloCaixa() {
         ? `<b class="negativo">${pendTotal} dia(s) para conferir</b>${semFechTotal ? `, ${semFechTotal} com turno sem fechamento` : ''}.`
         : '<b style="color:#3f9c5a;">Nenhuma pendência na janela.</b>'}
       <details style="margin-top:6px; font-size:12px; color:#9aa4af;"><summary style="cursor:pointer;">como ler</summary>
-        <b>Turno não fechou</b> = o caixa que fez as vendas ainda está aberto no Saipos (o clique no dia diz qual). <b>Dinheiro</b>: venda em dinheiro no PDV × o que o fechamento registrou no cofre; a gaveta contada
-        entra pela contagem (Arissa: Água Verde e Ahú · Diego: São Braz). <b>Maquininha</b>: cartão e vale × transações
+        <b>Turno não fechou</b> = o caixa que fez as vendas ainda está aberto no Saipos (o clique no dia diz qual). <b>Dinheiro</b>: venda em dinheiro no PDV × o que a contagem da gaveta registrou como enviado, caixa a caixa
+        (Arissa: Água Verde e Ahú · Diego: São Braz); dia sem contagem aparece como "falta contar". <b>Maquininha</b>: cartão e vale × transações
         da Rede, mais o PIX QR da maquininha × crédito no banco (cai linha a linha, "PIX QRS"). <b>PIX chave</b>: avulso
         na chave CNPJ × transferência no banco. <b>O dia é o turno</b>: das 10h às 2h da manhã seguinte (corte às 6h), igual ao caixa do
         Saipos. A Rede só entrega as transações no dia seguinte, então a madrugada do turno de ontem aparece como
