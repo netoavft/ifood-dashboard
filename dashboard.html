@@ -13734,18 +13734,18 @@ async function caixaSalvar(unidade, idBase) {
   const s = rmbSessao();
   if (!s || !s.email) { alert('Sessão expirada — faça login de novo para registrar.'); return; }
   if (!dia) { alert('Escolha o dia da contagem.'); return; }
-  if (valor === '' || Number(valor) < 0) { alert('Digite o valor contado (0 vale, se a gaveta estava vazia).'); return; }
-  // troco de abertura (dono, 10/09/2026): obrigatorio, porque o contado o inclui e
-  // o esperado do dia seguinte precisa saber se ele mudou
-  if (troco === '' || Number(troco) < 0) { alert('Digite o troco de abertura informado no Saipos (0 vale, se o caixa abriu sem troco).'); return; }
-  if (Number(troco) > Number(valor)) { alert('O troco de abertura não pode ser maior que o total contado — o contado inclui o troco.'); return; }
+  if (valor === '' || Number(valor) < 0) { alert('Digite o dinheiro enviado/recebido (0 vale, se não veio dinheiro).'); return; }
+  // troco (dono, 10/09/2026): o que FICOU na gaveta naquele dia — a API do Saipos nao
+  // entrega esse valor. O enviado pode ser menor que o troco (dia fraco), entao nao ha
+  // trava entre os dois; o contado gravado e a soma (todo o dinheiro da loja).
+  if (troco === '' || Number(troco) < 0) { alert('Digite o troco que ficou na gaveta (0 vale, se o caixa ficou sem troco).'); return; }
   const bt = document.getElementById(idBase + 'Btn');
   bt.disabled = true; bt.textContent = 'salvando...';
   try {
     const r = await fetch(`${SUPABASE_URL}/rest/v1/caixa_contagem?on_conflict=unidade,data`, {
       method: 'POST',
       headers: rmbHeaders({ Prefer: 'resolution=merge-duplicates' }),
-      body: JSON.stringify({ unidade, data: dia, contado: Number(valor), troco: Number(troco),
+      body: JSON.stringify({ unidade, data: dia, contado: Math.round((Number(valor) + Number(troco)) * 100) / 100, troco: Number(troco),
                              observacao: obs || null, quem: s.email,
                              atualizado_em: new Date().toISOString() }),
     });
@@ -13843,10 +13843,11 @@ function renderModuloCaixa() {
     conts.forEach((c, i) => {
       if (i === 0) { c.esperado = null; c.quebra = null; return; }
       const ant = conts[i - 1];
-      // troco de abertura (dono, 10/09/2026): o contado inclui o troco; se ele mudou
-      // de um dia para o outro, a diferenca entra no esperado (nao e quebra)
-      const dTroco = (c.troco !== null && ant.troco !== null) ? c.troco - ant.troco : 0;
-      c.esperado = Math.round((ant.contado + movEntre(ant.data, c.data) + dTroco) * 100) / 100;
+      // troco (dono, 10/09/2026): o contado = enviado + troco que ficou na gaveta, ou
+      // seja, TODO o dinheiro da loja. Mudanca de troco NAO ajusta o esperado: se o
+      // troco caiu porque pagaram algo pela gaveta, o lancamento no Saipos (saida do
+      // Cofre) ja baixa o esperado — somar a variacao do troco contaria duas vezes.
+      c.esperado = Math.round((ant.contado + movEntre(ant.data, c.data)) * 100) / 100;
       c.quebra = Math.round((c.contado - c.esperado) * 100) / 100;
     });
     const eu = ((rmbSessao() || {}).email || '').toLowerCase();
@@ -13919,15 +13920,16 @@ function renderModuloCaixa() {
       <div style="margin-top:10px; padding-top:8px; border-top:1px solid rgba(154,164,175,.25);">
         <b>Contagem da gaveta</b> — digite só o valor contado; o painel calcula o resto.
         <div style="font-size:12px; color:#a5a49a; margin-top:4px;">
-          Conte <b>todo o dinheiro da loja</b>: cofre + gaveta, <b>com o troco de abertura do salão dentro</b>, todos os dias
-          (regra do dono, 10/09/2026). No segundo campo, digite <b>o troco informado na abertura do caixa no Saipos</b> naquele dia
-          (a API não entrega esse valor). Se o troco mudar de um dia para o outro, o painel desconta a mudança sozinho — não vira quebra.
-          A primeira contagem é ponto de partida e não gera quebra.
+          Dois números, todos os dias (regra do dono, 10/09/2026): o <b>dinheiro enviado</b> pela loja, que você conta, e o
+          <b>troco que ficou na gaveta</b> naquele dia. O painel soma os dois: é todo o dinheiro da loja. O enviado pode ser menor
+          que o troco num dia fraco — normal. Se usaram parte do troco para pagar algo pelo caixa, digite o troco que <b>sobrou</b>,
+          e esse pagamento tem de estar lançado no Saipos como saída do Cofre — é assim que o esperado desconta; sem o lançamento,
+          aparece como quebra, e é para aparecer. A primeira contagem é ponto de partida e não gera quebra.
         </div>
         <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:6px; align-items:center;">
           <input type="date" id="${idBase}Data" value="${hoje}" max="${hoje}" style="padding:4px;">
-          <input type="number" step="0.01" min="0" id="${idBase}Valor" placeholder="contado (R$)" style="padding:4px; width:140px;">
-          <input type="number" step="0.01" min="0" id="${idBase}Troco" placeholder="troco de abertura (R$)" title="o valor informado na abertura do caixa no Saipos, naquele dia" style="padding:4px; width:170px;">
+          <input type="number" step="0.01" min="0" id="${idBase}Valor" placeholder="dinheiro enviado (R$)" title="o dinheiro que a loja mandou para você (contado por você)" style="padding:4px; width:160px;">
+          <input type="number" step="0.01" min="0" id="${idBase}Troco" placeholder="troco que ficou na gaveta (R$)" title="o troco que ficou na gaveta naquele dia: o da abertura menos o que usaram para pagar algo pelo caixa" style="padding:4px; width:200px;">
           <input type="text" id="${idBase}Obs" placeholder="observação (se deu diferença, o que achou)" style="padding:4px; flex:1; min-width:180px;">
           <button id="${idBase}Btn" onclick="caixaSalvar('${unidade}', '${idBase}')">Registrar contagem</button>
         </div>
@@ -13941,8 +13943,8 @@ function renderModuloCaixa() {
           <tr style="color:#9aa4af; text-align:left;">
             <th style="padding:3px 8px; font-weight:normal;">dia</th>
             <th style="padding:3px 8px; font-weight:normal; text-align:right;">contado</th>
-            <th style="padding:3px 8px; font-weight:normal; text-align:right;" title="troco de abertura informado no Saipos; está dentro do contado">troco</th>
-            <th style="padding:3px 8px; font-weight:normal; text-align:right;" title="contado − troco: o dinheiro do movimento">sem o troco</th>
+            <th style="padding:3px 8px; font-weight:normal; text-align:right;" title="troco que ficou na gaveta naquele dia; está dentro do contado">troco</th>
+            <th style="padding:3px 8px; font-weight:normal; text-align:right;" title="contado − troco: o dinheiro que a loja mandou">enviado</th>
             <th style="padding:3px 8px; font-weight:normal; text-align:right;">esperado</th>
             <th style="padding:3px 8px; font-weight:normal;">quebra</th>
             <th style="padding:3px 8px; font-weight:normal;">obs</th>
