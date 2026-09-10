@@ -9386,11 +9386,15 @@ async function trFinVerLista(id) {
   if (!el.dataset.pronto) {
     el.innerHTML = 'carregando...';
     el.hidden = false;
-    const itens = await consultarTudo(`tr_lista_itens?id_lista=eq.${id}&order=item&select=item,un_medida,qtd_solicitada,qtd_separada,qtd_recebida,observacao,avulso,editado`);
+    const alvoLista = (window._trFinListas || []).find(l => l.id === id);
+    const [itens, mapa] = await Promise.all([
+      consultarTudo(`tr_lista_itens?id_lista=eq.${id}&order=item&select=item,un_medida,qtd_solicitada,qtd_separada,qtd_recebida,observacao,avulso,editado`),
+      trEmbMapa(alvoLista ? alvoLista.unidade : ''),
+    ]);
     el.innerHTML = `<table style="border-collapse:collapse;">
       <tr><th style="text-align:left; padding:2px 10px 2px 0;">Item</th><th style="padding:2px 8px;">Pedido</th><th style="padding:2px 8px;">Separado</th><th style="padding:2px 8px;">Recebido</th></tr>
       ${itens.map(i => { const dif = Number(i.qtd_recebida ?? 0) !== Number(i.qtd_separada ?? 0); return `<tr>
-        <td style="text-align:left; padding:2px 10px 2px 0;">${i.item} <span class="dre-av">${i.un_medida || ''}</span>${i.avulso ? ' <span class="tr-tag">🆕</span>' : ''}${i.editado ? ' <span class="tr-tag">✏️</span>' : ''}${i.observacao ? ` <span class="tr-tag">${i.observacao}</span>` : ''}</td>
+        <td style="text-align:left; padding:2px 10px 2px 0;">${i.item} <span class="dre-av">${i.un_medida || ''}</span>${trEmbRotulo(mapa, i.item)}${i.avulso ? ' <span class="tr-tag">🆕</span>' : ''}${i.editado ? ' <span class="tr-tag">✏️</span>' : ''}${i.observacao ? ` <span class="tr-tag">${i.observacao}</span>` : ''}</td>
         <td style="padding:2px 8px;">${Number(i.qtd_solicitada || 0)}</td>
         <td style="padding:2px 8px;">${Number(i.qtd_separada ?? 0)}</td>
         <td style="padding:2px 8px;${dif ? ' color:#ff6b6b; font-weight:700;' : ''}">${Number(i.qtd_recebida ?? 0)}</td>
@@ -9746,13 +9750,19 @@ async function trEditarPedido(id) {
   });
   window._trEdit = { id, unidade: lista.unidade, itens };
   window._trEditNovos = novos;
+  // decoracao do nome com a embalagem, a partir do proprio catalogo ja buscado
+  const catMapa = {};
+  catalogo.forEach(x => {
+    if (x.emb_fator) catMapa[x.item] = x.emb_nome + ' de ' + trEmbDesc(x)
+      + (x.emb2_fator ? ' ou ' + x.emb2_nome + ' de ' + trEmbDesc({ un_medida: x.un_medida, emb_fator: x.emb2_fator }) : '');
+  });
   alvo.innerHTML = `
     <div class="caption-label"><button class="preset-btn" onclick="trListaAberta=${id}; trTelaSeparacao();">← lista</button>
       Editando a lista <b>#${id}</b> · ${lista.unidade} — corrija as quantidades (<b>0 tira o item</b>), preencha
       os que faltam na grade de baixo e <b>salve uma vez só</b>. Linha mexida ganha o selo ✏️.</div>
     <div id="tabelaTrEdit"><table>
       <tr><th>Item</th><th>Qtd</th></tr>
-      ${itens.map((i, idx) => `<tr><td>${i.item} <span class="dre-av">${i.un_medida || ''}</span>${i.avulso ? ' <span class="tr-tag">🆕</span>' : ''}${i.observacao ? ` <span class="tr-tag">${i.observacao}</span>` : ''}${i.editado ? ' <span class="tr-tag">✏️</span>' : ''}</td>
+      ${itens.map((i, idx) => `<tr><td>${i.item} <span class="dre-av">${i.un_medida || ''}</span>${catMapa[i.item] ? ` <span class="tr-det">(${catMapa[i.item]})</span>` : ''}${i.avulso ? ' <span class="tr-tag">🆕</span>' : ''}${i.observacao ? ` <span class="tr-tag">${i.observacao}</span>` : ''}${i.editado ? ' <span class="tr-tag">✏️</span>' : ''}</td>
         <td><input type="number" min="0" step="any" id="tre_${idx}" class="trc-in" value="${Number(i.qtd_solicitada || 0)}"
           style="width:80px; text-align:right;"></td></tr>`).join('')}
     </table></div>
@@ -9927,7 +9937,8 @@ async function trAbrirSeparacao(id) {
   ]);
   const lista = (await rl.json())[0];
   const itens = await ri.json();
-  window._trItensSep = itens; window._trListaSep = lista;
+  const mapa = await trEmbMapa(lista.unidade);
+  window._trItensSep = itens; window._trListaSep = lista; window._trEmbMapaSep = mapa;
   alvo.innerHTML = `
     <div class="caption-label"><button class="preset-btn" onclick="trListaAberta=null; trTelaSeparacao();">← fila</button>
       Lista <b>#${id}</b> · ${lista.unidade} · status <b>${lista.status}</b>
@@ -9935,7 +9946,7 @@ async function trAbrirSeparacao(id) {
       ${lista.status === 'SOLICITADA' ? `<button class="preset-btn" onclick="trListaAberta=null; trEditarPedido(${id})">✏️ corrigir pedido</button>` : ''}</div>
     <div id="tabelaTrOpSep"><table>
       <tr><th>Item</th><th>Solicitado</th><th>Separado</th></tr>
-      ${itens.map((i, idx) => `<tr><td>${i.item} <span class="dre-av">${i.un_medida || ''}</span>${i.avulso ? ' <span class="tr-tag">🆕 fora da grade</span>' : ''}${i.observacao ? ` <span class="tr-tag">${i.observacao}</span>` : ''}${i.editado ? ' <span class="tr-tag">✏️ editado</span>' : ''}</td>
+      ${itens.map((i, idx) => `<tr><td>${i.item} <span class="dre-av">${i.un_medida || ''}</span>${trEmbRotulo(mapa, i.item)}${i.avulso ? ' <span class="tr-tag">🆕 fora da grade</span>' : ''}${i.observacao ? ` <span class="tr-tag">${i.observacao}</span>` : ''}${i.editado ? ' <span class="tr-tag">✏️ editado</span>' : ''}</td>
         <td>${Number(i.qtd_solicitada || 0)}</td>
         <td><input type="number" min="0" step="any" id="trs_${idx}" class="trc-in" value="${i.qtd_separada ?? i.qtd_solicitada ?? ''}"
           style="width:80px; text-align:right;"></td></tr>`).join('')}
@@ -10015,7 +10026,7 @@ async function trImprimirSeparacao(id) {
     <div class="sub">pedida em ${ddmm(lista.data_pedido)} · ${itens.length} itens · impressa em ${ddmm(trHoje())} · marque ☑ ao separar e anote a quantidade separada</div>
     ${Object.keys(porGrupo).sort().map(g => `<h2>${g}</h2><table>
       <tr><th class="cx"></th><th>Item</th><th>Un</th><th class="q">Solicitado</th><th class="risco">Separado</th></tr>
-      ${porGrupo[g].map(i => `<tr><td class="cx">☐</td><td>${i.item}${i.editado ? ' ✏️' : ''}${i.observacao ? `<br><span style="font-size:10.5px; color:#444;">${i.observacao}</span>` : ''}</td><td>${i.un_medida || ''}</td>
+      ${porGrupo[g].map(i => `<tr><td class="cx">☐</td><td>${i.item}${i.editado ? ' ✏️' : ''}${(window._trEmbMapaSep || {})[i.item] ? ` <span style="font-size:10.5px; color:#444;">(${window._trEmbMapaSep[i.item]})</span>` : ''}${i.observacao ? `<br><span style="font-size:10.5px; color:#444;">${i.observacao}</span>` : ''}</td><td>${i.un_medida || ''}</td>
         <td class="q"><b>${Number(i.qtd_solicitada || 0)}</b></td><td class="risco"><span></span></td></tr>`).join('')}
     </table>`).join('')}
   </body></html>`);
@@ -10072,6 +10083,7 @@ async function trVerFinalizada(id) {
   ]);
   const lista = (await rl.json())[0] || {};
   const itens = await ri.json();
+  const mapa = await trEmbMapa(lista.unidade);
   const difs = itens.filter(i => Number(i.qtd_recebida ?? 0) !== Number(i.qtd_separada ?? 0));
   alvo.innerHTML = `
     <div class="caption-label"><button class="preset-btn" onclick="trListaAberta=null; trTelaConferencia();">← finalizadas</button>
@@ -10084,11 +10096,26 @@ async function trVerFinalizada(id) {
     <div id="tabelaTrOpVer"><table>
       <tr><th>Item</th><th>Pedido</th><th>Separado</th><th>Recebido</th><th>Diferença</th></tr>
       ${itens.map(i => { const d = Number(i.qtd_recebida ?? 0) - Number(i.qtd_separada ?? 0); return `<tr>
-        <td>${i.item} <span class="dre-av">${i.un_medida || ''}</span>${i.avulso ? ' <span class="tr-tag">🆕</span>' : ''}${i.observacao ? ` <span class="tr-tag">${i.observacao}</span>` : ''}${i.editado ? ' <span class="tr-tag">✏️</span>' : ''}</td>
+        <td>${i.item} <span class="dre-av">${i.un_medida || ''}</span>${trEmbRotulo(mapa, i.item)}${i.avulso ? ' <span class="tr-tag">🆕</span>' : ''}${i.observacao ? ` <span class="tr-tag">${i.observacao}</span>` : ''}${i.editado ? ' <span class="tr-tag">✏️</span>' : ''}</td>
         <td>${Number(i.qtd_solicitada || 0)}</td><td>${Number(i.qtd_separada || 0)}</td><td>${Number(i.qtd_recebida ?? 0)}</td>
         <td${d ? ' style="color:#b3261e; font-weight:700;"' : ''}>${d ? (d > 0 ? '+' : '') + Math.round(d * 1000) / 1000 : '—'}</td>
       </tr>`; }).join('')}
     </table></div>`;
+}
+
+// Mapa item -> "caixa de 10,1 kg" para decorar o NOME em toda tela do ciclo
+// (pedido do dono, 10/09/2026: a embalagem aparece em todos os status).
+async function trEmbMapa(unidade) {
+  const r = await trFetch(`vw_tr_itens_pedido?unidade=eq.${encodeURIComponent(unidade || 'AHU')}&select=item,un_medida,emb_nome,emb_fator,emb2_nome,emb2_fator`);
+  const m = {};
+  if (r.ok) (await r.json()).forEach(x => {
+    if (x.emb_fator) m[x.item] = x.emb_nome + ' de ' + trEmbDesc(x)
+      + (x.emb2_fator ? ' ou ' + x.emb2_nome + ' de ' + trEmbDesc({ un_medida: x.un_medida, emb_fator: x.emb2_fator }) : '');
+  });
+  return m;
+}
+function trEmbRotulo(mapa, item) {
+  return mapa && mapa[item] ? ` <span class="tr-det">(${mapa[item]})</span>` : '';
 }
 
 // Reabrir conferencia errada (dono, 10/09/2026): volta a lista para ENVIADA
