@@ -4780,13 +4780,14 @@ function renderDiaConcartao(unidade, dia, trs, pix, cobr, forma, descs) {
       (forma || []).filter(f => noCx(f.caixa)).forEach(f => aj.push({ hora: hhmm(String(f.hora || '').slice(11)), venda: rotV(f), valor: +f.valor,
         oque: /pendente|n[aã]o cadastrado/i.test(f.registrado) ? 'fechar a venda com a forma <b>' + f.passou + '</b>' : 'trocar a forma de <b>' + f.registrado + '</b> para <b>' + f.passou + '</b>',
         porque: 'foi assim que passou na maquininha' }));
-      (descs || []).filter(x => !x.motivo && !x.cupom && noCx(x.caixa)).forEach(x => aj.push({ hora: hhmm(String(x.hora || '').slice(11)), venda: rotV(x), valor: +x.desconto,
-        oque: 'preencher o <b>motivo</b> do desconto', porque: 'desconto manual sem motivo registrado' }));
+      // desconto sem motivo NAO entra aqui (dono, 10/09/2026: "colocar o motivo de desconto
+      // ela nao consegue fazer") — venda fechada nao aceita motivo depois; fica so na tabela
+      // de descontos do dia, como informacao.
       const cxDe = t => (t.caixa === 'SALÃO' || t.caixa === 'DELIVERY') ? t.caixa : (['SALÃO', 'BALCÃO'].includes(t.canal_dominante) ? 'SALÃO' : 'DELIVERY');
       turnos.filter(t => t.fechado === false && noCx(cxDe(t))).forEach(t => aj.push({ hora: '', venda: rotuloCaixa(t), valor: null,
         oque: '<b>fechar o caixa</b> no Saipos', porque: 'aberto desde ' + hhmmTs(t.aberto_em) }));
       if (!aj.length) return '';
-      return caixa(`Ajustar no Saipos (${aj.length})`, '#f5a623', `<div style="font-size:11px; color:#8a897e; margin-bottom:6px;">O que o painel já sabe que está errado no Saipos. Depois de corrigido lá, some daqui sozinho na importação do dia seguinte.</div>
+      return caixa(`Ajustar no Saipos (${aj.length})`, '#f5a623', `<div style="font-size:11px; color:#8a897e; margin-bottom:6px;">Bandeira ou forma registrada diferente da que passou na maquininha (e caixa que ficou aberto). Depois de corrigido no Saipos, some daqui sozinho na importação do dia seguinte.</div>
         <div style="overflow-x:auto;"><table style="${tabelaCss}">
           <tr><th style="${thL}">hora</th><th style="${thL}">venda</th><th style="${thL} text-align:right;">valor</th><th style="${thL}">o que mudar no Saipos</th><th style="${thL} border-right:0;">por quê</th></tr>
           ${aj.map(x => `<tr style="border-top:1px solid rgba(154,164,175,.12);"><td style="${tdL} white-space:nowrap;">${x.hora}</td><td style="${tdL} white-space:nowrap;">${x.venda}</td>
