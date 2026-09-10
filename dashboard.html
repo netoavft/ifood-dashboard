@@ -10078,7 +10078,9 @@ async function trVerFinalizada(id) {
       Lista <b>#${id}</b> · ${lista.unidade || ''} · pedida ${lista.data_pedido ? lista.data_pedido.slice(8,10)+'/'+lista.data_pedido.slice(5,7) : '—'}
       · entrega ${lista.data_entrega ? lista.data_entrega.slice(8,10)+'/'+lista.data_entrega.slice(5,7) : '—'}
       ${lista.recebido_por ? '· conferida por <b>' + lista.recebido_por + '</b>' : ''} —
-      ${difs.length ? `<span class="tr-tag">${difs.length} item(ns) com diferença</span>` : '<span class="tr-conv">recebimento bateu 100% ✔</span>'}</div>
+      ${difs.length ? `<span class="tr-tag">${difs.length} item(ns) com diferença</span>` : '<span class="tr-conv">recebimento bateu 100% ✔</span>'}
+      ${['DONO', 'SEPARACAO'].includes(TR_OP.papel) ? `<button class="preset-btn" onclick="trReabrirConferencia(${id})">🔓 reabrir conferência</button>` : ''}
+      <span id="trReabrirMsg" style="font-size:12px;"></span></div>
     <div id="tabelaTrOpVer"><table>
       <tr><th>Item</th><th>Pedido</th><th>Separado</th><th>Recebido</th><th>Diferença</th></tr>
       ${itens.map(i => { const d = Number(i.qtd_recebida ?? 0) - Number(i.qtd_separada ?? 0); return `<tr>
@@ -10087,6 +10089,20 @@ async function trVerFinalizada(id) {
         <td${d ? ' style="color:#b3261e; font-weight:700;"' : ''}>${d ? (d > 0 ? '+' : '') + Math.round(d * 1000) / 1000 : '—'}</td>
       </tr>`; }).join('')}
     </table></div>`;
+}
+
+// Reabrir conferencia errada (dono, 10/09/2026): volta a lista para ENVIADA
+// e ela reaparece em "aguardando" para refazer. O banco recusa reabrir lista
+// que ja entrou num fechamento de mes.
+async function trReabrirConferencia(id) {
+  if (!confirm(`Reabrir a conferência da lista #${id}? Ela volta para "aguardando conferência" e precisa ser conferida e fechada de novo.`)) return;
+  const msg = document.getElementById('trReabrirMsg');
+  if (msg) { msg.textContent = 'Reabrindo...'; msg.style.color = '#8a897e'; }
+  const r = await trRpc('tr_reabrir_conferencia', { p_id: id });
+  if (!r.ok) { if (msg) { msg.textContent = 'Não deu: ' + await trErroDe(r); msg.style.color = '#ff6b6b'; } return; }
+  trConfAba = 'ABERTAS';
+  trListaAberta = id;
+  trTelaConferencia();
 }
 
 // A conferencia fala a LINGUA DO PEDIDO (dono, 10/09/2026): item com
