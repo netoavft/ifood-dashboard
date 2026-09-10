@@ -4426,7 +4426,7 @@ async function abrirDiaConcartao(unidade, dia) {
     consultarTudo('vw_cartao_entrega_cobranca?select=id_sale,entregador&dia=eq.' + dia +
       '&unidade=eq.' + encodeURIComponent(unidade)),
     // forma registrada no PDV diferente da que passou (absorvida pela base; aqui so informa)
-    consultarTudo('vw_cartao_bandeira_divergente?select=hora,registrado,passou,valor,nivel&dia=eq.' + dia +
+    consultarTudo('vw_cartao_bandeira_divergente?select=hora,registrado,passou,valor,nivel,numero,mesa,caixa,id_sale&dia=eq.' + dia +
       '&unidade=eq.' + encodeURIComponent(unidade) + '&order=hora'),
     // descontos MANUAIS do turno (salao e balcao) — a API diz valor e motivo, nao quem liberou (10/09/2026)
     consultarTudo('vw_descontos_dia?select=*&dia=eq.' + dia + '&unidade=eq.' + encodeURIComponent(unidade) + '&order=hora'),
@@ -4770,6 +4770,28 @@ function renderDiaConcartao(unidade, dia, trs, pix, cobr, forma, descs) {
           <td style="${tdC}">${x.pct === null ? '—' : String(x.pct).replace('.', ',') + '%'}</td>
           <td style="${tdC} text-align:left; border-right:0; ${x.motivo || x.cupom ? '' : 'color:#f5a623;'}">${x.motivo || (x.cupom ? 'cupom ' + x.cupom : 'sem motivo — perguntar ao turno quem liberou')}</td></tr>`).join('')}</table></div>`; })()}
     ${conferenciaHtml}
+    ${(() => {
+      // AJUSTAR NO SAIPOS (dono, 10/09/2026: "o painel trazer um resumo do que a Arissa deve
+      // alterar no Saipos, e teriamos a conferencia dos dois lados"). Lista o que o painel
+      // ja sabe que esta errado la; some sozinho na importacao seguinte, depois de corrigido.
+      const noCx = c => !CAIXA_DRILL_CX || !c || c === CAIXA_DRILL_CX;
+      const rotV = x => x.numero ? 'venda ' + x.numero : x.mesa ? 'mesa ' + x.mesa : 'salão';
+      const aj = [];
+      (forma || []).filter(f => noCx(f.caixa)).forEach(f => aj.push({ hora: hhmm(String(f.hora || '').slice(11)), venda: rotV(f), valor: +f.valor,
+        oque: /pendente|n[aã]o cadastrado/i.test(f.registrado) ? 'fechar a venda com a forma <b>' + f.passou + '</b>' : 'trocar a forma de <b>' + f.registrado + '</b> para <b>' + f.passou + '</b>',
+        porque: 'foi assim que passou na maquininha' }));
+      (descs || []).filter(x => !x.motivo && !x.cupom && noCx(x.caixa)).forEach(x => aj.push({ hora: hhmm(String(x.hora || '').slice(11)), venda: rotV(x), valor: +x.desconto,
+        oque: 'preencher o <b>motivo</b> do desconto', porque: 'desconto manual sem motivo registrado' }));
+      const cxDe = t => (t.caixa === 'SALÃO' || t.caixa === 'DELIVERY') ? t.caixa : (['SALÃO', 'BALCÃO'].includes(t.canal_dominante) ? 'SALÃO' : 'DELIVERY');
+      turnos.filter(t => t.fechado === false && noCx(cxDe(t))).forEach(t => aj.push({ hora: '', venda: rotuloCaixa(t), valor: null,
+        oque: '<b>fechar o caixa</b> no Saipos', porque: 'aberto desde ' + hhmmTs(t.aberto_em) }));
+      if (!aj.length) return '';
+      return caixa(`Ajustar no Saipos (${aj.length})`, '#f5a623', `<div style="font-size:11px; color:#8a897e; margin-bottom:6px;">O que o painel já sabe que está errado no Saipos. Depois de corrigido lá, some daqui sozinho na importação do dia seguinte.</div>
+        <div style="overflow-x:auto;"><table style="${tabelaCss}">
+          <tr><th style="${thL}">hora</th><th style="${thL}">venda</th><th style="${thL} text-align:right;">valor</th><th style="${thL}">o que mudar no Saipos</th><th style="${thL} border-right:0;">por quê</th></tr>
+          ${aj.map(x => `<tr style="border-top:1px solid rgba(154,164,175,.12);"><td style="${tdL} white-space:nowrap;">${x.hora}</td><td style="${tdL} white-space:nowrap;">${x.venda}</td>
+            <td style="${tdL} text-align:right; white-space:nowrap;">${x.valor === null ? '—' : reaisCc(x.valor)}</td><td style="${tdL}">${x.oque}</td><td style="${tdL} border-right:0; color:#a5a49a;">${x.porque}</td></tr>`).join('')}</table></div>`);
+    })()}
     ${caixa(`Para conferir (${acionaveis.length})`, acionaveis.length ? '#ff6b6b' : '#3f9c5a',
       (acionaveis.length
         ? `${podeExplicar ? '<div style="font-size:11px; color:#8a897e; margin-bottom:6px;">"explicar" grava o motivo e move a linha para "explicadas", no bloco de baixo.</div>' : ''}${tabela(acionaveis)}`
@@ -14030,24 +14052,21 @@ function renderModuloCaixa() {
     const diasLoja = CAIXA_DIAS.filter(r => r.unidade === unidade);
     diasLoja.forEach(r => { porDia[r.data] = r; });
 
-    // Contagens POR CAIXA (dono, 10/09/2026: "os caixas sobem separados"). O esperado de
-    // cada contagem é: contado_anterior do MESMO caixa + Σ(movimento do livro − frente de
-    // caixa do livro + dinheiro real do PDV) daquele caixa no intervalo — âncora na
-    // contagem anterior; a primeira contagem é o ponto de partida. No cofre só receitas e
-    // diferença de caixa vêm marcadas por caixa; as saídas sem caixa caem no Salão.
+    // Contagens POR CAIXA (dono, 10/09/2026), conta de UM DIA (dono, 10/09 a noite: "esses
+    // valores nao da pra entender o que faltou investigar"): a corrente ancorada na contagem
+    // anterior acumulava tudo que passava pelo cofre e produzia esperado negativo. Agora:
+    // vendeu em dinheiro (PDV) x enviou (contado − troco). Faltou = vermelho, sobrou =
+    // ambar; as saidas do dia lancadas no Saipos aparecem como possivel explicacao.
     const diasCx = (CAIXA_DIAS_CX || []).filter(r => r.unidade === unidade);
     const contagensDe = (cx) => {
       const conts = CAIXA_CONTAGENS.filter(c => c.unidade === unidade && (c.caixa || 'SALÃO') === cx)
-        .slice().sort((a, b) => (a.data < b.data ? -1 : 1));
-      const movEntre = (d1, d2) => diasCx.filter(r => r.caixa === cx && r.data > d1 && r.data <= d2)
-        .reduce((s, r) => s + r.movimento_book - r.lancado_cofre + r.dinheiro_pdv, 0);
-      conts.forEach((c, i) => {
-        if (i === 0) { c.esperado = null; c.quebra = null; return; }
-        const ant = conts[i - 1];
-        // troco (dono, 10/09/2026): contado = enviado + troco que ficou; mudanca de troco
-        // NAO ajusta o esperado (pagamento pela gaveta entra pelo lancamento do Cofre).
-        c.esperado = Math.round((ant.contado + movEntre(ant.data, c.data)) * 100) / 100;
-        c.quebra = Math.round((c.contado - c.esperado) * 100) / 100;
+        .slice().sort((a, b) => (a.data < b.data ? 1 : -1));   // mais recente primeiro
+      conts.forEach(c => {
+        const d = diasCx.find(r => r.caixa === cx && r.data === c.data) || {};
+        c.vendido = +(d.dinheiro_pdv || 0); c.saidas = +(d.saidas || 0);
+        c.enviado = c.troco === null ? c.contado : Math.round((c.contado - c.troco) * 100) / 100;
+        c.dif = Math.round((c.enviado - c.vendido) * 100) / 100;
+        c.difSaidas = Math.round((c.enviado - (c.vendido - c.saidas)) * 100) / 100;
       });
       return conts;
     };
@@ -14126,16 +14145,17 @@ function renderModuloCaixa() {
     pendTotal += pend; semFechTotal += semFech;
 
     let contagemHtml = '';
+    const resultado = c => Math.abs(c.dif) < 0.01 ? '<span style="color:#3f9c5a;">✔ bateu</span>'
+      : (c.saidas > 0 && Math.abs(c.difSaidas) < 0.01) ? '<span style="color:#3f9c5a;">✔ bateu</span> <span style="color:#9aa4af;">(R$ ' + fmt(c.saidas) + ' de saídas pagas pela gaveta)</span>'
+      : c.dif < 0 ? '<b style="color:#ff6b6b;">faltou R$ ' + fmt(-c.dif) + '</b>' + (c.saidas > 0 ? ' <span style="color:#9aa4af;" title="saídas em dinheiro lançadas no Saipos neste dia — se foram pagas pela gaveta, explicam parte">(saídas do dia: R$ ' + fmt(c.saidas) + ')</span>' : '')
+      : '<b style="color:#f5a623;">sobrou R$ ' + fmt(c.dif) + '</b>';
     if (podeDigitar) {
       contagemHtml += `
-      <div style="margin-top:10px; padding-top:8px; border-top:1px solid rgba(154,164,175,.25);">
-        <b>Contagem da gaveta — uma por caixa</b> (os caixas sobem separados no Saipos).
+      <div style="margin-top:12px; padding-top:8px; border-top:1px solid rgba(154,164,175,.25);">
+        <b>Contagem do dinheiro — uma por caixa</b>
         <div style="font-size:12px; color:#a5a49a; margin-top:4px;">
-          Para cada caixa, dois números: o <b>dinheiro enviado</b>, que você conta, e o <b>troco que ficou na gaveta</b>. O painel
-          soma os dois. O caixa do delivery abre com R$ 0,01 (o Saipos não deixa abrir zerado), por isso o troco dele já vem
-          preenchido. Se usaram parte do troco para pagar algo pelo caixa, digite o troco que <b>sobrou</b>; o pagamento tem
-          de estar lançado no Saipos como saída do Cofre — é assim que o esperado desconta. A primeira contagem de cada caixa
-          é ponto de partida e não gera quebra.
+          Escolha o dia, digite o <b>dinheiro enviado</b> (o que você contou) e o <b>troco que ficou na gaveta</b>. O painel compara
+          com o que o PDV vendeu em dinheiro naquele dia: bateu, faltou ou sobrou. Dia já registrado sai da lista.
         </div>
       </div>`;
     }
@@ -14144,51 +14164,45 @@ function renderModuloCaixa() {
       const idCx = idBase + (cx === 'SALÃO' ? 'S' : 'D');
       const rotCx = cx === 'SALÃO' ? 'Caixa Salão' : 'Caixa Delivery';
       if (podeDigitar) {
-        contagemHtml += `
+        // trava (dono, 10/09/2026): dia com contagem registrada nao aparece para novo lancamento
+        const livres = dias.filter(iso => iso < hoje && !conts.some(c => c.data === iso));
+        contagemHtml += livres.length ? `
         <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; align-items:center;">
           <b style="min-width:110px;">${rotCx}</b>
-          <input type="date" id="${idCx}Data" value="${hoje}" max="${hoje}" style="padding:4px;">
+          <select id="${idCx}Data" style="padding:4px;">${livres.map(iso => `<option value="${iso}">${fmtDia(iso)}</option>`).join('')}</select>
           <input type="number" step="0.01" min="0" id="${idCx}Valor" placeholder="dinheiro enviado (R$)" title="o dinheiro que este caixa mandou para você (contado por você)" style="padding:4px; width:160px;">
-          <input type="number" step="0.01" min="0" id="${idCx}Troco" placeholder="troco que ficou (R$)" value="${cx === 'DELIVERY' ? '0.01' : ''}" title="o troco que ficou na gaveta deste caixa naquele dia" style="padding:4px; width:160px;">
+          <input type="number" step="0.01" min="0" id="${idCx}Troco" placeholder="troco que ficou (R$)" value="${cx === 'DELIVERY' ? '0.01' : ''}" title="o troco que ficou na gaveta deste caixa naquele dia" style="padding:4px; width:150px;">
           <input type="text" id="${idCx}Obs" placeholder="observação (se deu diferença, o que achou)" style="padding:4px; flex:1; min-width:160px;">
           <button id="${idCx}Btn" onclick="caixaSalvar('${unidade}', '${idCx}', '${cx}')">Registrar</button>
-        </div>`;
+        </div>` : `<div style="margin-top:8px; font-size:12px; color:#9aa4af;"><b style="color:#e8e6dc;">${rotCx}</b>: todos os dias da janela já estão registrados.</div>`;
       }
       if (conts.length) {
-        const ultimas = conts.slice(-10).reverse();
+        const pend = conts.filter(c => Math.abs(c.dif) >= 0.01 && !(c.saidas > 0 && Math.abs(c.difSaidas) < 0.01)).length;
         contagemHtml += `
-        <details style="margin-top:6px;"><summary style="cursor:pointer;"><b>Contagens — ${rotCx}</b> <span style="color:#9aa4af;">(${conts.length})</span></summary>
-          <div style="overflow-x:auto;"><table style="border-collapse:collapse; width:100%; font-size:13px;">
-            <tr style="color:#9aa4af; text-align:left;">
-              <th style="padding:3px 8px; font-weight:normal;">dia</th>
-              <th style="padding:3px 8px; font-weight:normal; text-align:right;">contado</th>
-              <th style="padding:3px 8px; font-weight:normal; text-align:right;" title="troco que ficou na gaveta naquele dia; está dentro do contado">troco</th>
-              <th style="padding:3px 8px; font-weight:normal; text-align:right;" title="contado − troco: o dinheiro que o caixa mandou">enviado</th>
-              <th style="padding:3px 8px; font-weight:normal; text-align:right;">esperado</th>
-              <th style="padding:3px 8px; font-weight:normal;">quebra</th>
-              <th style="padding:3px 8px; font-weight:normal;">obs</th>
-              <th style="padding:3px 8px; font-weight:normal;">quem</th>
+        <details ${pend ? 'open' : ''} style="margin-top:6px;"><summary style="cursor:pointer;"><b>Contagens — ${rotCx}</b> <span style="color:#9aa4af;">(${conts.length}${pend ? `, <span style="color:#ff6b6b;">${pend} com diferença</span>` : ', todas bateram'})</span></summary>
+          <div style="overflow-x:auto;"><table style="border-collapse:collapse; width:100%; font-size:13px; border:1px solid rgba(154,164,175,.25);">
+            <tr style="color:#9aa4af; text-align:left; font-size:11px; text-transform:uppercase;">
+              <th style="padding:4px 8px; font-weight:normal; border-right:1px solid rgba(154,164,175,.25);">dia</th>
+              <th style="padding:4px 8px; font-weight:normal; text-align:right; border-right:1px solid rgba(154,164,175,.25);" title="venda em dinheiro registrada no PDV nesse caixa">vendeu em dinheiro</th>
+              <th style="padding:4px 8px; font-weight:normal; text-align:right; border-right:1px solid rgba(154,164,175,.25);" title="contado − troco: o dinheiro que o caixa mandou">enviou</th>
+              <th style="padding:4px 8px; font-weight:normal; text-align:right; border-right:1px solid rgba(154,164,175,.25);">troco que ficou</th>
+              <th style="padding:4px 8px; font-weight:normal; border-right:1px solid rgba(154,164,175,.25);">resultado</th>
+              <th style="padding:4px 8px; font-weight:normal; border-right:1px solid rgba(154,164,175,.25);">obs</th>
+              <th style="padding:4px 8px; font-weight:normal;">quem</th>
             </tr>
-            ${ultimas.map(c => {
-              let q;
-              if (c.esperado === null) q = '<span style="color:#9aa4af;">ponto de partida</span>';
-              else if (Math.abs(c.quebra) < 0.005) q = '<span style="color:#3f9c5a;">✔ bateu</span>';
-              else q = `<b style="color:#ff6b6b;">R$ ${fmt(c.quebra)} — investigar</b>`;
-              return `<tr>
-                <td style="padding:3px 8px;">${fmtDia(c.data)}</td>
-                <td style="padding:3px 8px; text-align:right;">R$ ${fmt(c.contado)}</td>
-                <td style="padding:3px 8px; text-align:right; color:#9aa4af;">${c.troco === null ? '—' : 'R$ ' + fmt(c.troco)}</td>
-                <td style="padding:3px 8px; text-align:right;">${c.troco === null ? '—' : 'R$ ' + fmt(c.contado - c.troco)}</td>
-                <td style="padding:3px 8px; text-align:right;">${c.esperado === null ? '—' : 'R$ ' + fmt(c.esperado)}</td>
-                <td style="padding:3px 8px;">${q}</td>
-                <td style="padding:3px 8px; color:#9aa4af;">${c.observacao || ''}</td>
-                <td style="padding:3px 8px; color:#9aa4af;">${String(c.quem || '').split('@')[0]}</td>
-              </tr>`;
-            }).join('')}
+            ${conts.slice(0, 15).map(c => `<tr style="border-top:1px solid rgba(154,164,175,.12);">
+              <td style="padding:4px 8px; border-right:1px solid rgba(154,164,175,.25); white-space:nowrap;">${fmtDia(c.data)}</td>
+              <td style="padding:4px 8px; text-align:right; border-right:1px solid rgba(154,164,175,.25); white-space:nowrap;">R$ ${fmt(c.vendido)}</td>
+              <td style="padding:4px 8px; text-align:right; border-right:1px solid rgba(154,164,175,.25); white-space:nowrap;"><b>R$ ${fmt(c.enviado)}</b></td>
+              <td style="padding:4px 8px; text-align:right; border-right:1px solid rgba(154,164,175,.25); color:#9aa4af; white-space:nowrap;">${c.troco === null ? '—' : 'R$ ' + fmt(c.troco)}</td>
+              <td style="padding:4px 8px; border-right:1px solid rgba(154,164,175,.25);">${resultado(c)}</td>
+              <td style="padding:4px 8px; border-right:1px solid rgba(154,164,175,.25); color:#9aa4af;">${c.observacao || ''}</td>
+              <td style="padding:4px 8px; color:#9aa4af;">${String(c.quem || '').split('@')[0]}</td>
+            </tr>`).join('')}
           </table></div>
         </details>`;
       } else if (podeDigitar) {
-        contagemHtml += `<div style="margin-top:2px; font-size:12px; color:#9aa4af;">${rotCx}: nenhuma contagem ainda — a primeira vira o ponto de partida.</div>`;
+        contagemHtml += `<div style="margin-top:2px; font-size:12px; color:#9aa4af;">${rotCx}: nenhuma contagem ainda.</div>`;
       }
     }
 
