@@ -4431,6 +4431,7 @@ function caixaDrillFiltro(cx) {
 async function abrirDiaConcartao(unidade, dia) {
   const cont = document.getElementById('concartao-dia');
   if (!cont) return;
+  CAIXA_DRILL_CX = (CAIXA_FILTRO && CAIXA_FILTRO.caixa) || '';   // o filtro do alto manda no clique do dia
   cont.innerHTML = '<div class="contexto">Carregando transações do dia...</div>';
   // vespera e dia seguinte entram como CANDIDATOS ao par (cartao passado 23:50 e
   // comanda fechada 00:29 nao pode aparecer sem par nos dois dias — dono, 09/09/2026);
@@ -4648,8 +4649,10 @@ function renderDiaConcartao(unidade, dia, trs, pix, cobr, forma, descs) {
     // (decisao do dono, 09/09/2026: nada se corrige no Saipos). Fica so o registro.
     ...(forma || []).map(f => ({ hora: hhmm(String(f.hora || '').slice(11)), tipo: 'forma diferente (' + String(f.nivel).toLowerCase() + ')', texto: `registrado ${f.registrado}, passou ${f.passou} — ${reaisCc(f.valor)}; o painel já usa o que passou` })),
   ];
-  const somaS = saipos.filter(doDia).reduce((a, t) => a + +t.valor, 0), somaR = rede.filter(doDia).reduce((a, t) => a + +t.valor, 0);
-  const pixPdv = pix.reduce((a, x) => a + +x.valor, 0), pixNoBanco = pix.filter(x => x.recebido).reduce((a, x) => a + +x.valor, 0);
+  // totais do cabecalho respeitam o filtro de caixa (10/09/2026 noite): linha sem caixa entra nos dois
+  const noCxT = t => !CAIXA_DRILL_CX || !t.caixa || t.caixa === CAIXA_DRILL_CX;
+  const somaS = saipos.filter(doDia).filter(noCxT).reduce((a, t) => a + +t.valor, 0), somaR = rede.filter(doDia).filter(noCxT).reduce((a, t) => a + +t.valor, 0);
+  const pixPdv = pix.filter(noCxT).reduce((a, x) => a + +x.valor, 0), pixNoBanco = pix.filter(noCxT).filter(x => x.recebido).reduce((a, x) => a + +x.valor, 0);
   const bateram = casados.length + compostos.reduce((a, c) => a + c.itens.length + 1, 0) + arredond.length * 2 + pix.filter(x => x.recebido).length;
   const num = (v, cor) => `<b style="color:${cor || '#e8e6dc'};">${reaisCc(v)}</b>`;
   const difMaq = somaS - somaR;
@@ -4769,10 +4772,13 @@ function renderDiaConcartao(unidade, dia, trs, pix, cobr, forma, descs) {
         ${casados.map(s => `<tr style="border-top:1px solid rgba(154,164,175,.12); color:#8a897e;"><td style="${tdL} white-space:nowrap;">${hhmm(s.hora)}</td><td style="${tdL} white-space:nowrap;">${rotVenda(s)}</td><td style="${tdL}">${limpa(s.detalhe)}</td><td style="${tdL}">${limpa(s.par.detalhe)} às ${hhmm(s.par.hora)}</td><td style="${tdL} border-right:0; text-align:right; white-space:nowrap;">${reaisCc(s.valor)}</td></tr>`).join('')}</table></div></details>` : '',
   ].filter(Boolean).join('');
   cont.innerHTML = `<div class="card" style="margin:14px 0; text-align:left;">
-    <div style="font-size:15px; font-weight:700; margin-bottom:6px;">${unidade} — ${dia.split('-').reverse().join('/')}</div>
+    <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px 16px; margin-bottom:6px;">
+      <div style="font-size:15px; font-weight:700;">${unidade} — ${dia.split('-').reverse().join('/')}</div>
+      ${podeExplicar ? `<button onclick="caixaAtualizarDia(this)" title="relê este dia no Saipos (1 a 2 min) e refaz a conferência — use depois de corrigir lá" style="font:inherit; font-size:12px; padding:3px 10px; cursor:pointer;">↻ Já corrigi no Saipos — atualizar este dia</button>` : ''}
+    </div>
     <div style="overflow-x:auto;"><table style="border-collapse:collapse; font-size:12px; border:1px solid rgba(154,164,175,.25); margin-top:4px;">
       <tr><th style="${thC} text-align:left;">conferência</th><th style="${thC}">no Saipos</th><th style="${thC}">chegou</th><th style="${thC} border-right:0;">diferença</th></tr>
-      ${caixaDinheiroDia(unidade, dia).filter(d => d.vendido >= 0.01 || d.contagem).map(d => `<tr style="border-top:1px solid rgba(154,164,175,.12);"><td style="${tdC} text-align:left;">Dinheiro ${d.rot} <span style="color:#9aa4af;">× contagem</span></td>
+      ${caixaDinheiroDia(unidade, dia).filter(d => (d.vendido >= 0.01 || d.contagem) && (!CAIXA_DRILL_CX || d.caixa === CAIXA_DRILL_CX)).map(d => `<tr style="border-top:1px solid rgba(154,164,175,.12);"><td style="${tdC} text-align:left;">Dinheiro ${d.rot} <span style="color:#9aa4af;">× contagem</span></td>
         <td style="${tdC}">${reaisCc(d.vendido)}</td><td style="${tdC}">${d.contagem ? reaisCc(d.enviado) : '<span style="color:#f5a623;">não contado</span>'}</td>
         <td style="${tdC} border-right:0; color:${!d.contagem ? '#9aa4af' : d.bateu ? '#7bc47f' : d.dif < 0 ? '#ff6b6b' : '#f5a623'};"><b>${!d.contagem ? '—' : d.bateu ? (d.porSaidas ? reaisCc(d.dif) + ' (saídas)' : 'R$ 0,00') : reaisCc(d.dif)}</b></td></tr>`).join('')}
       <tr style="border-top:1px solid rgba(154,164,175,.12);"><td style="${tdC} text-align:left;">Cartão + vale <span style="color:#9aa4af;">× maquininha</span></td>
@@ -4813,16 +4819,16 @@ function renderDiaConcartao(unidade, dia, trs, pix, cobr, forma, descs) {
       const cxDe = t => (t.caixa === 'SALÃO' || t.caixa === 'DELIVERY') ? t.caixa : (['SALÃO', 'BALCÃO'].includes(t.canal_dominante) ? 'SALÃO' : 'DELIVERY');
       turnos.filter(t => t.fechado === false && noCx(cxDe(t))).forEach(t => aj.push({ hora: '', venda: rotuloCaixa(t), valor: null,
         oque: '<b>fechar o caixa</b> no Saipos', porque: 'aberto desde ' + hhmmTs(t.aberto_em) }));
-      if (!aj.length) return '';
-      return caixa(`Ajustar no Saipos (${aj.length})`, '#f5a623', `<div style="font-size:11px; color:#8a897e; margin-bottom:6px;">Bandeira ou forma registrada diferente da que passou na maquininha (e caixa que ficou aberto). Depois de corrigido no Saipos, some daqui sozinho na importação do dia seguinte.</div>
+      if (!aj.length) return '<div style="margin-top:12px; font-size:12px; color:#7bc47f;"><b>1º · Ajustar no Saipos:</b> nada — o registrado bate com o que passou na maquininha.</div>';
+      return caixa(`1º · Ajustar no Saipos (${aj.length})`, '#f5a623', `<div style="font-size:11px; color:#8a897e; margin-bottom:6px;">Bandeira ou forma registrada diferente da que passou na maquininha (e caixa que ficou aberto). Depois de corrigido no Saipos, some daqui sozinho na importação do dia seguinte.</div>
         <div style="overflow-x:auto;"><table style="${tabelaCss}">
           <tr><th style="${thL}">hora</th><th style="${thL}">venda</th><th style="${thL} text-align:right;">valor</th><th style="${thL}">o que mudar no Saipos</th><th style="${thL} border-right:0;">por quê</th></tr>
           ${aj.map(x => `<tr style="border-top:1px solid rgba(154,164,175,.12);"><td style="${tdL} white-space:nowrap;">${x.hora}</td><td style="${tdL} white-space:nowrap;">${x.venda}</td>
             <td style="${tdL} text-align:right; white-space:nowrap;">${x.valor === null ? '—' : reaisCc(x.valor)}</td><td style="${tdL}">${x.oque}</td><td style="${tdL} border-right:0; color:#a5a49a;">${x.porque}</td></tr>`).join('')}</table></div>`);
     })()}
-    ${caixa(`Para conferir (${acionaveis.length})`, acionaveis.length ? '#ff6b6b' : '#3f9c5a',
+    ${caixa(`2º · Para conferir (${acionaveis.length})`, acionaveis.length ? '#ff6b6b' : '#3f9c5a',
       (acionaveis.length
-        ? `${podeExplicar ? '<div style="font-size:11px; color:#8a897e; margin-bottom:6px;">"explicar" grava o motivo e move a linha para "explicadas", no bloco de baixo.</div>' : ''}${tabela(acionaveis)}`
+        ? `<div style="font-size:11px; color:#8a897e; margin-bottom:6px;">O que não está no Saipos, ou não caiu na maquininha / no banco. Primeiro corrija o 1º e clique <b>atualizar</b>; o que sobrar aqui é para investigar${podeExplicar ? ' — "explicar" grava o motivo e move a linha para "explicadas", no bloco de baixo' : ''}.</div>${tabela(acionaveis)}`
         : `<div style="color:#7bc47f;">✔ Nada para conferir neste dia${CAIXA_DRILL_CX ? ' neste caixa' : ''}${explicadas.length ? ` — ${explicadas.length} pendência(s) explicada(s)` : ''}${autos.length ? ` (${autos.length} que devem se resolver sozinhas, no bloco de baixo)` : ''}.</div>`), true, filtroCx)}
     ${blocoResto ? caixa('Já tratado ou aguardando', '#9aa4af', blocoResto) : ''}
   </div>`;
@@ -4850,7 +4856,7 @@ async function caixaExplicar(i) {
   try {
     const r = await fetch(`${SUPABASE_URL}/rest/v1/caixa_pendencia_validada?on_conflict=unidade,dia,chave`, {
       method: 'POST', headers: rmbHeaders({ Prefer: 'resolution=merge-duplicates' }),
-      body: JSON.stringify({ unidade: d.unidade, dia: d.dia, chave: x.chave, bloco: x.bloco,
+      body: JSON.stringify({ unidade: d.unidade, dia: d.dia, chave: x.chave, bloco: x.bloco, caixa: x.caixa || null,
         descricao: (x.hora + ' · ' + x.saipos.replace(/<[^>]+>/g, '') + ' × ' + x.real).slice(0, 240),
         valor: Math.round(x.valor * 100) / 100, efeito: Math.round(x.efeito * 100) / 100,
         motivo: motivo.trim(), quem: s.email, validado_em: new Date().toISOString() }),
@@ -4858,6 +4864,51 @@ async function caixaExplicar(i) {
     if (!r.ok) throw new Error((await r.text()).slice(0, 160));
     await caixaRecarregarValidadas();
   } catch (e) { alert('Não consegui gravar a explicação: ' + e.message); }
+}
+// Botao "Ja corrigi no Saipos — atualizar este dia" (dono, 10/09/2026 noite): o painel
+// so le o banco; o pedido vai para caixa_atualizacao_pedido e o atendente
+// (script/atender_caixa.py, tarefa "Painel - Atender caixa") rele o dia no Saipos e
+// recalcula as mvs da conciliacao. Mesmo desenho do botao da Hellen na conciliacao.
+async function caixaAtualizarDia(bt) {
+  const d = CAIXA_DRILL_DADOS;
+  if (!d) return;
+  const s = rmbSessao();
+  if (!s || !s.email) { alert('Sessão expirada — faça login de novo.'); return; }
+  const texto = bt.textContent;
+  bt.disabled = true; bt.textContent = 'pedindo...';
+  try {
+    await rmbGarantirTokenValido();
+    const pede = () => fetch(`${SUPABASE_URL}/rest/v1/caixa_atualizacao_pedido`, {
+      method: 'POST', headers: rmbHeaders({ Prefer: 'return=representation' }),
+      body: JSON.stringify({ unidade: d.unidade, dia: d.dia, quem: s.email }),
+    });
+    let r = await pede();
+    if (r.status === 401) { await rmbRenovarSeExpirado(r); r = await pede(); }
+    if (!r.ok) throw new Error((await r.text()).slice(0, 160));
+    const pedido = (await r.json())[0];
+    const t0 = Date.now(), limite = t0 + 300000;
+    let estado = 'PENDENTE', resumo = '';
+    while (Date.now() < limite && (estado === 'PENDENTE' || estado === 'RODANDO')) {
+      await new Promise(x => setTimeout(x, 3000));
+      const q = await fetch(`${SUPABASE_URL}/rest/v1/caixa_atualizacao_pedido?id=eq.${pedido.id}&select=status,resumo`, { headers: rmbHeaders() });
+      if (!q.ok) break;
+      const l = (await q.json())[0];
+      if (l) { estado = l.status; resumo = l.resumo || ''; }
+      const seg = Math.round((Date.now() - t0) / 1000);
+      bt.textContent = estado === 'RODANDO' ? `relendo o Saipos... ${seg}s (leva 1 a 2 min)` : `na fila... ${seg}s`;
+      if (estado === 'PENDENTE' && seg >= 90) estado = 'NINGUEM';
+    }
+    if (estado === 'OK') {
+      bt.textContent = 'refazendo a conferência...';
+      CAIXA_DIAS = null;              // recarrega tudo do banco
+      await entrarCaixa();
+      await abrirDiaConcartao(d.unidade, d.dia);
+      return;
+    }
+    if (estado === 'ERRO') alert('A atualização falhou: ' + resumo);
+    else alert('O pedido entrou na fila mas ninguém atendeu em 90 segundos. O computador que relê o Saipos pode estar desligado — a importação das 08h de amanhã pega isso de qualquer jeito.');
+  } catch (e) { alert('Não consegui pedir a atualização: ' + e.message); }
+  bt.textContent = texto; bt.disabled = false;
 }
 async function caixaRecarregarConf() {
   CAIXA_CONF = await consultarTudo('caixa_conferencia?select=*&dia=gte.' + CAIXA_VALID_DESDE());
@@ -13920,7 +13971,7 @@ function renderModuloDespesas() {
 // PC) vem depois. Serie comeca em 01/08/2026 (antes nao ha coluna dinheiro).
 // ------------------------------------------------------------------
 let CAIXA_DIAS = null, CAIXA_CONTAGENS = null, CAIXA_RESP = null;
-let CAIXA_CARTAO = null, CAIXA_PIX = null, CAIXA_TURNOS = null, CAIXA_VALID = null, CAIXA_DIAS_CX = null, CAIXA_CONF = null;
+let CAIXA_CARTAO = null, CAIXA_PIX = null, CAIXA_TURNOS = null, CAIXA_VALID = null, CAIXA_DIAS_CX = null, CAIXA_CONF = null, CAIXA_CARTAO_CX = null, CAIXA_PIX_CX = null;
 
 // FECHAMENTO DE CAIXAS (09/09/2026) — modulo unico, decisao do dono: absorveu
 // "Cartao & maquininha" (taxas/aluguel, secao no fim da tela) e "Conciliacao de
@@ -13934,7 +13985,7 @@ async function entrarCaixa() {
   if (CAIXA_DIAS === null) {
     alvo.innerHTML = '<div class="contexto">Carregando fechamento de caixas (PDV × gaveta × maquininhas × banco)...</div>';
     await carregarEmailDono();   // o dono tambem pode explicar pendencias
-    [CAIXA_DIAS, CAIXA_CONTAGENS, CAIXA_RESP, CAIXA_CARTAO, CAIXA_PIX, CAIXA_TURNOS, CAIXA_VALID, CAIXA_DIAS_CX, CAIXA_CONF] = await Promise.all([
+    [CAIXA_DIAS, CAIXA_CONTAGENS, CAIXA_RESP, CAIXA_CARTAO, CAIXA_PIX, CAIXA_TURNOS, CAIXA_VALID, CAIXA_DIAS_CX, CAIXA_CONF, CAIXA_CARTAO_CX, CAIXA_PIX_CX] = await Promise.all([
       consultarTudo('vw_caixa_fechamento_dia?select=*&order=data.desc'),
       consultarTudo('caixa_contagem?select=*&order=data.desc'),
       consultarTudo('caixa_responsaveis?select=email,unidade'),
@@ -13949,6 +14000,10 @@ async function entrarCaixa() {
       consultarTudo('vw_caixa_fechamento_caixa_dia?select=*&order=data.desc'),
       // carimbo "conferido" por caixa e turno (10/09/2026): quem olhou e quando
       consultarTudo('caixa_conferencia?select=*&dia=gte.' + CAIXA_VALID_DESDE()),
+      // filtro por CAIXA no modulo inteiro (dono, 10/09/2026 noite): as mesmas reguas de
+      // cartao e PIX, quebradas por caixa (Saipos pelo cashier, Rede pela maquininha SD)
+      consultarTudo('vw_cartao_conciliacao_caixa_dia?select=*&dia=gte.2026-08-01&order=dia'),
+      consultarTudo('vw_pix_conciliacao_caixa_dia?select=*&dia=gte.2026-08-01&order=dia'),
     ]);
     CAIXA_DIAS_CX.forEach(r => { ['dinheiro_pdv', 'lancado_cofre', 'movimento_book', 'diferenca'].forEach(k => { r[k] = Number(r[k]); }); });
     CAIXA_DIAS.forEach(r => {
@@ -13957,6 +14012,8 @@ async function entrarCaixa() {
       r.saidas_cofre = Number(r.saidas_cofre); r.movimento_book = Number(r.movimento_book);
     });
     CAIXA_CONTAGENS.forEach(c => { c.contado = Number(c.contado); c.troco = (c.troco === null || c.troco === undefined) ? null : Number(c.troco); c.caixa = c.caixa || 'SALÃO'; });
+    CAIXA_CARTAO_CX.forEach(r => { ['saipos', 'rede', 'diferenca', 'saipos_madrugada'].forEach(k => { r[k] = Number(r[k]); }); });
+    CAIXA_PIX_CX.forEach(r => { Object.keys(r).forEach(k => { if (!['unidade', 'dia', 'caixa'].includes(k)) r[k] = Number(r[k]); }); });
     CAIXA_CARTAO.forEach(r => { ['saipos', 'rede', 'diferenca', 'saldo_acumulado', 'saipos_madrugada'].forEach(k => { r[k] = Number(r[k]); }); });
     CAIXA_PIX.forEach(r => { ['pdv', 'recebido', 'sem_par', 'aguardando', 'pdv_qr', 'recebido_qr', 'sem_par_qr', 'aguardando_qr',
                               'pdv_chave', 'recebido_chave', 'sem_par_chave', 'aguardando_chave'].forEach(k => { r[k] = Number(r[k]); }); });
@@ -14007,7 +14064,7 @@ async function caixaSalvar(unidade, idBase, caixa) {
 // Filtros do modulo (dono, 09/09/2026: "mais enxuto, com mais filtros"): loja,
 // janela de dias e "so pendencias". Ficam no navegador da pessoa.
 let CAIXA_FILTRO = (() => {
-  const padrao = { loja: '', dias: 15, soPend: false, naoConf: false };
+  const padrao = { loja: '', dias: 15, soPend: false, naoConf: false, caixa: '' };
   try { return Object.assign(padrao, JSON.parse(localStorage.getItem('caixaFiltro') || '{}')); } catch (e) { return padrao; }
 })();
 function caixaFiltrar(campo, valor) {
@@ -14040,8 +14097,9 @@ function renderModuloCaixa() {
   const num = (v) => (v === undefined || v === null || Math.abs(+v) < 0.005) ? vazio : 'R$ ' + fmt(+v);
   const dif = (v) => (v === undefined || v === null || Math.abs(+v) < 0.01) ? vazio : '<b style="color:#f5a623;">R$ ' + fmt(+v) + '</b>';
   const cartaoDe = {}, pixDe = {};
-  CAIXA_CARTAO.forEach(r => { cartaoDe[r.unidade + '|' + r.dia + '|' + r.grupo] = r; });
-  CAIXA_PIX.forEach(r => { pixDe[r.unidade + '|' + r.dia] = r; });
+  // com o filtro de caixa, cartao e PIX vem das views por caixa (mesma regua)
+  (F.caixa ? (CAIXA_CARTAO_CX || []).filter(r => r.caixa === F.caixa) : CAIXA_CARTAO).forEach(r => { cartaoDe[r.unidade + '|' + r.dia + '|' + r.grupo] = r; });
+  (F.caixa ? (CAIXA_PIX_CX || []).filter(r => r.caixa === F.caixa) : CAIXA_PIX).forEach(r => { pixDe[r.unidade + '|' + r.dia] = r; });
   const saldoDe = (u, g) => { const l = CAIXA_CARTAO.filter(r => r.unidade === u && r.grupo === g); return l.length ? l[l.length - 1].saldo_acumulado : null; };
   const corSaldo = s => s === null ? '#9aa4af' : Math.abs(s) < 0.01 ? '#3f9c5a' : '#f5a623';
   const td = 'padding:3px 6px; text-align:right; white-space:nowrap;';
@@ -14069,6 +14127,8 @@ function renderModuloCaixa() {
     <span style="width:12px;"></span>
     ${btn(F.soPend, `caixaFiltrar('soPend',${!F.soPend})`, 'só pendências')}
     ${btn(F.naoConf, `caixaFiltrar('naoConf',${!F.naoConf})`, 'não conferidos')}
+    <span style="width:12px;"></span>
+    <span style="font-size:12px; color:#a5a49a;" title="muda o módulo inteiro para um caixa só: tabela do dia, contagem, conferido e o clique no dia">caixa:</span>${btn(!F.caixa, "caixaFiltrar('caixa','')", 'Os dois')}${btn(F.caixa === 'SALÃO', "caixaFiltrar('caixa','SALÃO')", 'Salão')}${btn(F.caixa === 'DELIVERY', "caixaFiltrar('caixa','DELIVERY')", 'Delivery')}
   </div>`;
 
   let blocos = '';
@@ -14099,7 +14159,7 @@ function renderModuloCaixa() {
       return conts;
     };
     const temSalao = diasCx.some(r => r.caixa === 'SALÃO' && (r.dinheiro_pdv > 0 || r.lancado_cofre > 0));
-    const caixasDaLoja = temSalao ? ['SALÃO', 'DELIVERY'] : ['DELIVERY'];
+    const caixasDaLoja = (temSalao ? ['SALÃO', 'DELIVERY'] : ['DELIVERY']).filter(cx => !F.caixa || cx === F.caixa);
     const eu = ((rmbSessao() || {}).email || '').toLowerCase();
     const podeDigitar = (CAIXA_RESP || []).some(r =>
       r.unidade === unidade && String(r.email).toLowerCase() === eu);
@@ -14124,9 +14184,10 @@ function renderModuloCaixa() {
       const maqAguard = (p.aguardando_qr || 0) + madrugada;
       const chavePdv = p.pdv_chave || 0, chaveReal = p.recebido_chave || 0;
       const chaveSem = p.sem_par_chave || 0, chaveAguard = p.aguardando_chave || 0;
-      const temDinheiro = r && r.situacao !== 'SEM MOVIMENTO';
       // dinheiro = contagem por caixa (10/09/2026 noite); o cofre do Saipos saiu da regua
-      const dinCx = aberto ? [] : caixaDinheiroDia(unidade, iso);
+      const dinCx = aberto ? [] : caixaDinheiroDia(unidade, iso).filter(d => !F.caixa || d.caixa === F.caixa);
+      const temDinheiro = F.caixa ? dinCx.some(d => d.vendido >= 0.01 || d.contagem) : (r && r.situacao !== 'SEM MOVIMENTO');
+      const semFechDia = F.caixa ? dinCx.some(d => d.aberto) : (r && r.situacao === 'SEM FECHAMENTO');
       const dinVend = dinCx.reduce((a, d) => a + d.vendido, 0);
       const dinCont = dinCx.filter(d => d.contagem);
       const dinEnv = dinCont.reduce((a, d) => a + d.enviado, 0);
@@ -14135,7 +14196,7 @@ function renderModuloCaixa() {
       const difDin = v => Math.abs(v) < 0.01 ? vazio : '<b style="color:' + (v < 0 ? '#ff6b6b' : '#f5a623') + ';">R$ ' + fmt(v) + '</b>';
       // memoria de validacao (09/09/2026): o que foi explicado sai da diferenca do
       // bloco; dia com diferenca ja zerada ignora as explicadas (o vale apareceu)
-      const vals = (CAIXA_VALID || []).filter(v => v.unidade === unidade && v.dia === iso);
+      const vals = (CAIXA_VALID || []).filter(v => v.unidade === unidade && v.dia === iso && (!F.caixa || !v.caixa || v.caixa === F.caixa));
       const efeito = b => vals.filter(v => v.bloco === b).reduce((a, v) => a + +v.efeito, 0);
       const maqResto = Math.abs(maqDif) < 0.01 ? 0 : maqDif - efeito('maquininha');
       const chaveResto = chaveSem <= 0 ? 0 : Math.max(0, chaveSem - efeito('pix_chave'));
@@ -14145,7 +14206,7 @@ function renderModuloCaixa() {
       let situacao, cor = '', alerta = false;
       if (aberto) situacao = '<span style="color:#9aa4af;">dia em aberto</span>';
       else if (!temDinheiro && maqPdv === 0 && maqReal === 0 && chavePdv === 0) situacao = '<span style="color:#9aa4af;">sem movimento</span>';
-      else if (r && r.situacao === 'SEM FECHAMENTO' && !dinExplicado) { situacao = '<b style="color:#ff6b6b;">turno não fechou</b>' + badge; cor = 'background:rgba(255,107,107,.07);'; alerta = true; semFech++; }
+      else if (semFechDia && !dinExplicado) { situacao = '<b style="color:#ff6b6b;">turno não fechou</b>' + badge; cor = 'background:rgba(255,107,107,.07);'; alerta = true; semFech++; }
       else {
         const o = [];
         if (!dinExplicado) { if (faltaContar) o.push('dinheiro (falta contar)'); else if (Math.abs(dinDif) >= 0.01) o.push('dinheiro'); }
