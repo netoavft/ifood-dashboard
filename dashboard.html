@@ -4623,24 +4623,41 @@ async function abrirDiaConcartao(unidade, dia) {
     }).join('')}</div>`;
 
   const th = 'padding:4px 8px; font-weight:normal; color:#a5a49a; font-size:11px; text-transform:uppercase; text-align:left;';
-  // Quatro blocos por DIRECAO (dono, 09/09/2026): cada direcao pede uma acao diferente,
-  // e o titulo em palavras dispensa legenda de cor.
+  // Tabela UNICA (dono, 10/09/2026: "ainda acho a tabela bagunçada"): um cabecalho so,
+  // texto neutro alinhado a esquerda, a cor do grupo fica na borda; "venda/mesa" e
+  // "motoboy" ganham coluna propria; "o que parece" vira a linha de baixo de "o que
+  // fazer"; o grupo "deve se resolver sozinho" sai da frente (recolhido).
   const GRUPOS_PEND = [
-    { id: 'saipos', cor: '#ff6b6b', titulo: 'O Saipos registrou, mas a maquininha ou o banco não tem', sub: 'dinheiro que pode não ter entrado — ou vale ainda por aparecer', hora: 'hora no Saipos / da entrega' },
-    { id: 'maquina', cor: '#f5a623', titulo: 'A maquininha tem, mas o Saipos não registrou', sub: 'venda sem registro no Saipos, ou lançada em outra forma', hora: 'hora na maquininha' },
-    { id: 'quase', cor: '#f5a623', titulo: 'Quase bate — conferir', sub: 'valor quase igual no mesmo horário, ou o mesmo crédito do banco servindo a mais de um PIX', hora: 'hora no Saipos' },
-    { id: 'auto', cor: '#9aa4af', titulo: 'Deve se resolver sozinho', sub: 'mesmo valor dos dois lados com horários distantes, ou PIX de fim de semana ainda por cair no banco', hora: 'hora no Saipos' },
+    { id: 'saipos', cor: '#ff6b6b', titulo: 'O Saipos registrou, mas a maquininha ou o banco não tem', sub: 'dinheiro que pode não ter entrado, ou vale ainda por aparecer' },
+    { id: 'maquina', cor: '#f5a623', titulo: 'A maquininha tem, mas o Saipos não registrou', sub: 'venda sem registro no Saipos, ou lançada em outra forma' },
+    { id: 'quase', cor: '#f5a623', titulo: 'Quase bate — conferir', sub: 'valor quase igual no mesmo horário, ou o mesmo crédito do banco servindo a mais de um PIX' },
+    { id: 'auto', cor: '#9aa4af', titulo: 'Deve se resolver sozinho', sub: 'madrugada que a maquininha entrega amanhã, PIX de fim de semana, mesmo valor dos dois lados em horários distantes' },
   ];
   const grupoDe = x => x.cor === '#9aa4af' ? 'auto' : x.chave.startsWith('rede:') ? 'maquina' : (x.chave.startsWith('quase:') || x.chave.startsWith('pixdup:')) ? 'quase' : 'saipos';
+  // o texto "o Saipos diz" carrega venda/mesa e motoboy; aqui vira coluna
+  const partes = p => {
+    const pecas = String(p.saipos || '').split(' · ').map(x => x.trim()).filter(Boolean);
+    const venda = pecas.find(x => /^(venda|mesa) /.test(x)) || '';
+    const motoN = (pecas.find(x => /^motoboy /.test(x)) || '').replace(/^motoboy /, '');
+    const entrega = pecas.includes('entrega') || !!motoN;
+    const forma = pecas.filter(x => !/^(venda|mesa|motoboy) /.test(x) && x !== 'entrega').join(' · ');
+    return { venda, moto: motoN, forma, entrega };
+  };
   const btnExp = x => podeExplicar ? `<button onclick="caixaExplicar(${x.i})" style="font:inherit; font-size:11px; padding:2px 8px; cursor:pointer;">explicar</button>` : '';
-  const linhaP = p => `<tr style="color:${p.cor}; border-top:1px solid rgba(154,164,175,.12);">
-    <td style="padding:5px 8px; white-space:nowrap;">${p.hora}</td>
-    <td style="padding:5px 8px;">${p.saipos}</td>
-    <td style="padding:5px 8px;">${p.real}</td>
-    <td style="padding:5px 8px; text-align:right; white-space:nowrap; font-weight:600;">${reaisCc(p.valor)}</td>
-    <td style="padding:5px 8px; color:#e8e6dc;">${p.leitura}</td>
-    <td style="padding:5px 8px; color:#a5a49a;">${p.acao}</td>
-    <td style="padding:5px 8px;">${btnExp(p)}</td></tr>`;
+  const tdb = 'padding:6px 8px; text-align:left; vertical-align:top;';
+  const linhaP = (p, g) => { const q = partes(p); return `<tr style="border-top:1px solid rgba(154,164,175,.12);">
+    <td style="${tdb} white-space:nowrap; border-left:3px solid ${g.cor};">${p.hora}</td>
+    <td style="${tdb} white-space:nowrap; color:#a5a49a;">${q.venda || '—'}${q.moto ? `<div style="font-size:11px;">🛵 ${q.moto}</div>` : (q.entrega ? '<div style="font-size:11px;">entrega</div>' : '')}</td>
+    <td style="${tdb}">${q.forma}</td>
+    <td style="${tdb}">${p.real}</td>
+    <td style="${tdb} text-align:right; white-space:nowrap; font-weight:600;">${reaisCc(p.valor)}</td>
+    <td style="${tdb}">${p.acao}<div style="font-size:11px; color:#8a897e;">${p.leitura}</div></td>
+    <td style="${tdb}">${btnExp(p)}</td></tr>`; };
+  const secao = (g, n) => `<tr><td colspan="7" style="padding:12px 8px 4px; text-align:left; font-weight:600; color:${g.cor};">${g.titulo} (${n}) <span style="font-weight:normal; color:#8a897e; font-size:11px;">— ${g.sub}</span></td></tr>`;
+  const tabela = lst => `<div style="overflow-x:auto;"><table style="border-collapse:collapse; font-size:12px; width:100%; min-width:820px; text-align:left;">
+        <tr><th style="${th}">hora</th><th style="${th}">venda</th><th style="${th}">o Saipos diz</th><th style="${th}">a maquininha / o banco diz</th><th style="${th} text-align:right;">valor</th><th style="${th}">o que fazer</th><th></th></tr>
+        ${GRUPOS_PEND.map(g => { const l = lst.filter(x => grupoDe(x) === g.id); return !l.length ? '' : secao(g, l.length) + l.map(x => linhaP(x, g)).join(''); }).join('')}</table></div>`;
+  const acionaveis = abertas.filter(x => grupoDe(x) !== 'auto'), autos = abertas.filter(x => grupoDe(x) === 'auto');
   const linhaE = p => `<tr style="color:#8a897e; border-top:1px solid rgba(154,164,175,.12);">
     <td style="padding:4px 8px; white-space:nowrap;">${p.hora}</td>
     <td style="padding:4px 8px;">${p.saipos} × ${p.real}</td>
@@ -4648,7 +4665,7 @@ async function abrirDiaConcartao(unidade, dia) {
     <td style="padding:4px 8px; color:#e8e6dc;">${p.v.motivo}</td>
     <td style="padding:4px 8px; white-space:nowrap;">${String(p.v.quem || '').split('@')[0]} · ${String(p.v.validado_em || '').slice(0, 10).split('-').reverse().slice(0, 2).join('/')}</td>
     <td style="padding:4px 8px;">${podeExplicar ? `<button onclick="caixaDesfazer(${p.i})" style="font:inherit; font-size:11px; padding:2px 8px; cursor:pointer;">desfazer</button>` : ''}</td></tr>`;
-  cont.innerHTML = `<div class="card" style="margin:14px 0;">
+  cont.innerHTML = `<div class="card" style="margin:14px 0; text-align:left;">
     <div style="font-size:15px; font-weight:700; margin-bottom:6px;">${unidade} — ${dia.split('-').reverse().join('/')}</div>
     <div style="display:flex; flex-wrap:wrap; gap:6px 18px; font-size:12px; color:#a5a49a; margin-bottom:6px;">
       <span>Cartão + vale: Saipos ${num(somaS)} · maquininha ${num(somaR)} · diferença ${num(difMaq, Math.abs(difMaq) < 0.01 ? '#7bc47f' : '#f5a623')}${viradaSaipos || viradaRede ? ` <span title="pagamentos que casaram com a véspera ou com a madrugada seguinte — a diferença do dia se resolve no dia vizinho">(na virada do dia: ${viradaSaipos ? reaisCc(viradaSaipos) + ' do Saipos veio da véspera' : ''}${viradaSaipos && viradaRede ? ', ' : ''}${viradaRede ? reaisCc(viradaRede) + ' da maquininha caiu na madrugada seguinte' : ''})</span>` : ''}</span>
@@ -4656,14 +4673,10 @@ async function abrirDiaConcartao(unidade, dia) {
       <span>${bateram} pagamento(s) bateram sozinhos</span>
     </div>
     ${turnoHtml}
-    ${abertas.length ? `<div style="font-size:12px; color:#a5a49a; text-transform:uppercase; margin:10px 0 2px;">Para conferir (${abertas.length})${podeExplicar ? ' <span style="text-transform:none; color:#8a897e;">— "explicar" grava o motivo e tira a linha daqui</span>' : ''}</div>
-      ${GRUPOS_PEND.map(g => { const lst = abertas.filter(x => grupoDe(x) === g.id); return !lst.length ? '' : `
-      <div style="margin:8px 0 2px; font-size:13px; font-weight:600; color:${g.cor};">${g.titulo} (${lst.length})</div>
-      <div style="font-size:11px; color:#8a897e; margin-bottom:2px;">${g.sub}</div>
-      <div style="overflow-x:auto;"><table style="border-collapse:collapse; font-size:12px; width:100%; min-width:760px;">
-        <tr><th style="${th}">${g.hora}</th><th style="${th}">o Saipos diz</th><th style="${th}">a maquininha / o banco diz</th><th style="${th} text-align:right;">valor</th><th style="${th}">o que parece</th><th style="${th}">o que fazer</th><th></th></tr>
-        ${lst.map(linhaP).join('')}</table></div>`; }).join('')}`
-      : `<div style="color:#7bc47f; margin:10px 0;">✔ Nada para conferir neste dia${explicadas.length ? ` — ${explicadas.length} pendência(s) explicada(s)` : ': tudo o que o Saipos registrou bateu com a maquininha e com o banco'}.</div>`}
+    ${acionaveis.length ? `<div style="font-size:12px; color:#a5a49a; text-transform:uppercase; margin:10px 0 2px;">Para conferir (${acionaveis.length})${podeExplicar ? ' <span style="text-transform:none; color:#8a897e;">— "explicar" grava o motivo e tira a linha daqui</span>' : ''}</div>
+      ${tabela(acionaveis)}`
+      : `<div style="color:#7bc47f; margin:10px 0;">✔ Nada para conferir neste dia${explicadas.length ? ` — ${explicadas.length} pendência(s) explicada(s)` : ''}${autos.length ? ` (${autos.length} que devem se resolver sozinhas, abaixo)` : ''}.</div>`}
+    ${autos.length ? `<details style="margin-top:8px;"><summary style="cursor:pointer; font-size:12px; color:#a5a49a;">${autos.length} que devem se resolver sozinha(s) — madrugada, PIX de fim de semana, horários distantes</summary>${tabela(autos)}</details>` : ''}
     ${explicadas.length ? `<details open style="margin-top:10px;"><summary style="cursor:pointer; font-size:12px; color:#a5a49a;">Explicadas (${explicadas.length})</summary>
       <div style="overflow-x:auto;"><table style="border-collapse:collapse; font-size:12px; width:100%;">
         <tr><th style="${th}">hora</th><th style="${th}">o que era</th><th style="${th} text-align:right;">valor</th><th style="${th}">motivo</th><th style="${th}">quem</th><th></th></tr>
