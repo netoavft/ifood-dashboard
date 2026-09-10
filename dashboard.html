@@ -11510,7 +11510,7 @@ function renderFechamento() {
   if (p) {
     const itens = [['Sobrou no papel (o resultado da seção 3)', p.res, ''], ['Contas de outros meses pagas no mês, ou do mês ainda por pagar', p.comp, 'negativo = o mês pagou mais do que gerou de conta'],
       ['Investimentos (obras, máquinas, tecnologia)', p.inv, 'vira patrimônio, não some'], ['Retiradas dos sócios', p.ret, ''], ['Dinheiro entre as lojas (lucro e bônus repassados, aportes)', p.apo, ''],
-      ['Foi para a XP e para pagar cartões', p.xp, 'inclui o benefício do iFood enviado à XP'], ['Empréstimos', p.emp, ''], ['Rendimentos', p.rend, ''], ['Sem classificação', p.sem, 'lançamento sem conta — deveria ser zero']].filter(([, x]) => Math.abs(x) > 0.5);
+      ['Foi para a XP', p.xp, 'inclui o benefício do iFood enviado à XP'], ['Empréstimos', p.emp, ''], ['Rendimentos', p.rend, ''], ['Sem classificação', p.sem, 'lançamento sem conta — deveria ser zero']].filter(([, x]) => Math.abs(x) > 0.5);
     h += `<div class="fx-caixa"><div class="fx-rotulo">O caixa do dia a dia em ${fxMesLongo(mes)}</div><div class="fx-valor${p.v < 0 ? ' neg' : ''}">${p.v >= 0 ? 'cresceu' : 'encolheu'} ${fxMil(Math.abs(p.v))}</div><ul>${itens.map(([n, x, s2]) => `<li><span>${n}${s2 ? `<small>${s2}</small>` : ''}</span><b>${x >= 0 ? '+ ' : '− '}${fxMil(Math.abs(x))}</b></li>`).join('')}<li class="res"><span><b>= caixa do dia a dia</b><small>bancos e cofres; XP, Participações e cartões ficam de fora</small></span><b>${p.v >= 0 ? '+ ' : '− '}${fxMil(Math.abs(p.v))}</b></li></ul></div>`;
   } else h += '<div class="fx-nota">Sem ponte de caixa para esta loja neste mês (o caixa das filiais entrou no Saipos em 01/08).</div>';
   // As contas batem com o banco? (03/09/2026) — o mês só está fechado de verdade
@@ -11560,7 +11560,7 @@ function renderFechamento() {
   h += `<p>${fxMesLongo(mes)[0].toUpperCase() + fxMesLongo(mes).slice(1)} vendeu <b>${fxMil(a.recBruta)}</b>${j ? ` — ${Math.abs((a.recBruta - j.recBruta) / j.recBruta * 100) < 0.5 ? `o mesmo que ${fxMesLongo(ant)}` : `${a.recBruta > j.recBruta ? 'mais' : 'menos'} ${fxPct1(Math.abs((a.recBruta - j.recBruta) / j.recBruta * 100))} que ${fxMesLongo(ant)}`}` : ''}${maior.mes !== mes ? `, ${fxPct1(Math.abs((a.recBruta - maior.recBruta) / maior.recBruta * 100))} abaixo do maior mês (${fxMesRot(maior.mes)})` : ', o maior mês do ano'}. Foram <b>${fxInt(a.pedidos)} pedidos</b>, com valor médio de <b>R$ ${a.ticket.toFixed(0)}</b>.</p>`;
   if (pior) h += `<p>De cada R$ 100, <b>${nomeG[pior.k]}</b> levou <b>R$ ${Math.round(pior.v)}</b> — ${pior.dist <= 0 ? 'dentro da meta' : pior.dist <= pior.meta * 0.1 ? 'no limite da meta' : 'acima da meta'} de R$ ${pior.meta}. ${piores.slice(1).filter(x => x.dist > 0.5).length ? `Também acima da meta: ${piores.slice(1).filter(x => x.dist > 0.5).map(x => `${nomeG[x.k]} (R$ ${Math.round(x.v)} de ${x.meta})`).join(', ')}.` : 'As outras fatias estão dentro da meta ou no limite.'}</p>`;
   h += `<p>Sobraram <b>R$ ${Math.round(cem(a.resultado))}</b> de cada R$ 100 (${fxMil(a.resultado)}); a meta é R$ ${M.RESULTADO ? M.RESULTADO.meta : '—'}.${a.benef > 0.5 ? ` Sem o benefício do iFood seriam <b>R$ ${Math.round(cem(a.resultado - a.benef))}</b>.` : ''}</p>`;
-  if (p) h += `<p>No caixa do dia a dia, o mês ${p.v >= 0 ? 'deixou' : 'consumiu'} <b>${fxMil(Math.abs(p.v))}</b>${Math.abs(p.comp) > 1000 ? ` — ${p.comp < 0 ? 'pagou' : 'adiou'} ${fxMil(Math.abs(p.comp))} de contas fora do mês` : ''}${Math.abs(p.xp) > 1000 ? `, e ${fxMil(Math.abs(p.xp))} ${p.xp < 0 ? 'foram para a XP e cartões' : 'vieram da XP'}` : ''}.</p>`;
+  if (p) h += `<p>No caixa do dia a dia, o mês ${p.v >= 0 ? 'deixou' : 'consumiu'} <b>${fxMil(Math.abs(p.v))}</b>${Math.abs(p.comp) > 1000 ? ` — ${p.comp < 0 ? 'pagou' : 'adiou'} ${fxMil(Math.abs(p.comp))} de contas fora do mês` : ''}${Math.abs(p.xp) > 1000 ? `, e ${fxMil(Math.abs(p.xp))} ${p.xp < 0 ? 'foram para a XP' : 'vieram da XP'}` : ''}.</p>`;
   h += `</div><div class="fx-rodape">Vendas e pedidos: caixa das lojas (Saipos), sem cancelados. Para onde foi e quanto sobrou: as contas do mês por competência (uma conta do mês conta no mês, mesmo paga depois), pelas mesmas views da DRE. Caixa: a ponte resultado × caixa. O Boqueirão fica fora (gestão separada). Na Rede, a mercadoria que a Água Verde vende às filiais entra de um lado e sai do outro e se anula no "sobrou". A tabela completa está na DRE.</div>`;
   alvo.innerHTML = h;
 }
@@ -12308,7 +12308,7 @@ function blocoCaixaReal(mesF, rotuloMes) {
     ['± Empréstimos', s('emprestimos'), 'entradas e saídas de empréstimos com sócios'],
     ['+ Aportes e lucros das filiais', s('aportes'), 'dinheiro das filiais que entra fora da operação'],
     ['+ Rendimentos', s('aplicacoes'), 'rendimento das aplicações'],
-    ['± Foi para XP / cartões', s('transferencias_liquidas'), 'transferências para fora do caixa operacional — inclui o benefício do iFood'],
+    ['± Foi para a XP', s('transferencias_liquidas'), 'transferências para fora do caixa operacional — inclui o benefício do iFood (a fatura do cartão não entra aqui: é despesa, na linha de cima)'],
     ['± Sem classificação', s('sem_classificacao'), 'lançamento sem conta — deveria ser zero'],
   ].filter(([, v]) => Math.abs(v) > 0.005);
   const varCaixa = s('variacao_caixa');
@@ -12813,8 +12813,10 @@ function renderModuloDRE() {
 // ------------------------------------------------------------------
 // Modulo Fluxo Projetado — para onde o caixa vai nos proximos 45 dias.
 // Saidas = contas a pagar LANCADAS no Saipos (fonte SAIPOS_PREV, ja com
-// vencimento) + estimativa da fatura de cartao (saldo devedor dos cartoes,
-// paga por volta do dia 5). Entradas = contas a receber lancadas + receita
+// vencimento) — desde 10/09/2026 isso INCLUI as compras de cartao a vencer,
+// cada uma na data da fatura e por categoria; a "fatura estimada" pelo saldo
+// dos cartoes saiu (somava 6 meses de recorrentes: R$ 58 mil contra R$ 11,5
+// mil reais). Entradas = contas a receber lancadas + receita
 // projetada pela media por dia da semana das ultimas 4 semanas de
 // recebimentos REAIS. O que nao foi lancado no Saipos nao aparece aqui.
 // ------------------------------------------------------------------
@@ -13140,13 +13142,13 @@ function renderModuloProjecao() {
   (PROJ_ANCORA || []).forEach(a => { ancoraPorConta[a.conta] = a; });
   const movTotal = {};
   DFC_MOV.forEach(r => { movTotal[r.conta] = (movTotal[r.conta] || 0) + r.movimento; });
-  let caixaOper = 0, investido = 0, saldoCartoes = 0;
+  let caixaOper = 0, investido = 0;
   let atrasoSaipos = 0, idadeMax = 0, dataExtrato = null;
   DFC_CONTAS.forEach(c => {
     const a = ancoraPorConta[c.conta];
     const s = a ? Number(a.saldo_banco) : c.saldo_inicial + (movTotal[c.conta] || 0);
-    if (c.conta.startsWith('CREDITO')) saldoCartoes += s;
-    else if (PROJ_FORA_CAIXA.includes(c.conta)) investido += s;
+    if (c.conta.startsWith('CREDITO')) return;   // cartao nao e caixa; a fatura a vencer ja vem em PROJ_PAGAR
+    if (PROJ_FORA_CAIXA.includes(c.conta)) investido += s;
     else {
       caixaOper += s;
       if (a) {
@@ -13193,15 +13195,8 @@ function renderModuloProjecao() {
     (itensDia[dia] = itensDia[dia] || []).push(r);
   });
 
-  // ---- fatura de cartao estimada: saldo devedor pago por volta do dia 5 ----
-  let faturaDia = null, faturaValor = 0;
-  if (saldoCartoes < -0.005) {
-    faturaValor = -saldoCartoes;
-    const f = new Date(hoje);
-    f.setDate(5);
-    if (f <= hoje) f.setMonth(f.getMonth() + 1);
-    faturaDia = iso(f);
-  }
+  // (a "fatura de cartao estimada" que ficava aqui saiu em 10/09/2026: as compras
+  // a vencer chegam como SAIPOS_PREV e ja estao em PROJ_PAGAR, na data da fatura)
 
   // ---- projecao dia a dia ----
   const dias = [], serieSaldo = [];
@@ -13212,7 +13207,6 @@ function renderModuloProjecao() {
     const dIso = iso(d);
     const entradas = (i === 0 ? 0 : mediaDow[d.getDay()]) + (receberDia[dIso] || 0);
     let saidas = pagarDia[dIso] || 0;
-    if (dIso === faturaDia) saidas += faturaValor;
     saldo += entradas - saidas;
     if (i <= 30) pagar30 += pagarDia[dIso] || 0;
     dias.push(dIso);
@@ -13244,12 +13238,6 @@ function renderModuloProjecao() {
         </div>`).join('')}
     </details>`;
   });
-  if (faturaDia) {
-    agenda = `<div class="contexto" style="border-color:#c8102e; text-align:left;">
-      Estimativa: <b>fatura dos cartões ~R$ ${fmt(faturaValor)}</b> por volta de ${fmtDia(faturaDia)}
-      (saldo devedor atual dos cartões — a data real depende do fechamento).</div>` + agenda;
-  }
-
   const corMenor = menorSaldo < 0 ? '#ff6b6b' : menorSaldo < mediaSemana ? '#f5a623' : '#3fb950';
 
   // ---- aplicado da proposta do chat financeiro (13/08/2026), decisoes do
@@ -13267,15 +13255,13 @@ function renderModuloProjecao() {
   }
   Object.keys(pagarDia).forEach(dia => { if (dia <= menorDia) comprPeriodo += pagarDia[dia]; });
   comprPeriodo -= vencidas;   // vencidas de verdade ganham linha propria
-  const faturaAteMenor = (faturaDia && faturaDia <= menorDia) ? faturaValor : 0;
-  console.assert(Math.abs(caixaOper + entAteMenor - vencidas - comprPeriodo - faturaAteMenor - menorSaldo) < 0.01);
+  console.assert(Math.abs(caixaOper + entAteMenor - vencidas - comprPeriodo - menorSaldo) < 0.01);
 
   const linhasConta = [
     ['Caixa hoje' + (temAncora ? ' (extrato do banco)' : ''), caixaOper, ''],
     [`+ entradas previstas até ${fmtDia(menorDia)}`, entAteMenor, 'color:#3fb950;'],
     vencidas > 0.005 ? ['− já vencido (sem débito no banco)', -vencidas, 'color:#ff6b6b;'] : null,
     [`− contas que vencem até ${fmtDia(menorDia)}`, -comprPeriodo, ''],
-    faturaAteMenor ? ['− fatura estimada dos cartões', -faturaAteMenor, 'color:#f5a623;'] : null,
   ].filter(Boolean);
   const contaAberta = `<table style="width:100%; font-size:12.5px; margin-top:6px;">
     ${linhasConta.map(([t, v, cor]) => `<tr><td>${t}</td>
@@ -13287,8 +13273,7 @@ function renderModuloProjecao() {
   // a frase ganha o MOTIVO: o maior dos 3 componentes do aperto
   const componentes = [
     [vencidas, 'do que já venceu e ainda não saiu do banco — cobrar ou quitar'],
-    [comprPeriodo, 'de contas que vencem no período — dá para conversar data com fornecedor'],
-    [faturaAteMenor, 'da fatura estimada dos cartões — estimativa, a data real depende do fechamento'],
+    [comprPeriodo, 'de contas que vencem no período (as faturas de cartão já estão aqui, na data de cada uma) — dá para conversar data com fornecedor'],
   ].sort((a, b) => b[0] - a[0]);
   const motivo = componentes[0][0] > 0.005
     ? `O maior peso vem ${componentes[0][1]} (R$ ${fmt(componentes[0][0])}).` : '';
@@ -13311,7 +13296,6 @@ function renderModuloProjecao() {
   const maioresSaidas = Object.keys(itensDia).filter(d => d <= menorDia)
     .flatMap(d => itensDia[d].map(r => ({ dia: d, txt: `${r.subtipo}${r.descricao ? ' — ' + r.descricao.slice(0, 40) : ''}`, v: r.debito - r.credito })))
     .filter(x => x.v > 0);
-  if (faturaAteMenor) maioresSaidas.push({ dia: faturaDia, txt: 'Fatura estimada dos cartões', v: faturaAteMenor });
   maioresSaidas.sort((a, b) => b.v - a.v);
   const alavancas = maioresSaidas.length ? `
     <div class="contexto" style="text-align:left;">
@@ -13431,7 +13415,7 @@ function renderModuloProjecao() {
       <div class="card-pct">${temAncora
         ? `saldo do BANCO (extrato de ${dataExtrato ? dataExtrato.slice(8,10) + '/' + dataExtrato.slice(5,7) : '—'})${Math.abs(atrasoSaipos) > 0.005 ? ` — o Saipos está R$ ${fmt(Math.abs(atrasoSaipos))} ${atrasoSaipos > 0 ? 'atrás' : 'à frente'}` : ' — Saipos em dia'}`
         : 'bancos e cofre — é este que paga as contas'}</div></div>
-    <div class="card ${vencidas > 0.005 ? 'neg' : ''}"><div class="card-lbl">A pagar (30 dias)</div><div class="card-val">R$ ${fmt(pagar30 + (faturaDia ? faturaValor : 0))}</div>
+    <div class="card ${vencidas > 0.005 ? 'neg' : ''}"><div class="card-lbl">A pagar (30 dias)</div><div class="card-val">R$ ${fmt(pagar30)}</div>
       ${vencidas > 0.005 ? `<div class="card-pct" style="color:#ff6b6b;">R$ ${fmt(vencidas)} vencidas de verdade!</div>` : '<div class="card-pct">inclui estimativa de fatura</div>'}</div>
     <div class="card"><div class="card-lbl">Receita projetada / semana</div><div class="card-val">R$ ${fmt(mediaSemana)}</div>
       <div class="card-pct">média das últimas 4 semanas</div></div>
@@ -14019,6 +14003,7 @@ function renderModuloCaixa() {
 // ------------------------------------------------------------------
 let CONF_SALDOS = null, CONF_TRANSF = null, CONF_SEMCLASS = null;
 let CONF_IMPORT = null, CONF_GENERICAS = null, CONF_DIVERG = null, CONF_CARTOES = null;
+let CONF_FATURAS = null;  // vw_fin_cartao_fatura_conferencia: fatura lancada x compras x extrato, por cartao e mes (10/09/2026)
 let CONF_ACEITAS = null;   // fin_divergencias_aceitas: divergências já conferidas pelo dono
 
 async function entrarConciliacao() {
@@ -14027,7 +14012,7 @@ async function entrarConciliacao() {
   if (CONF_SALDOS === null) {
     alvo.innerHTML = '<div class="contexto">Carregando conferências...</div>';
     [CONF_SALDOS, CONF_TRANSF, CONF_SEMCLASS, CONF_IMPORT, CONF_GENERICAS, CONF_DIVERG,
-     CONF_CARTOES, CONF_ACEITAS] = await Promise.all([
+     CONF_CARTOES, CONF_ACEITAS, CONF_FATURAS] = await Promise.all([
       // Esta view sai de fin_contas, nao do movimento: sem o filtro ela traz as
       // duas contas desativadas com saldo 0,00. (aviso do chat da conciliacao)
       consultarTudo('vw_fin_saldo_conta?select=conta,conta_exibida,ativa,ordem,saldo,ultimo_lancamento,lancamentos&ativa=is.true&order=ordem'),
@@ -14038,6 +14023,7 @@ async function entrarConciliacao() {
       consultarTudo('vw_fin_divergencia_fontes?select=conta,planilha,saipos,diferenca,aceito,pendente,motivo'),
       consultarTudo('vw_fin_cartoes?select=conta,saldo_inicial,saldo,ultimo_lancamento'),
       consultarTudo('fin_divergencias_aceitas?select=conta,valor,motivo,verificado_em&order=conta'),
+      consultarTudo('vw_fin_cartao_fatura_conferencia?select=unidade,conta,conta_exibida,mes,data_ref,fatura_lancada,compras_lancadas,n_compras,diferenca,extrato_valor,situacao&mes=gte.2026-08-01&order=mes.desc,ordem'),
     ]);
     CONF_SALDOS.forEach(r => { r.saldo = Number(r.saldo); r.lancamentos = Number(r.lancamentos); });
     CONF_TRANSF.forEach(r => { r.diferenca = Number(r.diferenca); });
@@ -14047,6 +14033,7 @@ async function entrarConciliacao() {
       r.saipos = Number(r.saipos); r.pendente = Number(r.pendente); r.aceito = Number(r.aceito);
     });
     CONF_CARTOES.forEach(r => { r.saldo = Number(r.saldo); r.saldo_inicial = Number(r.saldo_inicial); });
+    (CONF_FATURAS || []).forEach(r => { ['fatura_lancada', 'compras_lancadas', 'diferenca', 'extrato_valor'].forEach(k => { r[k] = r[k] === null ? null : Number(r[k]); }); });
   }
   renderModuloConciliacao();
 }
@@ -14080,10 +14067,12 @@ function renderModuloConciliacao() {
 
   // cartao com saldo positivo e' impossivel: fatura paga sem as compras lancadas
   const cartoesPositivos = (CONF_CARTOES || []).filter(c => c.saldo > 0.005);
+  // fatura a fatura (10/09/2026): o que o banco pagou x a transferencia lancada x as compras
+  const faturasRuins = (CONF_FATURAS || []).filter(r => !['OK', 'A VENCER'].includes(r.situacao));
 
   const alertas = negativas.length + paradas.length + transfRuins.length + CONF_SEMCLASS.length
                 + (importAtrasada ? 1 : 0) + (valorGenerico > 0.005 ? 1 : 0)
-                + divergentes.length + cartoesPositivos.length;
+                + divergentes.length + cartoesPositivos.length + faturasRuins.length;
   const saldoTotal = ativas.filter(c => !c.conta.startsWith('CREDITO')).reduce((s, c) => s + c.saldo, 0);
 
   let blocos = '';
@@ -14173,6 +14162,33 @@ function renderModuloConciliacao() {
       <div style="font-size:12px; color:#a5a49a; margin-top:6px;">
         Cartão só pode estar zerado ou devedor. Saldo positivo = fatura paga cujas <b>compras não foram lançadas</b> no Saipos —
         some sozinho quando o cartão for conciliado lá.
+      </div>
+    </div>`;
+  }
+
+  if (faturasRuins.length) {
+    const SIT = {
+      'FALTAM COMPRAS': ['fatura paga maior que as compras lançadas — faltam compras no Saipos', '#f5a623'],
+      'FATURA MENOR QUE AS COMPRAS': ['compras lançadas maiores que a fatura — transferência na conta errada ou compra fora do ciclo', '#f5a623'],
+      'FATURA NAO LANCADA': ['o banco pagou (BUSINESS no extrato) e o Saipos não tem a transferência para o cartão', '#ff6b6b'],
+      'COMPRAS SEM FATURA': ['compras vencidas sem fatura lançada e sem pagamento no extrato', '#ff6b6b'],
+    };
+    blocos += `
+    <div class="section-label">Faturas de cartão que não fecham (fatura × compras × extrato)</div>
+    <div class="contexto" style="border-color:#f5a623; text-align:left;">
+      ${faturasRuins.map(r => `<div style="padding:4px 0; border-bottom:1px solid rgba(128,128,128,.15);">
+        <div style="display:flex; justify-content:space-between; gap:8px;">
+          <span><b>${nomeConta(r.conta)}</b> · ${rotuloMes(r.mes)}${r.data_ref ? ' · fatura de ' + r.data_ref.slice(8, 10) + '/' + r.data_ref.slice(5, 7) : ''}</span>
+          <b style="color:${(SIT[r.situacao] || ['', ''])[1]};">${r.situacao}</b></div>
+        <div style="font-size:12px; color:#a5a49a;">
+          lançada R$ ${fmt(r.fatura_lancada)} · compras R$ ${fmt(r.compras_lancadas)} (${r.n_compras}) ·
+          banco ${r.extrato_valor === null ? '—' : 'R$ ' + fmt(r.extrato_valor)} · diferença <b>R$ ${fmt(r.diferenca)}</b>
+          — ${(SIT[r.situacao] || [''])[0]}</div>
+      </div>`).join('')}
+      <div style="font-size:12px; color:#a5a49a; margin-top:6px;">
+        Regra do dono (19/08): a fatura é uma transferência Itaú → cartão, e o que prova é a linha <b>BUSINESS</b> do extrato.
+        Cada cartão tem um contrato no memo (0503-3179 = AV 6950, 4005-3752 = AV 1540, 4004-1773 = Ahú, 7502-4440 = São Braz).
+        Fonte: vw_fin_cartao_fatura_conferencia.
       </div>
     </div>`;
   }
