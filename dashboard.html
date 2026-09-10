@@ -4704,6 +4704,24 @@ function renderDiaConcartao(unidade, dia, trs, pix, cobr, forma, descs) {
   const tabela = lst => `<div style="overflow-x:auto;"><table style="${tabelaCss} min-width:820px;">${cabP}
         ${GRUPOS_PEND.map(g => { const l = lst.filter(x => grupoDe(x) === g.id); return !l.length ? '' : secao(g, l.length) + l.map(x => linhaP(x, g)).join(''); }).join('')}</table></div>`;
   const acionaveis = abertas.filter(x => grupoDe(x) !== 'auto'), autos = abertas.filter(x => grupoDe(x) === 'auto');
+  // Carimbo "conferido" por caixa (dono, 10/09/2026): so com o caixa fechado no Saipos e
+  // sem pendencia acionavel (explicada conta como resolvida). Quem carimba: responsavel
+  // da loja ou dono. A linha do dia mostra "Salao ✔ · Delivery ✔".
+  const abertasTodas = pend.filter(x => !valDe[x.chave] && grupoDe(x) !== 'auto');
+  const pendCx = cx => abertasTodas.filter(x => !x.caixa || x.caixa === cx).length;
+  const caixasDia = (turnos.length ? [...new Set(turnos.map(t => t.caixa === 'SALÃO' || t.caixa === 'DELIVERY' ? t.caixa : (['SALÃO', 'BALCÃO'].includes(t.canal_dominante) ? 'SALÃO' : 'DELIVERY')))] : ['SALÃO', 'DELIVERY']).sort();
+  const abertoCx = cx => turnos.some(t => t.fechado === false && ((t.caixa === cx) || (['SALÃO', 'BALCÃO'].includes(t.canal_dominante) ? 'SALÃO' : 'DELIVERY') === cx));
+  const confs = (CAIXA_CONF || []).filter(c => c.unidade === unidade && c.dia === dia);
+  const hojeStr = new Date().toLocaleDateString('en-CA');
+  const conferenciaHtml = `<div style="display:flex; flex-wrap:wrap; gap:8px 18px; align-items:center; margin:8px 0 2px; font-size:12px;">
+    <span style="text-transform:uppercase; color:#a5a49a; font-size:11px;">Conferência do turno</span>
+    ${caixasDia.map(cx => { const rot = cx === 'SALÃO' ? 'Salão' : 'Delivery'; const c = confs.find(x => x.caixa === cx); const n = pendCx(cx);
+      if (c) return `<span><b style="color:#3f9c5a;">${rot} ✔ conferido</b> <span style="color:#a5a49a;">por ${String(c.quem || '').split('@')[0]} em ${String(c.conferido_em || '').slice(0, 16).replace('T', ' ')}</span>${podeExplicar ? ` <button onclick="caixaDesconferir('${cx}')" style="font:inherit; font-size:11px; padding:1px 7px; cursor:pointer;">desfazer</button>` : ''}</span>`;
+      if (dia >= hojeStr) return `<span style="color:#9aa4af;">${rot}: turno em aberto</span>`;
+      if (abertoCx(cx)) return `<span style="color:#ff6b6b;">${rot}: caixa ainda aberto no Saipos</span>`;
+      if (n > 0) return `<span style="color:#f5a623;">${rot}: ${n} pendência(s) antes de conferir</span>`;
+      return podeExplicar ? `<button onclick="caixaConferir('${cx}')" style="font:inherit; font-size:12px; padding:3px 10px; cursor:pointer; font-weight:600;">Marcar ${rot} como conferido</button>` : `<span style="color:#7bc47f;">${rot}: sem pendência (o responsável carimba)</span>`; }).join('')}
+  </div>`;
   const linhaE = p => { const q = partes(p); return `<tr style="border-top:1px solid rgba(154,164,175,.12); color:#a5a49a;">
     <td style="${tdL} white-space:nowrap;">${p.hora}</td>
     <td style="${tdL} white-space:nowrap;">${vendaCel(q)}</td>
@@ -4751,6 +4769,7 @@ function renderDiaConcartao(unidade, dia, trs, pix, cobr, forma, descs) {
           <td style="${tdC}"><b>${reaisCc(x.desconto)}</b></td>
           <td style="${tdC}">${x.pct === null ? '—' : String(x.pct).replace('.', ',') + '%'}</td>
           <td style="${tdC} text-align:left; border-right:0; ${x.motivo || x.cupom ? '' : 'color:#f5a623;'}">${x.motivo || (x.cupom ? 'cupom ' + x.cupom : 'sem motivo — perguntar ao turno quem liberou')}</td></tr>`).join('')}</table></div>`; })()}
+    ${conferenciaHtml}
     ${caixa(`Para conferir (${acionaveis.length})`, acionaveis.length ? '#ff6b6b' : '#3f9c5a',
       (acionaveis.length
         ? `${podeExplicar ? '<div style="font-size:11px; color:#8a897e; margin-bottom:6px;">"explicar" grava o motivo e move a linha para "explicadas", no bloco de baixo.</div>' : ''}${tabela(acionaveis)}`
@@ -4789,6 +4808,36 @@ async function caixaExplicar(i) {
     if (!r.ok) throw new Error((await r.text()).slice(0, 160));
     await caixaRecarregarValidadas();
   } catch (e) { alert('Não consegui gravar a explicação: ' + e.message); }
+}
+async function caixaRecarregarConf() {
+  CAIXA_CONF = await consultarTudo('caixa_conferencia?select=*&dia=gte.' + CAIXA_VALID_DESDE());
+  renderModuloCaixa();
+  const d = CAIXA_DRILL_DADOS;
+  if (d) renderDiaConcartao(d.unidade, d.dia, d.trs, d.pix, d.cobr, d.forma, d.descs);
+}
+async function caixaConferir(cx) {
+  const d = CAIXA_DRILL_DADOS;
+  if (!d) return;
+  const s = rmbSessao();
+  if (!s || !s.email) { alert('Sessão expirada — faça login de novo para registrar.'); return; }
+  try {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/caixa_conferencia?on_conflict=unidade,dia,caixa`, {
+      method: 'POST', headers: rmbHeaders({ Prefer: 'resolution=merge-duplicates' }),
+      body: JSON.stringify({ unidade: d.unidade, dia: d.dia, caixa: cx, quem: s.email, conferido_em: new Date().toISOString() }),
+    });
+    if (!r.ok) throw new Error((await r.text()).slice(0, 160));
+    await caixaRecarregarConf();
+  } catch (e) { alert('Não consegui registrar a conferência: ' + e.message); }
+}
+async function caixaDesconferir(cx) {
+  const d = CAIXA_DRILL_DADOS;
+  if (!d || !confirm('Desfazer a conferência deste caixa?')) return;
+  try {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/caixa_conferencia?unidade=eq.${encodeURIComponent(d.unidade)}&dia=eq.${d.dia}&caixa=eq.${encodeURIComponent(cx)}`,
+      { method: 'DELETE', headers: rmbHeaders() });
+    if (!r.ok) throw new Error((await r.text()).slice(0, 160));
+    await caixaRecarregarConf();
+  } catch (e) { alert('Não consegui desfazer: ' + e.message); }
 }
 async function caixaDesfazer(i) {
   const d = CAIXA_DRILL, x = d && d.rows[i];
@@ -13821,7 +13870,7 @@ function renderModuloDespesas() {
 // PC) vem depois. Serie comeca em 01/08/2026 (antes nao ha coluna dinheiro).
 // ------------------------------------------------------------------
 let CAIXA_DIAS = null, CAIXA_CONTAGENS = null, CAIXA_RESP = null;
-let CAIXA_CARTAO = null, CAIXA_PIX = null, CAIXA_TURNOS = null, CAIXA_VALID = null, CAIXA_DIAS_CX = null;
+let CAIXA_CARTAO = null, CAIXA_PIX = null, CAIXA_TURNOS = null, CAIXA_VALID = null, CAIXA_DIAS_CX = null, CAIXA_CONF = null;
 
 // FECHAMENTO DE CAIXAS (09/09/2026) — modulo unico, decisao do dono: absorveu
 // "Cartao & maquininha" (taxas/aluguel, secao no fim da tela) e "Conciliacao de
@@ -13835,7 +13884,7 @@ async function entrarCaixa() {
   if (CAIXA_DIAS === null) {
     alvo.innerHTML = '<div class="contexto">Carregando fechamento de caixas (PDV × gaveta × maquininhas × banco)...</div>';
     await carregarEmailDono();   // o dono tambem pode explicar pendencias
-    [CAIXA_DIAS, CAIXA_CONTAGENS, CAIXA_RESP, CAIXA_CARTAO, CAIXA_PIX, CAIXA_TURNOS, CAIXA_VALID, CAIXA_DIAS_CX] = await Promise.all([
+    [CAIXA_DIAS, CAIXA_CONTAGENS, CAIXA_RESP, CAIXA_CARTAO, CAIXA_PIX, CAIXA_TURNOS, CAIXA_VALID, CAIXA_DIAS_CX, CAIXA_CONF] = await Promise.all([
       consultarTudo('vw_caixa_fechamento_dia?select=*&order=data.desc'),
       consultarTudo('caixa_contagem?select=*&order=data.desc'),
       consultarTudo('caixa_responsaveis?select=email,unidade'),
@@ -13848,6 +13897,8 @@ async function entrarCaixa() {
       consultarTudo('caixa_pendencia_validada?select=*&dia=gte.' + CAIXA_VALID_DESDE()),
       // dinheiro por CAIXA do Saipos (Salao / Delivery) e dia: alimenta o esperado de cada gaveta (10/09/2026)
       consultarTudo('vw_caixa_fechamento_caixa_dia?select=*&order=data.desc'),
+      // carimbo "conferido" por caixa e turno (10/09/2026): quem olhou e quando
+      consultarTudo('caixa_conferencia?select=*&dia=gte.' + CAIXA_VALID_DESDE()),
     ]);
     CAIXA_DIAS_CX.forEach(r => { ['dinheiro_pdv', 'lancado_cofre', 'movimento_book', 'diferenca'].forEach(k => { r[k] = Number(r[k]); }); });
     CAIXA_DIAS.forEach(r => {
@@ -13906,7 +13957,7 @@ async function caixaSalvar(unidade, idBase, caixa) {
 // Filtros do modulo (dono, 09/09/2026: "mais enxuto, com mais filtros"): loja,
 // janela de dias e "so pendencias". Ficam no navegador da pessoa.
 let CAIXA_FILTRO = (() => {
-  const padrao = { loja: '', dias: 15, soPend: false };
+  const padrao = { loja: '', dias: 15, soPend: false, naoConf: false };
   try { return Object.assign(padrao, JSON.parse(localStorage.getItem('caixaFiltro') || '{}')); } catch (e) { return padrao; }
 })();
 function caixaFiltrar(campo, valor) {
@@ -13958,7 +14009,8 @@ function renderModuloCaixa() {
           <th style="${th}">PDV</th><th style="${th}">fechado no Saipos</th><th style="${th}">diferença</th>
           <th style="${th}${sep}">PDV</th><th style="${th}" title="cartão e vale na Rede + PIX QR no banco">confirmado</th><th style="${th}">diferença</th>
           <th style="${th}${sep}">PDV</th><th style="${th}">no banco</th><th style="${th}">sem par</th>
-          <th style="padding:3px 6px; font-weight:normal;">situação</th></tr>`;
+          <th style="padding:3px 6px; font-weight:normal;">situação</th>
+          <th style="padding:3px 6px; font-weight:normal;" title="carimbo de quem conferiu cada caixa do turno">conferido</th></tr>`;
   const btn = (ativo, onclick, rotulo) => `<button class="navbtn ${ativo ? 'active' : ''}" onclick="${onclick}">${rotulo}</button>`;
   const filtros = `<div style="display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin:8px 0 4px;">
     ${btn(!F.loja, "caixaFiltrar('loja','')", 'Todas')}${LOJAS_CAIXA.map(([u, r]) => btn(F.loja === u, `caixaFiltrar('loja','${u}')`, r)).join('')}
@@ -13966,6 +14018,7 @@ function renderModuloCaixa() {
     ${[7, 15, 30, 60].map(n => btn(F.dias === n, `caixaFiltrar('dias',${n})`, n + ' dias')).join('')}
     <span style="width:12px;"></span>
     ${btn(F.soPend, `caixaFiltrar('soPend',${!F.soPend})`, 'só pendências')}
+    ${btn(F.naoConf, `caixaFiltrar('naoConf',${!F.naoConf})`, 'não conferidos')}
   </div>`;
 
   let blocos = '';
@@ -14048,6 +14101,13 @@ function renderModuloCaixa() {
       }
       if (alerta) pend++;
       if (F.soPend && !alerta) return '';
+      // carimbo de conferido por caixa (10/09/2026)
+      const confs = (CAIXA_CONF || []).filter(c => c.unidade === unidade && c.dia === iso);
+      const semMov = !temDinheiro && maqPdv === 0 && maqReal === 0 && chavePdv === 0;
+      const faltaConf = !aberto && !semMov && caixasDaLoja.some(cx => !confs.some(c => c.caixa === cx));
+      if (F.naoConf && !faltaConf) return '';
+      const confHtml = aberto || semMov ? vazio : caixasDaLoja.map(cx => { const c = confs.find(x => x.caixa === cx); const rot = cx === 'SALÃO' ? 'Salão' : 'Delivery';
+        return c ? `<span style="color:#3f9c5a;" title="${String(c.quem || '').split('@')[0]} · ${String(c.conferido_em || '').slice(0, 16).replace('T', ' ')}">${rot} ✔</span>` : `<span style="color:#9aa4af;">${rot} —</span>`; }).join(' · ');
       const aguardHtml = '<span style="color:#9aa4af;" title="PIX: até 6 dias (fim de semana e feriado atrasam); maquininha: a madrugada do turno chega amanhã">aguardando</span>';
       return `<tr style="${cor} cursor:pointer;" onclick="abrirDiaConcartao('${unidade.replace(/'/g, "\\'")}', '${iso}')" title="clique para abrir as transações do dia e o que cada caixa fechou">
         <td style="padding:3px 6px; white-space:nowrap;">${fmtDia(iso)}</td>
@@ -14060,7 +14120,8 @@ function renderModuloCaixa() {
         <td style="${td}${sep}">${num(chavePdv)}</td>
         <td style="${td}">${num(chaveReal)}</td>
         <td style="${td}">${aberto ? vazio : (chaveResto > 0 ? '<b style="color:#ff6b6b;">R$ ' + fmt(chaveResto) + '</b>' : (chaveSem > 0 ? expl(chaveSem) : (chaveAguard > 0 ? aguardHtml : vazio)))}</td>
-        <td style="padding:3px 6px; white-space:nowrap;">${situacao}</td></tr>`;
+        <td style="padding:3px 6px; white-space:nowrap;">${situacao}</td>
+        <td style="padding:3px 6px; white-space:nowrap;">${confHtml}</td></tr>`;
     }).join('');
     pendTotal += pend; semFechTotal += semFech;
 
