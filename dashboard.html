@@ -4617,12 +4617,23 @@ async function abrirDiaConcartao(unidade, dia) {
   // 09/09/2026 (dono): o caixa do Saipos (cashier da venda) diz se o turno fechou.
   // Uma caixinha por caixa, com abertura/fechamento; dia sem esse dado cai na
   // aproximacao antiga por canal (SALAO / DELIVERY).
-  const turnoHtml = !turnos.length ? '' : `<div style="display:flex; flex-wrap:wrap; gap:10px; margin:6px 0 10px;">${turnos.map(t => {
-      const it = [['dinheiro', t.dinheiro], ['cartão', t.cartao], ['vale', t.voucher], ['PIX', t.pix], ['online', t.online], ['outros', t.outros]].filter(([, v]) => +v > 0);
-      const estado = t.fechado === false ? '<b style="color:#ff6b6b;">ABERTO</b> desde ' + hhmmTs(t.aberto_em)
-        : t.fechado === true ? '<span style="color:#3f9c5a;">fechado ' + hhmmTs(t.fechado_em) + '</span>' : '';
-      return `<div style="font-size:12px; padding:6px 10px; border:1px solid ${t.fechado === false ? '#ff6b6b' : '#3a392f'}; border-radius:6px;"><b>${rotuloCaixa(t)}</b> (turno de ${dia.split('-').reverse().slice(0, 2).join('/')})${estado ? ' · ' + estado : ''}: ${it.map(([k, v]) => k + ' ' + reaisCc(v)).join(' · ')} — <b>total ${reaisCc(t.total)}</b></div>`;
-    }).join('')}</div>`;
+  // Caixas do Saipos como TABELA com linhas verticais (dono, 10/09/2026: "separar cada
+  // info por blocos; o bloco dos caixas como tabela").
+  const tdC = 'padding:4px 10px; text-align:right; white-space:nowrap; border-right:1px solid rgba(154,164,175,.25);';
+  const thC = 'padding:3px 10px; font-weight:normal; color:#a5a49a; font-size:11px; text-transform:uppercase; text-align:right; border-right:1px solid rgba(154,164,175,.25); border-bottom:1px solid rgba(154,164,175,.25);';
+  const celC = v => +v > 0 ? reaisCc(v) : '<span style="color:#5f5e54;">—</span>';
+  const turnoHtml = !turnos.length ? '' : `<div style="font-size:11px; color:#a5a49a; text-transform:uppercase; margin:8px 0 2px;">Caixas do Saipos — turno de ${dia.split('-').reverse().slice(0, 2).join('/')}</div>
+    <div style="overflow-x:auto;"><table style="border-collapse:collapse; font-size:12px; border:1px solid rgba(154,164,175,.25);">
+      <tr><th style="${thC} text-align:left;">caixa</th><th style="${thC} text-align:left;">estado</th><th style="${thC}">dinheiro</th><th style="${thC}">cartão</th><th style="${thC}">vale</th><th style="${thC}">PIX</th><th style="${thC}">online</th><th style="${thC}">outros</th><th style="${thC} border-right:0;">total</th></tr>
+      ${turnos.map(t => {
+        const estado = t.fechado === false ? '<b style="color:#ff6b6b;">ABERTO</b> desde ' + hhmmTs(t.aberto_em)
+          : t.fechado === true ? '<span style="color:#3f9c5a;">fechado ' + hhmmTs(t.fechado_em) + '</span>' : '<span style="color:#9aa4af;">—</span>';
+        return `<tr style="border-top:1px solid rgba(154,164,175,.12);">
+          <td style="${tdC} text-align:left;"><b>${rotuloCaixa(t)}</b></td><td style="${tdC} text-align:left;">${estado}</td>
+          <td style="${tdC}">${celC(t.dinheiro)}</td><td style="${tdC}">${celC(t.cartao)}</td><td style="${tdC}">${celC(t.voucher)}</td>
+          <td style="${tdC}">${celC(t.pix)}</td><td style="${tdC}">${celC(t.online)}</td><td style="${tdC}">${celC(t.outros)}</td>
+          <td style="${tdC} border-right:0;"><b>${reaisCc(t.total)}</b></td></tr>`;
+      }).join('')}</table></div>`;
 
   const th = 'padding:4px 8px; font-weight:normal; color:#a5a49a; font-size:11px; text-transform:uppercase; text-align:left;';
   // Tabela UNICA (dono, 10/09/2026: "ainda acho a tabela bagunçada"): um cabecalho so,
@@ -4670,11 +4681,16 @@ async function abrirDiaConcartao(unidade, dia) {
     <td style="padding:4px 8px;">${podeExplicar ? `<button onclick="caixaDesfazer(${p.i})" style="font:inherit; font-size:11px; padding:2px 8px; cursor:pointer;">desfazer</button>` : ''}</td></tr>`;
   cont.innerHTML = `<div class="card" style="margin:14px 0; text-align:left;">
     <div style="font-size:15px; font-weight:700; margin-bottom:6px;">${unidade} — ${dia.split('-').reverse().join('/')}</div>
-    <div style="display:flex; flex-wrap:wrap; gap:6px 18px; font-size:12px; color:#a5a49a; margin-bottom:6px;">
-      <span>Cartão + vale: Saipos ${num(somaS)} · maquininha ${num(somaR)} · diferença ${num(difMaq, Math.abs(difMaq) < 0.01 ? '#7bc47f' : '#f5a623')}${viradaSaipos || viradaRede ? ` <span title="pagamentos que casaram com a véspera ou com a madrugada seguinte — a diferença do dia se resolve no dia vizinho">(na virada do dia: ${viradaSaipos ? reaisCc(viradaSaipos) + ' do Saipos veio da véspera' : ''}${viradaSaipos && viradaRede ? ', ' : ''}${viradaRede ? reaisCc(viradaRede) + ' da maquininha caiu na madrugada seguinte' : ''})</span>` : ''}</span>
-      ${pix.length ? `<span>PIX: Saipos ${num(pixPdv)} · no banco ${num(pixNoBanco, Math.abs(pixPdv - pixNoBanco) < 0.01 ? '#7bc47f' : '#f5a623')}</span>` : ''}
-      <span>${bateram} pagamento(s) bateram sozinhos</span>
-    </div>
+    <div style="overflow-x:auto;"><table style="border-collapse:collapse; font-size:12px; border:1px solid rgba(154,164,175,.25); margin-top:4px;">
+      <tr><th style="${thC} text-align:left;">conferência</th><th style="${thC}">no Saipos</th><th style="${thC}">chegou</th><th style="${thC} border-right:0;">diferença</th></tr>
+      <tr style="border-top:1px solid rgba(154,164,175,.12);"><td style="${tdC} text-align:left;">Cartão + vale <span style="color:#9aa4af;">× maquininha</span></td>
+        <td style="${tdC}">${reaisCc(somaS)}</td><td style="${tdC}">${reaisCc(somaR)}</td>
+        <td style="${tdC} border-right:0; color:${Math.abs(difMaq) < 0.01 ? '#7bc47f' : '#f5a623'};"><b>${reaisCc(difMaq)}</b></td></tr>
+      ${pix.length ? `<tr style="border-top:1px solid rgba(154,164,175,.12);"><td style="${tdC} text-align:left;">PIX <span style="color:#9aa4af;">× banco</span></td>
+        <td style="${tdC}">${reaisCc(pixPdv)}</td><td style="${tdC}">${reaisCc(pixNoBanco)}</td>
+        <td style="${tdC} border-right:0; color:${Math.abs(pixPdv - pixNoBanco) < 0.01 ? '#7bc47f' : '#f5a623'};"><b>${reaisCc(pixPdv - pixNoBanco)}</b></td></tr>` : ''}
+    </table></div>
+    <div style="font-size:12px; color:#a5a49a; margin:4px 0 2px;">${bateram} pagamento(s) bateram sozinhos${viradaSaipos || viradaRede ? ` · na virada do dia: ${viradaSaipos ? reaisCc(viradaSaipos) + ' do Saipos veio da véspera' : ''}${viradaSaipos && viradaRede ? ', ' : ''}${viradaRede ? reaisCc(viradaRede) + ' da maquininha caiu na madrugada seguinte' : ''}` : ''}</div>
     ${turnoHtml}
     ${acionaveis.length ? `<div style="font-size:12px; color:#a5a49a; text-transform:uppercase; margin:10px 0 2px;">Para conferir (${acionaveis.length})${podeExplicar ? ' <span style="text-transform:none; color:#8a897e;">— "explicar" grava o motivo e tira a linha daqui</span>' : ''}</div>
       ${tabela(acionaveis)}`
