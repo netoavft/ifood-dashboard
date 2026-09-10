@@ -9513,7 +9513,9 @@ function trRenderOperacao() {
   // o "balcao" (04/09/2026): quem separa tambem digita pedido que chegou por
   // WhatsApp/papel, escolhendo a filial — a fila continua sendo a tela inicial
   if (papel === 'SEPARACAO') telas.push(['pedido', '📝 Novo pedido']);
-  if (papel === 'FILIAL' || papel === 'DONO') telas.push(['conferencia', '✅ Conferência']);
+  // SEPARACAO ve a Conferencia desde 10/09 (dono: "acesso do compras igual ao
+  // meu") — em consulta: o botao de FECHAR continua so da filial/dono
+  if (papel === 'FILIAL' || papel === 'DONO' || papel === 'SEPARACAO') telas.push(['conferencia', '✅ Conferência']);
   telas.push(['precos', '💰 Tabela de preços']);
   if (papel === 'SEPARACAO' || papel === 'DONO') telas.push(['fechamento', '🧾 Fechamento do mês']);
   telas.push(['contas', '💳 Contas a pagar']);
@@ -10087,26 +10089,49 @@ async function trVerFinalizada(id) {
     </table></div>`;
 }
 
+// A conferencia fala a LINGUA DO PEDIDO (dono, 10/09/2026): item com
+// embalagem confere em caixas/potes — quem confere CONTA, nao pesa. O banco
+// segue guardando na unidade de controle (kg/un): a conversao e na tela.
+// Item com DUAS embalagens (pernil) fica em kg — nao da para saber o mix.
 async function trAbrirConferencia(id) {
   const alvo = document.getElementById('trTelaConteudo');
-  const ri = await trFetch(`tr_lista_itens?id_lista=eq.${id}&order=item&select=id,item,un_medida,qtd_separada,qtd_recebida,avulso,observacao,editado`);
+  const [rl, ri] = await Promise.all([
+    trFetch(`tr_listas?id=eq.${id}&select=id,unidade`),
+    trFetch(`tr_lista_itens?id_lista=eq.${id}&order=item&select=id,item,un_medida,qtd_separada,qtd_recebida,avulso,observacao,editado`),
+  ]);
+  const lista = (await rl.json())[0] || {};
   const itens = await ri.json();
+  const rc = await trFetch(`vw_tr_itens_pedido?unidade=eq.${encodeURIComponent(lista.unidade || '')}&select=item,un_medida,emb_nome,emb_fator,emb2_fator`);
+  const cat = {};
+  if (rc.ok) (await rc.json()).forEach(x => { cat[x.item] = x; });
+  const arred = (x) => Math.round(x * 100) / 100;
+  itens.forEach(i => {
+    const cx = cat[i.item];
+    i._desc = cx && cx.emb_fator ? cx.emb_nome + ' de ' + trEmbDesc(cx) : null;
+    i._fator = cx && cx.emb_fator && !cx.emb2_fator ? Number(cx.emb_fator) : null;
+    i._emb = i._fator ? cx.emb_nome : null;
+  });
   window._trItensConf = itens;
   alvo.innerHTML = `
     <div class="caption-label"><button class="preset-btn" onclick="trListaAberta=null; trTelaConferencia();">← listas</button>
-      Conferência da lista <b>#${id}</b> — o campo vem preenchido com o separado; <b>corrija o que veio diferente</b>.</div>
+      Conferência da lista <b>#${id}</b> — o campo vem preenchido com o separado; <b>corrija o que veio diferente</b>.
+      Item com embalagem confere em <b>caixas/potes/pacotes</b>, como foi pedido.</div>
     <div id="tabelaTrOpConf"><table>
       <tr><th>Item</th><th>Separado</th><th>Recebido</th></tr>
-      ${itens.map((i, idx) => `<tr><td>${i.item} <span class="dre-av">${i.un_medida || ''}</span>${i.avulso ? ' <span class="tr-tag">🆕 fora da grade</span>' : ''}${i.observacao ? ` <span class="tr-tag">${i.observacao}</span>` : ''}${i.editado ? ' <span class="tr-tag">✏️ editado</span>' : ''}</td>
-        <td>${Number(i.qtd_separada || 0)}</td>
-        <td><input type="number" min="0" step="any" id="trc_${idx}" class="trc-in" value="${i.qtd_recebida ?? i.qtd_separada ?? 0}"
-          style="width:80px; text-align:right;"></td></tr>`).join('')}
+      ${itens.map((i, idx) => `<tr><td>${i.item} <span class="dre-av">${i.un_medida || ''}</span>${i._desc ? ` <span class="tr-det">(${i._desc})</span>` : ''}${i.avulso ? ' <span class="tr-tag">🆕 fora da grade</span>' : ''}${i.observacao ? ` <span class="tr-tag">${i.observacao}</span>` : ''}${i.editado ? ' <span class="tr-tag">✏️ editado</span>' : ''}</td>
+        <td>${i._fator
+          ? `${arred(Number(i.qtd_separada || 0) / i._fator)} ${i._emb}(s) <span class="tr-det">= ${Number(i.qtd_separada || 0)} ${(i.un_medida || '').toLowerCase()}</span>`
+          : Number(i.qtd_separada || 0)}</td>
+        <td><input type="number" min="0" step="any" id="trc_${idx}" class="trc-in"
+          value="${i._fator ? arred(Number(i.qtd_recebida ?? i.qtd_separada ?? 0) / i._fator) : (i.qtd_recebida ?? i.qtd_separada ?? 0)}"
+          style="width:80px; text-align:right;">${i._fator ? ` <span class="tr-det">${i._emb}s</span>` : ''}</td></tr>`).join('')}
     </table></div>
-    <div style="margin-top:12px;">
+    ${TR_OP.papel === 'SEPARACAO' ? `<div class="caption-label">Consulta da separação — quem registra o recebimento
+      e fecha a lista é a filial que recebeu.</div>` : `<div style="margin-top:12px;">
       <label style="font-size:12.5px;"><input type="checkbox" id="trConfOk"> Conferi item a item, quantidade por quantidade</label><br>
       <button class="preset-btn" style="margin-top:8px;" onclick="trFecharConferencia(${id})">Registrar recebimento e fechar a lista</button>
       <span id="trConfMsg" style="font-size:12px; margin-left:8px;"></span>
-    </div>`;
+    </div>`}`;
 }
 
 async function trFecharConferencia(id) {
@@ -10118,7 +10143,9 @@ async function trFecharConferencia(id) {
   const rs = await trFetch(`tr_listas?id=eq.${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'RECEBIDA' }) });
   if (!rs.ok) { msg.textContent = 'Não deu: ' + await trErroDe(rs); msg.style.color = '#ff6b6b'; return; }
   for (const [idx, i] of (window._trItensConf || []).entries()) {
-    const v = Number(document.getElementById('trc_' + idx).value || 0);
+    const bruto = Number(document.getElementById('trc_' + idx).value || 0);
+    // campo em embalagens -> grava convertido na unidade de controle
+    const v = i._fator ? Math.round(bruto * i._fator * 1000) / 1000 : bruto;
     const r = await trFetch(`tr_lista_itens?id=eq.${i.id}`, { method: 'PATCH', body: JSON.stringify({ qtd_recebida: v }) });
     if (!r.ok) { msg.textContent = `Item ${i.item}: ` + await trErroDe(r); msg.style.color = '#ff6b6b'; return; }
   }
