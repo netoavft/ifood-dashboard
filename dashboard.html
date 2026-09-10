@@ -4406,7 +4406,7 @@ let CAIXA_DRILL_DADOS = null;
 function caixaDrillFiltro(cx) {
   CAIXA_DRILL_CX = cx;
   const d = CAIXA_DRILL_DADOS;
-  if (d) renderDiaConcartao(d.unidade, d.dia, d.trs, d.pix, d.cobr, d.forma);
+  if (d) renderDiaConcartao(d.unidade, d.dia, d.trs, d.pix, d.cobr, d.forma, d.descs);
 }
 async function abrirDiaConcartao(unidade, dia) {
   const cont = document.getElementById('concartao-dia');
@@ -4416,7 +4416,7 @@ async function abrirDiaConcartao(unidade, dia) {
   // comanda fechada 00:29 nao pode aparecer sem par nos dois dias — dono, 09/09/2026);
   // so as linhas do proprio dia sao mostradas.
   const diaMais = k => { const x = new Date(dia + 'T12:00:00'); x.setDate(x.getDate() + k); return x.toLocaleDateString('en-CA'); };
-  const [trs, pix, cobr, forma] = await Promise.all([
+  const [trs, pix, cobr, forma, descs] = await Promise.all([
     consultarTudo('vw_cartao_transacoes?select=*&dia=in.(' + [diaMais(-1), dia, diaMais(1)].join(',') + ')' +
       '&unidade=eq.' + encodeURIComponent(unidade) + '&order=dia,hora'),
     // PIX do dia (09/09/2026): QR da maquininha e chave, com o credito do banco que casou
@@ -4428,11 +4428,13 @@ async function abrirDiaConcartao(unidade, dia) {
     // forma registrada no PDV diferente da que passou (absorvida pela base; aqui so informa)
     consultarTudo('vw_cartao_bandeira_divergente?select=hora,registrado,passou,valor,nivel&dia=eq.' + dia +
       '&unidade=eq.' + encodeURIComponent(unidade) + '&order=hora'),
+    // descontos MANUAIS do turno (salao e balcao) — a API diz valor e motivo, nao quem liberou (10/09/2026)
+    consultarTudo('vw_descontos_dia?select=*&dia=eq.' + dia + '&unidade=eq.' + encodeURIComponent(unidade) + '&order=hora'),
   ]);
-  CAIXA_DRILL_DADOS = { unidade, dia, trs, pix, cobr, forma };
-  renderDiaConcartao(unidade, dia, trs, pix, cobr, forma);
+  CAIXA_DRILL_DADOS = { unidade, dia, trs, pix, cobr, forma, descs };
+  renderDiaConcartao(unidade, dia, trs, pix, cobr, forma, descs);
 }
-function renderDiaConcartao(unidade, dia, trs, pix, cobr, forma) {
+function renderDiaConcartao(unidade, dia, trs, pix, cobr, forma, descs) {
   const cont = document.getElementById('concartao-dia');
   if (!cont) return;
   const reaisCc = v => 'R$ ' + Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -4737,6 +4739,18 @@ function renderDiaConcartao(unidade, dia, trs, pix, cobr, forma) {
     </table></div>
     <div style="font-size:12px; color:#a5a49a; margin:4px 0 2px;">${bateram} pagamento(s) bateram sozinhos${viradaSaipos || viradaRede ? ` · na virada do dia: ${viradaSaipos ? reaisCc(viradaSaipos) + ' do Saipos veio da véspera' : ''}${viradaSaipos && viradaRede ? ', ' : ''}${viradaRede ? reaisCc(viradaRede) + ' da maquininha caiu na madrugada seguinte' : ''}` : ''}</div>
     ${turnoHtml}
+    ${(() => { const lst = (descs || []).filter(x => !CAIXA_DRILL_CX || !x.caixa || x.caixa === CAIXA_DRILL_CX); if (!lst.length) return '';
+      const tot = lst.reduce((a, x) => a + +x.desconto, 0), semMotivo = lst.filter(x => !x.motivo && !x.cupom).length;
+      return `<div style="font-size:11px; color:#a5a49a; text-transform:uppercase; margin:8px 0 2px;">Descontos manuais no salão e balcão — ${lst.length}, ${reaisCc(tot)}${semMotivo ? ` · <span style="color:#f5a623;">${semMotivo} sem motivo</span>` : ''}</div>
+      <div style="overflow-x:auto;"><table style="border-collapse:collapse; font-size:12px; border:1px solid rgba(154,164,175,.25);">
+        <tr><th style="${thC} text-align:left;">hora</th><th style="${thC} text-align:left;">venda</th><th style="${thC}">conta</th><th style="${thC}">desconto</th><th style="${thC}">%</th><th style="${thC} text-align:left; border-right:0;">motivo no Saipos</th></tr>
+        ${lst.map(x => `<tr style="border-top:1px solid rgba(154,164,175,.12);">
+          <td style="${tdC} text-align:left;">${String(x.hora || '').slice(11, 16)}</td>
+          <td style="${tdC} text-align:left;">${x.numero ? 'venda ' + x.numero : x.mesa ? 'mesa ' + x.mesa : 'salão'}</td>
+          <td style="${tdC}">${reaisCc(+x.total + +x.desconto)}</td>
+          <td style="${tdC}"><b>${reaisCc(x.desconto)}</b></td>
+          <td style="${tdC}">${x.pct === null ? '—' : String(x.pct).replace('.', ',') + '%'}</td>
+          <td style="${tdC} text-align:left; border-right:0; ${x.motivo || x.cupom ? '' : 'color:#f5a623;'}">${x.motivo || (x.cupom ? 'cupom ' + x.cupom : 'sem motivo — perguntar ao turno quem liberou')}</td></tr>`).join('')}</table></div>`; })()}
     ${caixa(`Para conferir (${acionaveis.length})`, acionaveis.length ? '#ff6b6b' : '#3f9c5a',
       (acionaveis.length
         ? `${podeExplicar ? '<div style="font-size:11px; color:#8a897e; margin-bottom:6px;">"explicar" grava o motivo e move a linha para "explicadas", no bloco de baixo.</div>' : ''}${tabela(acionaveis)}`
