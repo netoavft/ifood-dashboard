@@ -4635,11 +4635,10 @@ async function abrirDiaConcartao(unidade, dia) {
           <td style="${tdC} border-right:0;"><b>${reaisCc(t.total)}</b></td></tr>`;
       }).join('')}</table></div>`;
 
-  const th = 'padding:4px 8px; font-weight:normal; color:#a5a49a; font-size:11px; text-transform:uppercase; text-align:left;';
-  // Tabela UNICA (dono, 10/09/2026: "ainda acho a tabela bagunçada"): um cabecalho so,
-  // texto neutro alinhado a esquerda, a cor do grupo fica na borda; "venda/mesa" e
-  // "motoboy" ganham coluna propria; "o que parece" vira a linha de baixo de "o que
-  // fazer"; o grupo "deve se resolver sozinho" sai da frente (recolhido).
+  // Blocos por ACAO (dono, 10/09/2026: "a pessoa nao consegue identificar cada coluna;
+  // separar melhor o PARA CONFERIR do restante"): duas caixas com moldura — "Para
+  // conferir" (pede acao) e "Ja tratado ou aguardando" (explicadas, resolve sozinho,
+  // absorvido, bateram) — e TODAS as tabelas com linhas verticais entre as colunas.
   const GRUPOS_PEND = [
     { id: 'saipos', cor: '#ff6b6b', titulo: 'O Saipos registrou, mas a maquininha ou o banco não tem', sub: 'dinheiro que pode não ter entrado, ou vale ainda por aparecer' },
     { id: 'maquina', cor: '#f5a623', titulo: 'A maquininha tem, mas o Saipos não registrou', sub: 'venda sem registro no Saipos, ou lançada em outra forma' },
@@ -4658,27 +4657,48 @@ async function abrirDiaConcartao(unidade, dia) {
     return { venda, moto: motoN, forma, entrega, deDia };
   };
   const btnExp = x => podeExplicar ? `<button onclick="caixaExplicar(${x.i})" style="font:inherit; font-size:11px; padding:2px 8px; cursor:pointer;">explicar</button>` : '';
-  const tdb = 'padding:6px 8px; text-align:left; vertical-align:top;';
+  // celulas com linha vertical a direita (a ultima sem)
+  const thL = 'padding:4px 8px; font-weight:normal; color:#a5a49a; font-size:11px; text-transform:uppercase; text-align:left; border-right:1px solid rgba(154,164,175,.25); border-bottom:1px solid rgba(154,164,175,.25); white-space:nowrap;';
+  const tdL = 'padding:6px 8px; text-align:left; vertical-align:top; border-right:1px solid rgba(154,164,175,.25);';
+  const tabelaCss = 'border-collapse:collapse; font-size:12px; width:100%; text-align:left; border:1px solid rgba(154,164,175,.25);';
+  const caixa = (titulo, cor, corpo) => `<div style="border:1px solid rgba(154,164,175,.25); border-radius:6px; padding:8px 10px; margin-top:12px;">
+    <div style="font-size:12px; text-transform:uppercase; font-weight:600; color:${cor}; margin-bottom:6px;">${titulo}</div>${corpo}</div>`;
+  const vendaCel = q => `${q.venda || '—'}${q.deDia ? `<div style="font-size:11px; color:#f5a623;" title="a venda é de outro dia; o pagamento foi lançado neste">venda ${q.deDia}</div>` : ''}${q.moto ? `<div style="font-size:11px;">🛵 ${q.moto}</div>` : (q.entrega ? '<div style="font-size:11px;">entrega</div>' : '')}`;
   const linhaP = (p, g) => { const q = partes(p); return `<tr style="border-top:1px solid rgba(154,164,175,.12);">
-    <td style="${tdb} white-space:nowrap; border-left:3px solid ${g.cor};">${p.hora}</td>
-    <td style="${tdb} white-space:nowrap; color:#a5a49a;">${q.venda || '—'}${q.deDia ? `<div style="font-size:11px; color:#f5a623;" title="a venda é de outro dia; o pagamento foi lançado neste">venda ${q.deDia}</div>` : ''}${q.moto ? `<div style="font-size:11px;">🛵 ${q.moto}</div>` : (q.entrega ? '<div style="font-size:11px;">entrega</div>' : '')}</td>
-    <td style="${tdb}">${q.forma}</td>
-    <td style="${tdb}">${p.real}</td>
-    <td style="${tdb} text-align:right; white-space:nowrap; font-weight:600;">${reaisCc(p.valor)}</td>
-    <td style="${tdb}">${p.acao}<div style="font-size:11px; color:#8a897e;">${p.leitura}</div></td>
-    <td style="${tdb}">${btnExp(p)}</td></tr>`; };
-  const secao = (g, n) => `<tr><td colspan="7" style="padding:12px 8px 4px; text-align:left; font-weight:600; color:${g.cor};">${g.titulo} (${n}) <span style="font-weight:normal; color:#8a897e; font-size:11px;">— ${g.sub}</span></td></tr>`;
-  const tabela = lst => `<div style="overflow-x:auto;"><table style="border-collapse:collapse; font-size:12px; width:100%; min-width:820px; text-align:left;">
-        <tr><th style="${th}">hora</th><th style="${th}">venda</th><th style="${th}">o Saipos diz</th><th style="${th}">a maquininha / o banco diz</th><th style="${th} text-align:right;">valor</th><th style="${th}">o que fazer</th><th></th></tr>
+    <td style="${tdL} white-space:nowrap; border-left:3px solid ${g.cor};">${p.hora}</td>
+    <td style="${tdL} white-space:nowrap; color:#a5a49a;">${vendaCel(q)}</td>
+    <td style="${tdL}">${q.forma}</td>
+    <td style="${tdL}">${p.real}</td>
+    <td style="${tdL} text-align:right; white-space:nowrap; font-weight:600;">${reaisCc(p.valor)}</td>
+    <td style="${tdL}">${p.acao}<div style="font-size:11px; color:#8a897e;">${p.leitura}</div></td>
+    <td style="${tdL} border-right:0; white-space:nowrap;">${btnExp(p)}</td></tr>`; };
+  const secao = (g, n) => `<tr><td colspan="7" style="padding:10px 8px 4px; text-align:left; font-weight:600; color:${g.cor}; background:rgba(154,164,175,.06);">${g.titulo} (${n}) <span style="font-weight:normal; color:#8a897e; font-size:11px;">— ${g.sub}</span></td></tr>`;
+  const cabP = `<tr><th style="${thL}">hora</th><th style="${thL}">venda</th><th style="${thL}">o Saipos diz</th><th style="${thL}">a maquininha / o banco diz</th><th style="${thL} text-align:right;">valor</th><th style="${thL}">o que fazer</th><th style="${thL} border-right:0;"></th></tr>`;
+  const tabela = lst => `<div style="overflow-x:auto;"><table style="${tabelaCss} min-width:820px;">${cabP}
         ${GRUPOS_PEND.map(g => { const l = lst.filter(x => grupoDe(x) === g.id); return !l.length ? '' : secao(g, l.length) + l.map(x => linhaP(x, g)).join(''); }).join('')}</table></div>`;
   const acionaveis = abertas.filter(x => grupoDe(x) !== 'auto'), autos = abertas.filter(x => grupoDe(x) === 'auto');
-  const linhaE = p => `<tr style="color:#8a897e; border-top:1px solid rgba(154,164,175,.12);">
-    <td style="padding:4px 8px; white-space:nowrap;">${p.hora}</td>
-    <td style="padding:4px 8px;">${p.saipos} × ${p.real}</td>
-    <td style="padding:4px 8px; text-align:right; white-space:nowrap;">${reaisCc(p.valor)}</td>
-    <td style="padding:4px 8px; color:#e8e6dc;">${p.v.motivo}</td>
-    <td style="padding:4px 8px; white-space:nowrap;">${String(p.v.quem || '').split('@')[0]} · ${String(p.v.validado_em || '').slice(0, 10).split('-').reverse().slice(0, 2).join('/')}</td>
-    <td style="padding:4px 8px;">${podeExplicar ? `<button onclick="caixaDesfazer(${p.i})" style="font:inherit; font-size:11px; padding:2px 8px; cursor:pointer;">desfazer</button>` : ''}</td></tr>`;
+  const linhaE = p => { const q = partes(p); return `<tr style="border-top:1px solid rgba(154,164,175,.12); color:#a5a49a;">
+    <td style="${tdL} white-space:nowrap;">${p.hora}</td>
+    <td style="${tdL} white-space:nowrap;">${vendaCel(q)}</td>
+    <td style="${tdL}">${q.forma}</td>
+    <td style="${tdL}">${p.real}</td>
+    <td style="${tdL} text-align:right; white-space:nowrap;">${reaisCc(p.valor)}</td>
+    <td style="${tdL} color:#e8e6dc;">${p.v.motivo}</td>
+    <td style="${tdL} white-space:nowrap;">${String(p.v.quem || '').split('@')[0]} · ${String(p.v.validado_em || '').slice(0, 10).split('-').reverse().slice(0, 2).join('/')}</td>
+    <td style="${tdL} border-right:0; white-space:nowrap;">${podeExplicar ? `<button onclick="caixaDesfazer(${p.i})" style="font:inherit; font-size:11px; padding:2px 8px; cursor:pointer;">desfazer</button>` : ''}</td></tr>`; };
+  const cabE = `<tr><th style="${thL}">hora</th><th style="${thL}">venda</th><th style="${thL}">o Saipos diz</th><th style="${thL}">a maquininha / o banco diz</th><th style="${thL} text-align:right;">valor</th><th style="${thL}">motivo</th><th style="${thL}">quem</th><th style="${thL} border-right:0;"></th></tr>`;
+  const resumoDet = (n, rotulo) => `<summary style="cursor:pointer; font-size:12px; color:#a5a49a; padding:4px 0;">${rotulo} <b style="color:#e8e6dc;">(${n})</b></summary>`;
+  const blocoResto = [
+    autos.length ? `<details style="margin-top:4px;">${resumoDet(autos.length, 'Deve se resolver sozinho — madrugada, PIX de fim de semana, horários distantes')}${tabela(autos)}</details>` : '',
+    explicadas.length ? `<details open style="margin-top:4px;">${resumoDet(explicadas.length, 'Explicadas')}
+      <div style="overflow-x:auto;"><table style="${tabelaCss} min-width:820px;">${cabE}${explicadas.map(linhaE).join('')}</table></div></details>` : '',
+    resolvidos.length ? `<details style="margin-top:4px;">${resumoDet(resolvidos.length, 'Absorvido pelo painel — conta dividida, centavos e forma diferente da registrada')}
+      <div style="overflow-x:auto;"><table style="${tabelaCss}"><tr><th style="${thL}">hora</th><th style="${thL}">o que</th><th style="${thL} border-right:0;">detalhe</th></tr>
+        ${resolvidos.map(r => `<tr style="border-top:1px solid rgba(154,164,175,.12); color:#a5a49a;"><td style="${tdL} white-space:nowrap;">${r.hora}</td><td style="${tdL} white-space:nowrap;">${r.tipo}</td><td style="${tdL} border-right:0;">${r.texto}</td></tr>`).join('')}</table></div></details>` : '',
+    casados.length ? `<details style="margin-top:4px;">${resumoDet(casados.length, 'Pagamentos de cartão/vale que bateram')}
+      <div style="overflow-x:auto;"><table style="${tabelaCss}"><tr><th style="${thL}">hora</th><th style="${thL}">venda</th><th style="${thL}">o Saipos diz</th><th style="${thL}">a maquininha diz</th><th style="${thL} border-right:0; text-align:right;">valor</th></tr>
+        ${casados.map(s => `<tr style="border-top:1px solid rgba(154,164,175,.12); color:#8a897e;"><td style="${tdL} white-space:nowrap;">${hhmm(s.hora)}</td><td style="${tdL} white-space:nowrap;">${rotVenda(s)}</td><td style="${tdL}">${limpa(s.detalhe)}</td><td style="${tdL}">${limpa(s.par.detalhe)} às ${hhmm(s.par.hora)}</td><td style="${tdL} border-right:0; text-align:right; white-space:nowrap;">${reaisCc(s.valor)}</td></tr>`).join('')}</table></div></details>` : '',
+  ].filter(Boolean).join('');
   cont.innerHTML = `<div class="card" style="margin:14px 0; text-align:left;">
     <div style="font-size:15px; font-weight:700; margin-bottom:6px;">${unidade} — ${dia.split('-').reverse().join('/')}</div>
     <div style="overflow-x:auto;"><table style="border-collapse:collapse; font-size:12px; border:1px solid rgba(154,164,175,.25); margin-top:4px;">
@@ -4692,18 +4712,11 @@ async function abrirDiaConcartao(unidade, dia) {
     </table></div>
     <div style="font-size:12px; color:#a5a49a; margin:4px 0 2px;">${bateram} pagamento(s) bateram sozinhos${viradaSaipos || viradaRede ? ` · na virada do dia: ${viradaSaipos ? reaisCc(viradaSaipos) + ' do Saipos veio da véspera' : ''}${viradaSaipos && viradaRede ? ', ' : ''}${viradaRede ? reaisCc(viradaRede) + ' da maquininha caiu na madrugada seguinte' : ''}` : ''}</div>
     ${turnoHtml}
-    ${acionaveis.length ? `<div style="font-size:12px; color:#a5a49a; text-transform:uppercase; margin:10px 0 2px;">Para conferir (${acionaveis.length})${podeExplicar ? ' <span style="text-transform:none; color:#8a897e;">— "explicar" grava o motivo e tira a linha daqui</span>' : ''}</div>
-      ${tabela(acionaveis)}`
-      : `<div style="color:#7bc47f; margin:10px 0;">✔ Nada para conferir neste dia${explicadas.length ? ` — ${explicadas.length} pendência(s) explicada(s)` : ''}${autos.length ? ` (${autos.length} que devem se resolver sozinhas, abaixo)` : ''}.</div>`}
-    ${autos.length ? `<details style="margin-top:8px;"><summary style="cursor:pointer; font-size:12px; color:#a5a49a;">${autos.length} que devem se resolver sozinha(s) — madrugada, PIX de fim de semana, horários distantes</summary>${tabela(autos)}</details>` : ''}
-    ${explicadas.length ? `<details open style="margin-top:10px;"><summary style="cursor:pointer; font-size:12px; color:#a5a49a;">Explicadas (${explicadas.length})</summary>
-      <div style="overflow-x:auto;"><table style="border-collapse:collapse; font-size:12px; width:100%;">
-        <tr><th style="${th}">hora</th><th style="${th}">o que era</th><th style="${th} text-align:right;">valor</th><th style="${th}">motivo</th><th style="${th}">quem</th><th></th></tr>
-        ${explicadas.map(linhaE).join('')}</table></div></details>` : ''}
-    ${resolvidos.length ? `<details style="margin-top:10px;"><summary style="cursor:pointer; font-size:12px; color:#a5a49a;">Absorvido pelo painel (${resolvidos.length}): conta dividida, centavos e forma diferente da registrada</summary>
-      ${resolvidos.map(r => `<div style="font-size:12px; padding:2px 8px; color:#8a897e;">${r.hora} · ${r.tipo}: ${r.texto}</div>`).join('')}</details>` : ''}
-    ${casados.length ? `<details style="margin-top:6px;"><summary style="cursor:pointer; font-size:12px; color:#a5a49a;">Ver ${casados.length} pagamento(s) de cartão/vale que bateram</summary>
-      <table style="border-collapse:collapse; font-size:12px;">${casados.map(s => `<tr style="color:#5f5e54;"><td style="padding:2px 8px;">${hhmm(s.hora)}</td><td style="padding:2px 8px;">${limpa(s.detalhe)} · ${rotVenda(s)}</td><td style="padding:2px 8px;">${limpa(s.par.detalhe)} às ${hhmm(s.par.hora)}</td><td style="padding:2px 8px; text-align:right;">${reaisCc(s.valor)}</td></tr>`).join('')}</table></details>` : ''}
+    ${caixa(`Para conferir (${acionaveis.length})`, acionaveis.length ? '#ff6b6b' : '#3f9c5a',
+      acionaveis.length
+        ? `${podeExplicar ? '<div style="font-size:11px; color:#8a897e; margin-bottom:6px;">"explicar" grava o motivo e move a linha para "explicadas", no bloco de baixo.</div>' : ''}${tabela(acionaveis)}`
+        : `<div style="color:#7bc47f;">✔ Nada para conferir neste dia${explicadas.length ? ` — ${explicadas.length} pendência(s) explicada(s)` : ''}${autos.length ? ` (${autos.length} que devem se resolver sozinhas, no bloco de baixo)` : ''}.</div>`)}
+    ${blocoResto ? caixa('Já tratado ou aguardando', '#9aa4af', blocoResto) : ''}
   </div>`;
   cont.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
