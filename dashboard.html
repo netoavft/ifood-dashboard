@@ -13753,7 +13753,7 @@ function renderModuloDespesas() {
 // PC) vem depois. Serie comeca em 01/08/2026 (antes nao ha coluna dinheiro).
 // ------------------------------------------------------------------
 let CAIXA_DIAS = null, CAIXA_CONTAGENS = null, CAIXA_RESP = null;
-let CAIXA_CARTAO = null, CAIXA_PIX = null, CAIXA_TURNOS = null, CAIXA_VALID = null;
+let CAIXA_CARTAO = null, CAIXA_PIX = null, CAIXA_TURNOS = null, CAIXA_VALID = null, CAIXA_DIAS_CX = null;
 
 // FECHAMENTO DE CAIXAS (09/09/2026) — modulo unico, decisao do dono: absorveu
 // "Cartao & maquininha" (taxas/aluguel, secao no fim da tela) e "Conciliacao de
@@ -13767,7 +13767,7 @@ async function entrarCaixa() {
   if (CAIXA_DIAS === null) {
     alvo.innerHTML = '<div class="contexto">Carregando fechamento de caixas (PDV × gaveta × maquininhas × banco)...</div>';
     await carregarEmailDono();   // o dono tambem pode explicar pendencias
-    [CAIXA_DIAS, CAIXA_CONTAGENS, CAIXA_RESP, CAIXA_CARTAO, CAIXA_PIX, CAIXA_TURNOS, CAIXA_VALID] = await Promise.all([
+    [CAIXA_DIAS, CAIXA_CONTAGENS, CAIXA_RESP, CAIXA_CARTAO, CAIXA_PIX, CAIXA_TURNOS, CAIXA_VALID, CAIXA_DIAS_CX] = await Promise.all([
       consultarTudo('vw_caixa_fechamento_dia?select=*&order=data.desc'),
       consultarTudo('caixa_contagem?select=*&order=data.desc'),
       consultarTudo('caixa_responsaveis?select=email,unidade'),
@@ -13778,13 +13778,16 @@ async function entrarCaixa() {
       consultarTudo('vw_fechamento_caixa_turno?select=*&dia=gte.2026-08-01&order=dia'),
       // memoria de validacao (09/09/2026): pendencias explicadas por quem confere
       consultarTudo('caixa_pendencia_validada?select=*&dia=gte.' + CAIXA_VALID_DESDE()),
+      // dinheiro por CAIXA do Saipos (Salao / Delivery) e dia: alimenta o esperado de cada gaveta (10/09/2026)
+      consultarTudo('vw_caixa_fechamento_caixa_dia?select=*&order=data.desc'),
     ]);
+    CAIXA_DIAS_CX.forEach(r => { ['dinheiro_pdv', 'lancado_cofre', 'movimento_book', 'diferenca'].forEach(k => { r[k] = Number(r[k]); }); });
     CAIXA_DIAS.forEach(r => {
       r.dinheiro_pdv = Number(r.dinheiro_pdv); r.lancado_cofre = Number(r.lancado_cofre);
       r.diferenca = Number(r.diferenca); r.quebra_registrada = Number(r.quebra_registrada);
       r.saidas_cofre = Number(r.saidas_cofre); r.movimento_book = Number(r.movimento_book);
     });
-    CAIXA_CONTAGENS.forEach(c => { c.contado = Number(c.contado); c.troco = (c.troco === null || c.troco === undefined) ? null : Number(c.troco); });
+    CAIXA_CONTAGENS.forEach(c => { c.contado = Number(c.contado); c.troco = (c.troco === null || c.troco === undefined) ? null : Number(c.troco); c.caixa = c.caixa || 'SALÃO'; });
     CAIXA_CARTAO.forEach(r => { ['saipos', 'rede', 'diferenca', 'saldo_acumulado', 'saipos_madrugada'].forEach(k => { r[k] = Number(r[k]); }); });
     CAIXA_PIX.forEach(r => { ['pdv', 'recebido', 'sem_par', 'aguardando', 'pdv_qr', 'recebido_qr', 'sem_par_qr', 'aguardando_qr',
                               'pdv_chave', 'recebido_chave', 'sem_par_chave', 'aguardando_chave'].forEach(k => { r[k] = Number(r[k]); }); });
@@ -13796,7 +13799,11 @@ async function entrarCaixa() {
 // errada se corrige por cima, nunca se apaga. A policy do banco confere o
 // e-mail do JWT contra caixa_responsaveis — o painel só esconde o formulário,
 // quem manda é o banco.
-async function caixaSalvar(unidade, idBase) {
+// 10/09/2026 (dono: "os caixas sobem separados"): uma contagem por CAIXA do Saipos —
+// SALÃO e DELIVERY — cada uma com seu enviado + troco. O delivery abre com R$ 0,01
+// (o Saipos nao deixa abrir zerado), por isso o troco dele vem preenchido com 0,01.
+async function caixaSalvar(unidade, idBase, caixa) {
+  caixa = caixa || 'SALÃO';
   const dia = document.getElementById(idBase + 'Data').value;
   const valor = document.getElementById(idBase + 'Valor').value;
   const troco = document.getElementById(idBase + 'Troco').value;
@@ -13812,10 +13819,10 @@ async function caixaSalvar(unidade, idBase) {
   const bt = document.getElementById(idBase + 'Btn');
   bt.disabled = true; bt.textContent = 'salvando...';
   try {
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/caixa_contagem?on_conflict=unidade,data`, {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/caixa_contagem?on_conflict=unidade,data,caixa`, {
       method: 'POST',
       headers: rmbHeaders({ Prefer: 'resolution=merge-duplicates' }),
-      body: JSON.stringify({ unidade, data: dia, contado: Math.round((Number(valor) + Number(troco)) * 100) / 100, troco: Number(troco),
+      body: JSON.stringify({ unidade, data: dia, caixa, contado: Math.round((Number(valor) + Number(troco)) * 100) / 100, troco: Number(troco),
                              observacao: obs || null, quem: s.email,
                              atualizado_em: new Date().toISOString() }),
     });
@@ -13902,24 +13909,29 @@ function renderModuloCaixa() {
     const diasLoja = CAIXA_DIAS.filter(r => r.unidade === unidade);
     diasLoja.forEach(r => { porDia[r.data] = r; });
 
-    // Contagens da gaveta (passo 2, 28/08/2026). O esperado de cada contagem é:
-    // contado_anterior + Σ(movimento do livro − frente de caixa do livro +
-    // dinheiro real do PDV) no intervalo — âncora na CONTAGEM anterior, como o
-    // OFX ancora o Fluxo Projetado; a primeira contagem é o ponto de partida.
-    const conts = CAIXA_CONTAGENS.filter(c => c.unidade === unidade)
-      .slice().sort((a, b) => (a.data < b.data ? -1 : 1));
-    const movEntre = (d1, d2) => diasLoja.filter(r => r.data > d1 && r.data <= d2)
-      .reduce((s, r) => s + r.movimento_book - r.lancado_cofre + r.dinheiro_pdv, 0);
-    conts.forEach((c, i) => {
-      if (i === 0) { c.esperado = null; c.quebra = null; return; }
-      const ant = conts[i - 1];
-      // troco (dono, 10/09/2026): o contado = enviado + troco que ficou na gaveta, ou
-      // seja, TODO o dinheiro da loja. Mudanca de troco NAO ajusta o esperado: se o
-      // troco caiu porque pagaram algo pela gaveta, o lancamento no Saipos (saida do
-      // Cofre) ja baixa o esperado — somar a variacao do troco contaria duas vezes.
-      c.esperado = Math.round((ant.contado + movEntre(ant.data, c.data)) * 100) / 100;
-      c.quebra = Math.round((c.contado - c.esperado) * 100) / 100;
-    });
+    // Contagens POR CAIXA (dono, 10/09/2026: "os caixas sobem separados"). O esperado de
+    // cada contagem é: contado_anterior do MESMO caixa + Σ(movimento do livro − frente de
+    // caixa do livro + dinheiro real do PDV) daquele caixa no intervalo — âncora na
+    // contagem anterior; a primeira contagem é o ponto de partida. No cofre só receitas e
+    // diferença de caixa vêm marcadas por caixa; as saídas sem caixa caem no Salão.
+    const diasCx = (CAIXA_DIAS_CX || []).filter(r => r.unidade === unidade);
+    const contagensDe = (cx) => {
+      const conts = CAIXA_CONTAGENS.filter(c => c.unidade === unidade && (c.caixa || 'SALÃO') === cx)
+        .slice().sort((a, b) => (a.data < b.data ? -1 : 1));
+      const movEntre = (d1, d2) => diasCx.filter(r => r.caixa === cx && r.data > d1 && r.data <= d2)
+        .reduce((s, r) => s + r.movimento_book - r.lancado_cofre + r.dinheiro_pdv, 0);
+      conts.forEach((c, i) => {
+        if (i === 0) { c.esperado = null; c.quebra = null; return; }
+        const ant = conts[i - 1];
+        // troco (dono, 10/09/2026): contado = enviado + troco que ficou; mudanca de troco
+        // NAO ajusta o esperado (pagamento pela gaveta entra pelo lancamento do Cofre).
+        c.esperado = Math.round((ant.contado + movEntre(ant.data, c.data)) * 100) / 100;
+        c.quebra = Math.round((c.contado - c.esperado) * 100) / 100;
+      });
+      return conts;
+    };
+    const temSalao = diasCx.some(r => r.caixa === 'SALÃO' && (r.dinheiro_pdv > 0 || r.lancado_cofre > 0));
+    const caixasDaLoja = temSalao ? ['SALÃO', 'DELIVERY'] : ['DELIVERY'];
     const eu = ((rmbSessao() || {}).email || '').toLowerCase();
     const podeDigitar = (CAIXA_RESP || []).some(r =>
       r.unidade === unidade && String(r.email).toLowerCase() === eu);
@@ -13988,61 +14000,67 @@ function renderModuloCaixa() {
     if (podeDigitar) {
       contagemHtml += `
       <div style="margin-top:10px; padding-top:8px; border-top:1px solid rgba(154,164,175,.25);">
-        <b>Contagem da gaveta</b> — digite só o valor contado; o painel calcula o resto.
+        <b>Contagem da gaveta — uma por caixa</b> (os caixas sobem separados no Saipos).
         <div style="font-size:12px; color:#a5a49a; margin-top:4px;">
-          Dois números, todos os dias (regra do dono, 10/09/2026): o <b>dinheiro enviado</b> pela loja, que você conta, e o
-          <b>troco que ficou na gaveta</b> naquele dia. O painel soma os dois: é todo o dinheiro da loja. O enviado pode ser menor
-          que o troco num dia fraco — normal. Se usaram parte do troco para pagar algo pelo caixa, digite o troco que <b>sobrou</b>,
-          e esse pagamento tem de estar lançado no Saipos como saída do Cofre — é assim que o esperado desconta; sem o lançamento,
-          aparece como quebra, e é para aparecer. A primeira contagem é ponto de partida e não gera quebra.
-        </div>
-        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:6px; align-items:center;">
-          <input type="date" id="${idBase}Data" value="${hoje}" max="${hoje}" style="padding:4px;">
-          <input type="number" step="0.01" min="0" id="${idBase}Valor" placeholder="dinheiro enviado (R$)" title="o dinheiro que a loja mandou para você (contado por você)" style="padding:4px; width:160px;">
-          <input type="number" step="0.01" min="0" id="${idBase}Troco" placeholder="troco que ficou na gaveta (R$)" title="o troco que ficou na gaveta naquele dia: o da abertura menos o que usaram para pagar algo pelo caixa" style="padding:4px; width:200px;">
-          <input type="text" id="${idBase}Obs" placeholder="observação (se deu diferença, o que achou)" style="padding:4px; flex:1; min-width:180px;">
-          <button id="${idBase}Btn" onclick="caixaSalvar('${unidade}', '${idBase}')">Registrar contagem</button>
+          Para cada caixa, dois números: o <b>dinheiro enviado</b>, que você conta, e o <b>troco que ficou na gaveta</b>. O painel
+          soma os dois. O caixa do delivery abre com R$ 0,01 (o Saipos não deixa abrir zerado), por isso o troco dele já vem
+          preenchido. Se usaram parte do troco para pagar algo pelo caixa, digite o troco que <b>sobrou</b>; o pagamento tem
+          de estar lançado no Saipos como saída do Cofre — é assim que o esperado desconta. A primeira contagem de cada caixa
+          é ponto de partida e não gera quebra.
         </div>
       </div>`;
     }
-    if (conts.length) {
-      const ultimas = conts.slice(-10).reverse();
-      contagemHtml += `
-      <details style="margin-top:10px;"><summary style="cursor:pointer;"><b>Contagens da gaveta</b> <span style="color:#9aa4af;">(${conts.length})</span></summary>
-        <div style="overflow-x:auto;"><table style="border-collapse:collapse; width:100%; font-size:13px;">
-          <tr style="color:#9aa4af; text-align:left;">
-            <th style="padding:3px 8px; font-weight:normal;">dia</th>
-            <th style="padding:3px 8px; font-weight:normal; text-align:right;">contado</th>
-            <th style="padding:3px 8px; font-weight:normal; text-align:right;" title="troco que ficou na gaveta naquele dia; está dentro do contado">troco</th>
-            <th style="padding:3px 8px; font-weight:normal; text-align:right;" title="contado − troco: o dinheiro que a loja mandou">enviado</th>
-            <th style="padding:3px 8px; font-weight:normal; text-align:right;">esperado</th>
-            <th style="padding:3px 8px; font-weight:normal;">quebra</th>
-            <th style="padding:3px 8px; font-weight:normal;">obs</th>
-            <th style="padding:3px 8px; font-weight:normal;">quem</th>
-          </tr>
-          ${ultimas.map(c => {
-            let q;
-            if (c.esperado === null) q = '<span style="color:#9aa4af;">ponto de partida</span>';
-            else if (Math.abs(c.quebra) < 0.005) q = '<span style="color:#3f9c5a;">✔ bateu</span>';
-            else q = `<b style="color:#ff6b6b;">R$ ${fmt(c.quebra)} — investigar</b>`;
-            return `<tr>
-              <td style="padding:3px 8px;">${fmtDia(c.data)}</td>
-              <td style="padding:3px 8px; text-align:right;">R$ ${fmt(c.contado)}</td>
-              <td style="padding:3px 8px; text-align:right; color:#9aa4af;">${c.troco === null ? '—' : 'R$ ' + fmt(c.troco)}</td>
-              <td style="padding:3px 8px; text-align:right;">${c.troco === null ? '—' : 'R$ ' + fmt(c.contado - c.troco)}</td>
-              <td style="padding:3px 8px; text-align:right;">${c.esperado === null ? '—' : 'R$ ' + fmt(c.esperado)}</td>
-              <td style="padding:3px 8px;">${q}</td>
-              <td style="padding:3px 8px; color:#9aa4af;">${c.observacao || ''}</td>
-              <td style="padding:3px 8px; color:#9aa4af;">${String(c.quem || '').split('@')[0]}</td>
-            </tr>`;
-          }).join('')}
-        </table></div>
-      </details>`;
-    } else if (podeDigitar) {
-      contagemHtml += `
-      <div style="margin-top:6px; font-size:12px; color:#9aa4af;">
-        Nenhuma contagem ainda — a primeira vira o ponto de partida (não gera quebra; as próximas comparam com ela).
-      </div>`;
+    for (const cx of caixasDaLoja) {
+      const conts = contagensDe(cx);
+      const idCx = idBase + (cx === 'SALÃO' ? 'S' : 'D');
+      const rotCx = cx === 'SALÃO' ? 'Caixa Salão' : 'Caixa Delivery';
+      if (podeDigitar) {
+        contagemHtml += `
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; align-items:center;">
+          <b style="min-width:110px;">${rotCx}</b>
+          <input type="date" id="${idCx}Data" value="${hoje}" max="${hoje}" style="padding:4px;">
+          <input type="number" step="0.01" min="0" id="${idCx}Valor" placeholder="dinheiro enviado (R$)" title="o dinheiro que este caixa mandou para você (contado por você)" style="padding:4px; width:160px;">
+          <input type="number" step="0.01" min="0" id="${idCx}Troco" placeholder="troco que ficou (R$)" value="${cx === 'DELIVERY' ? '0.01' : ''}" title="o troco que ficou na gaveta deste caixa naquele dia" style="padding:4px; width:160px;">
+          <input type="text" id="${idCx}Obs" placeholder="observação (se deu diferença, o que achou)" style="padding:4px; flex:1; min-width:160px;">
+          <button id="${idCx}Btn" onclick="caixaSalvar('${unidade}', '${idCx}', '${cx}')">Registrar</button>
+        </div>`;
+      }
+      if (conts.length) {
+        const ultimas = conts.slice(-10).reverse();
+        contagemHtml += `
+        <details style="margin-top:6px;"><summary style="cursor:pointer;"><b>Contagens — ${rotCx}</b> <span style="color:#9aa4af;">(${conts.length})</span></summary>
+          <div style="overflow-x:auto;"><table style="border-collapse:collapse; width:100%; font-size:13px;">
+            <tr style="color:#9aa4af; text-align:left;">
+              <th style="padding:3px 8px; font-weight:normal;">dia</th>
+              <th style="padding:3px 8px; font-weight:normal; text-align:right;">contado</th>
+              <th style="padding:3px 8px; font-weight:normal; text-align:right;" title="troco que ficou na gaveta naquele dia; está dentro do contado">troco</th>
+              <th style="padding:3px 8px; font-weight:normal; text-align:right;" title="contado − troco: o dinheiro que o caixa mandou">enviado</th>
+              <th style="padding:3px 8px; font-weight:normal; text-align:right;">esperado</th>
+              <th style="padding:3px 8px; font-weight:normal;">quebra</th>
+              <th style="padding:3px 8px; font-weight:normal;">obs</th>
+              <th style="padding:3px 8px; font-weight:normal;">quem</th>
+            </tr>
+            ${ultimas.map(c => {
+              let q;
+              if (c.esperado === null) q = '<span style="color:#9aa4af;">ponto de partida</span>';
+              else if (Math.abs(c.quebra) < 0.005) q = '<span style="color:#3f9c5a;">✔ bateu</span>';
+              else q = `<b style="color:#ff6b6b;">R$ ${fmt(c.quebra)} — investigar</b>`;
+              return `<tr>
+                <td style="padding:3px 8px;">${fmtDia(c.data)}</td>
+                <td style="padding:3px 8px; text-align:right;">R$ ${fmt(c.contado)}</td>
+                <td style="padding:3px 8px; text-align:right; color:#9aa4af;">${c.troco === null ? '—' : 'R$ ' + fmt(c.troco)}</td>
+                <td style="padding:3px 8px; text-align:right;">${c.troco === null ? '—' : 'R$ ' + fmt(c.contado - c.troco)}</td>
+                <td style="padding:3px 8px; text-align:right;">${c.esperado === null ? '—' : 'R$ ' + fmt(c.esperado)}</td>
+                <td style="padding:3px 8px;">${q}</td>
+                <td style="padding:3px 8px; color:#9aa4af;">${c.observacao || ''}</td>
+                <td style="padding:3px 8px; color:#9aa4af;">${String(c.quem || '').split('@')[0]}</td>
+              </tr>`;
+            }).join('')}
+          </table></div>
+        </details>`;
+      } else if (podeDigitar) {
+        contagemHtml += `<div style="margin-top:2px; font-size:12px; color:#9aa4af;">${rotCx}: nenhuma contagem ainda — a primeira vira o ponto de partida.</div>`;
+      }
     }
 
     const corBorda = semFech ? '#ff6b6b' : (pend ? '#f5a623' : '#3f9c5a');
