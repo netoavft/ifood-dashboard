@@ -4410,7 +4410,7 @@ async function abrirDiaConcartao(unidade, dia) {
     consultarTudo('vw_cartao_transacoes?select=*&dia=in.(' + [diaMais(-1), dia, diaMais(1)].join(',') + ')' +
       '&unidade=eq.' + encodeURIComponent(unidade) + '&order=dia,hora'),
     // PIX do dia (09/09/2026): QR da maquininha e chave, com o credito do banco que casou
-    consultarTudo('vw_pix_conciliacao?select=id_sale,numero,numero_pedido,mesa,tipo,valor,entrega,entregador,subgrupo,recebido,aguardando,memo_banco,data_banco,conta_banco&dia=eq.' + dia +
+    consultarTudo('vw_pix_conciliacao?select=id_sale,numero,numero_pedido,mesa,data_venda,tipo,valor,entrega,entregador,subgrupo,recebido,aguardando,memo_banco,data_banco,conta_banco&dia=eq.' + dia +
       '&unidade=eq.' + encodeURIComponent(unidade) + '&order=entrega'),
     // quem entregou cada venda de cartao/vale (para dizer "confirmar com o motoboy X")
     consultarTudo('vw_cartao_entrega_cobranca?select=id_sale,entregador&dia=eq.' + dia +
@@ -4515,7 +4515,9 @@ async function abrirDiaConcartao(unidade, dia) {
   // numero como a equipe ve no Saipos: "8517 (3391)" = venda + pedido no parceiro;
   // o id interno so aparece nos dias que a reimportacao ainda nao cobriu.
   const numVenda = x => x.numero ? String(x.numero) + (x.numero_pedido ? ' (' + x.numero_pedido + ')' : '') : x.mesa ? 'mesa ' + x.mesa : String(x.referencia || x.id_sale || '');
-  const rotVenda = x => (x.numero || !x.mesa ? 'venda ' : '') + numVenda(x);
+  // venda de outro dia (ex.: pagamento residual lancado dias depois): mostra "de DD/MM"
+  const deOutroDia = x => x.data_venda && x.data_venda !== dia ? ' · de ' + String(x.data_venda).slice(8, 10) + '/' + String(x.data_venda).slice(5, 7) : '';
+  const rotVenda = x => (x.numero || !x.mesa ? 'venda ' : '') + numVenda(x) + deOutroDia(x);
   const moto = {};
   (cobr || []).forEach(c => { if (c.entregador) moto[String(c.id_sale)] = c.entregador; });
   const quem = t => moto[t.referencia] ? ' · motoboy ' + moto[t.referencia] : '';
@@ -4638,16 +4640,17 @@ async function abrirDiaConcartao(unidade, dia) {
   const partes = p => {
     const pecas = String(p.saipos || '').split(' · ').map(x => x.trim()).filter(Boolean);
     const venda = pecas.find(x => /^(venda|mesa) /.test(x)) || '';
+    const deDia = pecas.find(x => /^de \d\d\/\d\d$/.test(x)) || '';
     const motoN = (pecas.find(x => /^motoboy /.test(x)) || '').replace(/^motoboy /, '');
     const entrega = pecas.includes('entrega') || !!motoN;
-    const forma = pecas.filter(x => !/^(venda|mesa|motoboy) /.test(x) && x !== 'entrega').join(' · ');
-    return { venda, moto: motoN, forma, entrega };
+    const forma = pecas.filter(x => !/^(venda|mesa|motoboy|de) /.test(x) && x !== 'entrega').join(' · ');
+    return { venda, moto: motoN, forma, entrega, deDia };
   };
   const btnExp = x => podeExplicar ? `<button onclick="caixaExplicar(${x.i})" style="font:inherit; font-size:11px; padding:2px 8px; cursor:pointer;">explicar</button>` : '';
   const tdb = 'padding:6px 8px; text-align:left; vertical-align:top;';
   const linhaP = (p, g) => { const q = partes(p); return `<tr style="border-top:1px solid rgba(154,164,175,.12);">
     <td style="${tdb} white-space:nowrap; border-left:3px solid ${g.cor};">${p.hora}</td>
-    <td style="${tdb} white-space:nowrap; color:#a5a49a;">${q.venda || '—'}${q.moto ? `<div style="font-size:11px;">🛵 ${q.moto}</div>` : (q.entrega ? '<div style="font-size:11px;">entrega</div>' : '')}</td>
+    <td style="${tdb} white-space:nowrap; color:#a5a49a;">${q.venda || '—'}${q.deDia ? `<div style="font-size:11px; color:#f5a623;" title="a venda é de outro dia; o pagamento foi lançado neste">venda ${q.deDia}</div>` : ''}${q.moto ? `<div style="font-size:11px;">🛵 ${q.moto}</div>` : (q.entrega ? '<div style="font-size:11px;">entrega</div>' : '')}</td>
     <td style="${tdb}">${q.forma}</td>
     <td style="${tdb}">${p.real}</td>
     <td style="${tdb} text-align:right; white-space:nowrap; font-weight:600;">${reaisCc(p.valor)}</td>
