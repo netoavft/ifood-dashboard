@@ -4422,7 +4422,8 @@ async function abrirDiaConcartao(unidade, dia) {
   const reaisCc = v => 'R$ ' + Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const min = h => { const p = (h || '0:0:0').split(':'); return (+p[0]) * 60 + (+p[1]); };
   // minutos contados a partir da meia-noite do dia aberto (vespera negativa, seguinte > 1440)
-  trs.forEach(x => { x.t = min(x.hora) + Math.round((new Date(x.dia + 'T12:00:00') - new Date(dia + 'T12:00:00')) / 864e5) * 1440; });
+  // hora antes das 06h pertence ao FIM do turno (dia = turno, corte 06:00 — 10/09/2026)
+  trs.forEach(x => { const m0 = min(x.hora); x.t = m0 + (m0 < 360 ? 1440 : 0) + Math.round((new Date(x.dia + 'T12:00:00') - new Date(dia + 'T12:00:00')) / 864e5) * 1440; });
   const doDia = x => x.dia === dia;
 
   const saipos = trs.filter(t => t.origem === 'SAIPOS').map(t => ({ ...t, par: null }));
@@ -4540,11 +4541,14 @@ async function abrirDiaConcartao(unidade, dia) {
   // eram 22 com mais de 14 dias fora de tudo). Quando a maquininha tem, a base ja
   // reclassifica; o que sobra aqui e venda sem forma E sem transacao.
   const semForma = t => /pendente|n[aã]o cadastrado/i.test(t.detalhe || '');
+  // Rede ainda nao entregou a madrugada deste turno? (a linha do dia sabe: rede_completa)
+  const redeIncompleta = (CAIXA_CARTAO || []).some(r => r.unidade === unidade && r.dia === dia && r.rede_completa === false);
+  const madrugadaSemRede = s => redeIncompleta && min(s.hora) < 360;
   semParS.filter(s => !s._explicado).forEach(s => pend.push({ chave: 'pdv:' + s.referencia + ':' + (+s.valor).toFixed(2), bloco: semForma(s) ? 'dinheiro' : 'maquininha', efeito: semForma(s) ? 0 : +s.valor,
-    p: eVale(s) ? 2 : 1, cor: eVale(s) ? '#f5a623' : '#ff6b6b', hora: hhmm(s.hora),
-    saipos: limpa(s.detalhe) + ' · ' + rotVenda(s) + quem(s), real: semForma(s) ? 'nada desse valor na maquininha nem no banco' : 'nada desse valor na maquininha', valor: +s.valor,
-    leitura: semForma(s) ? 'o Saipos não diz como foi pago (venda ficou "Pendente")' : eVale(s) ? 'vale pode levar até uma semana para aparecer na Rede' : 'registrado no Saipos, mas não passou na maquininha',
-    acao: semForma(s) ? 'fechar a venda no Saipos com a forma certa, ou confirmar se foi paga' : moto[s.referencia] ? 'confirmar com o motoboy se cobrou' : 'confirmar no caixa se cobrou, ou se passou em outra forma' }));
+    p: madrugadaSemRede(s) ? 3 : eVale(s) ? 2 : 1, cor: madrugadaSemRede(s) ? '#9aa4af' : eVale(s) ? '#f5a623' : '#ff6b6b', hora: hhmm(s.hora),
+    saipos: limpa(s.detalhe) + ' · ' + rotVenda(s) + quem(s), real: madrugadaSemRede(s) ? 'a Rede ainda não entregou a madrugada' : semForma(s) ? 'nada desse valor na maquininha nem no banco' : 'nada desse valor na maquininha', valor: +s.valor,
+    leitura: madrugadaSemRede(s) ? 'pagamento depois da meia-noite: a maquininha só entrega amanhã' : semForma(s) ? 'o Saipos não diz como foi pago (venda ficou "Pendente")' : eVale(s) ? 'vale pode levar até uma semana para aparecer na Rede' : 'registrado no Saipos, mas não passou na maquininha',
+    acao: madrugadaSemRede(s) ? 'esperar' : semForma(s) ? 'fechar a venda no Saipos com a forma certa, ou confirmar se foi paga' : moto[s.referencia] ? 'confirmar com o motoboy se cobrou' : 'confirmar no caixa se cobrou, ou se passou em outra forma' }));
   restoR.forEach(r => pend.push({ chave: 'rede:' + r.referencia, bloco: 'maquininha', efeito: -(+r.valor),
     p: 2, cor: '#f5a623', hora: hhmm(r.hora), saipos: 'nada desse valor no Saipos', real: limpa(r.detalhe), valor: +r.valor,
     leitura: 'passou na maquininha, mas não está registrado no Saipos', acao: 'achar a venda no Saipos (lançada em outra forma ou não lançada)' }));
@@ -13701,7 +13705,7 @@ async function entrarCaixa() {
       r.saidas_cofre = Number(r.saidas_cofre); r.movimento_book = Number(r.movimento_book);
     });
     CAIXA_CONTAGENS.forEach(c => { c.contado = Number(c.contado); });
-    CAIXA_CARTAO.forEach(r => { ['saipos', 'rede', 'diferenca', 'saldo_acumulado'].forEach(k => { r[k] = Number(r[k]); }); });
+    CAIXA_CARTAO.forEach(r => { ['saipos', 'rede', 'diferenca', 'saldo_acumulado', 'saipos_madrugada'].forEach(k => { r[k] = Number(r[k]); }); });
     CAIXA_PIX.forEach(r => { ['pdv', 'recebido', 'sem_par', 'aguardando', 'pdv_qr', 'recebido_qr', 'sem_par_qr', 'aguardando_qr',
                               'pdv_chave', 'recebido_chave', 'sem_par_chave', 'aguardando_chave'].forEach(k => { r[k] = Number(r[k]); }); });
   }
@@ -13843,8 +13847,12 @@ function renderModuloCaixa() {
       // bloco maquininha = cartao + vale + PIX QR (tudo que passa na maquina)
       const maqPdv = (c.saipos || 0) + (v.saipos || 0) + (p.pdv_qr || 0);
       const maqReal = (c.rede || 0) + (v.rede || 0) + (p.recebido_qr || 0);
-      const maqDif = (c.diferenca || 0) + (v.diferenca || 0) + (p.sem_par_qr || 0);
-      const maqAguard = p.aguardando_qr || 0;
+      // turno de ontem: a Rede so entrega a madrugada (00h-06h) amanha — o que o PDV
+      // registrou nessa faixa fica "aguardando", nao pendencia (10/09/2026)
+      const redeIncompleta = (c.rede_completa === false) || (v.rede_completa === false);
+      const madrugada = redeIncompleta ? (c.saipos_madrugada || 0) + (v.saipos_madrugada || 0) : 0;
+      const maqDif = (c.diferenca || 0) + (v.diferenca || 0) + (p.sem_par_qr || 0) - madrugada;
+      const maqAguard = (p.aguardando_qr || 0) + madrugada;
       const chavePdv = p.pdv_chave || 0, chaveReal = p.recebido_chave || 0;
       const chaveSem = p.sem_par_chave || 0, chaveAguard = p.aguardando_chave || 0;
       const temDinheiro = r && r.situacao !== 'SEM MOVIMENTO';
@@ -13871,7 +13879,7 @@ function renderModuloCaixa() {
       }
       if (alerta) pend++;
       if (F.soPend && !alerta) return '';
-      const aguardHtml = '<span style="color:#9aa4af;" title="menos de 6 dias: fim de semana e feriado atrasam o PIX no banco">aguardando</span>';
+      const aguardHtml = '<span style="color:#9aa4af;" title="PIX: até 6 dias (fim de semana e feriado atrasam); maquininha: a madrugada do turno chega amanhã">aguardando</span>';
       return `<tr style="${cor} cursor:pointer;" onclick="abrirDiaConcartao('${unidade.replace(/'/g, "\\'")}', '${iso}')" title="clique para abrir as transações do dia e o que cada caixa fechou">
         <td style="padding:3px 6px; white-space:nowrap;">${fmtDia(iso)}</td>
         <td style="${td}">${r ? num(r.dinheiro_pdv) : vazio}</td>
@@ -13879,7 +13887,7 @@ function renderModuloCaixa() {
         <td style="${td}">${r && !aberto ? (dinExplicado && Math.abs(r.diferenca) >= 0.01 ? expl(r.diferenca) : dif(r.diferenca)) : vazio}</td>
         <td style="${td}${sep}">${num(maqPdv)}</td>
         <td style="${td}">${num(maqReal)}</td>
-        <td style="${td}">${aberto ? vazio : (Math.abs(maqResto) >= 0.01 ? dif(maqResto) : (Math.abs(maqDif) >= 0.01 ? expl(maqDif) : (maqAguard > 0 ? aguardHtml : vazio)))}</td>
+        <td style="${td}">${aberto ? vazio : (Math.abs(maqResto) >= 0.01 ? dif(maqResto) : (Math.abs(maqDif) >= 0.01 ? expl(maqDif) : (maqAguard > 0 ? aguardHtml : vazio)))}${!aberto && madrugada > 0 ? ` <span style="color:#9aa4af; font-size:11px;" title="R$ ${fmt(madrugada)} registrados na madrugada: a Rede entrega amanhã">+ madrugada</span>` : ''}</td>
         <td style="${td}${sep}">${num(chavePdv)}</td>
         <td style="${td}">${num(chaveReal)}</td>
         <td style="${td}">${aberto ? vazio : (chaveResto > 0 ? '<b style="color:#ff6b6b;">R$ ' + fmt(chaveResto) + '</b>' : (chaveSem > 0 ? expl(chaveSem) : (chaveAguard > 0 ? aguardHtml : vazio)))}</td>
@@ -13966,9 +13974,9 @@ function renderModuloCaixa() {
         <b>Turno não fechou</b> = o caixa que fez as vendas ainda está aberto no Saipos (o clique no dia diz qual). <b>Dinheiro</b>: venda em dinheiro no PDV × o que o fechamento registrou no cofre; a gaveta contada
         entra pela contagem (Arissa: Água Verde e Ahú · Diego: São Braz). <b>Maquininha</b>: cartão e vale × transações
         da Rede, mais o PIX QR da maquininha × crédito no banco (cai linha a linha, "PIX QRS"). <b>PIX chave</b>: avulso
-        na chave CNPJ × transferência no banco. Cartão, vale e PIX contam no dia em que passaram na máquina (madrugada
-        cai no dia seguinte); o vale demora dias para aparecer na Rede e ontem quase sempre mostra sobra que morre no
-        seguinte. Regra do dono: <b>caixa bom não tem quebra</b> — toda diferença aparece e pede investigação.
+        na chave CNPJ × transferência no banco. <b>O dia é o turno</b>: das 10h às 2h da manhã seguinte (corte às 6h), igual ao caixa do
+        Saipos. A Rede só entrega as transações no dia seguinte, então a madrugada do turno de ontem aparece como
+        "aguardando" e fecha sozinha amanhã; o vale demora dias para aparecer na Rede. Regra do dono: <b>caixa bom não tem quebra</b> — toda diferença aparece e pede investigação.
         Clique no dia para ver as transações lado a lado e o que cada caixa (Salão / Delivery) fechou. Fora daqui:
         pagamento online (iFood/site) e Boqueirão.</details>
       ${filtros}
