@@ -34,7 +34,7 @@
 }
 *{box-sizing:border-box}
 body{background:var(--bg); color:var(--ink); margin:0;
-  font-family:'Instrument Sans',system-ui,sans-serif; font-size:16px; line-height:1.55; padding-bottom:48px;}
+  font-family:'Instrument Sans',system-ui,sans-serif; font-size:16px; line-height:1.55; padding-bottom:84px;}
 .wrap{max-width:1000px; margin:0 auto; padding:0 20px;}
 h1,h2,h3{font-family:'Archivo',system-ui,sans-serif; line-height:1.15; text-wrap:balance; margin:0;}
 h1{font-size:clamp(28px,5vw,40px); font-weight:800;}
@@ -68,6 +68,21 @@ td.num,th.num{text-align:right; font-variant-numeric:tabular-nums; white-space:n
 .chip.warn{background:var(--warn-soft); color:var(--warn);}
 .chip.bad{background:var(--bad-soft); color:var(--bad);}
 ol.passos{padding-left:20px;} ol.passos li{margin:8px 0; max-width:78ch;}
+.prop{display:flex; gap:12px; align-items:flex-start; background:var(--surface);
+  border:1px solid var(--line); border-radius:10px; padding:12px 15px; margin:8px 0;}
+.prop input{width:19px; height:19px; margin-top:2px; accent-color:var(--accent); flex:none; cursor:pointer;}
+.prop .body{flex:1; min-width:0;}
+.prop .t{font-weight:600;}
+.prop .d{font-size:13.5px; color:var(--ink2); margin-top:3px;}
+.prop code{background:var(--surface2); border-radius:5px; padding:0 6px; font-size:13px; font-family:inherit;}
+.prop:has(input:checked){opacity:.6;}
+.prop:has(input:checked) .t{text-decoration:line-through;}
+input:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+#bar{position:fixed; left:0; right:0; bottom:0; background:var(--surface);
+  border-top:2px solid var(--accent); padding:10px 20px; z-index:50;}
+#bar .in{max-width:1000px; margin:0 auto; display:flex; justify-content:space-between; align-items:center; gap:14px; flex-wrap:wrap;}
+#bar .lbl{font-size:13px; color:var(--muted);}
+#bar .num{font-family:'Archivo'; font-weight:800; font-variant-numeric:tabular-nums;}
 ul.lst{padding-left:20px; margin:.4em 0;} ul.lst li{margin:5px 0; max-width:78ch;}
 @media (prefers-reduced-motion: reduce){ *{transition:none !important;} }
 </style>
@@ -193,31 +208,120 @@ ul.lst{padding-left:20px; margin:.4em 0;} ul.lst li{margin:5px 0; max-width:78ch
 
 <section>
   <div class="secnum">5</div>
-  <h2>Migração — a ordem que não quebra nada</h2>
-  <ol class="passos">
-    <li><strong>Preços primeiro (etiqueta verde em cada sobrevivente):</strong> aplicar os praticados
-    da tabela — Silvio 37,99 · Alain 41,99 <em>(substitui o 39,99 que eu tinha indicado)</em> · CDM
-    47,99 · Severino 35,99 (subir base p/ 39,99 antes) · Agostinho 41,99 · Pernil 41,99 (base 45,99) ·
-    Costela 41,99 (base 47,99) · Nelson riscado 44,99.</li>
-    <li><strong>Campanhas de almoço — trocar a posição selecionada</strong> (drawer, uma campanha por
-    vez, Remover velha → Adicionar sobrevivente → Salvar na MESMA sessão): R$8 Almoço = Feijoada +
-    Severino (Pratos Clássicos) + Silvio (Mais Pedidos, entra no lugar do Paulo) · R$10 Almoço =
-    Agostinho + Pernil + Costela nas posições das famílias.</li>
-    <li><strong>Excluir as posições irmãs</strong> que ficaram sem papel: Silvio/Alain/Schumacher em
-    Burgers Clássicos, CDM/Chaplin/Jesse em duplicata, Rubens Clássicos, caldo e canja "- Jantar",
-    re-links de Berlim/Kentucky/caldo na vitrine, os 6 de Recomendados.</li>
-    <li><strong>Apagar as categorias esvaziadas:</strong> Almoço Campeão, Recomendados Pelo Chef,
-    e consolidar Campeões+Especiais+Clássicos em "Hambúrgueres da Casa".</li>
-    <li><strong>Criar a 🍔 Burger do Mês</strong> no topo (ficha validada por você + foto real; primeiro
-    burger do ciclo é criação da cozinha).</li>
-    <li><strong>Eu confiro tudo</strong>: API (posições, preços, zero duplicata) + drawers das 9
-    campanhas — e aí destravamos as réplicas da Comida Brasileira e do Cidadão Vegan, que já nascem
-    no desenho limpo.</li>
-  </ol>
-  <div class="box note"><p class="small"><strong>Salvaguardas:</strong> nunca excluir uma posição que
-  esteja selecionada em campanha (trocar a seleção ANTES); a troca de seleção é permitida pelo programa
-  (o proibido é editar o item da campanha); horário de vale; uma campanha nunca fica salva com menos de
-  3 itens.</p></div>
+  <h2>Migração — checklist para seguir na ordem</h2>
+  <p class="small">Cada linha é uma ação no portal. A ordem importa: preço de item em campanha só se
+  mexe com ele FORA da campanha (tira → mexe → repõe na mesma sessão, sua regra da troca rápida).
+  Marque ao fazer; o progresso fica salvo neste navegador. <strong>Já feito hoje e fora da lista:</strong>
+  faxina onda 1 · Copa removida · Silvio no R$ 8 Jantar · Alain igualado em 46,99 · Campeões reduzido a
+  John/Rubens/Chaplin já nas camadas certas.</p>
+
+  <h3>Etapa 1 — Preços das posições que NÃO estão em campanha (livres, sem risco)</h3>
+  <div class="prop"><input type="checkbox" id="v2-severino">
+    <div class="body"><div class="t">Severino (Pratos Clássicos)</div>
+    <div class="d">Preço base <code>35,99 → 39,99</code>; depois etiqueta verde → aplicar <code>35,99</code>.
+    Cliente segue vendo 35,99, agora com riscado.</div></div></div>
+  <div class="prop"><input type="checkbox" id="v2-agostinho">
+    <div class="body"><div class="t">Agostinho carne (Pratos Clássicos)</div>
+    <div class="d">Base <code>39,99 → 45,99</code>; etiqueta → <code>41,99</code>.</div></div></div>
+  <div class="prop"><input type="checkbox" id="v2-pernil">
+    <div class="body"><div class="t">PF Pernil (Pratos Defumados)</div>
+    <div class="d">Base <code>35,99 → 45,99</code>; etiqueta → <code>41,99</code>.</div></div></div>
+  <div class="prop"><input type="checkbox" id="v2-costela">
+    <div class="body"><div class="t">PF Costela (Pratos Defumados)</div>
+    <div class="d">Base <code>39,99 → 47,99</code>; etiqueta → <code>41,99</code>.</div></div></div>
+  <div class="prop"><input type="checkbox" id="v2-tbone">
+    <div class="body"><div class="t">T-Bone (Churrasco)</div>
+    <div class="d">Etiqueta verde → trocar <code>153,99 → 159,99</code> (valor definitivo depois da ficha conferida).</div></div></div>
+  <div class="prop"><input type="checkbox" id="v2-ufo">
+    <div class="body"><div class="t">Ufo Cheddar Bacon e Ufo Costela Catupiry (categoria Ufo Burger)</div>
+    <div class="d">Definir o preço único: sugestão Cheddar base <code>50,99</code> + etiqueta <code>42,99</code> ·
+    Costela base <code>57,99</code> + etiqueta <code>49,99</code> (as posições de "Recomendados" morrem na etapa 3).</div></div></div>
+
+  <h3>Etapa 2 — Campanhas do ALMOÇO (um drawer por vez, salvar sempre com 3 itens)</h3>
+  <div class="prop"><input type="checkbox" id="v2-c8a">
+    <div class="body"><div class="t">Hits R$ 8 ALMOÇO — trocar 2 posições</div>
+    <div class="d">Abrir o drawer → <code>Remover</code> Paulo Cintura e Severino (o velho, 39,99) →
+    <code>Adicionar</code> <strong>Silvio da seção "Mais Pedidos"</strong> e <strong>Severino da seção
+    "Pratos Clássicos"</strong> (De 35,99 → Por 27,99) → <code>Salvar</code>. Feijoada fica.</div></div></div>
+  <div class="prop"><input type="checkbox" id="v2-c10a">
+    <div class="body"><div class="t">Hits R$ 10 ALMOÇO — trocar as 3 posições</div>
+    <div class="d">Drawer → Remover Agostinho, PF Pernil e PF Costela (posições do Almoço Campeão) →
+    Adicionar os três das categorias-família (De 41,99 → Por 31,99 cada) → Salvar.</div></div></div>
+
+  <h3>Etapa 3 — Alain e CDM (tira → aplica preço → repõe, na mesma sentada)</h3>
+  <div class="prop"><input type="checkbox" id="v2-alaincdm1">
+    <div class="body"><div class="t">Tirar Alain e CDM das duas campanhas R$ 10</div>
+    <div class="d">Drawer <code>R$ 10 Sempre</code>: Remover Alain e CDM → Salvar. Drawer
+    <code>R$ 10 Jantar</code>: Remover Alain e CDM → Salvar (Pratos executivos e John seguram as campanhas).</div></div></div>
+  <div class="prop"><input type="checkbox" id="v2-alaincdm2">
+    <div class="body"><div class="t">Aplicar as etiquetas nos dois (posições de Mais Pedidos)</div>
+    <div class="d">Alain: etiqueta verde → <code>41,99</code> (riscado 46,99). CDM: etiqueta →
+    <code>47,99</code> (riscado 54,99).</div></div></div>
+  <div class="prop"><input type="checkbox" id="v2-alaincdm3">
+    <div class="body"><div class="t">Repor Alain e CDM nas duas campanhas</div>
+    <div class="d">R$ 10 Sempre e R$ 10 Jantar: Adicionar os dois de volta (agora De 41,99 → 31,99 e
+    De 47,99 → 37,99) → Salvar. Mesmo dia, sem dormir fora da promo.</div></div></div>
+  <div class="prop"><input type="checkbox" id="v2-silviopreco">
+    <div class="body"><div class="t">Silvio — mesmo movimento no R$ 8 Jantar</div>
+    <div class="d">Drawer R$ 8 Jantar: Remover Silvio → Salvar · etiqueta na posição de Mais Pedidos →
+    <code>37,99</code> (riscado 39,99) · repor no drawer (De 37,99 → Por 29,99) → Salvar.
+    <em>Se preferir a alternativa conservadora, 34,99 (âmbar na régua).</em></div></div></div>
+
+  <h3>Etapa 4 — Excluir as posições irmãs (nenhuma está mais em campanha)</h3>
+  <div class="prop"><input type="checkbox" id="v2-exclassicos">
+    <div class="body"><div class="t">Categoria "Burgers Clássicos" inteira</div>
+    <div class="d">Excluir Alain (46,99), Schumacher (26,90) e Rubens (36,99) — os três têm casa
+    definitiva em outro lugar — e apagar a categoria vazia.</div></div></div>
+  <div class="prop"><input type="checkbox" id="v2-exespeciais">
+    <div class="body"><div class="t">Em "Burgers Especiais": Chaplin, John Lennon e CDM</div>
+    <div class="d">Excluir as três posições irmãs (34,99 · 46,99 · 46,99). Jesse, Cheech, James Brown,
+    Mad Max, Honolulu e Gaudério FICAM — mudam de casa na etapa 5.</div></div></div>
+  <div class="prop"><input type="checkbox" id="v2-exvitrine">
+    <div class="body"><div class="t">Em "Mais Pedidos": Berlim, Kentucky e o caldo</div>
+    <div class="d">Excluir os três re-links — as casas únicas são Porções (Berlim 31,99 · Kentucky) e
+    Caldos (caldo c/ costela). Ficam os 5 heróis: Ayrton, Nelson, Silvio, Alain, CDM.</div></div></div>
+  <div class="prop"><input type="checkbox" id="v2-exjantar">
+    <div class="body"><div class="t">Em "Caldos": as versões "- Jantar"</div>
+    <div class="d">Excluir "Caldo ... - Jantar" e "Canja de galinha - Jantar" — a campanha de turno já
+    faz o papel delas na posição única.</div></div></div>
+  <div class="prop"><input type="checkbox" id="v2-exalmoco">
+    <div class="body"><div class="t">Categoria "Almoço Campeão" inteira</div>
+    <div class="d">Depois das etapas 2: nenhuma posição dela está em campanha — apagar as 8 posições e a categoria.</div></div></div>
+  <div class="prop"><input type="checkbox" id="v2-exrecom">
+    <div class="body"><div class="t">Categoria "Recomendados Pelo Chef" inteira</div>
+    <div class="d">6 posições, todas re-link — apagar tudo.</div></div></div>
+
+  <h3>Etapa 5 — Categorias: renomear e mover (só itens SEM campanha se movem)</h3>
+  <div class="prop"><input type="checkbox" id="v2-renomear">
+    <div class="body"><div class="t">Renomear "Hambúrgueres Campeões" → "Hambúrgueres da Casa"</div>
+    <div class="d">Só o nome — John, Rubens e Chaplin não saem do lugar e o Hits não sente (provado na
+    onda 1 com o "Mais Pedidos").</div></div></div>
+  <div class="prop"><input type="checkbox" id="v2-mover">
+    <div class="body"><div class="t">Mover os 6 de "Burgers Especiais" para "Hambúrgueres da Casa"</div>
+    <div class="d">Jesse, Cheech, James Brown, Mad Max, Honolulu, Gaudério (nenhum em campanha — livre).
+    Apagar "Burgers Especiais" vazia.</div></div></div>
+  <div class="prop"><input type="checkbox" id="v2-churrasco">
+    <div class="body"><div class="t">Fundir Churrasco + Carnes Defumadas</div>
+    <div class="d">Renomear "Carnes Defumadas" → <code>Churrasco &amp; Defumados na peça</code>; mover
+    T-Bone e Alcatra pra dentro; apagar "Churrasco" vazia.</div></div></div>
+  <div class="prop"><input type="checkbox" id="v2-ordem">
+    <div class="body"><div class="t">Arrastar as categorias para a ordem da seção 2</div>
+    <div class="d">Burger do Mês (quando existir) → Mais Pedidos → Seleção → Combos → Caldos → burgers → pratos → porções → sobremesas → bebidas.</div></div></div>
+
+  <h3>Etapa 6 — Nascimento e conferência</h3>
+  <div class="prop"><input type="checkbox" id="v2-burgermes">
+    <div class="body"><div class="t">Criar a categoria "🍔 Burger do Mês" + primeiro burger</div>
+    <div class="d">Ficha validada por você ANTES de criar + foto real; preço cheio com sobra ≥ 57%;
+    fora de qualquer campanha.</div></div></div>
+  <div class="prop"><input type="checkbox" id="v2-confere">
+    <div class="body"><div class="t">Me chamar para a conferência final</div>
+    <div class="d">Releio a API (zero duplicata, preços da tabela) e os 9 drawers — incluindo checar se
+    John/Rubens/Chaplin seguiram nas campanhas depois dos riscados de hoje (se caíram, repor é 2
+    cliques). Aprovado → réplicas Comida Brasileira e Cidadão Vegan.</div></div></div>
+
+  <div class="box note"><p class="small"><strong>Salvaguardas:</strong> campanha nunca fica salva com
+  menos de 3 itens · posição em campanha não se edita nem se exclui (tira da seleção primeiro, repõe
+  depois) · horário de vale · na dúvida numa exclusão, me pergunta antes.</p></div>
 </section>
 
 <section>
@@ -235,6 +339,31 @@ ul.lst{padding-left:20px; margin:.4em 0;} ul.lst li{margin:5px 0; max-width:78ch
   </ul>
 </section>
 </div>
+
+<div id="bar"><div class="in">
+  <div><span class="num" id="feitas">0</span> <span class="lbl">de <span id="total">?</span> passos da migração feitos</span></div>
+  <div class="lbl">progresso salvo neste navegador</div>
+</div></div>
+
+<script>
+(function(){
+  var caixas = Array.prototype.slice.call(document.querySelectorAll('.prop input[type=checkbox]'));
+  document.getElementById('total').textContent = caixas.length;
+  function atualiza(){
+    var feitas=0;
+    caixas.forEach(function(c){
+      if(c.checked) feitas++;
+      try{ localStorage.setItem('alvov2:'+c.id, c.checked?'1':'0'); }catch(e){}
+    });
+    document.getElementById('feitas').textContent = feitas;
+  }
+  caixas.forEach(function(c){
+    try{ if(localStorage.getItem('alvov2:'+c.id)==='1') c.checked=true; }catch(e){}
+    c.addEventListener('change', atualiza);
+  });
+  atualiza();
+})();
+</script>
 
 </body>
 </html>
