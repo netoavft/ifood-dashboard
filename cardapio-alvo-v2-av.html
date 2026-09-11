@@ -253,20 +253,18 @@ ul.lst{padding-left:20px; margin:.4em 0;} ul.lst li{margin:5px 0; max-width:78ch
     <strong>Não excluir NADA do Almoço Campeão</strong> até o teste abaixo passar. O caminho vira:
     mover a posição ELEGÍVEL para a família, em vez de trocar a seleção.</div></div></div>
   <div class="prop"><input type="checkbox" id="v2-teste-mover">
-    <div class="body"><div class="t">TESTE com o Agostinho (2 min, reversível) — "mover" não existe no
-    portal; a aposta agora é que o drawer esconde a posição nova porque o produto JÁ está na campanha</div>
-    <div class="d">1) Drawer <code>R$ 10 Almoço</code> → Remover só o Agostinho velho → <strong>Salvar</strong>
-    (fica 2/3 por um instante) · 2) REABRIR o drawer → a seção "Pratos Clássicos" mostra o Agostinho novo
-    (De 42,99 → Por 32,99)? · 3) SIM: marcar → Salvar (3/3). NÃO: repor o velho (2 cliques) e seguir o
-    plano B da linha abaixo.</div></div></div>
+    <div class="body"><div class="t">Repor o Agostinho velho na R$ 10 Almoço (3/3)</div>
+    <div class="d">Testes de 11/09 encerrados: nem trocar a seleção nem o tira-salva-reabre fizeram as
+    posições novas aparecerem — a elegibilidade é POR POSIÇÃO, curadoria do iFood, e posição nova só
+    entra quando o pool deles atualizar. Drawer → Adicionar o Agostinho da seção "Almoço Campeão" →
+    Salvar com 3/3.</div></div></div>
   <div class="prop"><input type="checkbox" id="v2-c10a2">
-    <div class="body"><div class="t">Se o teste passou: repetir um-a-um · se falhou: plano B</div>
-    <div class="d"><strong>Passou:</strong> mesmo tira-salva-reabre-adiciona para Pernil e Costela (seção
-    "Pratos Defumados") e para o Severino no R$ 8 Almoço (De 35,99 → Por 27,99); depois excluir as linhas
-    do Almoço Campeão que sobraram e apagar a categoria. <strong>Falhou (plano B):</strong> o Almoço
-    Campeão sobrevive ENXUTO só com as 4 posições de campanha (excluir as linhas de Adoniran ×2, Bezerra
-    e Paulo); excluir também as posições-família NOVAS dos 4 de campanha (para não ter preço duplo);
-    eu monitoro pela API quando o pool marcar posições novas e aí fazemos a troca final.</div></div></div>
+    <div class="body"><div class="t">PLANO B definitivo: Almoço Campeão enxuto, famílias intactas</div>
+    <div class="d">Excluir do <code>Almoço Campeão</code> SÓ as 4 linhas sem campanha (Adoniran ×2,
+    Bezerra, Paulo — duplicatas puras). <strong>As posições-família de 42,99/35,99 FICAM</strong>: são
+    elas que vendem fora do almoço (o Almoço Campeão só aparece 10h–14h). Na janela do almoço os 4
+    pratos aparecem em dobro, mas a versão do Hits é a mais barata — o cliente escolhe ela. Eu monitoro
+    pela API quando o pool marcar as posições-família; nesse dia trocamos a seleção e a categoria morre.</div></div></div>
 
   <h3>Etapa 3 — Alain e CDM (tira → aplica preço → repõe, na mesma sentada)</h3>
   <div class="prop"><input type="checkbox" id="v2-alaincdm1">
