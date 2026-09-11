@@ -10348,7 +10348,7 @@ async function trTelaPrecos(unidadeEscolhida) {
   let unidade = TR_OP.unidade || unidadeEscolhida || window._trPrecosUnidade;
   if (!unidade) unidade = 'AHU'; // desde 01/09/2026 as tres pagam a mesma tabela
   window._trPrecosUnidade = unidade;
-  const r = await trFetch(`vw_tr_tabela_precos?unidade=eq.${encodeURIComponent(unidade)}&order=grupo_separacao,item&select=item,classe,grupo_separacao,un,cmv,pct_producao,preco,cmv_atualizado_em,emb_nome,emb_fator,emb2_nome,emb2_fator,nao_cobrado`);
+  const r = await trFetch(`vw_tr_tabela_precos?unidade=eq.${encodeURIComponent(unidade)}&order=grupo_separacao,item&select=item,classe,grupo_separacao,un,cmv,pct_producao,preco,cmv_atualizado_em,emb_nome,emb_fator,emb2_nome,emb2_fator,nao_cobrado,origem`);
   if (!r.ok) { alvo.innerHTML = `<div class="contexto" style="border-color:#ff6b6b;">${await trErroDe(r)}</div>`; return; }
   const itens = await r.json();
   const pct = itens.length ? Math.round(Number(itens[0].pct_producao) * 100) : 0;
@@ -10362,9 +10362,9 @@ async function trTelaPrecos(unidadeEscolhida) {
     <input id="trPrecosBusca" type="search" class="trc-in" placeholder="buscar item..." oninput="trPrecosFiltra()"
       style="width:100%; max-width:340px; margin:8px 0; border-radius:8px; padding:8px 10px;">
     <div id="tabelaTrPrecos"><table>
-      <tr><th>Item</th><th>Grupo</th><th>Un</th><th>Como se pede</th><th>CMV</th><th>Preço</th></tr>
-      ${itens.map(i => `<tr data-busca="${(i.item + ' ' + (i.grupo_separacao || '') + ' ' + (i.classe || '')).toLowerCase()}">
-        <td>${i.item}</td><td>${i.grupo_separacao || i.classe || '—'}</td><td>${i.un || '—'}</td>
+      <tr><th>Item</th><th>Origem</th><th>Grupo</th><th>Un</th><th>Como se pede</th><th>CMV</th><th>Preço</th></tr>
+      ${itens.map(i => `<tr data-busca="${(i.item + ' ' + (i.grupo_separacao || '') + ' ' + (i.classe || '') + ' ' + (i.origem || '')).toLowerCase()}">
+        <td>${i.item}</td><td>${i.origem === 'FORNECEDOR' ? '<span style="color:#4a90d9; font-weight:700;">fornecedor</span>' : 'Cidadão'}</td><td>${i.grupo_separacao || i.classe || '—'}</td><td>${i.un || '—'}</td>
         <td>${i.emb_fator ? i.emb_nome + ' de ' + trEmbDesc({ un_medida: i.un, emb_fator: i.emb_fator })
               + (i.emb2_fator ? ' ou ' + i.emb2_nome + ' de ' + trEmbDesc({ un_medida: i.un, emb_fator: i.emb2_fator }) : '') : '—'}</td>
         <td>R$ ${Number(i.cmv).toFixed(2)}</td><td><b>${i.nao_cobrado ? 'não cobrado' : 'R$ ' + Number(i.preco).toFixed(2)}</b></td>
