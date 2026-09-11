@@ -4654,7 +4654,7 @@ function renderDiaConcartao(unidade, dia, trs, pix, cobr, forma, descs, onl) {
     if (d.faltaContar) pend.push({ forma: 'Dinheiro', caixa: d.caixa, chave: 'dinheiro:' + dia + ':' + d.caixa, bloco: 'dinheiro', efeito: d.vendido, p: 1, cor: '#f5a623', hora: 'turno',
       saipos: d.rot + ' vendeu em dinheiro ' + reaisCc(d.vendido), real: d.aberto ? 'caixa ainda aberto no Saipos · gaveta não contada' : 'gaveta ainda não contada', valor: d.vendido,
       leitura: 'sem a contagem não dá para saber se o dinheiro chegou',
-      acao: 'registrar a contagem do ' + d.rot + ' no alto da loja (dia, dinheiro enviado e troco que ficou)' });
+      acao: 'registrar a contagem aqui embaixo (dinheiro enviado e troco que ficou)' });
     else if (d.contagem) pend.push({ forma: 'Dinheiro', caixa: d.caixa, chave: 'dinheiro:' + dia + ':' + d.caixa, bloco: 'dinheiro', efeito: d.dif, p: 1, cor: d.dif < 0 ? '#ff6b6b' : '#f5a623', hora: 'turno',
       saipos: d.rot + ' vendeu em dinheiro ' + reaisCc(d.vendido), real: 'contado (enviado) ' + reaisCc(d.enviado) + (d.saidas > 0 ? ' · saídas do dia ' + reaisCc(d.saidas) : ''), valor: d.dif,
       leitura: (d.dif < 0 ? 'faltou ' : 'sobrou ') + reaisCc(Math.abs(d.dif)) + ' na contagem' + (d.contagem.observacao ? ' — obs: ' + d.contagem.observacao : ''),
@@ -4881,14 +4881,28 @@ function renderDiaConcartao(unidade, dia, trs, pix, cobr, forma, descs, onl) {
       const realTxt = l.realTxt ? l.realTxt : l.online ? (ok ? '<span style="color:#7bc47f;">canal certo</span>' : reaisCc(l.real) + ' <span style="color:#9aa4af;">no canal certo</span>') : reaisCc(l.real);
       const resumo = [l.ajustar.length ? `<span style="color:#f5a623;">${l.ajustar.length} ajustar no Saipos</span>` : '', l.conferir.length ? `<span style="color:#ff6b6b;">${l.conferir.length} conferir</span>` : '',
         l.esperar.length ? `<span style="color:#9aa4af;">${l.esperar.length} aguardando</span>` : '', l.explicadas ? `<span style="color:#9aa4af;">${l.explicadas} explicada(s)</span>` : ''].filter(Boolean).join(' · ');
-      const leitura = l.forma === 'Dinheiro' ? (ok ? '' : l.semReal ? 'registrar a contagem no alto da loja' : dif > 0 ? 'faltou na gaveta' : 'sobrou na gaveta')
+      const leitura = l.forma === 'Dinheiro' ? (ok ? '' : l.semReal ? 'registrar a contagem na linha abaixo' : dif > 0 ? 'faltou na gaveta' : 'sobrou na gaveta')
         : l.online ? '' : (!ok && !temAcao && dif !== null ? (dif > 0 ? 'registrado a mais no Saipos' : 'passou a mais na maquininha') : '');
       const temAcaoOuNota = temAcao || l.notas.length;
       const sub = [];
+      // Registro da contagem DENTRO da tabela (dono, 10/09/2026 noite): no lugar da pendencia
+      // "gaveta nao contada" entra o formulario — enviado + troco que ficou + observacao.
+      const formContagem = x => {
+        const idF = 'cxdia' + (cx === 'SALÃO' ? 'S' : 'D');
+        if (!podeExplicar || dia >= hojeStr) return `<tr style="background:rgba(255,107,107,.05);"><td style="${tdS} white-space:nowrap;"><span style="color:#ff6b6b; font-weight:700;">2º</span> contar a gaveta</td><td style="${tdS}" colspan="4">${x.real} — ${x.acao.replace('aqui embaixo', 'pelo responsável da loja')}</td></tr>`;
+        const ultTroco = cx === 'DELIVERY' ? '0.01' : ((CAIXA_CONTAGENS || []).filter(c => c.unidade === unidade && (c.caixa || 'SALÃO') === cx && c.data < dia && c.troco !== null).sort((a, b) => (a.data < b.data ? 1 : -1))[0] || {}).troco;
+        return `<tr style="background:rgba(255,107,107,.05);"><td style="${tdS} white-space:nowrap;"><span style="color:#ff6b6b; font-weight:700;">2º</span> registrar a contagem</td>
+          <td style="${tdS} border-right:0;" colspan="4"><div style="display:flex; flex-wrap:wrap; gap:6px; align-items:center;">
+            <input type="number" step="0.01" min="0" id="${idF}Valor" placeholder="dinheiro enviado (R$)" title="o dinheiro que este caixa mandou para você, contado" style="padding:4px; width:160px; font:inherit;">
+            <input type="number" step="0.01" min="0" id="${idF}Troco" value="${ultTroco === undefined || ultTroco === null ? '' : ultTroco}" placeholder="troco que ficou (R$)" title="o troco que ficou na gaveta deste caixa" style="padding:4px; width:150px; font:inherit;">
+            <input type="text" id="${idF}Obs" placeholder="observação (se deu diferença, o que achou)" style="padding:4px; flex:1; min-width:180px; font:inherit;">
+            <button id="${idF}Btn" onclick="caixaRegistrarNoDia('${unidade.replace(/'/g, "\\'")}', '${dia}', '${cx}', '${idF}')" style="font:inherit; font-size:12px; padding:4px 10px; cursor:pointer; font-weight:600;">Registrar</button>
+          </div><div style="font-size:11px; color:#8a897e; margin-top:2px;">enviado = o que você contou; troco = o que ficou na gaveta${cx === 'DELIVERY' ? ' (o delivery abre com R$ 0,01)' : ''}. O painel compara com o vendido em dinheiro deste caixa e trava o dia.</div></td></tr>`;
+      };
       const sinal = v => Math.abs(v) < 0.005 ? '<span style="color:#6f6e64;">0</span>' : `<span style="color:${v > 0 ? '#ff6b6b' : '#f5a623'};">${v > 0 ? '+' : '−'} ${reaisCc(Math.abs(v))}</span>`;
       const dinheiroLinha = l.forma === 'Dinheiro';
       l.ajustar.forEach(x => sub.push(`<tr style="background:rgba(245,166,35,.05);"><td style="${tdS} white-space:nowrap;"><span style="color:#f5a623; font-weight:700;">1º</span> ${x.hora} · ${x.venda}</td><td style="${tdS}" colspan="2">${x.texto} <span style="color:#8a897e;">— ${x.porque}</span></td><td style="${tdS} text-align:right; white-space:nowrap;" title="registrado aqui, passou em outra forma: entra na diferença desta forma com este sinal">${sinal(x.contrib)}</td><td style="${tdS} border-right:0;">no Saipos: abrir o caixa do dia → Ver → ${x.venda} → mudar a forma → salvar ajustes</td></tr>`));
-      l.conferir.forEach(x => { const q = x.chave ? partes(x) : null; sub.push(`<tr style="background:rgba(255,107,107,.05);"><td style="${tdS} white-space:nowrap;"><span style="color:#ff6b6b; font-weight:700;">2º</span> ${x.hora} · ${q ? (q.venda || '—') + (q.deDia ? ' <span style="color:#f5a623;">(' + q.deDia + ')</span>' : '') + (q.moto ? ' · 🛵 ' + q.moto : '') : x.venda}</td><td style="${tdS}">${q ? q.forma : x.diz}</td><td style="${tdS}">${x.real}</td><td style="${tdS} text-align:right; white-space:nowrap; font-weight:600;" title="com que sinal esta linha entra na diferença da forma">${dinheiroLinha ? sinal(x.contrib) : sinal(x.contrib)}</td><td style="${tdS} border-right:0;">${x.acao}${x.leitura ? `<div style="font-size:11px; color:#8a897e;">${x.leitura}</div>` : ''} ${x.chave ? btnExp(x) : ''}</td></tr>`); });
+      l.conferir.forEach(x => { if (x.chave && x.chave.startsWith('dinheiro:') && l.semReal) { sub.push(formContagem(x)); return; } const q = x.chave ? partes(x) : null; sub.push(`<tr style="background:rgba(255,107,107,.05);"><td style="${tdS} white-space:nowrap;"><span style="color:#ff6b6b; font-weight:700;">2º</span> ${x.hora} · ${q ? (q.venda || '—') + (q.deDia ? ' <span style="color:#f5a623;">(' + q.deDia + ')</span>' : '') + (q.moto ? ' · 🛵 ' + q.moto : '') : x.venda}</td><td style="${tdS}">${q ? q.forma : x.diz}</td><td style="${tdS}">${x.real}</td><td style="${tdS} text-align:right; white-space:nowrap; font-weight:600;" title="com que sinal esta linha entra na diferença da forma">${dinheiroLinha ? sinal(x.contrib) : sinal(x.contrib)}</td><td style="${tdS} border-right:0;">${x.acao}${x.leitura ? `<div style="font-size:11px; color:#8a897e;">${x.leitura}</div>` : ''} ${x.chave ? btnExp(x) : ''}</td></tr>`); });
       l.esperar.forEach(x => { const q = partes(x); sub.push(`<tr style="color:#9aa4af;"><td style="${tdS} white-space:nowrap;">⏳ ${x.hora} · ${q.venda || '—'}</td><td style="${tdS}">${q.forma}</td><td style="${tdS}">${x.real}</td><td style="${tdS} text-align:right; white-space:nowrap;">${sinal(x.contrib)}</td><td style="${tdS} border-right:0;">${x.acao} <span style="font-size:11px;">— ${x.leitura}</span></td></tr>`); });
       l.notas.forEach(n => sub.push(`<tr style="color:#8a897e; font-size:11px;"><td style="${tdS}" colspan="3">↳ ${n.texto}</td><td style="${tdS} text-align:right; white-space:nowrap;">${sinal(n.contrib)}</td><td style="${tdS} border-right:0;"></td></tr>`));
       // a conta fecha na tela: soma das linhas = diferenca da forma (dono, 10/09/2026 noite)
@@ -14137,6 +14151,32 @@ async function entrarCaixa() {
 // 10/09/2026 (dono: "os caixas sobem separados"): uma contagem por CAIXA do Saipos —
 // SALÃO e DELIVERY — cada uma com seu enviado + troco. O delivery abre com R$ 0,01
 // (o Saipos nao deixa abrir zerado), por isso o troco dele vem preenchido com 0,01.
+// Registro da contagem de dentro do dia (10/09/2026 noite): grava, recarrega tudo e reabre o dia.
+async function caixaRegistrarNoDia(unidade, dia, caixa, idF) {
+  const valor = document.getElementById(idF + 'Valor').value;
+  const troco = document.getElementById(idF + 'Troco').value;
+  const obs = document.getElementById(idF + 'Obs').value.trim();
+  const s = rmbSessao();
+  if (!s || !s.email) { alert('Sessão expirada — faça login de novo para registrar.'); return; }
+  if (valor === '' || Number(valor) < 0) { alert('Digite o dinheiro enviado (0 vale, se não veio dinheiro).'); return; }
+  if (troco === '' || Number(troco) < 0) { alert('Digite o troco que ficou na gaveta (0 vale, se ficou sem troco).'); return; }
+  const bt = document.getElementById(idF + 'Btn');
+  bt.disabled = true; bt.textContent = 'salvando...';
+  try {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/caixa_contagem?on_conflict=unidade,data,caixa`, {
+      method: 'POST', headers: rmbHeaders({ Prefer: 'resolution=merge-duplicates' }),
+      body: JSON.stringify({ unidade, data: dia, caixa, contado: Math.round((Number(valor) + Number(troco)) * 100) / 100, troco: Number(troco),
+                             observacao: obs || null, quem: s.email, atualizado_em: new Date().toISOString() }),
+    });
+    if (!r.ok) throw new Error((await r.text()).slice(0, 160));
+    CAIXA_DIAS = null;
+    await entrarCaixa();
+    await abrirDiaConcartao(unidade, dia);
+  } catch (e) {
+    alert('Não consegui salvar a contagem: ' + e.message);
+    bt.disabled = false; bt.textContent = 'Registrar';
+  }
+}
 async function caixaSalvar(unidade, idBase, caixa) {
   caixa = caixa || 'SALÃO';
   const dia = document.getElementById(idBase + 'Data').value;
@@ -14214,20 +14254,15 @@ function renderModuloCaixa() {
   const td = 'padding:3px 6px; text-align:right; white-space:nowrap;';
   const sep = ' border-left:1px solid rgba(154,164,175,.25);';
   const th = 'padding:3px 6px; font-weight:normal; text-align:right; white-space:nowrap;';
+  // Lista de dias enxuta (dono, 10/09/2026 noite: "toda essa tabela inicial passar a compor
+  // a tela abaixo de fechamento"): os numeros por forma vivem no clique do dia; aqui so o
+  // dia, o que falta e quem conferiu.
   const cabecalho = `
-        <tr style="color:#9aa4af; font-size:11px; text-transform:uppercase;">
-          <th></th>
-          <th colspan="3" style="padding:2px 6px; text-align:center; font-weight:normal;">dinheiro</th>
-          <th colspan="3" style="padding:2px 6px; text-align:center; font-weight:normal;${sep}">maquininha (cartão, vale e PIX QR)</th>
-          <th colspan="3" style="padding:2px 6px; text-align:center; font-weight:normal;${sep}">PIX chave</th>
-          <th></th></tr>
-        <tr style="color:#9aa4af; text-align:left;">
+        <tr style="color:#9aa4af; text-align:left; font-size:11px; text-transform:uppercase;">
           <th style="padding:3px 6px; font-weight:normal;">dia</th>
-          <th style="${th}" title="venda em dinheiro registrada no PDV (os dois caixas)">vendeu</th><th style="${th}" title="o que a contagem da gaveta registrou como enviado (contado − troco), somando os caixas contados">contado</th><th style="${th}" title="contado − vendeu: negativo faltou, positivo sobrou; saídas do dia pagas pela gaveta e lançadas no Saipos não contam como diferença">diferença</th>
-          <th style="${th}${sep}">PDV</th><th style="${th}" title="cartão e vale na Rede + PIX QR no banco">confirmado</th><th style="${th}">diferença</th>
-          <th style="${th}${sep}">PDV</th><th style="${th}">no banco</th><th style="${th}">sem par</th>
-          <th style="padding:3px 6px; font-weight:normal;">situação</th>
-          <th style="padding:3px 6px; font-weight:normal;" title="carimbo de quem conferiu cada caixa do turno">conferido</th></tr>`;
+          <th style="padding:3px 6px; font-weight:normal;">o que falta</th>
+          <th style="padding:3px 6px; font-weight:normal;" title="carimbo de quem conferiu cada caixa do turno">conferido</th>
+          <th></th></tr>`;
   const btn = (ativo, onclick, rotulo) => `<button class="navbtn ${ativo ? 'active' : ''}" onclick="${onclick}">${rotulo}</button>`;
   const filtros = `<div style="display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin:8px 0 4px;">
     ${btn(!F.loja, "caixaFiltrar('loja','')", 'Todas')}${LOJAS_CAIXA.map(([u, r]) => btn(F.loja === u, `caixaFiltrar('loja','${u}')`, r)).join('')}
@@ -14336,82 +14371,14 @@ function renderModuloCaixa() {
       const aguardHtml = '<span style="color:#9aa4af;" title="PIX: até 6 dias (fim de semana e feriado atrasam); maquininha: a madrugada do turno chega amanhã">aguardando</span>';
       return `<tr style="${cor} cursor:pointer;" onclick="abrirDiaConcartao('${unidade.replace(/'/g, "\\'")}', '${iso}')" title="clique para abrir as transações do dia e o que cada caixa fechou">
         <td style="padding:3px 6px; white-space:nowrap;">${fmtDia(iso)}</td>
-        <td style="${td}">${aberto ? (r ? num(r.dinheiro_pdv) : vazio) : num(dinVend)}</td>
-        <td style="${td}">${aberto ? vazio : dinCont.length ? num(dinEnv) + (faltaContar ? ' <span style="color:#f5a623; font-size:11px;" title="um dos caixas ainda não foi contado">+ falta um</span>' : '') : (faltaContar ? '<span style="color:#f5a623;">não contado</span>' : vazio)}</td>
-        <td style="${td}">${aberto ? vazio : (dinExplicado && Math.abs(dinDif) >= 0.01 ? expl(dinDif) : difDin(dinDif))}</td>
-        <td style="${td}${sep}">${num(maqPdv)}</td>
-        <td style="${td}">${num(maqReal)}</td>
-        <td style="${td}">${aberto ? vazio : (Math.abs(maqResto) >= 0.01 ? dif(maqResto) : (Math.abs(maqDif) >= 0.01 ? expl(maqDif) : (maqAguard > 0 ? aguardHtml : vazio)))}${!aberto && madrugada > 0 ? ` <span style="color:#9aa4af; font-size:11px;" title="R$ ${fmt(madrugada)} registrados na madrugada: a Rede entrega amanhã">+ madrugada</span>` : ''}</td>
-        <td style="${td}${sep}">${num(chavePdv)}</td>
-        <td style="${td}">${num(chaveReal)}</td>
-        <td style="${td}">${aberto ? vazio : (chaveResto > 0 ? '<b style="color:#ff6b6b;">R$ ' + fmt(chaveResto) + '</b>' : (chaveSem > 0 ? expl(chaveSem) : (chaveAguard > 0 ? aguardHtml : vazio)))}</td>
         <td style="padding:3px 6px; white-space:nowrap;">${situacao}</td>
-        <td style="padding:3px 6px; white-space:nowrap;">${confHtml}</td></tr>`;
+        <td style="padding:3px 6px; white-space:nowrap;">${confHtml}</td>
+        <td style="padding:3px 6px; color:#9aa4af; font-size:11px; white-space:nowrap;">abrir ›</td></tr>`;
     }).join('');
     pendTotal += pend; semFechTotal += semFech;
 
-    let contagemHtml = '';
-    const resultado = c => Math.abs(c.dif) < 0.01 ? '<span style="color:#3f9c5a;">✔ bateu</span>'
-      : (c.saidas > 0 && Math.abs(c.difSaidas) < 0.01) ? '<span style="color:#3f9c5a;">✔ bateu</span> <span style="color:#9aa4af;">(R$ ' + fmt(c.saidas) + ' de saídas pagas pela gaveta)</span>'
-      : c.dif < 0 ? '<b style="color:#ff6b6b;">faltou R$ ' + fmt(-c.dif) + '</b>' + (c.saidas > 0 ? ' <span style="color:#9aa4af;" title="saídas em dinheiro lançadas no Saipos neste dia — se foram pagas pela gaveta, explicam parte">(saídas do dia: R$ ' + fmt(c.saidas) + ')</span>' : '')
-      : '<b style="color:#f5a623;">sobrou R$ ' + fmt(c.dif) + '</b>';
-    if (podeDigitar) {
-      contagemHtml += `
-      <div style="margin-top:12px; padding-top:8px; border-top:1px solid rgba(154,164,175,.25);">
-        <b>Contagem do dinheiro — uma por caixa</b>
-        <div style="font-size:12px; color:#a5a49a; margin-top:4px;">
-          Escolha o dia, digite o <b>dinheiro enviado</b> (o que você contou) e o <b>troco que ficou na gaveta</b>. O painel compara
-          com o que o PDV vendeu em dinheiro naquele dia: bateu, faltou ou sobrou. Dia já registrado sai da lista.
-        </div>
-      </div>`;
-    }
-    for (const cx of caixasDaLoja) {
-      const conts = contagensDe(cx);
-      const idCx = idBase + (cx === 'SALÃO' ? 'S' : 'D');
-      const rotCx = cx === 'SALÃO' ? 'Caixa Salão' : 'Caixa Delivery';
-      if (podeDigitar) {
-        // trava (dono, 10/09/2026): dia com contagem registrada nao aparece para novo lancamento
-        const livres = dias.filter(iso => iso < hoje && !conts.some(c => c.data === iso));
-        contagemHtml += livres.length ? `
-        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; align-items:center;">
-          <b style="min-width:110px;">${rotCx}</b>
-          <select id="${idCx}Data" style="padding:4px;">${livres.map(iso => `<option value="${iso}">${fmtDia(iso)}</option>`).join('')}</select>
-          <input type="number" step="0.01" min="0" id="${idCx}Valor" placeholder="dinheiro enviado (R$)" title="o dinheiro que este caixa mandou para você (contado por você)" style="padding:4px; width:160px;">
-          <input type="number" step="0.01" min="0" id="${idCx}Troco" placeholder="troco que ficou (R$)" value="${cx === 'DELIVERY' ? '0.01' : ''}" title="o troco que ficou na gaveta deste caixa naquele dia" style="padding:4px; width:150px;">
-          <input type="text" id="${idCx}Obs" placeholder="observação (se deu diferença, o que achou)" style="padding:4px; flex:1; min-width:160px;">
-          <button id="${idCx}Btn" onclick="caixaSalvar('${unidade}', '${idCx}', '${cx}')">Registrar</button>
-        </div>` : `<div style="margin-top:8px; font-size:12px; color:#9aa4af;"><b style="color:#e8e6dc;">${rotCx}</b>: todos os dias da janela já estão registrados.</div>`;
-      }
-      if (conts.length) {
-        const pend = conts.filter(c => Math.abs(c.dif) >= 0.01 && !(c.saidas > 0 && Math.abs(c.difSaidas) < 0.01)).length;
-        contagemHtml += `
-        <details ${pend ? 'open' : ''} style="margin-top:6px;"><summary style="cursor:pointer;"><b>Contagens — ${rotCx}</b> <span style="color:#9aa4af;">(${conts.length}${pend ? `, <span style="color:#ff6b6b;">${pend} com diferença</span>` : ', todas bateram'})</span></summary>
-          <div style="overflow-x:auto;"><table style="border-collapse:collapse; width:100%; font-size:13px; border:1px solid rgba(154,164,175,.25);">
-            <tr style="color:#9aa4af; text-align:left; font-size:11px; text-transform:uppercase;">
-              <th style="padding:4px 8px; font-weight:normal; border-right:1px solid rgba(154,164,175,.25);">dia</th>
-              <th style="padding:4px 8px; font-weight:normal; text-align:right; border-right:1px solid rgba(154,164,175,.25);" title="venda em dinheiro registrada no PDV nesse caixa">vendeu em dinheiro</th>
-              <th style="padding:4px 8px; font-weight:normal; text-align:right; border-right:1px solid rgba(154,164,175,.25);" title="contado − troco: o dinheiro que o caixa mandou">enviou</th>
-              <th style="padding:4px 8px; font-weight:normal; text-align:right; border-right:1px solid rgba(154,164,175,.25);">troco que ficou</th>
-              <th style="padding:4px 8px; font-weight:normal; border-right:1px solid rgba(154,164,175,.25);">resultado</th>
-              <th style="padding:4px 8px; font-weight:normal; border-right:1px solid rgba(154,164,175,.25);">obs</th>
-              <th style="padding:4px 8px; font-weight:normal;">quem</th>
-            </tr>
-            ${conts.slice(0, 15).map(c => `<tr style="border-top:1px solid rgba(154,164,175,.12);">
-              <td style="padding:4px 8px; border-right:1px solid rgba(154,164,175,.25); white-space:nowrap;">${fmtDia(c.data)}</td>
-              <td style="padding:4px 8px; text-align:right; border-right:1px solid rgba(154,164,175,.25); white-space:nowrap;">R$ ${fmt(c.vendido)}</td>
-              <td style="padding:4px 8px; text-align:right; border-right:1px solid rgba(154,164,175,.25); white-space:nowrap;"><b>R$ ${fmt(c.enviado)}</b></td>
-              <td style="padding:4px 8px; text-align:right; border-right:1px solid rgba(154,164,175,.25); color:#9aa4af; white-space:nowrap;">${c.troco === null ? '—' : 'R$ ' + fmt(c.troco)}</td>
-              <td style="padding:4px 8px; border-right:1px solid rgba(154,164,175,.25);">${resultado(c)}</td>
-              <td style="padding:4px 8px; border-right:1px solid rgba(154,164,175,.25); color:#9aa4af;">${c.observacao || ''}</td>
-              <td style="padding:4px 8px; color:#9aa4af;">${String(c.quem || '').split('@')[0]}</td>
-            </tr>`).join('')}
-          </table></div>
-        </details>`;
-      } else if (podeDigitar) {
-        contagemHtml += `<div style="margin-top:2px; font-size:12px; color:#9aa4af;">${rotCx}: nenhuma contagem ainda.</div>`;
-      }
-    }
-
+    // contagem do dinheiro: agora dentro do dia, na linha Dinheiro (10/09/2026 noite)
+    const contagemHtml = '';
     const corBorda = semFech ? '#ff6b6b' : (pend ? '#f5a623' : '#3f9c5a');
     const resumo = pend
       ? `<b>${pend}</b> dia(s) para conferir${semFech ? ` (<b class="negativo">${semFech}</b> com turno sem fechamento)` : ''} nos últimos ${dias.length} dias.`
@@ -14425,8 +14392,8 @@ function renderModuloCaixa() {
           cartão <b style="color:${corSaldo(saldoC)};">${saldoC === null ? '—' : 'R$ ' + fmt(saldoC)}</b> ·
           vale <b style="color:${corSaldo(saldoV)};">${saldoV === null ? '—' : 'R$ ' + fmt(saldoV)}</b></div>
       </div>
-      <div style="overflow-x:auto;"><table style="border-collapse:collapse; width:100%; font-size:12px; min-width:900px;">
-        ${cabecalho}${linhas || `<tr><td colspan="11" style="padding:8px 6px; color:#9aa4af;">nenhum dia com pendência na janela</td></tr>`}</table></div>
+      <div style="overflow-x:auto;"><table style="border-collapse:collapse; width:100%; font-size:12px;">
+        ${cabecalho}${linhas || `<tr><td colspan="4" style="padding:8px 6px; color:#9aa4af;">nenhum dia com pendência na janela</td></tr>`}</table></div>
       ${contagemHtml}
     </div>`;
   }
@@ -14440,7 +14407,7 @@ function renderModuloCaixa() {
         : '<b style="color:#3f9c5a;">Nenhuma pendência na janela.</b>'}
       <details style="margin-top:6px; font-size:12px; color:#9aa4af;"><summary style="cursor:pointer;">como ler</summary>
         <b>Turno não fechou</b> = o caixa que fez as vendas ainda está aberto no Saipos (o clique no dia diz qual). <b>Dinheiro</b>: venda em dinheiro no PDV × o que a contagem da gaveta registrou como enviado, caixa a caixa
-        (Arissa: Água Verde e Ahú · Diego: São Braz); dia sem contagem aparece como "falta contar". <b>Maquininha</b>: cartão e vale × transações
+        (Arissa: Água Verde e Ahú · Diego: São Braz); dia sem contagem aparece como "falta contar" — a contagem se registra dentro do dia, na linha <b>Dinheiro</b>. <b>Maquininha</b>: cartão e vale × transações
         da Rede, mais o PIX QR da maquininha × crédito no banco (cai linha a linha, "PIX QRS"). <b>PIX chave</b>: avulso
         na chave CNPJ × transferência no banco. <b>O dia é o turno</b>: das 10h às 2h da manhã seguinte (corte às 6h), igual ao caixa do
         Saipos. A Rede só entrega as transações no dia seguinte, então a madrugada do turno de ontem aparece como
