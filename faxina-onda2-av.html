@@ -114,10 +114,12 @@ ul.regras{padding-left:20px; margin:.4em 0;} ul.regras li{margin:6px 0; max-widt
       <li>Preferir horário de vale (manhã ou 15h–17h).</li>
       <li>O número de cada linha é <em>teto estimado</em>: vendas da posição barata × R$ 6 de frete que
       passaria a ser devolvido pelo iFood (≤3 km). Não é promessa — é o tamanho do vazamento.</li>
-      <li><strong>Cada linha diz o MECANISMO da posição barata</strong>, porque são dois caminhos
-      diferentes no portal: <span class="chip">PREÇO BASE</span> = editar direto no Cardápio;
-      <span class="chip warn">PROMOÇÃO DE ITEM</span> = o preço verde/riscado — encerrar ou editar em
-      Promoções → Minhas promoções (mexer só no preço base NÃO tira a promoção).</li>
+      <li><strong>Cada linha diz o MECANISMO da posição barata</strong> — tudo se resolve na própria
+      linha do Cardápio: <span class="chip">PREÇO BASE</span> = editar o preço direto na linha;
+      <span class="chip warn">PROMOÇÃO DE ITEM</span> = clicar na <strong>etiqueta verde</strong> da linha,
+      que abre "Aplicar preço promocional" — ali tem o botão <strong>Remover preço promocional</strong> e o
+      campo para trocar o valor. O próprio drawer avisa: o preço original só destrava DEPOIS de remover a
+      promo (conferido na tela, 11/09).</li>
       <li><strong>Ao terminar, me avisar</strong>: releio o cardápio pela API e os 9 drawers, como fiz na onda 1.</li>
     </ul>
   </div>
@@ -180,9 +182,9 @@ ul.regras{padding-left:20px; margin:.4em 0;} ul.regras li{margin:6px 0; max-widt
     <div class="a">✅ <strong>Passo 1 FEITO 11/09</strong> (conferido no drawer: Silvio no R$ 8 JANTAR,
     39,99 → 31,99; o caldo sazonal saiu, campanha segue 3/3).
     <strong>Falta o passo 2</strong> — a posição barata é <span class="chip warn">PROMOÇÃO DE ITEM</span>:
-    em <code>Promoções → Minhas promoções</code>, encerrar a promo do Silvio de Pratos Clássicos
-    (37,99 riscado → 31,99); depois, no <code>Cardápio → Pratos Clássicos</code>, subir o preço base
-    <code>37,99 → 39,99</code>.</div>
+    na linha do Silvio em <code>Pratos Clássicos</code>, clicar na <strong>etiqueta verde</strong> →
+    <strong>Remover preço promocional</strong> (o riscado 37,99→31,99 some); depois editar o preço base
+    na mesma linha: <code>37,99 → 39,99</code>.</div>
     <div class="d">Sem o passo 2, o cliente perto continua achando o Silvio a 31,99 FORA da campanha —
     e o frete segue saindo do nosso bolso. Com ele, o único caminho para 31,99 é via Hits (com frete
     devolvido). 195 vendas/mês estavam na posição barata.</div></div>
@@ -190,28 +192,29 @@ ul.regras{padding-left:20px; margin:.4em 0;} ul.regras li{margin:6px 0; max-widt
 
   <div class="prop"><input type="checkbox" id="o2-alain" data-imp="522">
     <div class="body"><div class="t">Alain Prost</div>
-    <div class="a"><span class="chip warn">PROMOÇÃO DE ITEM</span> A posição de Burgers Clássicos é base
-    44,99 com promo praticando 35,99. Em <code>Promoções → Minhas promoções</code>, encerrar a promo do
-    Alain <em>(se aparecerem duas do Alain, é a de 35,99)</em>; depois <code>Cardápio → Burgers Clássicos →
-    base 44,99 → 46,99</code>. O Alain do Hits (Mais Pedidos) não é tocado — a campanha segue rodando.</div>
+    <div class="a"><span class="chip warn">PROMOÇÃO DE ITEM</span> Na linha do Alain em <code>Burgers
+    Clássicos</code> (44,99 riscado → 35,99), clicar na <strong>etiqueta verde</strong> →
+    <strong>Remover preço promocional</strong>; depois editar o base na mesma linha:
+    <code>44,99 → 46,99</code>. O Alain do Hits é o de "Mais Pedidos" (46,99, sem etiqueta) — nesse não
+    se toca, a campanha segue rodando.</div>
     <div class="d">87 vendas/mês na posição barata — o segundo maior vazamento. Via Hits: 36,99 com frete grátis (+R$ 1).<br>
     <span class="chip">HITS R$ 10 · SEMPRE + JANTAR · 46,99 → 36,99 (já está)</span></div></div>
     <div class="imp">~R$ 522/mês</div></div>
 
   <div class="prop"><input type="checkbox" id="o2-cdm" data-imp="186">
     <div class="body"><div class="t">Cidadão do Mundo Burger</div>
-    <div class="a"><span class="chip warn">PROMOÇÃO DE ITEM</span> A posição de Burgers Especiais é base
-    52,99 com promo praticando 46,99. Encerrar a promo do CDM em <code>Minhas promoções</code>; depois
-    <code>Cardápio → Burgers Especiais → base 52,99 → 54,99</code>.</div>
+    <div class="a"><span class="chip warn">PROMOÇÃO DE ITEM</span> Na linha do CDM em <code>Burgers
+    Especiais</code> (52,99 riscado → 46,99), etiqueta verde → <strong>Remover preço promocional</strong>;
+    depois editar o base na linha: <code>52,99 → 54,99</code>.</div>
     <div class="d">31 vendas/mês a 46,99. Via Hits o cliente paga 44,99 — MENOS que hoje, com frete grátis.<br>
     <span class="chip">HITS R$ 10 · SEMPRE + JANTAR · 54,99 → 44,99 (já está)</span></div></div>
     <div class="imp">~R$ 186/mês</div></div>
 
   <div class="prop"><input type="checkbox" id="o2-chaplin" data-imp="126">
     <div class="body"><div class="t">Charles Chaplin</div>
-    <div class="a"><span class="chip warn">PROMOÇÃO DE ITEM</span> A posição de Burgers Especiais é base
-    39,99 com promo praticando 34,99. Encerrar a promo do Chaplin em <code>Minhas promoções</code>; depois
-    <code>Cardápio → Burgers Especiais → base 39,99 → 38,99</code> (igual à posição da campanha).</div>
+    <div class="a"><span class="chip warn">PROMOÇÃO DE ITEM</span> Na linha do Chaplin em <code>Burgers
+    Especiais</code> (39,99 riscado → 34,99), etiqueta verde → <strong>Remover preço promocional</strong>;
+    depois editar o base na linha: <code>39,99 → 38,99</code> (igual à posição da campanha).</div>
     <div class="d">21 vendas/mês a 34,99 × 20 a 38,99. No jantar via Hits: 30,99, menos que hoje. Fora do jantar sobe R$ 4 — decisão consciente.<br>
     <span class="chip">HITS R$ 8 · JANTAR · 38,99 → 30,99 (já está)</span></div></div>
     <div class="imp">~R$ 126/mês</div></div>
@@ -309,25 +312,25 @@ ul.regras{padding-left:20px; margin:.4em 0;} ul.regras li{margin:6px 0; max-widt
 
   <div class="prop"><input type="checkbox" id="o2-schum" data-imp="94">
     <div class="body"><div class="t">Michael Schumacher a 26,90</div>
-    <div class="a"><span class="chip warn">PROMOÇÃO DE ITEM</span> A posição de Burgers Clássicos é base
-    36,99 com promo praticando 26,90. Encerrar a promo em <code>Minhas promoções</code>; depois ajustar a
-    base <code>36,99 → 35,99</code> (igual ao praticado dos Campeões, que tem riscado 45,99).</div>
+    <div class="a"><span class="chip warn">PROMOÇÃO DE ITEM</span> Na linha do Schumacher em <code>Burgers
+    Clássicos</code> (36,99 riscado → 26,90), etiqueta verde → <strong>Remover preço promocional</strong>;
+    depois editar o base na linha: <code>36,99 → 35,99</code> (igual ao praticado dos Campeões).</div>
     <div class="d">13 vendas/mês a 26,90 — preço destoa de tudo. Ganho aqui é margem direta: 13 × R$ 9,09 × 0,79.</div></div>
     <div class="imp">~R$ 94/mês</div></div>
 
   <div class="prop"><input type="checkbox" id="o2-berlim" data-imp="78">
     <div class="body"><div class="t">Berlim — vitrine mais barata que a categoria</div>
-    <div class="a"><span class="chip warn">PROMOÇÃO DE ITEM</span> A posição da vitrine é base 37,99 com
-    promo praticando 29,99. Em <code>Minhas promoções</code>, EDITAR o valor da promo do Berlim de
-    <code>29,99 → 31,99</code> (mantém o riscado 37,99; iguala à posição de Porções).</div>
+    <div class="a"><span class="chip warn">PROMOÇÃO DE ITEM</span> Na linha do Berlim em <code>Mais
+    Pedidos</code> (37,99 riscado → 29,99), etiqueta verde → no campo do valor, trocar
+    <code>29,99 → 31,99</code> → <strong>Aplicar</strong> (mantém o riscado; iguala à posição de Porções).</div>
     <div class="d">49 vendas/mês a 29,99 na vitrine × 38 a 31,99 — está invertido: a vitrine mais vista tem o preço menor. Margem direta: 49 × R$ 2 × 0,79.</div></div>
     <div class="imp">~R$ 78/mês</div></div>
 
   <div class="prop"><input type="checkbox" id="o2-tbone" data-imp="0">
     <div class="body"><div class="t">T-Bone com dois preços (163,99 × 153,99)</div>
     <div class="a"><span class="chip warn">PROMOÇÃO DE ITEM ×2</span> As DUAS posições são promoções do
-    mesmo base 173,99 (<code>Recomendados</code> pratica 163,99; <code>Churrasco</code> 153,99). Em
-    <code>Minhas promoções</code>, editar as duas para o MESMO valor (a fase 2 sugeria 159,99).</div>
+    mesmo base 173,99 (<code>Recomendados</code> pratica 163,99; <code>Churrasco</code> 153,99). Na
+    etiqueta verde de CADA linha, trocar o valor para o MESMO número → Aplicar (a fase 2 sugeria 159,99).</div>
     <div class="d">Volume baixo (2+2/mês). ⚠️ A ficha dele está em conferência (CMV 0,1% é implausível) — igualar o preço
     pode; decisão de VALOR final só depois da ficha conferida.</div></div>
     <div class="imp na">um preço</div></div>
