@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Cardápio-alvo v2 · Burger AV</title>
+<meta name="robots" content="noindex">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body style="margin:0">
+<meta charset="utf-8">
+<title>Cardápio-alvo v2 · Burger AV</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<style>
+:root{
+  --bg:#f6f1e8; --surface:#fffdf8; --surface2:#f0e9db; --ink:#2b2118; --ink2:#5c5245;
+  --muted:#8a7c6b; --line:#e3d8c6; --accent:#c8102e; --accent-soft:#fbe9ec;
+  --good:#1c7c44; --good-soft:#e3f2e8; --warn:#a3630b; --warn-soft:#f8eeda;
+  --bad:#b3261e; --bad-soft:#f9e7e5; --chip:#efe6d6;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#211b13; --surface:#2b241a; --surface2:#352c20; --ink:#f1e9dc; --ink2:#cfc3b0;
+    --muted:#a2937e; --line:#443a2b; --accent:#f0596f; --accent-soft:#48222a;
+    --good:#59c98a; --good-soft:#22382c; --warn:#e0a33e; --warn-soft:#3d311f;
+    --bad:#ef6b61; --bad-soft:#42241f; --chip:#3a3123;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#211b13; --surface:#2b241a; --surface2:#352c20; --ink:#f1e9dc; --ink2:#cfc3b0;
+  --muted:#a2937e; --line:#443a2b; --accent:#f0596f; --accent-soft:#48222a;
+  --good:#59c98a; --good-soft:#22382c; --warn:#e0a33e; --warn-soft:#3d311f;
+  --bad:#ef6b61; --bad-soft:#42241f; --chip:#3a3123;
+}
+*{box-sizing:border-box}
+body{background:var(--bg); color:var(--ink); margin:0;
+  font-family:'Instrument Sans',system-ui,sans-serif; font-size:16px; line-height:1.55; padding-bottom:48px;}
+.wrap{max-width:1000px; margin:0 auto; padding:0 20px;}
+h1,h2,h3{font-family:'Archivo',system-ui,sans-serif; line-height:1.15; text-wrap:balance; margin:0;}
+h1{font-size:clamp(28px,5vw,40px); font-weight:800;}
+h2{font-size:clamp(19px,3vw,25px); font-weight:700; margin-bottom:4px;}
+h3{font-size:16px; font-weight:700; margin:14px 0 4px;}
+p{margin:.5em 0; max-width:76ch;}
+.eyebrow{font-size:12px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:var(--accent); margin-bottom:8px;}
+header.hero{padding:40px 0 6px;}
+.sub{color:var(--ink2); margin-top:10px; max-width:78ch;}
+.tiles{display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:12px; margin:22px 0 6px;}
+.tile{background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:13px 16px;}
+.tile .v{font-family:'Archivo'; font-weight:800; font-size:22px; font-variant-numeric:tabular-nums;}
+.tile .l{font-size:12.5px; color:var(--muted); margin-top:2px;}
+section{margin:36px 0;}
+.secnum{display:inline-block; background:var(--accent); color:#fff; font-family:'Archivo'; font-weight:700;
+  font-size:13px; border-radius:6px; padding:2px 9px; margin-bottom:8px;}
+:root[data-theme="dark"] .secnum{color:#211b13;}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .secnum{color:#211b13;} }
+.box{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:15px 18px; margin:14px 0;}
+.box.note{background:var(--surface2); border-style:dashed;}
+.small{font-size:13.5px; color:var(--ink2);}
+.tablewrap{overflow-x:auto; margin:12px 0; border:1px solid var(--line); border-radius:10px; background:var(--surface);}
+table{border-collapse:collapse; width:100%; min-width:640px; font-size:14px;}
+th{font-size:11.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted);
+  text-align:left; padding:9px 12px; border-bottom:1px solid var(--line); font-weight:600;}
+td{padding:8px 12px; border-bottom:1px solid var(--line); vertical-align:top;}
+tr:last-child td{border-bottom:none;}
+td.num,th.num{text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap;}
+.chip{display:inline-block; background:var(--chip); border-radius:20px; padding:1px 10px; font-size:12px; font-weight:600; white-space:nowrap;}
+.chip.good{background:var(--good-soft); color:var(--good);}
+.chip.warn{background:var(--warn-soft); color:var(--warn);}
+.chip.bad{background:var(--bad-soft); color:var(--bad);}
+ol.passos{padding-left:20px;} ol.passos li{margin:8px 0; max-width:78ch;}
+ul.lst{padding-left:20px; margin:.4em 0;} ul.lst li{margin:5px 0; max-width:78ch;}
+@media (prefers-reduced-motion: reduce){ *{transition:none !important;} }
+</style>
+
+<div class="wrap">
+<header class="hero">
+  <div class="eyebrow">Engenharia de cardápio · Burger AV · desenho final · 11/09/2026</div>
+  <h1>Cardápio-alvo v2 — um item de cada</h1>
+  <p class="sub">O norte que você definiu: <em>"apenas um item de cada, distribuído corretamente nas
+  categorias e no Hits — um cardápio limpo e funcional"</em>. Este é o desenho completo: cada produto
+  numa casa só, o preço em três camadas na mesma posição, as 9 campanhas preservadas e todas as sobras
+  na régua. Calculado com as fichas reais (extração de 09/09) e o estado do portal lido em 11/09.</p>
+  <div class="tiles">
+    <div class="tile"><div class="v">153 → ~125</div><div class="l">posições (morrem re-links, clones e vitrines-turno)</div></div>
+    <div class="tile"><div class="v">31 → ~21</div><div class="l">categorias (nasce a Burger do Mês)</div></div>
+    <div class="tile"><div class="v">9/9</div><div class="l">campanhas Hits preservadas, sem vaga aberta</div></div>
+    <div class="tile"><div class="v">100%</div><div class="l">dos itens de campanha com sobra ≥ 57% no Por (1 âmbar)</div></div>
+  </div>
+</header>
+
+<section>
+  <div class="secnum">1</div>
+  <h2>As 4 regras do desenho</h2>
+  <div class="box">
+    <ul class="lst">
+      <li><strong>Um produto, uma casa.</strong> Nenhum item em duas categorias. Quem estava em duas,
+      sobrevive na <em>posição da campanha</em> (para o Hits não sofrer nada) ou na categoria-família.</li>
+      <li><strong>Preço em 3 camadas na mesma posição:</strong> preço base alto (vira o riscado) →
+      promoção de item (o preço que TODO MUNDO vê, perto e longe — a etiqueta verde) → Hits sobre o
+      praticado (o preço do cliente perto, com frete devolvido). Ex.: Alain base 46,99 → etiqueta
+      41,99 → campanha "De 41,99 por 31,99".</li>
+      <li><strong>Vitrine de turno não precisa existir.</strong> A campanha de almoço/jantar já aplica o
+      desconto só no horário dela, na posição única do item — "Almoço Campeão" e as versões "- Jantar"
+      eram duplicação para resolver o que a campanha resolve sozinha. Morrem.</li>
+      <li><strong>🍔 Burger do Mês fica FORA de campanha.</strong> Item em campanha não pode ser editado
+      (derruba do programa) — e o Burger do Mês nasce e morre todo mês. Regra dele: ficha validada antes
+      de entrar, foto real, preço cheio com sobra ≥ 57%, e morre no fim do ciclo sem dó.</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <div class="secnum">2</div>
+  <h2>A estrutura — 21 categorias, nesta ordem</h2>
+  <div class="tablewrap"><table>
+    <tr><th>#</th><th>Categoria</th><th>Itens</th><th>O que muda</th></tr>
+    <tr><td>1</td><td><strong>🍔 Burger do Mês</strong></td><td>1–2 rotativos</td><td><span class="chip">NOVA</span> substitui a Copa do Mundo (que você já removeu); lançamento mensal, fora de campanha</td></tr>
+    <tr><td>2</td><td><strong>Mais Pedidos do iFood</strong></td><td>5</td><td>vira a CASA ÚNICA dos heróis: Ayrton · Nelson · Silvio · Alain · CDM (saem os re-links de Berlim, Kentucky e caldo, que voltam pras famílias)</td></tr>
+    <tr><td>3</td><td>Seleção Cidadão do Mundo</td><td>7</td><td>mantém — são containers únicos (inclui os 2 do Hits: Burgers Clássicos 39,99 e Pratos executivos 42,99)</td></tr>
+    <tr><td>4</td><td>Combos lanches no precinho!!</td><td>3</td><td>mantém</td></tr>
+    <tr><td>5</td><td>Combos marmitas no precinho!!</td><td>3</td><td>mantém</td></tr>
+    <tr><td>6</td><td>Caldos !!! <em>(sazonal)</em></td><td>4</td><td>caldo c/ costela volta pra cá como posição única (as versões "- Jantar" morrem); some no verão</td></tr>
+    <tr><td>7</td><td><strong>Hambúrgueres da Casa</strong></td><td>~10</td><td><span class="chip warn">FUSÃO</span> Campeões + Especiais + Clássicos viram UMA categoria: Chaplin, Rubens, John Lennon, Jesse, Schumacher, Cheech, James Brown, Mad Max, Honolulu, Gaudério</td></tr>
+    <tr><td>8</td><td>Smash Burger</td><td>3</td><td>mantém</td></tr>
+    <tr><td>9</td><td>Sanduíches de Frango</td><td>2</td><td>mantém</td></tr>
+    <tr><td>10</td><td>Ufo Burger</td><td>4</td><td>Cheddar Bacon e Costela Catupiry viram posições únicas aqui (saem de Recomendados)</td></tr>
+    <tr><td>11</td><td>Burgers veganos e vegetarianos</td><td>5–6</td><td>decisão: Ufo Vegan (1 item sozinho) funde aqui?</td></tr>
+    <tr><td>12</td><td>Pratos Clássicos</td><td>11</td><td>sem o Silvio (mora em Mais Pedidos); Paulo Cintura, Severino, Pedro Pedreiro ×3, Bezerra ×2, Agostinho ×2, Adoniran ×2</td></tr>
+    <tr><td>13</td><td>Feijoada</td><td>3</td><td>mantém (PF Feijoada já é posição única)</td></tr>
+    <tr><td>14</td><td>Pratos Defumados</td><td>2</td><td>PF Pernil e PF Costela — posições únicas do Hits almoço</td></tr>
+    <tr><td>15</td><td>Pratos Veganos</td><td>3</td><td>mantém</td></tr>
+    <tr><td>16</td><td><strong>Churrasco &amp; Defumados na peça</strong></td><td>6</td><td><span class="chip warn">FUSÃO</span> Churrasco (T-Bone, Alcatra) + Carnes Defumadas (4) — e "Recomendados Pelo Chef" MORRE (era 100% re-link)</td></tr>
+    <tr><td>17</td><td>Porções</td><td>15</td><td>Berlim e Kentucky voltam a ser posição única aqui</td></tr>
+    <tr><td>18</td><td>Kids</td><td>2</td><td>mantém</td></tr>
+    <tr><td>19</td><td>Sobremesas · Sobremesas veganas</td><td>3+3</td><td>mantém as duas (filtro vegano vale a categoria)</td></tr>
+    <tr><td>20</td><td>Bebidas · Quentão <em>(sazonal)</em></td><td>11+2</td><td>mantém</td></tr>
+    <tr><td>21</td><td>Chopp growler 500ml · 1 litro</td><td>6+6</td><td>decisão: fundir numa "Chopp Growler" só?</td></tr>
+  </table></div>
+  <p class="small">Morrem por inteiro: <strong>Almoço Campeão</strong> (8 posições — a campanha de almoço
+  faz o papel dela), <strong>Recomendados Pelo Chef</strong> (6 re-links), <strong>Hambúrgueres
+  Campeões/Especiais/Clássicos</strong> como categorias separadas, as versões <strong>"- Jantar"</strong>
+  do caldo e da canja, e os re-links da vitrine. Copa do Mundo: já removida por você em 11/09.</p>
+</section>
+
+<section>
+  <div class="secnum">3</div>
+  <h2>Preço em camadas — os itens de campanha, calculados na régua</h2>
+  <p class="small">Sobra por venda no Por = Por − ficha − 20,54% do Por (embalagem + taxas cheias).
+  Verde ≥ 57% · âmbar 50–57%. O <strong>praticado</strong> é o preço que todo cliente vê (perto e
+  longe); o Por é o do cliente perto via campanha.</p>
+  <div class="tablewrap"><table>
+    <tr><th>Item (casa única)</th><th class="num">Base (riscado)</th><th class="num">Praticado</th><th>Campanha</th><th class="num">Por</th><th class="num">Sobra/venda</th><th>Farol</th></tr>
+    <tr><td>Ayrton Senna <span class="chip">Mais Pedidos</span></td><td class="num">44,99</td><td class="num">36,99</td><td>R$8 SEMPRE</td><td class="num">28,99</td><td class="num">R$ 16,67 · 57,5%</td><td><span class="chip good">verde</span> como está hoje</td></tr>
+    <tr><td>Nelson Piquet <span class="chip">Mais Pedidos</span></td><td class="num">44,99*</td><td class="num">37,99</td><td>R$8 SEMPRE</td><td class="num">29,99</td><td class="num">R$ 18,50 · 61,7%</td><td><span class="chip good">verde</span> *criar o riscado</td></tr>
+    <tr><td>Burgers Clássicos (container) <span class="chip">Seleção</span></td><td class="num">47,99*</td><td class="num">39,99</td><td>R$8 SEMPRE</td><td class="num">31,99</td><td class="num">via componentes</td><td><span class="chip good">como hoje</span></td></tr>
+    <tr><td><strong>Silvio Santos</strong> <span class="chip">Mais Pedidos</span></td><td class="num">39,99</td><td class="num"><strong>37,99</strong></td><td>R$8 ALMOÇO + JANTAR</td><td class="num">29,99</td><td class="num">R$ 17,28 · 57,6%</td><td><span class="chip good">verde</span></td></tr>
+    <tr><td>PF Feijoada <span class="chip">Feijoada</span></td><td class="num">—</td><td class="num">37,99</td><td>R$8 ALMOÇO</td><td class="num">29,99</td><td class="num">R$ 19,59 · 65,3%</td><td><span class="chip good">verde</span> como hoje</td></tr>
+    <tr><td>Severino <span class="chip">Pratos Clássicos</span></td><td class="num">39,99*</td><td class="num">35,99</td><td>R$8 ALMOÇO</td><td class="num">27,99</td><td class="num">R$ 17,16 · 61,3%</td><td><span class="chip good">verde</span></td></tr>
+    <tr><td>Rubens Barrichello <span class="chip">Hambúrgueres da Casa</span></td><td class="num">49,99</td><td class="num">39,99</td><td>R$8 JANTAR</td><td class="num">31,99</td><td class="num">R$ 18,49 · 57,8%</td><td><span class="chip good">verde</span> como hoje</td></tr>
+    <tr><td>Charles Chaplin <span class="chip">Hambúrgueres da Casa</span></td><td class="num">48,99</td><td class="num">38,99</td><td>R$8 JANTAR</td><td class="num">30,99</td><td class="num">R$ 17,93 · 57,9%</td><td><span class="chip good">verde</span> como hoje</td></tr>
+    <tr><td><strong>Alain Prost</strong> <span class="chip">Mais Pedidos</span></td><td class="num">46,99</td><td class="num"><strong>41,99</strong></td><td>R$10 SEMPRE + JANTAR</td><td class="num">31,99</td><td class="num">R$ 19,00 · 59,4%</td><td><span class="chip good">verde</span></td></tr>
+    <tr><td>Cidadão do Mundo <span class="chip">Mais Pedidos</span></td><td class="num">54,99</td><td class="num"><strong>47,99</strong></td><td>R$10 SEMPRE + JANTAR</td><td class="num">37,99</td><td class="num">R$ 21,76 · 57,3%</td><td><span class="chip good">verde</span></td></tr>
+    <tr><td>John Lennon <span class="chip">Hambúrgueres da Casa</span></td><td class="num">56,99</td><td class="num">46,99</td><td>R$10 JANTAR</td><td class="num">36,99</td><td class="num">R$ 21,12 · 57,1%</td><td><span class="chip good">verde</span> como hoje</td></tr>
+    <tr><td>Pratos executivos (container) <span class="chip">Seleção</span></td><td class="num">47,99*</td><td class="num">42,99</td><td>R$10 SEMPRE</td><td class="num">32,99</td><td class="num">via componentes</td><td><span class="chip good">como hoje</span></td></tr>
+    <tr><td>Agostinho carne <span class="chip">Pratos Clássicos</span></td><td class="num">45,99</td><td class="num"><strong>41,99</strong></td><td>R$10 ALMOÇO</td><td class="num">31,99</td><td class="num">R$ 18,07 · 56,5%</td><td><span class="chip warn">âmbar</span> no limite, ok</td></tr>
+    <tr><td>PF Pernil <span class="chip">Pratos Defumados</span></td><td class="num">45,99*</td><td class="num"><strong>41,99</strong></td><td>R$10 ALMOÇO</td><td class="num">31,99</td><td class="num">R$ 19,76 · 61,8%</td><td><span class="chip good">verde</span></td></tr>
+    <tr><td>PF Costela <span class="chip">Pratos Defumados</span></td><td class="num">47,99*</td><td class="num"><strong>41,99</strong></td><td>R$10 ALMOÇO</td><td class="num">31,99</td><td class="num">R$ 18,46 · 57,7%</td><td><span class="chip good">verde</span></td></tr>
+    <tr><td>Tortas + Salvador Dalí <span class="chip">Sobremesas</span></td><td class="num">—</td><td class="num">19,99</td><td>R$5 ×3 (até a fase 3)</td><td class="num">14,99</td><td class="num">Dalí R$ 9,55 · torta alemã R$ 2,91</td><td><span class="chip bad">trocar torta alemã</span></td></tr>
+    <tr><td>Paulo Cintura <span class="chip">Pratos Clássicos</span></td><td class="num">—</td><td class="num">34,99</td><td><strong>SAI do Hits</strong> (dá a vaga do almoço ao Silvio)</td><td class="num">—</td><td class="num">R$ 25,20 · 72,0% no preço cheio</td><td><span class="chip good">margem-campeã sem promo</span></td></tr>
+  </table></div>
+  <p class="small">* = criar o preço base (riscado) novo; nos demais o riscado já existe. Quem NÃO está
+  nesta tabela não muda de preço — só de casa, quando tinha posição dupla. Sem ficha ainda: containers
+  (margem via componentes), torta vegana e T-Bone (em conferência) — preço final desses depende da ficha.</p>
+</section>
+
+<section>
+  <div class="secnum">4</div>
+  <h2>O que muda para o cliente — honesto</h2>
+  <div class="box">
+    <ul class="lst">
+      <li><strong>Cliente perto (raio das campanhas):</strong> paga IGUAL ou MENOS que hoje em tudo
+      (Severino 31,99→27,99, Silvio 31,99→29,99 nos turnos, Alain 35,99→31,99, pratos do almoço R$10
+      35,99→31,99) — e com frete devolvido pelo iFood.</li>
+      <li><strong>Cliente longe (fora do raio):</strong> passa a ver riscados reais. Paga um pouco mais
+      que na posição barata antiga em 4 casos: Silvio 31,99→37,99 (fora dos turnos de campanha),
+      Chaplin 34,99→38,99, Rubens 36,99→39,99, Alain 35,99→41,99. É o custo de ter UM item — e a
+      leitura semanal diz em 2 semanas se algum desses precisa de ajuste.</li>
+      <li><strong>Meio da tarde (15h–17h, sem campanha de turno):</strong> vale o praticado da tabela.
+      São ~10% das vendas dos pratos.</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <div class="secnum">5</div>
+  <h2>Migração — a ordem que não quebra nada</h2>
+  <ol class="passos">
+    <li><strong>Preços primeiro (etiqueta verde em cada sobrevivente):</strong> aplicar os praticados
+    da tabela — Silvio 37,99 · Alain 41,99 <em>(substitui o 39,99 que eu tinha indicado)</em> · CDM
+    47,99 · Severino 35,99 (subir base p/ 39,99 antes) · Agostinho 41,99 · Pernil 41,99 (base 45,99) ·
+    Costela 41,99 (base 47,99) · Nelson riscado 44,99.</li>
+    <li><strong>Campanhas de almoço — trocar a posição selecionada</strong> (drawer, uma campanha por
+    vez, Remover velha → Adicionar sobrevivente → Salvar na MESMA sessão): R$8 Almoço = Feijoada +
+    Severino (Pratos Clássicos) + Silvio (Mais Pedidos, entra no lugar do Paulo) · R$10 Almoço =
+    Agostinho + Pernil + Costela nas posições das famílias.</li>
+    <li><strong>Excluir as posições irmãs</strong> que ficaram sem papel: Silvio/Alain/Schumacher em
+    Burgers Clássicos, CDM/Chaplin/Jesse em duplicata, Rubens Clássicos, caldo e canja "- Jantar",
+    re-links de Berlim/Kentucky/caldo na vitrine, os 6 de Recomendados.</li>
+    <li><strong>Apagar as categorias esvaziadas:</strong> Almoço Campeão, Recomendados Pelo Chef,
+    e consolidar Campeões+Especiais+Clássicos em "Hambúrgueres da Casa".</li>
+    <li><strong>Criar a 🍔 Burger do Mês</strong> no topo (ficha validada por você + foto real; primeiro
+    burger do ciclo é criação da cozinha).</li>
+    <li><strong>Eu confiro tudo</strong>: API (posições, preços, zero duplicata) + drawers das 9
+    campanhas — e aí destravamos as réplicas da Comida Brasileira e do Cidadão Vegan, que já nascem
+    no desenho limpo.</li>
+  </ol>
+  <div class="box note"><p class="small"><strong>Salvaguardas:</strong> nunca excluir uma posição que
+  esteja selecionada em campanha (trocar a seleção ANTES); a troca de seleção é permitida pelo programa
+  (o proibido é editar o item da campanha); horário de vale; uma campanha nunca fica salva com menos de
+  3 itens.</p></div>
+</section>
+
+<section>
+  <div class="secnum">6</div>
+  <h2>Decisões que são suas</h2>
+  <ul class="lst">
+    <li><strong>Silvio a 37,99 fora dos turnos</strong> (era 31,99): a régua aprova (57,6% verde) e nos
+    turnos ele fica mais barato que hoje via Hits — mas é o item de maior volume da loja; se preferir
+    conservador, 34,99 (âmbar, 55,2%).</li>
+    <li><strong>Ufo Vegan</strong> (categoria de 1 item) funde em Burgers veganos?</li>
+    <li><strong>Chopp growler</strong>: fundir 500ml + 1L numa categoria?</li>
+    <li><strong>Adoniran/Bezerra</strong>: com o Almoço Campeão morrendo, os descontos de almoço deles
+    (De riscado) passam a valer o dia todo na posição única — mantém o desconto ou preço cheio?</li>
+    <li><strong>Primeiro Burger do Mês</strong>: qual e quando lança?</li>
+  </ul>
+</section>
+</div>
+
+</body>
+</html>
