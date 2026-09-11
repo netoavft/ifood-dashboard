@@ -111,6 +111,10 @@ ul.regras{padding-left:20px; margin:.4em 0;} ul.regras li{margin:6px 0; max-widt
       <li>Preferir horário de vale (manhã ou 15h–17h).</li>
       <li>O número de cada linha é <em>teto estimado</em>: vendas da posição barata × R$ 6 de frete que
       passaria a ser devolvido pelo iFood (≤3 km). Não é promessa — é o tamanho do vazamento.</li>
+      <li><strong>Cada linha diz o MECANISMO da posição barata</strong>, porque são dois caminhos
+      diferentes no portal: <span class="chip">PREÇO BASE</span> = editar direto no Cardápio;
+      <span class="chip warn">PROMOÇÃO DE ITEM</span> = o preço verde/riscado — encerrar ou editar em
+      Promoções → Minhas promoções (mexer só no preço base NÃO tira a promoção).</li>
       <li><strong>Ao terminar, me avisar</strong>: releio o cardápio pela API e os 9 drawers, como fiz na onda 1.</li>
     </ul>
   </div>
@@ -153,7 +157,7 @@ ul.regras{padding-left:20px; margin:.4em 0;} ul.regras li{margin:6px 0; max-widt
     <tr><td style="padding:8px 12px; border-bottom:1px solid var(--line); white-space:nowrap;">R$ 5 JANTAR</td><td style="padding:8px 12px; border-bottom:1px solid var(--line);">as mesmas 3 sobremesas</td><td style="padding:8px 12px; border-bottom:1px solid var(--line);">trocar 1–2 por salgado de entrada (fase 3); sobremesa pode ficar em 1 vaga</td></tr>
     <tr><td style="padding:8px 12px; border-bottom:1px solid var(--line); white-space:nowrap;">R$ 8 SEMPRE</td><td style="padding:8px 12px; border-bottom:1px solid var(--line);">Ayrton 36,99→28,99 · Nelson 37,99→29,99 · Burgers Clássicos 39,99→31,99</td><td style="padding:8px 12px; border-bottom:1px solid var(--line);"><span class="chip good">manter</span> 141 ped/30d, a melhor campanha</td></tr>
     <tr><td style="padding:8px 12px; border-bottom:1px solid var(--line); white-space:nowrap;">R$ 8 ALMOÇO</td><td style="padding:8px 12px; border-bottom:1px solid var(--line);">Paulo Cintura 39,99→31,99 · PF Feijoada 37,99→29,99 · Severino 39,99→31,99</td><td style="padding:8px 12px; border-bottom:1px solid var(--line);"><span class="chip good">manter</span> feijoada dobrou na 1ª semana</td></tr>
-    <tr><td style="padding:8px 12px; border-bottom:1px solid var(--line); white-space:nowrap;">R$ 8 JANTAR</td><td style="padding:8px 12px; border-bottom:1px solid var(--line);">Caldo mandioquinha-Jantar 37,99→29,99 <em>(sazonal)</em> · Rubens 39,99→31,99 · Chaplin 38,99→30,99</td><td style="padding:8px 12px; border-bottom:1px solid var(--line);"><span class="chip">SILVIO ENTRA AQUI</span> na vaga do caldo, De 39,99 → Por 31,99 — pode ser já (inverno acabando)</td></tr>
+    <tr><td style="padding:8px 12px; border-bottom:1px solid var(--line); white-space:nowrap;">R$ 8 JANTAR</td><td style="padding:8px 12px; border-bottom:1px solid var(--line);"><strong>Silvio 39,99→31,99</strong> · Rubens 39,99→31,99 · Chaplin 38,99→30,99</td><td style="padding:8px 12px; border-bottom:1px solid var(--line);"><span class="chip good">FEITO 11/09</span> Silvio entrou na vaga do caldo sazonal (conferido no drawer)</td></tr>
     <tr><td style="padding:8px 12px; border-bottom:1px solid var(--line); white-space:nowrap;">R$ 10 SEMPRE</td><td style="padding:8px 12px; border-bottom:1px solid var(--line);">Alain 46,99→36,99 · Pratos executivos 42,99→32,99 · CDM 54,99→44,99</td><td style="padding:8px 12px; border-bottom:1px solid var(--line);"><span class="chip good">manter</span></td></tr>
     <tr><td style="padding:8px 12px; border-bottom:1px solid var(--line); white-space:nowrap;">R$ 10 ALMOÇO</td><td style="padding:8px 12px; border-bottom:1px solid var(--line);">Agostinho 45,99→35,99 · PF Pernil 45,99→35,99 · PF Costela 47,99→37,99</td><td style="padding:8px 12px; border-bottom:1px solid var(--line);"><span class="chip good">manter</span> 2→11 ped/30d desde 01/09</td></tr>
     <tr><td style="padding:8px 12px; white-space:nowrap;">R$ 10 JANTAR</td><td style="padding:8px 12px;">Alain 46,99→36,99 · John Lennon 46,99→36,99 · CDM 54,99→44,99</td><td style="padding:8px 12px;"><span class="chip good">manter</span> 12→24 ped/30d</td></tr>
@@ -170,77 +174,89 @@ ul.regras{padding-left:20px; margin:.4em 0;} ul.regras li{margin:6px 0; max-widt
 
   <div class="prop destaque"><input type="checkbox" id="o2-silvio" data-imp="1170">
     <div class="body"><div class="t">Silvio Santos — casada com a entrada dele no Hits (fase 4)</div>
-    <div class="a">1) Colocar o Silvio no <strong>Hits R$ 8 JANTAR</strong>, na vaga do caldo sazonal
-    — no drawer, marcar o Silvio da seção <strong>"Mais Pedidos do Ifood"</strong>, que mostra
-    <strong>De 39,99 → Por 31,99</strong>. 2) <code>Pratos Clássicos → Silvio Santos → encerrar a
-    promoção de item (37,99 riscado) e subir para 39,99</code>.</div>
-    <div class="d">⚠️ <strong>NÃO marcar o Silvio da seção "Pratos Clássicos"</strong>: essa posição pratica
-    31,99, e o Hits aplicaria em cima dela (31,99 → 23,99 — R$ 8 de desconto desnecessário em 195
-    vendas/mês; conferido na tela em 11/09). O desconto do Hits incide sobre o preço PRATICADO da
-    posição escolhida. Pela posição certa: cliente paga os MESMOS 31,99 de hoje e ganha frete grátis —
-    pra ele nada muda, pra nós o frete volta do iFood. Não executar o passo 2 sem o passo 1.</div></div>
+    <div class="a">✅ <strong>Passo 1 FEITO 11/09</strong> (conferido no drawer: Silvio no R$ 8 JANTAR,
+    39,99 → 31,99; o caldo sazonal saiu, campanha segue 3/3).
+    <strong>Falta o passo 2</strong> — a posição barata é <span class="chip warn">PROMOÇÃO DE ITEM</span>:
+    em <code>Promoções → Minhas promoções</code>, encerrar a promo do Silvio de Pratos Clássicos
+    (37,99 riscado → 31,99); depois, no <code>Cardápio → Pratos Clássicos</code>, subir o preço base
+    <code>37,99 → 39,99</code>.</div>
+    <div class="d">Sem o passo 2, o cliente perto continua achando o Silvio a 31,99 FORA da campanha —
+    e o frete segue saindo do nosso bolso. Com ele, o único caminho para 31,99 é via Hits (com frete
+    devolvido). 195 vendas/mês estavam na posição barata.</div></div>
     <div class="imp">~R$ 1.170/mês</div></div>
 
   <div class="prop"><input type="checkbox" id="o2-alain" data-imp="522">
     <div class="body"><div class="t">Alain Prost</div>
-    <div class="a"><code>Burgers Clássicos → Alain → 35,99 → 46,99</code></div>
+    <div class="a"><span class="chip warn">PROMOÇÃO DE ITEM</span> A posição de Burgers Clássicos é base
+    44,99 com promo praticando 35,99. Em <code>Promoções → Minhas promoções</code>, encerrar a promo do
+    Alain; depois <code>Cardápio → Burgers Clássicos → base 44,99 → 46,99</code>.</div>
     <div class="d">87 vendas/mês na posição barata — o segundo maior vazamento. Via Hits: 36,99 com frete grátis (+R$ 1).<br>
     <span class="chip">HITS R$ 10 · SEMPRE + JANTAR · 46,99 → 36,99 (já está)</span></div></div>
     <div class="imp">~R$ 522/mês</div></div>
 
   <div class="prop"><input type="checkbox" id="o2-cdm" data-imp="186">
     <div class="body"><div class="t">Cidadão do Mundo Burger</div>
-    <div class="a"><code>Burgers Especiais → CDM → 46,99 → 54,99</code></div>
+    <div class="a"><span class="chip warn">PROMOÇÃO DE ITEM</span> A posição de Burgers Especiais é base
+    52,99 com promo praticando 46,99. Encerrar a promo do CDM em <code>Minhas promoções</code>; depois
+    <code>Cardápio → Burgers Especiais → base 52,99 → 54,99</code>.</div>
     <div class="d">31 vendas/mês a 46,99. Via Hits o cliente paga 44,99 — MENOS que hoje, com frete grátis.<br>
     <span class="chip">HITS R$ 10 · SEMPRE + JANTAR · 54,99 → 44,99 (já está)</span></div></div>
     <div class="imp">~R$ 186/mês</div></div>
 
   <div class="prop"><input type="checkbox" id="o2-chaplin" data-imp="126">
     <div class="body"><div class="t">Charles Chaplin</div>
-    <div class="a"><code>Burgers Especiais → Chaplin → 34,99 → 38,99</code></div>
+    <div class="a"><span class="chip warn">PROMOÇÃO DE ITEM</span> A posição de Burgers Especiais é base
+    39,99 com promo praticando 34,99. Encerrar a promo do Chaplin em <code>Minhas promoções</code>; depois
+    <code>Cardápio → Burgers Especiais → base 39,99 → 38,99</code> (igual à posição da campanha).</div>
     <div class="d">21 vendas/mês a 34,99 × 20 a 38,99. No jantar via Hits: 30,99, menos que hoje. Fora do jantar sobe R$ 4 — decisão consciente.<br>
     <span class="chip">HITS R$ 8 · JANTAR · 38,99 → 30,99 (já está)</span></div></div>
     <div class="imp">~R$ 126/mês</div></div>
 
   <div class="prop"><input type="checkbox" id="o2-severino" data-imp="114">
     <div class="body"><div class="t">Severino</div>
-    <div class="a"><code>Pratos Clássicos → Severino → 35,99 → 39,99</code></div>
+    <div class="a"><span class="chip">PREÇO BASE</span> <code>Cardápio → Pratos Clássicos → Severino →
+    35,99 → 39,99</code> (sem promo nessa posição — edição direta).</div>
     <div class="d">19 vendas/mês a 35,99 × 21 a 39,99 — o par está meio a meio.<br>
     <span class="chip">HITS R$ 8 · ALMOÇO · 39,99 → 31,99 (já está)</span></div></div>
     <div class="imp">~R$ 114/mês</div></div>
 
   <div class="prop"><input type="checkbox" id="o2-costela" data-imp="84">
     <div class="body"><div class="t">PF Costela Bovina</div>
-    <div class="a"><code>Pratos Defumados → PF Costela → 39,99 → 47,99</code></div>
+    <div class="a"><span class="chip">PREÇO BASE</span> <code>Cardápio → Pratos Defumados → PF Costela →
+    39,99 → 47,99</code> (sem promo — edição direta).</div>
     <div class="d">14 vendas/mês a 39,99. No almoço via Hits: 37,99 — menos que hoje.<br>
     <span class="chip">HITS R$ 10 · ALMOÇO · 47,99 → 37,99 (já está)</span></div></div>
     <div class="imp">~R$ 84/mês</div></div>
 
   <div class="prop"><input type="checkbox" id="o2-agostinho" data-imp="78">
     <div class="body"><div class="t">Agostinho Carrara (carne)</div>
-    <div class="a"><code>Pratos Clássicos → Agostinho carne → 39,99 → 45,99</code></div>
+    <div class="a"><span class="chip">PREÇO BASE</span> <code>Cardápio → Pratos Clássicos → Agostinho carne →
+    39,99 → 45,99</code> (sem promo — edição direta).</div>
     <div class="d">13 vendas/mês a 39,99 × 15 a 45,99. No almoço via Hits: 35,99.<br>
     <span class="chip">HITS R$ 10 · ALMOÇO · 45,99 → 35,99 (já está)</span></div></div>
     <div class="imp">~R$ 78/mês</div></div>
 
   <div class="prop"><input type="checkbox" id="o2-rubens" data-imp="72">
     <div class="body"><div class="t">Rubens Barrichello — é CLONE, não re-link</div>
-    <div class="a">Excluir a posição <code>Burgers Clássicos → Rubens 36,99</code> (a do Hits jantar é a dos
-    Campeões, 39,99 — essa fica).</div>
+    <div class="a"><span class="chip bad">EXCLUIR PRODUTO</span> Excluir o Rubens de <code>Burgers
+    Clássicos</code> inteiro (é outro produto: base 44,99 com promo praticando 36,99 — a promo morre junto).
+    O do Hits jantar é o dos Campeões, 39,99 — esse fica (o portal trava a edição dele).</div>
     <div class="d">12 vendas/mês a 36,99 × 18 a 39,99. São dois produtos com o mesmo nome; matar o barato resolve preço e clone de uma vez.<br>
     <span class="chip">HITS R$ 8 · JANTAR · 39,99 → 31,99 (a posição dos Campeões, que fica)</span></div></div>
     <div class="imp">~R$ 72/mês</div></div>
 
   <div class="prop"><input type="checkbox" id="o2-paulo" data-imp="36">
     <div class="body"><div class="t">Paulo Cintura</div>
-    <div class="a"><code>Pratos Clássicos → Paulo Cintura → 34,99 → 39,99</code></div>
+    <div class="a"><span class="chip">PREÇO BASE</span> <code>Cardápio → Pratos Clássicos → Paulo Cintura →
+    34,99 → 39,99</code> (sem promo — edição direta).</div>
     <div class="d">6 vendas/mês a 34,99 × 11 a 39,99.<br>
     <span class="chip">HITS R$ 8 · ALMOÇO · 39,99 → 31,99 (já está)</span></div></div>
     <div class="imp">~R$ 36/mês</div></div>
 
   <div class="prop"><input type="checkbox" id="o2-pernil" data-imp="0">
     <div class="body"><div class="t">PF Pernil Desfiado</div>
-    <div class="a"><code>Pratos Defumados → PF Pernil → 35,99 → 45,99</code></div>
+    <div class="a"><span class="chip">PREÇO BASE</span> <code>Cardápio → Pratos Defumados → PF Pernil →
+    35,99 → 45,99</code> (sem promo — edição direta).</div>
     <div class="d">Via Hits o cliente paga os MESMOS 35,99 com frete grátis. Volume da posição barata não medido em separado — entra pela regra do preço único.<br>
     <span class="chip">HITS R$ 10 · ALMOÇO · 45,99 → 35,99 (já está)</span></div></div>
     <div class="imp na">preço único</div></div>
@@ -252,29 +268,33 @@ ul.regras{padding-left:20px; margin:.4em 0;} ul.regras li{margin:6px 0; max-widt
 
   <div class="prop"><input type="checkbox" id="o2-jesse" data-imp="0">
     <div class="body"><div class="t">Jesse Pinkman (2 produtos, mesmo nome)</div>
-    <div class="a">Excluir a posição de <code>Hambúrgueres Campeões</code> (34,99, De riscado 45,99); fica a de
-    <code>Burgers Especiais</code> (34,99, De 43,99).</div>
+    <div class="a"><span class="chip bad">EXCLUIR PRODUTO</span> Excluir o Jesse de <code>Hambúrgueres
+    Campeões</code> (base 45,99 com promo praticando 34,99 — a promo morre junto); fica o de
+    <code>Burgers Especiais</code> (43,99 riscado → 34,99, o cliente segue vendo 34,99).</div>
     <div class="d">Mesmo preço nas duas — fusão sem efeito pro cliente. 79 vendas/mês a 34,99.</div></div>
     <div class="imp na">organização</div></div>
 
   <div class="prop"><input type="checkbox" id="o2-john" data-imp="0">
     <div class="body"><div class="t">John Lennon (2 produtos, mesmo nome)</div>
-    <div class="a">Excluir a posição que NÃO está no Hits R$ 10 jantar (se o portal travar a exclusão de uma,
-    é essa que fica). As duas estão a 46,99.</div>
+    <div class="a"><span class="chip bad">EXCLUIR PRODUTO</span> As duas posições praticam 46,99
+    (<code>Campeões</code>: 56,99 riscado; <code>Especiais</code>: sem riscado). Excluir a que o portal
+    DEIXAR excluir — a travada é a do Hits R$ 10 jantar e essa fica.</div>
     <div class="d">42 vendas/mês a 46,99. Mesmo preço — fusão sem efeito pro cliente.</div></div>
     <div class="imp na">organização</div></div>
 
   <div class="prop"><input type="checkbox" id="o2-ufocost" data-imp="0">
     <div class="body"><div class="t">Ufo Burger Costela Catupiry (2 produtos, mesmo nome)</div>
-    <div class="a">Igualar: <code>Ufo Burger → 44,99</code> e <code>Recomendados → 49,99</code> → um preço só
-    (sugestão: 49,99, o De riscado 57,99 segura a percepção). Depois excluir um dos dois produtos.</div>
+    <div class="a"><span class="chip bad">EXCLUIR PRODUTO</span> São dois produtos: <code>Recomendados</code>
+    (57,99 riscado → 49,99, promoção) e <code>Ufo Burger</code> (44,99 base, sem promo). Sugestão: subir a
+    base do <code>Ufo Burger → 44,99 → 49,99</code> e excluir o produto de Recomendados (ou manter só um —
+    UM preço no fim).</div>
     <div class="d">6 vendas/mês a 44,99 × 3 a 57,99 — hoje são três preços visíveis do mesmo lanche.</div></div>
     <div class="imp na">organização</div></div>
 
   <div class="prop"><input type="checkbox" id="o2-ufoched" data-imp="19">
     <div class="body"><div class="t">Ufo Burger Cheddar Bacon (re-link com preço diferente)</div>
-    <div class="a"><code>Recomendados 42,99</code> × <code>Ufo Burger 36,99</code> → igualar em 42,99
-    (ou no valor que você definir — mas UM preço).</div>
+    <div class="a"><span class="chip">PREÇO BASE</span> <code>Cardápio → Ufo Burger → base 36,99 → 42,99</code>
+    (a posição de Recomendados é promoção: 50,99 riscado → 42,99 — fica como está; as duas passam a praticar 42,99).</div>
     <div class="d">4 vendas/mês a 36,99.</div></div>
     <div class="imp">~R$ 19/mês</div></div>
 </section>
@@ -285,20 +305,25 @@ ul.regras{padding-left:20px; margin:.4em 0;} ul.regras li{margin:6px 0; max-widt
 
   <div class="prop"><input type="checkbox" id="o2-schum" data-imp="94">
     <div class="body"><div class="t">Michael Schumacher a 26,90</div>
-    <div class="a"><code>Burgers Clássicos → Schumacher → 26,90 → 35,99</code> (igual à posição dos Campeões)</div>
-    <div class="d">13 vendas/mês a 26,90 — preço destoa de tudo (o par vende a 35,99 com De riscado 45,99).
-    Ganho aqui é margem direta: 13 × R$ 9,09 × 0,79.</div></div>
+    <div class="a"><span class="chip warn">PROMOÇÃO DE ITEM</span> A posição de Burgers Clássicos é base
+    36,99 com promo praticando 26,90. Encerrar a promo em <code>Minhas promoções</code>; depois ajustar a
+    base <code>36,99 → 35,99</code> (igual ao praticado dos Campeões, que tem riscado 45,99).</div>
+    <div class="d">13 vendas/mês a 26,90 — preço destoa de tudo. Ganho aqui é margem direta: 13 × R$ 9,09 × 0,79.</div></div>
     <div class="imp">~R$ 94/mês</div></div>
 
   <div class="prop"><input type="checkbox" id="o2-berlim" data-imp="78">
     <div class="body"><div class="t">Berlim — vitrine mais barata que a categoria</div>
-    <div class="a"><code>Mais Pedidos → Berlim → 29,99 → 31,99</code> (igual à posição de Porções)</div>
+    <div class="a"><span class="chip warn">PROMOÇÃO DE ITEM</span> A posição da vitrine é base 37,99 com
+    promo praticando 29,99. Em <code>Minhas promoções</code>, EDITAR o valor da promo do Berlim de
+    <code>29,99 → 31,99</code> (mantém o riscado 37,99; iguala à posição de Porções).</div>
     <div class="d">49 vendas/mês a 29,99 na vitrine × 38 a 31,99 — está invertido: a vitrine mais vista tem o preço menor. Margem direta: 49 × R$ 2 × 0,79.</div></div>
     <div class="imp">~R$ 78/mês</div></div>
 
   <div class="prop"><input type="checkbox" id="o2-tbone" data-imp="0">
     <div class="body"><div class="t">T-Bone com dois preços (163,99 × 153,99)</div>
-    <div class="a"><code>Recomendados 163,99</code> e <code>Churrasco 153,99</code> → um preço (a fase 2 sugeria 159,99).</div>
+    <div class="a"><span class="chip warn">PROMOÇÃO DE ITEM ×2</span> As DUAS posições são promoções do
+    mesmo base 173,99 (<code>Recomendados</code> pratica 163,99; <code>Churrasco</code> 153,99). Em
+    <code>Minhas promoções</code>, editar as duas para o MESMO valor (a fase 2 sugeria 159,99).</div>
     <div class="d">Volume baixo (2+2/mês). ⚠️ A ficha dele está em conferência (CMV 0,1% é implausível) — igualar o preço
     pode; decisão de VALOR final só depois da ficha conferida.</div></div>
     <div class="imp na">um preço</div></div>
