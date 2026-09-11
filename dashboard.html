@@ -4611,6 +4611,23 @@ function renderDiaConcartao(unidade, dia, trs, pix, cobr, forma, descs, onl) {
   // Rede ainda nao entregou a madrugada deste turno? (a linha do dia sabe: rede_completa)
   const redeIncompleta = (CAIXA_CARTAO || []).some(r => r.unidade === unidade && r.dia === dia && r.rede_completa === false);
   const madrugadaSemRede = s => redeIncompleta && min(s.hora) < 360;
+  // Mesma forma, mesmo caixa, poucos minutos de distancia, valores DIFERENTES: e a mesma
+  // venda com valor diferente (dono, 10/09/2026 noite: "tratar a diferenca por bandeira na
+  // linha da venda"). Vira UMA linha com a diferenca, em vez de duas soltas que nao se explicam.
+  const distMin = (a, b) => Math.abs(min(a.hora) - min(b.hora));
+  semParS.filter(s => !s._explicado && !semForma(s)).forEach(s => {
+    const fs = formaPadrao(s.detalhe);
+    const cands = restoR.map((r, i) => ({ r, i })).filter(({ r }) => formaPadrao(r.detalhe) === fs && (!s.caixa || !r.caixa || s.caixa === r.caixa) && distMin(s, r) <= 15)
+      .sort((a, b) => distMin(s, a.r) - distMin(s, b.r));
+    if (!cands.length) return;
+    const r = restoR.splice(cands[0].i, 1)[0];
+    s._explicado = true;
+    const dv = Math.round((+s.valor - +r.valor) * 100) / 100;
+    pend.push({ forma: fs, caixa: s.caixa || r.caixa || null, chave: 'dif:' + s.referencia + ':' + r.referencia, bloco: 'maquininha', efeito: dv, p: 1, cor: '#ff6b6b', hora: hhmm(s.hora),
+      saipos: limpa(s.detalhe) + ' ' + reaisCc(s.valor) + ' · ' + rotVenda(s) + quem(s), real: limpa(r.detalhe) + ' ' + reaisCc(r.valor) + ' às ' + hhmm(r.hora), valor: dv,
+      leitura: 'mesma forma, mesmo caixa, ' + distMin(s, r) + ' min de distância: provavelmente a mesma venda com valor diferente',
+      acao: dv > 0 ? 'faltam ' + reaisCc(dv) + ': o resto foi pago de outro jeito (dinheiro, PIX, outro cartão)? ou o valor registrado está errado?' : 'passou ' + reaisCc(-dv) + ' a mais na máquina: valor digitado errado na maquininha? gorjeta?' });
+  });
   semParS.filter(s => !s._explicado).forEach(s => pend.push({ forma: formaPadrao(s.detalhe), caixa: s.caixa || null, chave: 'pdv:' + s.referencia + ':' + (+s.valor).toFixed(2), bloco: semForma(s) ? 'dinheiro' : 'maquininha', efeito: semForma(s) ? 0 : +s.valor,
     p: madrugadaSemRede(s) ? 3 : eVale(s) ? 2 : 1, cor: madrugadaSemRede(s) ? '#9aa4af' : eVale(s) ? '#f5a623' : '#ff6b6b', hora: hhmm(s.hora),
     saipos: limpa(s.detalhe) + ' · ' + rotVenda(s) + quem(s), real: madrugadaSemRede(s) ? 'a Rede ainda não entregou a madrugada' : semForma(s) ? 'nada desse valor na maquininha nem no banco' : 'nada desse valor na maquininha', valor: +s.valor,
@@ -4789,6 +4806,22 @@ function renderDiaConcartao(unidade, dia, trs, pix, cobr, forma, descs, onl) {
       <div style="overflow-x:auto;"><table style="${tabelaCss}"><tr><th style="${thL}">hora</th><th style="${thL}">venda</th><th style="${thL}">o Saipos diz</th><th style="${thL}">a maquininha diz</th><th style="${thL} border-right:0; text-align:right;">valor</th></tr>
         ${casados.map(s => `<tr style="border-top:1px solid rgba(154,164,175,.12); color:#8a897e;"><td style="${tdL} white-space:nowrap;">${hhmm(s.hora)}</td><td style="${tdL} white-space:nowrap;">${rotVenda(s)}</td><td style="${tdL}">${limpa(s.detalhe)}</td><td style="${tdL}">${limpa(s.par.detalhe)} às ${hhmm(s.par.hora)}</td><td style="${tdL} border-right:0; text-align:right; white-space:nowrap;">${reaisCc(s.valor)}</td></tr>`).join('')}</table></div></details>` : '',
   ].filter(Boolean).join('');
+  // Trocas de bandeira vindas do PROPRIO cruzamento (par exato, conta dividida, centavos)
+  // — nao dependem da varredura materializada; a varredura entra so no que faltar (PIX etc.)
+  const trocas = [];
+  const ehPendenteTxt = t => /pendente|n[aã]o cadastrado/i.test(t || '');
+  const addTroca = (sRow, rRow, valor, venda) => { const de = formaPadrao(sRow.detalhe), para = formaPadrao(rRow.detalhe); if (de === para) return;
+    trocas.push({ hora: hhmm(sRow.hora), venda, valor: +valor, de, para, pd: ehPendenteTxt(sRow.detalhe), caixa: sRow.caixa || rRow.caixa || null, ref: String(sRow.referencia) }); };
+  casados.forEach(sRow => { if (sRow.par) addTroca(sRow, sRow.par, sRow.valor, rotVenda(sRow)); });
+  arredond.forEach(q => addTroca(q.s, q.r, q.s.valor, rotVenda(q.s)));
+  compostos.forEach(c => { if (c.alvo.origem === 'REDE') c.itens.forEach(it => addTroca(it, c.alvo, it.valor, rotVenda(it))); else c.itens.forEach(it => addTroca(c.alvo, it, it.valor, rotVenda(c.alvo))); });
+  const trocasRefs = new Set(trocas.map(t => t.ref));
+  (forma || []).forEach(f => { if (trocasRefs.has(String(f.id_sale))) return; const de = formaPadrao(f.registrado), para = formaPadrao(f.passou);
+    trocas.push({ hora: hhmm(String(f.hora || '').slice(11)), venda: f.numero ? 'venda ' + f.numero : f.mesa ? 'mesa ' + f.mesa : 'salão', valor: +f.valor, de, para, pd: ehPendenteTxt(f.registrado), caixa: f.caixa || null, ref: String(f.id_sale) }); });
+  // virada do dia: casou com a maquininha de outro dia (entra na diferenca da forma, com valor)
+  const viradas = [];
+  casados.forEach(sRow => { if (sRow.par && !doDia(sRow.par)) viradas.push({ forma: formaPadrao(sRow.detalhe), caixa: sRow.caixa || null, contrib: +sRow.valor, texto: `${rotVenda(sRow)} ${reaisCc(sRow.valor)}: a maquininha registrou em ${String(sRow.par.dia).split('-').reverse().slice(0, 2).join('/')} às ${hhmm(sRow.par.hora)} (virada do dia)` }); });
+  rede.filter(r => doDia(r) && r.parDe && !doDia(r.parDe)).forEach(r => viradas.push({ forma: formaPadrao(r.detalhe), caixa: r.caixa || null, contrib: -(+r.valor), texto: `${reaisCc(r.valor)} às ${hhmm(r.hora)}: a venda no Saipos é de ${String(r.parDe.dia).split('-').reverse().slice(0, 2).join('/')} (virada do dia)` }));
   // ===== FORMATO DO FECHAMENTO DO SAIPOS (dono, 10/09/2026 noite: "compara com a tela do
   // Saipos, ainda acho que da pra simplificar") — uma tabela por caixa, uma linha por forma:
   // registrado no Saipos | passou de verdade (maquininha / banco / contagem) | diferenca |
@@ -4811,7 +4844,7 @@ function renderDiaConcartao(unidade, dia, trs, pix, cobr, forma, descs, onl) {
     // DINHEIRO x contagem
     caixaDinheiroDia(unidade, dia).filter(d => d.caixa === cx && (d.vendido >= 0.01 || d.contagem)).forEach(d => {
       const l = L('Dinheiro'); l.ordem = 0; l.saipos = d.vendido; l.nS = 1;
-      if (d.contagem) { l.real = d.enviado; l.nR = 1; l.bateu = d.bateu; if (d.porSaidas) l.notas.push(`bateu descontando ${reaisCc(d.saidas)} de saídas pagas pela gaveta`); }
+      if (d.contagem) { l.real = d.enviado; l.nR = 1; l.bateu = d.bateu; if (d.porSaidas) l.notas.push({ texto: `bateu descontando ${reaisCc(d.saidas)} de saídas pagas pela gaveta`, contrib: 0 }); }
       else { l.realTxt = dia >= hojeStr ? 'turno em aberto' : '<span style="color:#f5a623;">não contado</span>'; l.semReal = true; }
     });
     // CARTAO / VALE / PENDENTE: registrado no Saipos x passou na Rede (so o proprio dia)
@@ -4822,14 +4855,17 @@ function renderDiaConcartao(unidade, dia, trs, pix, cobr, forma, descs, onl) {
     // ONLINE: forma x canal do pedido
     (onl || []).filter(x => noCxItem(x, cx)).forEach(x => { const l = L(formaPadrao(x.tipo)); l.ordem = 3; l.online = true; l.saipos += +x.valor; l.nS++;
       if (x.canal_ok === true) { l.real += +x.valor; l.nR++; }
-      else l.conferir.push({ hora: hhmm(String(x.hora || '').slice(11)), venda: x.numero ? 'venda ' + x.numero + (x.numero_pedido ? ' (' + x.numero_pedido + ')' : '') : 'venda', diz: `${x.tipo} · pedido do canal ${x.canal}`, real: '—', valor: +x.valor,
+      else l.conferir.push({ contrib: +x.valor, hora: hhmm(String(x.hora || '').slice(11)), venda: x.numero ? 'venda ' + x.numero + (x.numero_pedido ? ' (' + x.numero_pedido + ')' : '') : 'venda', diz: `${x.tipo} · pedido do canal ${x.canal}`, real: '—', valor: +x.valor,
         acao: x.canal_ok === false ? 'canal do pedido não bate com a forma: trocar a forma no Saipos' : 'forma online sem regra cadastrada: conferir' }); });
-    // 1º AJUSTAR NO SAIPOS: varredura de bandeira (registrado X, passou Y)
-    (forma || []).filter(f => noCxItem(f, cx)).forEach(f => { const de = formaPadrao(f.registrado), para = formaPadrao(f.passou), v = rotVx(f), pd = ehPendente(f.registrado);
-      L(de).ajustar.push({ hora: hhmm(String(f.hora || '').slice(11)), venda: v, valor: +f.valor, texto: pd ? `fechar a venda com a forma <b>${para}</b>` : `trocar de ${de} para <b>${para}</b>`, porque: 'foi assim que passou na maquininha' });
-      if (!pd) L(para).notas.push(`inclui ${reaisCc(f.valor)} de ${v}, registrada no Saipos como ${de}`); });
+    // 1º AJUSTAR NO SAIPOS: registrado numa forma, passou em outra (do cruzamento + varredura)
+    trocas.filter(x => noCxItem(x, cx)).forEach(x => {
+      L(x.de).ajustar.push({ contrib: x.valor, hora: x.hora, venda: x.venda, valor: x.valor, texto: x.pd ? `fechar a venda com a forma <b>${x.para}</b>` : `trocar de ${x.de} para <b>${x.para}</b>`, porque: 'foi assim que passou na maquininha' });
+      if (!x.pd) L(x.para).notas.push({ texto: `inclui ${reaisCc(x.valor)} de ${x.venda}, registrada no Saipos como ${x.de} (some quando corrigir lá)`, contrib: -x.valor }); });
+    viradas.filter(x => noCxItem(x, cx)).forEach(x => L(x.forma).notas.push({ texto: x.texto, contrib: x.contrib }));
     // 2º CONFERIR / AGUARDANDO: pendencias abertas deste caixa, por forma
-    abertas.filter(x => noCxItem(x, cx)).forEach(x => { const l = L(x.forma || 'Outros'); if (!l.nS && !l.nR && l.ordem === 1) l.ordem = 1; (grupoDe(x) === 'auto' ? l.esperar : l.conferir).push(x); });
+    // com que sinal cada pendencia entra na diferenca da forma (registrado − passou)
+    const contribDe = x => x.chave.startsWith('dinheiro:') ? -x.efeito : (x.chave.startsWith('par:') || x.chave.startsWith('pixdup:')) ? 0 : x.efeito;
+    abertas.filter(x => noCxItem(x, cx)).forEach(x => { const l = L(x.forma || 'Outros'); x.contrib = contribDe(x); (grupoDe(x) === 'auto' ? l.esperar : l.conferir).push(x); });
     explicadas.filter(x => noCxItem(x, cx)).forEach(x => { L(x.forma || 'Outros').explicadas++; });
     const lista = Object.values(linhas).sort((a, b) => a.ordem - b.ordem || a.forma.localeCompare(b.forma, 'pt'));
     let nA = 0, nC = 0, nE = 0;
@@ -4847,11 +4883,22 @@ function renderDiaConcartao(unidade, dia, trs, pix, cobr, forma, descs, onl) {
         l.esperar.length ? `<span style="color:#9aa4af;">${l.esperar.length} aguardando</span>` : '', l.explicadas ? `<span style="color:#9aa4af;">${l.explicadas} explicada(s)</span>` : ''].filter(Boolean).join(' · ');
       const leitura = l.forma === 'Dinheiro' ? (ok ? '' : l.semReal ? 'registrar a contagem no alto da loja' : dif > 0 ? 'faltou na gaveta' : 'sobrou na gaveta')
         : l.online ? '' : (!ok && !temAcao && dif !== null ? (dif > 0 ? 'registrado a mais no Saipos' : 'passou a mais na maquininha') : '');
+      const temAcaoOuNota = temAcao || l.notas.length;
       const sub = [];
-      l.ajustar.forEach(x => sub.push(`<tr style="background:rgba(245,166,35,.05);"><td style="${tdS} white-space:nowrap;"><span style="color:#f5a623; font-weight:700;">1º</span> ${x.hora} · ${x.venda}</td><td style="${tdS}" colspan="2">${x.texto} <span style="color:#8a897e;">— ${x.porque}</span></td><td style="${tdS} text-align:right; white-space:nowrap;">${reaisCc(x.valor)}</td><td style="${tdS} border-right:0;">no Saipos: abrir o caixa do dia → Ver → ${x.venda} → mudar a forma → salvar ajustes</td></tr>`));
-      l.conferir.forEach(x => { const q = x.chave ? partes(x) : null; sub.push(`<tr style="background:rgba(255,107,107,.05);"><td style="${tdS} white-space:nowrap;"><span style="color:#ff6b6b; font-weight:700;">2º</span> ${x.hora} · ${q ? (q.venda || '—') + (q.deDia ? ' <span style="color:#f5a623;">(' + q.deDia + ')</span>' : '') + (q.moto ? ' · 🛵 ' + q.moto : '') : x.venda}</td><td style="${tdS}">${q ? q.forma : x.diz}</td><td style="${tdS}">${x.real}</td><td style="${tdS} text-align:right; white-space:nowrap; font-weight:600;">${reaisCc(x.valor)}</td><td style="${tdS} border-right:0;">${x.acao}${x.leitura ? `<div style="font-size:11px; color:#8a897e;">${x.leitura}</div>` : ''} ${x.chave ? btnExp(x) : ''}</td></tr>`); });
-      l.esperar.forEach(x => { const q = partes(x); sub.push(`<tr style="color:#9aa4af;"><td style="${tdS} white-space:nowrap;">⏳ ${x.hora} · ${q.venda || '—'}</td><td style="${tdS}">${q.forma}</td><td style="${tdS}">${x.real}</td><td style="${tdS} text-align:right; white-space:nowrap;">${reaisCc(x.valor)}</td><td style="${tdS} border-right:0;">${x.acao} <span style="font-size:11px;">— ${x.leitura}</span></td></tr>`); });
-      l.notas.forEach(n => sub.push(`<tr style="color:#8a897e; font-size:11px;"><td style="${tdS}" colspan="5" style="border-right:0;">↳ ${n}</td></tr>`));
+      const sinal = v => Math.abs(v) < 0.005 ? '<span style="color:#6f6e64;">0</span>' : `<span style="color:${v > 0 ? '#ff6b6b' : '#f5a623'};">${v > 0 ? '+' : '−'} ${reaisCc(Math.abs(v))}</span>`;
+      const dinheiroLinha = l.forma === 'Dinheiro';
+      l.ajustar.forEach(x => sub.push(`<tr style="background:rgba(245,166,35,.05);"><td style="${tdS} white-space:nowrap;"><span style="color:#f5a623; font-weight:700;">1º</span> ${x.hora} · ${x.venda}</td><td style="${tdS}" colspan="2">${x.texto} <span style="color:#8a897e;">— ${x.porque}</span></td><td style="${tdS} text-align:right; white-space:nowrap;" title="registrado aqui, passou em outra forma: entra na diferença desta forma com este sinal">${sinal(x.contrib)}</td><td style="${tdS} border-right:0;">no Saipos: abrir o caixa do dia → Ver → ${x.venda} → mudar a forma → salvar ajustes</td></tr>`));
+      l.conferir.forEach(x => { const q = x.chave ? partes(x) : null; sub.push(`<tr style="background:rgba(255,107,107,.05);"><td style="${tdS} white-space:nowrap;"><span style="color:#ff6b6b; font-weight:700;">2º</span> ${x.hora} · ${q ? (q.venda || '—') + (q.deDia ? ' <span style="color:#f5a623;">(' + q.deDia + ')</span>' : '') + (q.moto ? ' · 🛵 ' + q.moto : '') : x.venda}</td><td style="${tdS}">${q ? q.forma : x.diz}</td><td style="${tdS}">${x.real}</td><td style="${tdS} text-align:right; white-space:nowrap; font-weight:600;" title="com que sinal esta linha entra na diferença da forma">${dinheiroLinha ? sinal(x.contrib) : sinal(x.contrib)}</td><td style="${tdS} border-right:0;">${x.acao}${x.leitura ? `<div style="font-size:11px; color:#8a897e;">${x.leitura}</div>` : ''} ${x.chave ? btnExp(x) : ''}</td></tr>`); });
+      l.esperar.forEach(x => { const q = partes(x); sub.push(`<tr style="color:#9aa4af;"><td style="${tdS} white-space:nowrap;">⏳ ${x.hora} · ${q.venda || '—'}</td><td style="${tdS}">${q.forma}</td><td style="${tdS}">${x.real}</td><td style="${tdS} text-align:right; white-space:nowrap;">${sinal(x.contrib)}</td><td style="${tdS} border-right:0;">${x.acao} <span style="font-size:11px;">— ${x.leitura}</span></td></tr>`); });
+      l.notas.forEach(n => sub.push(`<tr style="color:#8a897e; font-size:11px;"><td style="${tdS}" colspan="3">↳ ${n.texto}</td><td style="${tdS} text-align:right; white-space:nowrap;">${sinal(n.contrib)}</td><td style="${tdS} border-right:0;"></td></tr>`));
+      // a conta fecha na tela: soma das linhas = diferenca da forma (dono, 10/09/2026 noite)
+      const contribs = [...l.ajustar, ...l.conferir, ...l.esperar, ...l.notas].map(x => +x.contrib || 0).filter(v => Math.abs(v) >= 0.005);
+      const somaC = Math.round(contribs.reduce((a, v) => a + v, 0) * 100) / 100, restoC = Math.round((dif - somaC) * 100) / 100;
+      // uma linha so que ja fecha a conta dispensa a soma; duas ou mais, ou resto sem linha, mostram
+      if (!l.semReal && !ok && (contribs.length >= 2 || Math.abs(restoC) >= 0.01)) {
+        const soma = somaC, resto = restoC;
+        sub.push(`<tr style="font-size:11px; color:#a5a49a; background:rgba(154,164,175,.05);"><td style="${tdS}" colspan="3" style="text-align:right;">${contribs.length ? `↳ soma das linhas: ${contribs.map(v => (v > 0 ? '+' : '−') + reaisCc(Math.abs(v))).join(' ')}` : '↳ nenhuma linha explica esta diferença'}${Math.abs(resto) >= 0.01 ? ` · <span style="color:#f5a623;">sobram ${reaisCc(resto)} sem linha</span> — conta dividida, centavos ou pagamento de outro dia: veja "Já tratado" embaixo` : ''}</td><td style="${tdS} text-align:right; white-space:nowrap;"><b style="color:${corDif};">= ${reaisCc(dif)}</b>${Math.abs(resto) < 0.01 ? ' <span style="color:#7bc47f;">✔</span>' : ''}</td><td style="${tdS} border-right:0;"></td></tr>`);
+      }
       return `<tr style="border-top:1px solid rgba(154,164,175,.18);">
         <td style="${tdF} text-align:left;"><b>${l.forma}</b>${l.nS && l.forma !== 'Dinheiro' ? ` <span style="color:#6f6e64; font-size:11px;" title="pagamentos registrados no Saipos nesta forma">${l.nS}×</span>` : ''}</td>
         <td style="${tdF}">${l.saipos >= 0.005 || l.nS ? reaisCc(l.saipos) : '<span style="color:#5f5e54;">—</span>'}</td>
