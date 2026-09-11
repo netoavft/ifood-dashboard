@@ -10213,9 +10213,12 @@ async function trEditarPedido(id) {
   const alvo = document.getElementById('trTelaConteudo');
   const rl = await trFetch(`tr_listas?id=eq.${id}&select=id,unidade,status`);
   const lista = (await rl.json())[0];
-  if (!lista || lista.status !== 'SOLICITADA') {
+  // filial edita so SOLICITADA; dono e compras corrigem tambem SEPARADA e
+  // ENVIADA (11/09/2026 — consertar pedido errado sem excluir a lista)
+  const podeCorrigir = ['DONO', 'SEPARACAO'].includes(TR_OP.papel) && lista && ['SEPARADA', 'ENVIADA'].includes(lista.status);
+  if (!lista || (lista.status !== 'SOLICITADA' && !podeCorrigir)) {
     alvo.innerHTML = `<div class="contexto">A lista #${id} está <b>${lista ? lista.status : '?'}</b> — só dá para editar
-      antes de a separação começar. <button class="preset-btn" onclick="trTelaPedido(${lista ? `'${lista.unidade}'` : ''})">← voltar</button></div>`;
+      antes de a separação começar (dono e compras corrigem até ENVIADA). <button class="preset-btn" onclick="trTelaPedido(${lista ? `'${lista.unidade}'` : ''})">← voltar</button></div>`;
     return;
   }
   const [ri, rc] = await Promise.all([
@@ -10427,7 +10430,7 @@ async function trAbrirSeparacao(id) {
     <div class="caption-label"><button class="preset-btn" onclick="trListaAberta=null; trTelaSeparacao();">← fila</button>
       Lista <b>#${id}</b> · ${lista.unidade} · status <b>${lista.status}</b>
       <button class="preset-btn" style="margin-left:8px;" onclick="trImprimirSeparacao(${id})">🖨️ Gerar PDF</button>
-      ${lista.status === 'SOLICITADA' ? `<button class="preset-btn" onclick="trListaAberta=null; trEditarPedido(${id})">✏️ corrigir pedido</button>` : ''}</div>
+      ${lista.status === 'SOLICITADA' || (['SEPARADA', 'ENVIADA'].includes(lista.status) && ['DONO', 'SEPARACAO'].includes(TR_OP.papel)) ? `<button class="preset-btn" onclick="trListaAberta=null; trEditarPedido(${id})">✏️ corrigir pedido</button>` : ''}</div>
     <div id="tabelaTrOpSep"><table>
       <tr><th>Item</th><th>Solicitado</th><th>Separado</th></tr>
       ${itens.map((i, idx) => `<tr><td>${i.item} <span class="dre-av">${i.un_medida || ''}</span>${trEmbRotulo(mapa, i.item)}${i.avulso ? ' <span class="tr-tag">🆕 fora da grade</span>' : ''}${i.observacao ? ` <span class="tr-tag">${i.observacao}</span>` : ''}${i.editado ? ' <span class="tr-tag">✏️ editado</span>' : ''}</td>
@@ -10576,7 +10579,7 @@ async function trTelaConferencia() {
     <div class="caption-label">Listas enviadas aguardando a conferência do recebimento — confira ITEM A ITEM, é o zero que dói.</div>
     ${listas.map(l => `<div class="contexto" style="display:flex; justify-content:space-between; align-items:center;">
       <span>Lista <b>#${l.id}</b> · ${l.unidade} · entrega ${l.data_entrega ? l.data_entrega.slice(8,10)+'/'+l.data_entrega.slice(5,7) : '—'}${dinheiro(valores[l.id], true)}</span>
-      <button class="preset-btn" onclick="trListaAberta=${l.id}; trTelaConferencia();">conferir</button></div>`).join('')}` :
+      <span>${['DONO', 'SEPARACAO'].includes(TR_OP.papel) ? `<button class="preset-btn" onclick="trEditarPedido(${l.id})">✏️ corrigir</button> ` : ''}<button class="preset-btn" onclick="trListaAberta=${l.id}; trTelaConferencia();">conferir</button></span></div>`).join('')}` :
     '<div class="contexto">Nenhuma lista aguardando conferência.</div>');
 }
 
