@@ -10510,28 +10510,50 @@ async function trTelaConferencia() {
       <button class="preset-btn ${trConfAba === 'ABERTAS' ? 'active' : ''}" onclick="trConfAba='ABERTAS'; trListaAberta=null; trTelaConferencia();">aguardando conferência</button>
       <button class="preset-btn ${trConfAba === 'FINALIZADAS' ? 'active' : ''}" onclick="trConfAba='FINALIZADAS'; trListaAberta=null; trTelaConferencia();">✅ finalizadas</button>
     </div>`;
+  // valores por lista (11/09/2026, dono: a filial ve o R$ das fechadas e o
+  // parcial das que a central esta montando). Vem das views mascaradas:
+  // login sem valores recebe NULL e a tela simplesmente nao mostra o R$.
+  const dinheiro = (v, aprox) => v == null ? '' : ` · <b>${aprox ? '≈ ' : ''}R$ ${fmt(Number(v))}</b>`;
   if (trConfAba === 'FINALIZADAS') {
-    const r = await trFetch(`tr_listas?status=in.(RECEBIDA,FECHADA)&fonte=eq.PAINEL${filtro}&order=id.desc&limit=40&select=id,unidade,data_pedido,data_entrega,status,recebido_por`);
+    const [r, rv] = await Promise.all([
+      trFetch(`tr_listas?status=in.(RECEBIDA,FECHADA)&fonte=eq.PAINEL${filtro}&order=id.desc&limit=40&select=id,unidade,data_pedido,data_entrega,status,recebido_por`),
+      trFetch(`vw_tr_listas?fonte=eq.PAINEL&status=in.(RECEBIDA,FECHADA)${filtro}&order=id.desc&limit=40&select=id,total_lista`),
+    ]);
     if (!r.ok) { alvo.innerHTML = `<div class="contexto" style="border-color:#ff6b6b;">${await trErroDe(r)}</div>`; return; }
     const listas = await r.json();
+    const valores = {};
+    if (rv.ok) (await rv.json()).forEach(v => { valores[v.id] = v.total_lista; });
     alvo.innerHTML = chips + (listas.length ? `
       <div class="caption-label">As últimas ${listas.length} listas já conferidas${TR_OP.unidade ? ' da sua loja' : ''} — só leitura, o histórico de quem pediu.</div>
       ${listas.map(l => `<div class="contexto" style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;">
-        <span>Lista <b>#${l.id}</b> · ${l.unidade} · entrega ${l.data_entrega ? l.data_entrega.slice(8,10)+'/'+l.data_entrega.slice(5,7) : '—'}
+        <span>Lista <b>#${l.id}</b> · ${l.unidade} · entrega ${l.data_entrega ? l.data_entrega.slice(8,10)+'/'+l.data_entrega.slice(5,7) : '—'}${dinheiro(valores[l.id])}
           ${l.recebido_por ? `<span class="tr-det">· conferida por ${l.recebido_por}</span>` : ''}</span>
         <button class="preset-btn" onclick="trListaAberta=${l.id}; trTelaConferencia();">ver</button></div>`).join('')}` :
       '<div class="contexto">Nenhuma lista finalizada ainda — a primeira aparece aqui assim que uma conferência fechar.</div>');
     return;
   }
   // fonte=PAINEL: as 1.118 listas da era planilha estao ENVIADA no banco (historico
-  // congelado) e poluiam a fila — aqui e so o modulo operante, mais nova primeiro
-  const r = await trFetch(`tr_listas?status=eq.ENVIADA&fonte=eq.PAINEL${filtro}&order=data_entrega.desc,id.desc&select=id,unidade,data_pedido,data_entrega`);
+  // congelado) e poluiam a fila — aqui e so o modulo operante, mais nova primeiro.
+  // "Em preparo": o que a central ainda esta montando, com o parcial ao vivo.
+  const filtroFila = TR_OP.unidade ? `unidade=eq.${encodeURIComponent(TR_OP.unidade)}&` : '';
+  const [r, rv, rp] = await Promise.all([
+    trFetch(`tr_listas?status=eq.ENVIADA&fonte=eq.PAINEL${filtro}&order=data_entrega.desc,id.desc&select=id,unidade,data_pedido,data_entrega`),
+    trFetch(`vw_tr_listas?fonte=eq.PAINEL&status=eq.ENVIADA${filtro}&select=id,total_lista`),
+    trFetch(`vw_tr_fila_separacao?${filtroFila}status=in.(SOLICITADA,SEPARADA)&order=id.desc&select=id,unidade,status,itens,valor_estimado`),
+  ]);
   if (!r.ok) { alvo.innerHTML = `<div class="contexto" style="border-color:#ff6b6b;">${await trErroDe(r)}</div>`; return; }
   const listas = await r.json();
-  alvo.innerHTML = chips + (listas.length ? `
+  const valores = {};
+  if (rv.ok) (await rv.json()).forEach(v => { valores[v.id] = v.total_lista; });
+  const preparo = rp.ok ? await rp.json() : [];
+  alvo.innerHTML = chips + (preparo.length ? `
+    <div class="caption-label">🧺 Em preparo na central — o parcial cresce enquanto a lista é montada:</div>
+    ${preparo.map(l => `<div class="contexto" style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;">
+      <span>Lista <b>#${l.id}</b> · ${l.unidade} · ${l.status === 'SOLICITADA' ? 'pedida, aguardando separação' : 'em separação'}
+        · ${l.itens} itens${dinheiro(l.valor_estimado, true)}</span></div>`).join('')}` : '') + (listas.length ? `
     <div class="caption-label">Listas enviadas aguardando a conferência do recebimento — confira ITEM A ITEM, é o zero que dói.</div>
     ${listas.map(l => `<div class="contexto" style="display:flex; justify-content:space-between; align-items:center;">
-      <span>Lista <b>#${l.id}</b> · ${l.unidade} · entrega ${l.data_entrega ? l.data_entrega.slice(8,10)+'/'+l.data_entrega.slice(5,7) : '—'}</span>
+      <span>Lista <b>#${l.id}</b> · ${l.unidade} · entrega ${l.data_entrega ? l.data_entrega.slice(8,10)+'/'+l.data_entrega.slice(5,7) : '—'}${dinheiro(valores[l.id], true)}</span>
       <button class="preset-btn" onclick="trListaAberta=${l.id}; trTelaConferencia();">conferir</button></div>`).join('')}` :
     '<div class="contexto">Nenhuma lista aguardando conferência.</div>');
 }
@@ -10539,19 +10561,22 @@ async function trTelaConferencia() {
 // lista finalizada, so leitura: o que foi separado x o que a loja confirmou
 async function trVerFinalizada(id) {
   const alvo = document.getElementById('trTelaConteudo');
-  const [rl, ri] = await Promise.all([
+  const [rl, ri, rv] = await Promise.all([
     trFetch(`tr_listas?id=eq.${id}&select=id,unidade,status,data_pedido,data_entrega,recebido_por`),
     trFetch(`tr_lista_itens?id_lista=eq.${id}&order=item&select=item,un_medida,qtd_solicitada,qtd_separada,qtd_recebida,avulso,observacao,editado`),
+    trFetch(`vw_tr_listas?id=eq.${id}&select=total_lista,valor_cobrado,frete`),
   ]);
   const lista = (await rl.json())[0] || {};
   const itens = await ri.json();
+  const valor = rv.ok ? (await rv.json())[0] : null;
   const mapa = await trEmbMapa(lista.unidade);
   const difs = itens.filter(i => Number(i.qtd_recebida ?? 0) !== Number(i.qtd_separada ?? 0));
   alvo.innerHTML = `
     <div class="caption-label"><button class="preset-btn" onclick="trListaAberta=null; trTelaConferencia();">← finalizadas</button>
       Lista <b>#${id}</b> · ${lista.unidade || ''} · pedida ${lista.data_pedido ? lista.data_pedido.slice(8,10)+'/'+lista.data_pedido.slice(5,7) : '—'}
       · entrega ${lista.data_entrega ? lista.data_entrega.slice(8,10)+'/'+lista.data_entrega.slice(5,7) : '—'}
-      ${lista.recebido_por ? '· conferida por <b>' + lista.recebido_por + '</b>' : ''} —
+      ${lista.recebido_por ? '· conferida por <b>' + lista.recebido_por + '</b>' : ''}
+      ${valor && valor.total_lista != null ? `· <b>R$ ${fmt(Number(valor.total_lista))}</b>${Number(valor.frete) ? ` <span class="tr-det">(itens R$ ${fmt(Number(valor.valor_cobrado || 0))} + frete R$ ${fmt(Number(valor.frete))})</span>` : ''}` : ''} —
       ${difs.length ? `<span class="tr-tag">${difs.length} item(ns) com diferença</span>` : '<span class="tr-conv">recebimento bateu 100% ✔</span>'}
       ${['DONO', 'SEPARACAO'].includes(TR_OP.papel) ? `<button class="preset-btn" onclick="trReabrirConferencia(${id})">🔓 reabrir conferência</button>` : ''}
       <span id="trReabrirMsg" style="font-size:12px;"></span></div>
