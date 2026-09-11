@@ -10015,7 +10015,9 @@ function trRenderOperacao() {
      fechamento: trTelaFechamento, contas: trTelaContas, precos: trTelaPrecos,
      cmv: trTelaCmv }[trTela])();
 }
-function trTelaSet(t) { trTela = t; trListaAberta = null; trRenderOperacao(); }
+function trTelaSet(t) { trTela = t; trListaAberta = null; trPedidoOrigem = null; trRenderOperacao(); }
+// escolha Cidadao x Fornecedor do pedido em curso (so AHU e SAO BRAZ)
+let trPedidoOrigem = null;
 
 // ---- tela: novo pedido (FILIAL; DONO escolhe a filial) ----
 async function trTelaPedido(unidadeEscolhida) {
@@ -10028,13 +10030,27 @@ async function trTelaPedido(unidadeEscolhida) {
       `<button class="preset-btn" onclick="trTelaPedido('${u}')">${u}</button>`).join(' ')}</div>`;
     return;
   }
-  // 04/09/2026, dono: sem grupos — grade unica em ordem alfabetica, com busca no topo
+  // 11/09/2026, dono: AHU e SAO BRAZ escolhem na ENTRADA que pedido e este —
+  // CIDADAO (producao da AV, cobrado) ou FORNECEDOR (a Rita compra e entrega,
+  // sem cobranca na lista). Boqueirao segue com a grade unica.
+  const temEscolha = ['AHU', 'SÃO BRAZ'].includes(unidade);
+  if (temEscolha && !trPedidoOrigem) {
+    alvo.innerHTML = `<div class="contexto" style="max-width:560px;">
+      <b>O que você vai pedir para ${unidade}?</b><br>
+      <div style="display:flex; gap:10px; margin-top:10px; flex-wrap:wrap;">
+        <button class="preset-btn tr-btn-cheio" style="padding:14px 18px;" onclick="trPedidoOrigem='CIDADAO'; trTelaPedido('${unidade}')">🏭 Produção Cidadão<br><span style="font-weight:400; font-size:12px;">o que a Água Verde produz — cobrado na lista</span></button>
+        <button class="preset-btn" style="padding:14px 18px; border-color:#4a90d9;" onclick="trPedidoOrigem='FORNECEDOR'; trTelaPedido('${unidade}')">🛒 Fornecedor<br><span style="font-weight:400; font-size:12px;">a Rita compra e entrega — sem cobrança na lista</span></button>
+      </div></div>`;
+    return;
+  }
+  const origemPedido = temEscolha ? trPedidoOrigem : null;
   const [r, ra] = await Promise.all([
     trFetch(`vw_tr_itens_pedido?unidade=eq.${encodeURIComponent(unidade)}&order=item`),
     trFetch(`tr_listas?fonte=eq.PAINEL&status=eq.SOLICITADA&unidade=eq.${encodeURIComponent(unidade)}&select=id,data_pedido&order=id.desc`),
   ]);
   if (!r.ok) { alvo.innerHTML = `<div class="contexto" style="border-color:#ff6b6b;">${await trErroDe(r)}</div>`; return; }
-  const itens = await r.json();
+  let itens = await r.json();
+  if (origemPedido) itens = itens.filter(i => (i.origem || 'CIDADAO') === origemPedido);
   const abertas = ra.ok ? await ra.json() : [];
   const dataCusto = itens.find(i => i.custo_atualizado_em)?.custo_atualizado_em;
   // item com 2a embalagem (ex.: pernil desfiado) vira DUAS linhas na tela,
@@ -10049,7 +10065,11 @@ async function trTelaPedido(unidadeEscolhida) {
   // ilha em si e ligada no MODULO inteiro por trRenderOperacao (titulo, abas e
   // tela juntos, como no modelo aprovado), so enquanto a tela de pedido esta ativa
   alvo.innerHTML = `
-    <div class="caption-label">Pedido para <b>${unidade}</b> — preencha só o que precisa; itens em branco ficam fora.
+    <div class="caption-label">Pedido para <b>${unidade}</b>${origemPedido ? (origemPedido === 'FORNECEDOR'
+        ? ' · <b style="color:#4a90d9;">🛒 FORNECEDOR</b> (a Rita compra e entrega — sem cobrança)'
+        : ' · <b style="color:#c8102e;">🏭 PRODUÇÃO CIDADÃO</b>')
+        + ` <button class="preset-btn" onclick="trPedidoOrigem=null; trTelaPedido('${unidade}')">trocar</button>` : ''}
+      — preencha só o que precisa; itens em branco ficam fora.
       O preço é congelado pelo sistema no ato (Formação de preços${dataCusto ? ' de ' + dataCusto.slice(8,10) + '/' + dataCusto.slice(5,7) : ''}).</div>
     ${abertas.length ? `<div class="contexto" style="margin:8px 0;">✏️ Esqueceu um item? Pedido lançado e ainda não separado dá para corrigir:
       ${abertas.map(a => `<button class="preset-btn" onclick="trEditarPedido(${a.id})">editar lista #${a.id}${a.data_pedido ? ' (' + a.data_pedido.slice(8,10) + '/' + a.data_pedido.slice(5,7) + ')' : ''}</button>`).join(' ')}</div>` : ''}
@@ -10235,7 +10255,12 @@ async function trEditarPedido(id) {
     novos.push(i);
     if (i.emb2_fator) novos.push({ ...i, emb_nome: i.emb2_nome, emb_fator: i.emb2_fator });
   });
-  window._trEdit = { id, unidade: lista.unidade, itens };
+  // fatores por item: usados para REESCREVER a anotacao "pedido: N ..." quando
+  // a quantidade de um item com embalagem simples e editada (dono viu a #24422
+  // com "3 pacotes" no nome e 5 no campo — a obs ficava velha)
+  const fatores = {};
+  catalogo.forEach(x => { if (x.emb_fator && !x.emb2_fator) fatores[x.item] = { n: x.emb_nome, f: Number(x.emb_fator) }; });
+  window._trEdit = { id, unidade: lista.unidade, itens, fatores };
   window._trEditNovos = novos;
   // decoracao do nome com a embalagem, a partir do proprio catalogo ja buscado
   const catMapa = {};
@@ -10296,16 +10321,20 @@ function trEditHint(idx) {
 async function trSalvarEdicao() {
   const msg = document.getElementById('trEditMsg');
   msg.textContent = 'Salvando...'; msg.style.color = '#8a897e';
-  const { id, itens } = window._trEdit;
-  // 1. o que mudou nos itens que ja estavam na lista
+  const { id, itens, fatores } = window._trEdit;
+  // 1. o que mudou nos itens que ja estavam na lista (a anotacao "pedido: N"
+  // acompanha a quantidade nova quando o item tem embalagem simples)
   for (const [idx, i] of itens.entries()) {
     const campo = document.getElementById('tre_' + idx);
     if (!campo) continue;
     const v = Number(campo.value === '' ? i.qtd_solicitada : campo.value);
     if (v === Number(i.qtd_solicitada)) continue;
+    const corpo = { qtd_solicitada: v, editado: true };
+    const fx = (fatores || {})[i.item];
+    if (fx) corpo.observacao = `pedido: ${Math.round(v / fx.f * 100) / 100} ${fx.n}(s)`;
     const r = v <= 0
       ? await trFetch(`tr_lista_itens?id=eq.${i.id}`, { method: 'DELETE' })
-      : await trFetch(`tr_lista_itens?id=eq.${i.id}`, { method: 'PATCH', body: JSON.stringify({ qtd_solicitada: v, editado: true }) });
+      : await trFetch(`tr_lista_itens?id=eq.${i.id}`, { method: 'PATCH', body: JSON.stringify(corpo) });
     if (!r.ok) { msg.textContent = `Item ${i.item}: ` + await trErroDe(r); msg.style.color = '#ff6b6b'; return; }
   }
   // 2. os que faltaram, preenchidos na grade (duas embalagens somam na mesma linha)
