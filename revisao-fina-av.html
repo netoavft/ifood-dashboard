@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Revisão Fina · Burger AV</title>
+<meta name="robots" content="noindex">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body style="margin:0">
+<meta charset="utf-8">
+<title>Revisão Fina · Burger AV</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<style>
+:root{
+  --bg:#f6f1e8; --surface:#fffdf8; --surface2:#f0e9db; --ink:#2b2118; --ink2:#5c5245;
+  --muted:#8a7c6b; --line:#e3d8c6; --accent:#c8102e; --accent-soft:#fbe9ec;
+  --good:#1c7c44; --good-soft:#e3f2e8; --warn:#a3630b; --warn-soft:#f8eeda;
+  --bad:#b3261e; --bad-soft:#f9e7e5; --chip:#efe6d6;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#211b13; --surface:#2b241a; --surface2:#352c20; --ink:#f1e9dc; --ink2:#cfc3b0;
+    --muted:#a2937e; --line:#443a2b; --accent:#f0596f; --accent-soft:#48222a;
+    --good:#59c98a; --good-soft:#22382c; --warn:#e0a33e; --warn-soft:#3d311f;
+    --bad:#ef6b61; --bad-soft:#42241f; --chip:#3a3123;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#211b13; --surface:#2b241a; --surface2:#352c20; --ink:#f1e9dc; --ink2:#cfc3b0;
+  --muted:#a2937e; --line:#443a2b; --accent:#f0596f; --accent-soft:#48222a;
+  --good:#59c98a; --good-soft:#22382c; --warn:#e0a33e; --warn-soft:#3d311f;
+  --bad:#ef6b61; --bad-soft:#42241f; --chip:#3a3123;
+}
+*{box-sizing:border-box}
+body{background:var(--bg); color:var(--ink); margin:0;
+  font-family:'Instrument Sans',system-ui,sans-serif; font-size:16px; line-height:1.55; padding-bottom:84px;}
+.wrap{max-width:980px; margin:0 auto; padding:0 20px;}
+h1,h2,h3{font-family:'Archivo',system-ui,sans-serif; line-height:1.15; text-wrap:balance; margin:0;}
+h1{font-size:clamp(28px,5vw,40px); font-weight:800;}
+h2{font-size:clamp(19px,3vw,25px); font-weight:700; margin-bottom:4px;}
+h3{font-size:16px; font-weight:700; margin:14px 0 4px;}
+p{margin:.5em 0; max-width:76ch;}
+.eyebrow{font-size:12px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:var(--accent); margin-bottom:8px;}
+header.hero{padding:40px 0 6px;}
+.sub{color:var(--ink2); margin-top:10px; max-width:78ch;}
+.tiles{display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:12px; margin:22px 0 6px;}
+.tile{background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:13px 16px;}
+.tile .v{font-family:'Archivo'; font-weight:800; font-size:22px; font-variant-numeric:tabular-nums;}
+.tile .l{font-size:12.5px; color:var(--muted); margin-top:2px;}
+section{margin:36px 0;}
+.secnum{display:inline-block; background:var(--accent); color:#fff; font-family:'Archivo'; font-weight:700;
+  font-size:13px; border-radius:6px; padding:2px 9px; margin-bottom:8px;}
+:root[data-theme="dark"] .secnum{color:#211b13;}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .secnum{color:#211b13;} }
+.box{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:15px 18px; margin:14px 0;}
+.box.note{background:var(--surface2); border-style:dashed;}
+.small{font-size:13.5px; color:var(--ink2);}
+.tablewrap{overflow-x:auto; margin:12px 0; border:1px solid var(--line); border-radius:10px; background:var(--surface);}
+table{border-collapse:collapse; width:100%; min-width:560px; font-size:14px;}
+th{font-size:11.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted);
+  text-align:left; padding:9px 12px; border-bottom:1px solid var(--line); font-weight:600;}
+td{padding:8px 12px; border-bottom:1px solid var(--line); vertical-align:top;}
+tr:last-child td{border-bottom:none;}
+td.num,th.num{text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap;}
+.chip{display:inline-block; background:var(--chip); border-radius:20px; padding:1px 10px; font-size:12px; font-weight:600; white-space:nowrap;}
+.chip.good{background:var(--good-soft); color:var(--good);}
+.chip.warn{background:var(--warn-soft); color:var(--warn);}
+.chip.bad{background:var(--bad-soft); color:var(--bad);}
+.prop{display:flex; gap:12px; align-items:flex-start; background:var(--surface);
+  border:1px solid var(--line); border-radius:10px; padding:12px 15px; margin:8px 0;}
+.prop input{width:19px; height:19px; margin-top:2px; accent-color:var(--accent); flex:none; cursor:pointer;}
+.prop .body{flex:1; min-width:0;}
+.prop .t{font-weight:600;}
+.prop .d{font-size:13.5px; color:var(--ink2); margin-top:3px;}
+.prop code{background:var(--surface2); border-radius:5px; padding:0 6px; font-size:13px; font-family:inherit;}
+.prop:has(input:checked){opacity:.6;}
+.prop:has(input:checked) .t{text-decoration:line-through;}
+input:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+#bar{position:fixed; left:0; right:0; bottom:0; background:var(--surface);
+  border-top:2px solid var(--accent); padding:10px 20px; z-index:50;}
+#bar .in{max-width:980px; margin:0 auto; display:flex; justify-content:space-between; align-items:center; gap:14px; flex-wrap:wrap;}
+#bar .lbl{font-size:13px; color:var(--muted);}
+#bar .num{font-family:'Archivo'; font-weight:800; font-variant-numeric:tabular-nums;}
+ul.lst{padding-left:20px; margin:.4em 0;} ul.lst li{margin:5px 0; max-width:78ch;}
+@media (prefers-reduced-motion: reduce){ *{transition:none !important;} }
+</style>
+
+<div class="wrap">
+<header class="hero">
+  <div class="eyebrow">Engenharia de cardápio · Burger AV · vitrine · 11/09/2026</div>
+  <h1>Revisão fina — nomes, complementos e preços</h1>
+  <p class="sub">O pente que passa depois da estrutura: lido pela API às 21h06 (125 itens, 25 categorias,
+  49 grupos de complementos com o conteúdo de dentro). O achado principal: <strong>13 grupos de
+  complementos carregam "Xxx"/"Yyy" no nome — e o cliente VÊ isso</strong> em quase todos os itens da
+  loja. O resto: gritaria de pontuação nos nomes, ordem dos complementos invertida nos pratos, e os
+  preços da fase 2 que ficaram para trás (brownie, 2 litros, chopps 1L).</p>
+  <div class="tiles">
+    <div class="tile"><div class="v">13 grupos</div><div class="l">com Xxx/Yyy à mostra — 86 itens veem o pior deles</div></div>
+    <div class="tile"><div class="v">1 renome</div><div class="l">por grupo conserta TODOS os itens que o usam</div></div>
+    <div class="tile"><div class="v">5 categorias</div><div class="l">com !!/!!! para limpar no nome</div></div>
+    <div class="tile"><div class="v">~R$ 400/mês</div><div class="l">nos preços da fase 2 ainda pendentes</div></div>
+  </div>
+</header>
+
+<section>
+  <div class="secnum">1</div>
+  <h2>Complementos: tirar os Xxx/Yyy dos nomes (o maior ganho de vitrine)</h2>
+  <div class="box note"><p class="small"><strong>Onde:</strong> Cardápio → aba <code>Complementos</code> —
+  é o catálogo dos grupos; renomear ali UMA vez corrige todos os itens que usam o grupo.
+  <strong>Cautela:</strong> grupos são compartilhados com itens que estão em campanha; renomear GRUPO não
+  é editar o ITEM, mas por segurança faça o primeiro (o "Vai comer no seco? Xxx", o maior), confira o
+  drawer de uma campanha qualquer, e só então siga nos outros. <strong>Sufixo 🌱</strong> nas versões
+  veganas: mantém a distinção no cadastro sem sujar a vitrine — e ainda comunica.</p></div>
+
+  <div class="prop"><input type="checkbox" id="rf-g1">
+    <div class="body"><div class="t">Vai comer no seco? Xxx → <code>Vai comer no seco?</code></div>
+    <div class="d">86 itens. Renomear e conferir o drawer de uma campanha antes de seguir.</div></div></div>
+  <div class="prop"><input type="checkbox" id="rf-g2">
+    <div class="body"><div class="t">Vai encerrar sem final feliz? Xxx → <code>Vai encerrar sem final feliz?</code></div>
+    <div class="d">76 itens.</div></div></div>
+  <div class="prop"><input type="checkbox" id="rf-g3">
+    <div class="body"><div class="t">Vai um molhinho pra mergulhar? Xxx → <code>Vai um molhinho pra mergulhar?</code></div>
+    <div class="d">42 itens.</div></div></div>
+  <div class="prop"><input type="checkbox" id="rf-g4">
+    <div class="body"><div class="t">Esse lanche não merece um parceiro?? Xxx → <code>Esse lanche não merece um parceiro?</code></div>
+    <div class="d">25 itens — sai o Xxx e o "??" duplo.</div></div></div>
+  <div class="prop"><input type="checkbox" id="rf-g5">
+    <div class="body"><div class="t">Vai turbinar seu lanche hoje? Xxx → <code>Vai turbinar seu lanche hoje?</code></div>
+    <div class="d">24 itens.</div></div></div>
+  <div class="prop"><input type="checkbox" id="rf-g6">
+    <div class="body"><div class="t">Deseja turbinar o seu prato? Yyy → <code>Deseja turbinar o seu prato?</code></div>
+    <div class="d">21 itens.</div></div></div>
+  <div class="prop"><input type="checkbox" id="rf-g7">
+    <div class="body"><div class="t">Você precisa de talheres? Xxx → <code>Você precisa de talheres?</code></div>
+    <div class="d">13 itens.</div></div></div>
+  <div class="prop"><input type="checkbox" id="rf-g8">
+    <div class="body"><div class="t">Deseja turbinar seu caldo? Xxx → <code>Deseja turbinar seu caldo?</code></div>
+    <div class="d">5 itens.</div></div></div>
+  <div class="prop"><input type="checkbox" id="rf-g9">
+    <div class="body"><div class="t">Deseja adicionar nossa incrível crosta... Xxx → <code>Deseja adicionar a crosta de mozarela?</code></div>
+    <div class="d">4 itens (Ufo) — encurta e sai o Xxx.</div></div></div>
+  <div class="prop"><input type="checkbox" id="rf-g10">
+    <div class="body"><div class="t">As 4 versões veganas → mesmo nome com <code>🌱</code></div>
+    <div class="d">"Vai encerrar sem final feliz veg? Xxx" → <code>Vai encerrar sem final feliz? 🌱</code> (11) ·
+    "Vai um molhinho pra mergulhar veg? Xxx" → <code>Vai um molhinho pra mergulhar? 🌱</code> (8) ·
+    "Deseja turbinar sua opção veg? Xxx" → <code>Vai turbinar seu lanche hoje? 🌱</code> (7) ·
+    "Esse lanche não merece um parceiro veg? Xxx" → <code>Esse lanche não merece um parceiro? 🌱</code> (7).</div></div></div>
+  <div class="prop"><input type="checkbox" id="rf-g11">
+    <div class="body"><div class="t">Typo: "Seleicone seu burger especial" → <code>Selecione seu burger especial</code></div>
+    <div class="d">Grupo do container "Lanches especiais" (12 opções) — erro de digitação na primeira palavra que o cliente lê.</div></div></div>
+</section>
+
+<section>
+  <div class="secnum">2</div>
+  <h2>Ordem dos complementos — um padrão só, o funil de venda</h2>
+  <div class="box">
+    <p><strong>O padrão certo já existe nos lanches</strong> e é o funil natural de compra:</p>
+    <p><strong>1º Turbinar (adicionais) → 2º Parceiro/acompanhamento → 3º Molhinho → 4º Bebida ("vai
+    comer no seco?") → 5º Sobremesa ("final feliz") → 6º Talheres por último.</strong></p>
+    <p class="small">Upsell de margem primeiro, praticidade no fim. Hoje os PRATOS estão invertidos:
+    abrem com "garfo e faca" e o "turbinar" aparece no fim — o upsell de maior margem escondido.</p>
+  </div>
+  <div class="prop"><input type="checkbox" id="rf-o1">
+    <div class="body"><div class="t">Reordenar nos itens FORA de campanha (livre)</div>
+    <div class="d">Porções (15), Churrasco &amp; Defumadas (6), caldos fora do Hits, Kids, veganos, Paulo
+    Cintura, Pedro Pedreiro ×3, Bezerra ×2, Adoniran ×2, Agostinho frango: arrastar os grupos dentro do
+    item para o padrão acima (a ordem é por item).</div></div></div>
+  <div class="prop"><input type="checkbox" id="rf-o2">
+    <div class="body"><div class="t">Itens EM campanha: reordenar com tira-repõe (ou deixar pro dia da troca do pool)</div>
+    <div class="d">Ordem de grupo é atributo do item — mexer em item de campanha pede o movimento
+    tira-da-seleção → reordena → repõe (sua regra da troca rápida). São ~19 itens; dá para fazer aos
+    poucos, um por dia, ou esperar a troca das posições do almoço. Sem pressa: é otimização, não conserto.</div></div></div>
+</section>
+
+<section>
+  <div class="secnum">3</div>
+  <h2>Nomes de categorias — tirar a gritaria</h2>
+  <div class="prop"><input type="checkbox" id="rf-c1">
+    <div class="body"><div class="t">5 renomes (lápis no nome; renomear categoria é seguro, provado)</div>
+    <div class="d"><code>Caldos !!!</code> → <code>Caldos</code> ·
+    <code>Almoço Campeão !!!</code> → <code>Almoço Campeão</code> ·
+    <code>Combos lanches no precinho!!</code> → <code>Combos de Lanches</code> ·
+    <code>Combos marmitas no precinho!!</code> → <code>Combos de Marmitas</code> ·
+    <code>Mais Pedidos do Ifood</code> → <code>Mais Pedidos do iFood</code>.</div></div></div>
+</section>
+
+<section>
+  <div class="secnum">4</div>
+  <h2>Nomes de produtos — rebarbas</h2>
+  <div class="prop"><input type="checkbox" id="rf-p1">
+    <div class="body"><div class="t">Caldos: pontos soltos e o ". T"</div>
+    <div class="d"><code>...com costela desfiada. T</code> → tirar o ". T" ·
+    <code>Caldo de mandioquinha (Batata Salsa).</code> → sem o ponto ·
+    <code>Caldo verde com calabresa.</code> → sem o ponto. (Nenhum em campanha — renomear livre.)</div></div></div>
+  <div class="prop"><input type="checkbox" id="rf-p2">
+    <div class="body"><div class="t">Combo: "2x Burgers Classicos no desconto!!"</div>
+    <div class="d">→ <code>2x Burgers Clássicos</code> (acento + sem "no desconto!!" — o riscado 57,99→47,99 já diz isso melhor).</div></div></div>
+  <div class="prop"><input type="checkbox" id="rf-p3">
+    <div class="body"><div class="t">Conferir: "Kf Citzen"</div>
+    <div class="d">Se a grafia da marca é "KF Citizen", corrigir; se o nome é esse mesmo, marca e segue.</div></div></div>
+  <div class="prop"><input type="checkbox" id="rf-p4">
+    <div class="body"><div class="t">Decisão: o item técnico "Chuva!" (R$ 100, categoria Observações)</div>
+    <div class="d">Aparece para o cliente como um item de R$ 100. Se é ferramenta interna, avaliar
+    pausá-lo (‖) para sair da vitrine sem perder o cadastro — me diz qual o papel dele que eu confirmo
+    se pausar quebra algo.</div></div></div>
+</section>
+
+<section>
+  <div class="secnum">5</div>
+  <h2>Preços — o que ficou da fase 2 (+ 2 achados novos)</h2>
+  <div class="tablewrap"><table>
+    <tr><th>Item</th><th class="num">Hoje</th><th class="num">Proposta</th><th>Nota</th></tr>
+    <tr><td>Brownie</td><td class="num">12,99</td><td class="num">15,99</td><td>fase 2; mercadoria, sobe direto</td></tr>
+    <tr><td>Brownie Vegano</td><td class="num">11,99</td><td class="num">14,99</td><td>acompanha o irmão</td></tr>
+    <tr><td>Pepsi 2L · Pepsi Black 2L · Guaraná 2L</td><td class="num">18,00</td><td class="num">19,99</td><td>fase 2</td></tr>
+    <tr><td>Chopp 1L — Pilsen Bird</td><td class="num">30,00</td><td class="num">34,99</td><td rowspan="3">fase 2: os 1L estavam 27–43% de margem; tabela em 3 degraus</td></tr>
+    <tr><td>Chopp 1L — Brahma · Curitipa · Avelã</td><td class="num">38–40</td><td class="num">45,99</td></tr>
+    <tr><td>Chopp 1L — Mutum · Trooper</td><td class="num">52,00</td><td class="num">59,99</td></tr>
+    <tr><td>Tortas + Dalí (Sobremesas)</td><td class="num">19,99 <s>19,99</s></td><td class="num">—</td><td>o "riscado igual" não mostra nada; opcional criar riscado real (24,99→19,99) via tira-repõe — estão no Hits R$5</td></tr>
+    <tr><td>Container "Porções para compartilhar": Tilápia</td><td class="num">+35 / +30</td><td class="num">conferir</td><td>a Tilápia SEM fritas (+35) está mais cara que a COM fritas (+30) — provável inversão dos acréscimos</td></tr>
+  </table></div>
+  <div class="prop"><input type="checkbox" id="rf-pr1">
+    <div class="body"><div class="t">Aplicar os preços da tabela (nenhum está em campanha, edição livre)</div>
+    <div class="d">Brownies, 2 litros e chopps 1L direto na linha; a Tilápia é no container da Seleção
+    (acréscimos das opções). Ganho estimado: ~R$ 400/mês, quase todo margem de mercadoria.</div></div></div>
+</section>
+
+<section>
+  <div class="secnum">✓</div>
+  <h2>Quando terminar</h2>
+  <div class="box"><p>Me chama: releio os complementos pela API (nomes sem Xxx, ordens) e confiro um
+  drawer — e a revisão fina fecha. O que estiver marcado como "tira-repõe" pode ficar para o dia da
+  troca do pool, sem culpa: nada disso é vazamento, é polimento.</p></div>
+</section>
+</div>
+
+<div id="bar"><div class="in">
+  <div><span class="num" id="feitas">0</span> <span class="lbl">de <span id="total">?</span> passos feitos</span></div>
+  <div class="lbl">progresso salvo neste navegador</div>
+</div></div>
+
+<script>
+(function(){
+  var caixas = Array.prototype.slice.call(document.querySelectorAll('.prop input[type=checkbox]'));
+  document.getElementById('total').textContent = caixas.length;
+  function atualiza(){
+    var feitas=0;
+    caixas.forEach(function(c){
+      if(c.checked) feitas++;
+      try{ localStorage.setItem('rfina:'+c.id, c.checked?'1':'0'); }catch(e){}
+    });
+    document.getElementById('feitas').textContent = feitas;
+  }
+  caixas.forEach(function(c){
+    try{ if(localStorage.getItem('rfina:'+c.id)==='1') c.checked=true; }catch(e){}
+    c.addEventListener('change', atualiza);
+  });
+  atualiza();
+})();
+</script>
+
+</body>
+</html>
