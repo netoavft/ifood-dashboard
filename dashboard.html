@@ -4791,7 +4791,7 @@ function renderDiaConcartao(unidade, dia, trs, pix, cobr, forma, descs, onl) {
     <td style="${tdL}">${q.forma}</td>
     <td style="${tdL}">${p.real}</td>
     <td style="${tdL} text-align:right; white-space:nowrap;">${reaisCc(p.valor)}</td>
-    <td style="${tdL} color:#e8e6dc;">${p.v.motivo}</td>
+    <td style="${tdL} color:#e8e6dc;">${p.v.tipo ? '<b>' + caixaRotTipo(p.v.tipo) + '</b>' + (p.v.quebra > 0 ? ' · quebra R$ ' + fmt(+p.v.quebra) + (p.v.responsavel ? ' (' + p.v.responsavel + ')' : '') : '') + ' · ' : ''}${p.v.motivo}</td>
     <td style="${tdL} white-space:nowrap;">${String(p.v.quem || '').split('@')[0]} · ${String(p.v.validado_em || '').slice(0, 10).split('-').reverse().slice(0, 2).join('/')}</td>
     <td style="${tdL} border-right:0; white-space:nowrap;">${podeExplicar ? `<button onclick="caixaDesfazer(${p.i})" style="font:inherit; font-size:11px; padding:2px 8px; cursor:pointer;">desfazer</button>` : ''}</td></tr>`; };
   const cabE = `<tr><th style="${thL}">hora</th><th style="${thL}">venda</th><th style="${thL}">o Saipos diz</th><th style="${thL}">a maquininha / o banco diz</th><th style="${thL} text-align:right;">valor</th><th style="${thL}">motivo</th><th style="${thL}">quem</th><th style="${thL} border-right:0;"></th></tr>`;
@@ -4911,7 +4911,7 @@ function renderDiaConcartao(unidade, dia, trs, pix, cobr, forma, descs, onl) {
           </div><div style="font-size:11px; color:#8a897e; margin-top:2px;">enviado = o que você contou; troco = o que ficou na gaveta${cx === 'DELIVERY' ? ' (o delivery abre com R$ 0,01)' : ''}. O painel compara com o vendido em dinheiro deste caixa e trava o dia.</div></td></tr>`;
       };
       const statusPend = px => { const ex = valDe[px.chave];
-        if (ex) return { status: `<span style="color:#9aa4af;">explicada: ${ex.motivo}</span>${podeExplicar ? ` <button onclick="caixaDesfazer(${px.i})" style="font:inherit; font-size:11px; padding:1px 7px; cursor:pointer;">desfazer</button>` : ''}`, cor: '#8a897e', bg: '' };
+        if (ex) return { status: `<span style="color:#9aa4af;">explicada${ex.tipo ? ' · <b>' + caixaRotTipo(ex.tipo) + '</b>' : ''}${ex.quebra > 0 ? ' · quebra R$ ' + fmt(+ex.quebra) + (ex.responsavel ? ' (' + ex.responsavel + ')' : '') : ''}: ${ex.motivo}</span>${podeExplicar ? ` <button onclick="caixaDesfazer(${px.i})" style="font:inherit; font-size:11px; padding:1px 7px; cursor:pointer;">desfazer</button>` : ''}`, cor: '#8a897e', bg: '' };
         if (grupoDe(px) === 'auto') return { status: `<span style="color:#9aa4af;">⏳ ${px.acao} <span style="font-size:11px;">— ${px.leitura}</span></span>`, cor: '#8a897e', bg: '' };
         return { status: `<span style="color:#ff6b6b; font-weight:700;">2º</span> ${px.acao}<div style="font-size:11px; color:#8a897e;">${px.leitura}</div>${btnExp(px)}`, cor: '#e8e6dc', bg: 'background:rgba(255,107,107,.05);' }; };
       if (dinheiroLinha) {
@@ -5020,21 +5020,90 @@ async function caixaRecarregarValidadas() {
   renderModuloCaixa();
   if (CAIXA_DRILL) await abrirDiaConcartao(CAIXA_DRILL.unidade, CAIXA_DRILL.dia);
 }
+// Tipos de explicacao (dono, 11/09/2026): "vao existir vendas nao cobradas e vendas com
+// diferenca; qual a melhor forma de acertarmos e tratarmos essas quebras?" Regras dele:
+// delivery nao cobrado = desconto do motoboy (o atendente confere o comprovante na
+// maquininha); quebra do salao acumula e e descontada, todo mes, do rateio dos 10%.
+const CAIXA_TIPOS_EXPL = [
+  { id: 'REGISTRO', rot: 'Erro de registro', desc: 'o dinheiro entrou certo; o Saipos é que está errado (bandeira, valor digitado) — corrigido lá, sem perda', quebra: false },
+  { id: 'PERDA_SALAO', rot: 'Quebra do salão', desc: 'não cobrado ou cobrado a menor no salão/balcão — acumula e é descontado do rateio dos 10% no mês', quebra: true },
+  { id: 'PERDA_MOTOBOY', rot: 'Não cobrado na entrega', desc: 'sem comprovante na maquininha — desconto do motoboy', quebra: true },
+  { id: 'REPOSICAO', rot: 'Reposição', desc: 'este dinheiro repõe uma quebra anterior (escolha qual) — explica a sobra de hoje', quebra: false },
+  { id: 'FIADO', rot: 'Cliente paga depois', desc: 'a venda existe, o pagamento vem depois — conferir quando entrar', quebra: false },
+  { id: 'SOBRA', rot: 'Sobra', desc: 'troco digitado errado, venda em dinheiro fora do Saipos, gorjeta', quebra: false },
+  { id: 'OUTRO', rot: 'Outro', desc: 'nenhum dos anteriores — descreva no motivo', quebra: false },
+];
+const caixaRotTipo = t => (CAIXA_TIPOS_EXPL.find(x => x.id === t) || {}).rot || '';
+// quebras ainda sem reposicao, da loja (para o campo "repõe qual?")
+function caixaQuebrasAbertas(unidade) {
+  const vals = (CAIXA_VALID || []).filter(v => v.unidade === unidade);
+  const repostas = new Set(vals.filter(v => v.tipo === 'REPOSICAO' && v.reposicao_de).map(v => v.reposicao_de));
+  return vals.filter(v => (v.tipo === 'PERDA_SALAO' || v.tipo === 'PERDA_MOTOBOY') && +v.quebra > 0 && !repostas.has(v.chave))
+    .sort((a, b) => (a.dia < b.dia ? 1 : -1));
+}
+function caixaModalExplicar(x, d) {
+  return new Promise(resolve => {
+    const moto = (String(x.saipos || '').match(/motoboy ([^·]+)/) || [])[1];
+    const contrib = String(x.chave).startsWith('dinheiro:') ? -x.efeito : x.efeito;
+    const tipo0 = moto ? 'PERDA_MOTOBOY' : String(x.chave).startsWith('rede:') ? 'REGISTRO' : contrib < 0 ? 'SOBRA' : 'PERDA_SALAO';
+    const resp0 = moto ? moto.trim() : (x.caixa === 'DELIVERY' ? 'Delivery' : 'Salão') + ' · turno';
+    const abertas = caixaQuebrasAbertas(d.unidade);
+    const ddmm = v => String(v || '').split('-').reverse().slice(0, 2).join('/');
+    const ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:9999; display:flex; align-items:center; justify-content:center; padding:16px;';
+    ov.innerHTML = `<div style="background:#1c1c1a; color:#e8e6dc; border:1px solid rgba(154,164,175,.35); border-radius:8px; max-width:640px; width:100%; padding:16px 18px; font-size:13px; max-height:92vh; overflow:auto;">
+      <div style="font-size:14px; font-weight:700; margin-bottom:4px;">Explicar a diferença</div>
+      <div style="color:#a5a49a; font-size:12px; margin-bottom:10px;">${x.hora} · ${String(x.saipos || '').replace(/<[^>]+>/g, '')} × ${x.real} — <b style="color:#e8e6dc;">R$ ${fmt(Math.abs(x.valor))}</b></div>
+      <div style="display:grid; gap:4px; margin-bottom:10px;">
+        ${CAIXA_TIPOS_EXPL.map(t => `<label style="display:flex; gap:8px; align-items:flex-start; padding:5px 8px; border:1px solid rgba(154,164,175,.2); border-radius:5px; cursor:pointer;"><input type="radio" name="cxTipo" value="${t.id}" ${t.id === tipo0 ? 'checked' : ''} style="margin-top:3px;"><span><b>${t.rot}</b><br><span style="color:#a5a49a; font-size:11px;">${t.desc}</span></span></label>`).join('')}
+      </div>
+      <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:8px;">
+        <label style="flex:1; min-width:140px;">valor da diferença (R$)<br><input type="number" step="0.01" min="0" id="cxValor" value="${Math.abs(x.valor).toFixed(2)}" style="width:100%; padding:4px; font:inherit;"></label>
+        <label style="flex:2; min-width:200px;">responsável (motoboy ou turno)<br><input type="text" id="cxResp" value="${resp0.replace(/"/g, '&quot;')}" style="width:100%; padding:4px; font:inherit;"></label>
+      </div>
+      <div id="cxRepBox" style="display:none; margin-bottom:8px;"><label>repõe qual quebra?<br><select id="cxRep" style="width:100%; padding:4px; font:inherit;">${abertas.length ? abertas.map(v => `<option value="${v.chave}">${ddmm(v.dia)} · R$ ${fmt(+v.quebra)} · ${v.responsavel || ''} · ${String(v.motivo || '').slice(0, 50)}</option>`).join('') : '<option value="">nenhuma quebra em aberto nesta loja</option>'}</select></label></div>
+      <label>motivo (fica registrado)<br><textarea id="cxMotivo" rows="2" style="width:100%; padding:4px; font:inherit;"></textarea></label>
+      <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:10px;">
+        <button id="cxCancelar" style="font:inherit; padding:5px 12px; cursor:pointer;">cancelar</button>
+        <button id="cxSalvar" style="font:inherit; padding:5px 14px; cursor:pointer; font-weight:700;">Salvar</button>
+      </div></div>`;
+    document.body.appendChild(ov);
+    const repBox = ov.querySelector('#cxRepBox');
+    const syncRep = () => { const t = ov.querySelector('input[name=cxTipo]:checked').value; repBox.style.display = t === 'REPOSICAO' ? 'block' : 'none'; };
+    ov.querySelectorAll('input[name=cxTipo]').forEach(r => r.addEventListener('change', syncRep)); syncRep();
+    const fechar = v => { ov.remove(); resolve(v); };
+    ov.querySelector('#cxCancelar').onclick = () => fechar(null);
+    ov.addEventListener('click', e => { if (e.target === ov) fechar(null); });
+    ov.querySelector('#cxSalvar').onclick = () => {
+      const tipo = ov.querySelector('input[name=cxTipo]:checked').value;
+      const valor = Number(ov.querySelector('#cxValor').value);
+      const motivo = ov.querySelector('#cxMotivo').value.trim();
+      const responsavel = ov.querySelector('#cxResp').value.trim();
+      const rep = tipo === 'REPOSICAO' ? ov.querySelector('#cxRep').value : null;
+      if (!motivo) { alert('Escreva o motivo — é o que fica registrado.'); return; }
+      if (!(valor >= 0)) { alert('Valor inválido.'); return; }
+      if (tipo === 'REPOSICAO' && !rep) { alert('Escolha qual quebra este dinheiro repõe.'); return; }
+      const def = CAIXA_TIPOS_EXPL.find(t => t.id === tipo);
+      fechar({ tipo, motivo, responsavel: responsavel || null, quebra: def.quebra ? Math.round(valor * 100) / 100 : null, reposicao_de: rep });
+    };
+    setTimeout(() => { const m = ov.querySelector('#cxMotivo'); if (m) m.focus(); }, 50);
+  });
+}
 async function caixaExplicar(i) {
   const d = CAIXA_DRILL, x = d && d.rows[i];
   if (!x) return;
-  const motivo = prompt('Por que essa diferença está explicada?\n\n' + x.hora + ' · ' + x.saipos.replace(/<[^>]+>/g, '') + ' × ' + x.real + ' — R$ ' + fmt(x.valor));
-  if (motivo === null) return;
-  if (!motivo.trim()) { alert('Escreva o motivo — é o que fica registrado.'); return; }
   const s = rmbSessao();
   if (!s || !s.email) { alert('Sessão expirada — faça login de novo para registrar.'); return; }
+  const r0 = await caixaModalExplicar(x, d);
+  if (!r0) return;
   try {
     const r = await fetch(`${SUPABASE_URL}/rest/v1/caixa_pendencia_validada?on_conflict=unidade,dia,chave`, {
       method: 'POST', headers: rmbHeaders({ Prefer: 'resolution=merge-duplicates' }),
       body: JSON.stringify({ unidade: d.unidade, dia: d.dia, chave: x.chave, bloco: x.bloco, caixa: x.caixa || null,
         descricao: (x.hora + ' · ' + x.saipos.replace(/<[^>]+>/g, '') + ' × ' + x.real).slice(0, 240),
         valor: Math.round(x.valor * 100) / 100, efeito: Math.round(x.efeito * 100) / 100,
-        motivo: motivo.trim(), quem: s.email, validado_em: new Date().toISOString() }),
+        tipo: r0.tipo, responsavel: r0.responsavel, quebra: r0.quebra, reposicao_de: r0.reposicao_de,
+        motivo: r0.motivo, quem: s.email, validado_em: new Date().toISOString() }),
     });
     if (!r.ok) throw new Error((await r.text()).slice(0, 160));
     await caixaRecarregarValidadas();
