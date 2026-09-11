@@ -10071,13 +10071,35 @@ async function trTelaPedido(unidadeEscolhida) {
     <button class="preset-btn" onclick="trAddAvulso()">+ item fora da grade</button>
     <div style="margin-top:14px;">
       <button class="preset-btn tr-btn-cheio" onclick="trCriarPedido()">Enviar pedido</button>
+      <span id="trPedidoParcial" style="font-size:13px; font-weight:700; margin-left:10px;"></span>
       <span id="trPedidoMsg" style="font-size:12px; margin-left:8px;"></span>
     </div>`;
   trAvulsoN = 0;
+  trPedidoSoma();
 }
 
 // campo preenchido ganha borda verde na ilha clara (ver de relance o que ja foi pedido)
-function trqTem(el) { el.classList.toggle('tem', el.value !== ''); }
+function trqTem(el) { el.classList.toggle('tem', el.value !== ''); trPedidoSoma(); }
+
+// Parcial ao vivo do pedido em montagem (dono, 11/09/2026): soma quantidade x
+// preco de tabela conforme a pessoa digita (embalagem convertida). Login sem
+// valores nao ve nada — os precos ja chegam nulos da view.
+function trPedidoSoma() {
+  const el = document.getElementById('trPedidoParcial');
+  if (!el) return;
+  let total = 0, semPreco = 0, tem = false;
+  (window._trItensPedido || []).forEach((i, idx) => {
+    const q = Number(document.getElementById('trq_' + idx)?.value || 0);
+    if (q <= 0) return;
+    tem = true;
+    if (i.preco_tabela == null) { semPreco++; return; }
+    const qtd = i.emb_fator ? q * i.emb_fator : q;
+    total += qtd * Number(i.preco_tabela);
+  });
+  el.textContent = !tem || (total === 0 && semPreco === 0) ? ''
+    : (total > 0 ? `Parcial: R$ ${fmt(total)}` : '')
+      + (semPreco ? ` (${semPreco} item(ns) sem preço fora da soma)` : '');
+}
 
 // Busca da grade do pedido: esconde o que nao casa, sem perder o que ja foi
 // digitado (display:none mantem o valor do campo; o envio le por id).
