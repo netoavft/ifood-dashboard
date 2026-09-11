@@ -242,16 +242,29 @@ ul.lst{padding-left:20px; margin:.4em 0;} ul.lst li{margin:5px 0; max-width:78ch
 
   <h3>Etapa 2 — Campanhas do ALMOÇO (um drawer por vez, salvar sempre com 3 itens)</h3>
   <div class="prop"><input type="checkbox" id="v2-c8a">
-    <div class="body"><div class="t">Hits R$ 8 ALMOÇO — trocar 2 posições</div>
-    <div class="d">Abrir o drawer → <code>Remover</code> Paulo Cintura e Severino (o velho, 39,99) →
-    <code>Adicionar</code> <strong>Silvio da seção "Mais Pedidos"</strong> e <strong>Severino da seção
-    "Pratos Clássicos"</strong> (De 35,99 → Por 27,99) → <code>Salvar</code>. Feijoada fica.</div></div></div>
+    <div class="body"><div class="t">Hits R$ 8 ALMOÇO — só a troca do Silvio (por enquanto)</div>
+    <div class="d">Drawer → <code>Remover</code> Paulo Cintura → <code>Adicionar</code> <strong>Silvio da
+    seção "Mais Pedidos"</strong> → <code>Salvar</code>. Feijoada e o Severino ATUAL ficam — a posição
+    nova do Severino ainda não é elegível (ver o desvio abaixo).</div></div></div>
   <div class="prop"><input type="checkbox" id="v2-c10a">
-    <div class="body"><div class="t">Hits R$ 10 ALMOÇO — trocar as 3 posições</div>
-    <div class="d">Drawer → Remover Agostinho, PF Pernil e PF Costela (os da seção "Almoço Campeão") →
-    Adicionar: <strong>Agostinho na seção "Pratos Clássicos"</strong> · <strong>PF Pernil e PF Costela na
-    seção "Pratos Defumados"</strong> — os três devem mostrar <code>De 42,99 → Por 32,99</code> (se não
-    aparecerem como elegíveis, confira a etiqueta 42,99 e dê alguns minutos pro portal sincronizar) → Salvar.</div></div></div>
+    <div class="body"><div class="t">⚠️ DESVIO descoberto em 11/09: elegibilidade do Hits é POR POSIÇÃO</div>
+    <div class="d">Lido pela API: as posições novas (42,99) têm ZERO tag de elegibilidade — o pool do
+    iFood marcou as posições do Almoço Campeão, e posição nova não entra no drawer em preço nenhum.
+    <strong>Não excluir NADA do Almoço Campeão</strong> até o teste abaixo passar. O caminho vira:
+    mover a posição ELEGÍVEL para a família, em vez de trocar a seleção.</div></div></div>
+  <div class="prop"><input type="checkbox" id="v2-teste-mover">
+    <div class="body"><div class="t">TESTE com o Agostinho (1 item, reversível)</div>
+    <div class="d">1) Excluir o Agostinho NOVO de Pratos Clássicos (42,99, sem campanha — livre) ·
+    2) Mover o Agostinho do <code>Almoço Campeão → Pratos Clássicos</code> (⋮ da linha) ·
+    3) Abrir o drawer R$ 10 Almoço: continuou selecionado? (se caiu, repor — 2 cliques) ·
+    4) Etiqueta <code>42,99</code> nele (se travar por campanha: tira do drawer → etiqueta → repõe).</div></div></div>
+  <div class="prop"><input type="checkbox" id="v2-c10a2">
+    <div class="body"><div class="t">Se o teste passou: repetir para Pernil e Costela</div>
+    <div class="d">Excluir as posições novas de Pratos Defumados → mover as do Almoço Campeão para
+    <code>Pratos Defumados</code> → conferir drawer → etiquetas 42,99. Depois: mesmo movimento no
+    <strong>Severino</strong> (→ Pratos Clássicos, etiqueta 35,99 → R$ 8 Almoço De 35,99→27,99) e mover
+    livre os 4 restantes do Almoço Campeão (Paulo, Bezerra, Adoniran ×2 — sem campanha). A categoria
+    esvazia e morre igual, só que por este caminho.</div></div></div>
 
   <h3>Etapa 3 — Alain e CDM (tira → aplica preço → repõe, na mesma sentada)</h3>
   <div class="prop"><input type="checkbox" id="v2-alaincdm1">
@@ -290,8 +303,9 @@ ul.lst{padding-left:20px; margin:.4em 0;} ul.lst li{margin:5px 0; max-width:78ch
     <div class="d">Excluir "Caldo ... - Jantar" e "Canja de galinha - Jantar" — a campanha de turno já
     faz o papel delas na posição única.</div></div></div>
   <div class="prop"><input type="checkbox" id="v2-exalmoco">
-    <div class="body"><div class="t">Categoria "Almoço Campeão" inteira</div>
-    <div class="d">Depois das etapas 2: nenhuma posição dela está em campanha — apagar as 8 posições e a categoria.</div></div></div>
+    <div class="body"><div class="t">Categoria "Almoço Campeão" — apagar só quando esvaziar</div>
+    <div class="d">⚠️ Alterado pelo desvio da elegibilidade: as posições saem daqui MOVENDO para as
+    famílias (teste do Agostinho acima), não excluindo. Apagar a categoria só quando estiver vazia.</div></div></div>
   <div class="prop"><input type="checkbox" id="v2-exrecom">
     <div class="body"><div class="t">Categoria "Recomendados Pelo Chef" inteira</div>
     <div class="d">6 posições, todas re-link — apagar tudo.</div></div></div>
