@@ -151,10 +151,12 @@ ul.lst{padding-left:20px; margin:.4em 0;} ul.lst li{margin:5px 0; max-width:78ch
     <tr><td>20</td><td>Bebidas · Quentão <em>(sazonal)</em></td><td>11+2</td><td>mantém</td></tr>
     <tr><td>21</td><td>Chopp growler 500ml · 1 litro</td><td>6+6</td><td>decisão: fundir numa "Chopp Growler" só?</td></tr>
   </table></div>
-  <p class="small">Morrem por inteiro: <strong>Almoço Campeão</strong> (8 posições — a campanha de almoço
-  faz o papel dela), <strong>Recomendados Pelo Chef</strong> (6 re-links), <strong>Hambúrgueres
-  Campeões/Especiais/Clássicos</strong> como categorias separadas, as versões <strong>"- Jantar"</strong>
-  do caldo e da canja, e os re-links da vitrine. Copa do Mundo: já removida por você em 11/09.</p>
+  <p class="small">Morrem por inteiro: <strong>Recomendados Pelo Chef</strong> (6 re-links),
+  <strong>Hambúrgueres Campeões/Especiais/Clássicos</strong> como categorias separadas, as versões
+  <strong>"- Jantar"</strong> do caldo e da canja, e os re-links da vitrine. Copa do Mundo: já removida
+  por você em 11/09. <strong>Almoço Campeão</strong> tem morte em dois tempos (regra da elegibilidade
+  por posição, 11/09): agora ele ENXUGA para as 4 posições de campanha; morre de vez quando o pool do
+  iFood marcar as posições-família como elegíveis — pendência que eu vigio pela API.</p>
 </section>
 
 <section>
@@ -185,7 +187,10 @@ ul.lst{padding-left:20px; margin:.4em 0;} ul.lst li{margin:5px 0; max-width:78ch
   </table></div>
   <p class="small">* = criar o preço base (riscado) novo; nos demais o riscado já existe. Quem NÃO está
   nesta tabela não muda de preço — só de casa, quando tinha posição dupla. Sem ficha ainda: containers
-  (margem via componentes), torta vegana e T-Bone (em conferência) — preço final desses depende da ficha.</p>
+  (margem via componentes), torta vegana e T-Bone (em conferência) — preço final desses depende da ficha.
+  <strong>Severino, Agostinho, Pernil e Costela:</strong> o Por-alvo desta tabela (via posição-família)
+  só entra quando o pool do iFood liberar a troca de posição — até lá as campanhas rodam nos De/Por
+  atuais das posições do Almoço Campeão (45,99→35,99 · 45,99→35,99 · 47,99→37,99 · 39,99→31,99).</p>
 </section>
 
 <section>
@@ -208,145 +213,189 @@ ul.lst{padding-left:20px; margin:.4em 0;} ul.lst li{margin:5px 0; max-width:78ch
 
 <section>
   <div class="secnum">5</div>
-  <h2>Migração — checklist para seguir na ordem</h2>
-  <p class="small">Cada linha é uma ação no portal. A ordem importa: preço de item em campanha só se
-  mexe com ele FORA da campanha (tira → mexe → repõe na mesma sessão, sua regra da troca rápida).
-  Marque ao fazer; o progresso fica salvo neste navegador. <strong>Já feito hoje e fora da lista:</strong>
-  faxina onda 1 · Copa removida · Silvio no R$ 8 Jantar · Alain igualado em 46,99 · Campeões reduzido a
-  John/Rubens/Chaplin já nas camadas certas.</p>
+  <h2>Migração — o passo a passo completo, na ordem</h2>
+  <p class="small">Reescrito em 11/09 à tarde, já com tudo que o dia ensinou (elegibilidade por posição,
+  "mover" não existe, Código PDV por linha). Cada passo diz ONDE clicar, O QUE deve aparecer e POR QUÊ.
+  Marque ao concluir — o progresso salva neste navegador. Se qualquer tela não bater com o descrito,
+  para e me chama; não improvisa.</p>
 
-  <h3>Etapa 1 — Preços das posições que NÃO estão em campanha (livres, sem risco)</h3>
-  <div class="prop"><input type="checkbox" id="v2-severino">
-    <div class="body"><div class="t">Severino (Pratos Clássicos)</div>
-    <div class="d">Preço base <code>35,99 → 39,99</code>; depois etiqueta verde → aplicar <code>35,99</code>.
-    Cliente segue vendo 35,99, agora com riscado.</div></div></div>
-  <div class="prop"><input type="checkbox" id="v2-agostinho">
-    <div class="body"><div class="t">Agostinho carne (Pratos Clássicos)</div>
-    <div class="d">Base <code>39,99 → 45,99</code>; etiqueta → <code>42,99</code>. (Era 41,99 — corrigido
-    11/09: a banda da faixa R$ 10 começa em ~42,99 e a 41,99 o item não aparece como elegível no drawer.)</div></div></div>
-  <div class="prop"><input type="checkbox" id="v2-pernil">
-    <div class="body"><div class="t">PF Pernil (Pratos Defumados)</div>
-    <div class="d">Base <code>35,99 → 45,99</code>; etiqueta → <code>42,99</code>.</div></div></div>
-  <div class="prop"><input type="checkbox" id="v2-costela">
-    <div class="body"><div class="t">PF Costela (Pratos Defumados)</div>
-    <div class="d">Base <code>39,99 → 47,99</code>; etiqueta → <code>42,99</code>.</div></div></div>
-  <div class="prop"><input type="checkbox" id="v2-tbone">
-    <div class="body"><div class="t">T-Bone (Churrasco)</div>
-    <div class="d">Conferir que a etiqueta está em <code>159,99</code> (riscado 173,99) — em 11/09 à tarde
-    JÁ ESTAVA assim: só marcar. A posição de Recomendados (163,99) morre na etapa 4. Valor definitivo
-    depois da ficha conferida (o CMV atual dele no banco é implausível).</div></div></div>
-  <div class="prop"><input type="checkbox" id="v2-ufo">
-    <div class="body"><div class="t">Ufo Cheddar Bacon e Ufo Costela Catupiry (categoria Ufo Burger)</div>
-    <div class="d">Definir o preço único: sugestão Cheddar base <code>50,99</code> + etiqueta <code>42,99</code> ·
-    Costela base <code>57,99</code> + etiqueta <code>49,99</code> (as posições de "Recomendados" morrem na etapa 3).</div></div></div>
+  <div class="box note"><p class="small"><strong>✅ Já feito (11/09, não repete):</strong> faxina onda 1 ·
+  Copa do Mundo removida · Silvio adicionado ao Hits R$ 8 Jantar · promo velha do Alain removida ·
+  "Hambúrgueres Campeões" reduzido a John/Rubens/Chaplin com riscados certos · T-Bone a 159,99 ·
+  Severino/Agostinho/Pernil/Costela das famílias com base novo + etiqueta (35,99 / 42,99 / 42,99 / 42,99).</p>
+  <p class="small"><strong>Dois jeitos de mexer que você vai usar o tempo todo:</strong><br>
+  · <em>Etiqueta verde</em> (preço promocional): na linha do item no Cardápio, clicar no ícone verde ao
+  lado do preço → abre "Aplicar preço promocional" → campo do valor + botão "Remover preço promocional".
+  O preço base só destrava depois de remover a promo.<br>
+  · <em>Excluir uma LINHA de categoria</em> (sem matar o produto): clicar no item → seção
+  "Categorias" → lixeirinha 🗑 na linha da categoria que deve morrer. <strong>NUNCA "excluir produto"</strong>
+  quando ele tem outra casa — o produto continua vivo nas outras linhas.</p></div>
 
-  <h3>Etapa 2 — Campanhas do ALMOÇO (um drawer por vez, salvar sempre com 3 itens)</h3>
-  <div class="prop"><input type="checkbox" id="v2-c8a">
-    <div class="body"><div class="t">Hits R$ 8 ALMOÇO — só a troca do Silvio (por enquanto)</div>
-    <div class="d">Drawer → <code>Remover</code> Paulo Cintura → <code>Adicionar</code> <strong>Silvio da
-    seção "Mais Pedidos"</strong> → <code>Salvar</code>. Feijoada e o Severino ATUAL ficam — a posição
-    nova do Severino ainda não é elegível (ver o desvio abaixo).</div></div></div>
-  <div class="prop"><input type="checkbox" id="v2-c10a">
-    <div class="body"><div class="t">⚠️ DESVIO descoberto em 11/09: elegibilidade do Hits é POR POSIÇÃO</div>
-    <div class="d">Lido pela API: as posições novas (42,99) têm ZERO tag de elegibilidade — o pool do
-    iFood marcou as posições do Almoço Campeão, e posição nova não entra no drawer em preço nenhum.
-    <strong>Não excluir NADA do Almoço Campeão</strong> até o teste abaixo passar. O caminho vira:
-    mover a posição ELEGÍVEL para a família, em vez de trocar a seleção.</div></div></div>
-  <div class="prop"><input type="checkbox" id="v2-teste-mover">
-    <div class="body"><div class="t">Repor o Agostinho velho na R$ 10 Almoço (3/3)</div>
-    <div class="d">Testes de 11/09 encerrados: nem trocar a seleção nem o tira-salva-reabre fizeram as
-    posições novas aparecerem — a elegibilidade é POR POSIÇÃO, curadoria do iFood, e posição nova só
-    entra quando o pool deles atualizar. Drawer → Adicionar o Agostinho da seção "Almoço Campeão" →
-    Salvar com 3/3.</div></div></div>
-  <div class="prop"><input type="checkbox" id="v2-c10a2">
-    <div class="body"><div class="t">PLANO B definitivo: Almoço Campeão enxuto, famílias intactas</div>
-    <div class="d">Excluir do <code>Almoço Campeão</code> SÓ as 4 linhas sem campanha (Adoniran ×2,
-    Bezerra, Paulo — duplicatas puras). <strong>As posições-família de 42,99/35,99 FICAM</strong>: são
-    elas que vendem fora do almoço (o Almoço Campeão só aparece 10h–14h). Na janela do almoço os 4
-    pratos aparecem em dobro, mas a versão do Hits é a mais barata — o cliente escolhe ela. Eu monitoro
-    pela API quando o pool marcar as posições-família; nesse dia trocamos a seleção e a categoria morre.</div></div></div>
+  <h3>Bloco A — Conferir como as campanhas ficaram depois das idas e vindas de hoje</h3>
 
-  <h3>Etapa 3 — Alain e CDM (tira → aplica preço → repõe, na mesma sentada)</h3>
-  <div class="prop"><input type="checkbox" id="v2-alaincdm1">
-    <div class="body"><div class="t">Tirar Alain e CDM das duas campanhas R$ 10 (1º tempo do movimento)</div>
-    <div class="d"><strong>Por quê:</strong> o objetivo das 3 linhas seguintes é aplicar o preço de
-    proteção neles (41,99 / 47,99) — e preço de item EM campanha não se edita direto. Sai → aplica →
-    volta, na mesma sentada. Sem risco de elegibilidade: eles voltam pelas MESMAS posições (Mais
-    Pedidos, que estão no pool) — diferente do caso do Agostinho, que tentava entrar com posição nova.
-    Drawer <code>R$ 10 Sempre</code>: Remover Alain e CDM → Salvar. Drawer <code>R$ 10 Jantar</code>:
-    idem (Pratos executivos e John seguram as campanhas).</div></div></div>
-  <div class="prop"><input type="checkbox" id="v2-alaincdm2">
-    <div class="body"><div class="t">Aplicar as etiquetas nos dois (posições de Mais Pedidos)</div>
-    <div class="d">Alain: etiqueta verde → <code>41,99</code> (riscado 46,99). CDM: etiqueta →
-    <code>47,99</code> (riscado 54,99).</div></div></div>
-  <div class="prop"><input type="checkbox" id="v2-alaincdm3">
-    <div class="body"><div class="t">Repor Alain e CDM nas duas campanhas</div>
-    <div class="d">R$ 10 Sempre e R$ 10 Jantar: Adicionar os dois de volta (agora De 41,99 → 31,99 e
-    De 47,99 → 37,99) → Salvar. Mesmo dia, sem dormir fora da promo.</div></div></div>
-  <div class="prop"><input type="checkbox" id="v2-silviopreco">
-    <div class="body"><div class="t">Silvio — mesmo movimento no R$ 8 Jantar</div>
-    <div class="d">Drawer R$ 8 Jantar: Remover Silvio → Salvar · etiqueta na posição de Mais Pedidos →
-    <code>37,99</code> (riscado 39,99) · repor no drawer (De 37,99 → Por 29,99) → Salvar.
-    <em>Se preferir a alternativa conservadora, 34,99 (âmbar na régua).</em></div></div></div>
+  <div class="prop"><input type="checkbox" id="v3-a1">
+    <div class="body"><div class="t">A1 · Drawer do Hits R$ 10 ALMOÇO com 3/3</div>
+    <div class="d"><strong>Onde:</strong> Promoções → aba Hits → campanha "Hits com R$10 OFF no almoço"
+    → clicar na linha para abrir o drawer.<br>
+    <strong>Deve estar:</strong> Agostinho (De 45,99 → Por 35,99) · PF Pernil (45,99 → 35,99) ·
+    PF Costela (47,99 → 37,99) — os três da seção "Almoço Campeão".<br>
+    <strong>Se o Agostinho ficou de fora</strong> (saiu no teste e não voltou): botão Adicionar item →
+    seção "Almoço Campeão" → marcar o Agostinho → Salvar.<br>
+    <strong>Por quê:</strong> a campanha precisa fechar o dia cheia; as posições do Almoço Campeão são
+    as únicas elegíveis desses pratos até o iFood atualizar o pool.</div></div></div>
 
-  <h3>Etapa 4 — Excluir as posições irmãs (nenhuma está mais em campanha)</h3>
-  <div class="prop"><input type="checkbox" id="v2-exclassicos">
-    <div class="body"><div class="t">Categoria "Burgers Clássicos" inteira</div>
-    <div class="d">Excluir Alain (46,99), Schumacher (26,90) e Rubens (36,99) — os três têm casa
-    definitiva em outro lugar — e apagar a categoria vazia.</div></div></div>
-  <div class="prop"><input type="checkbox" id="v2-exespeciais">
-    <div class="body"><div class="t">Em "Burgers Especiais": Chaplin, John Lennon e CDM</div>
-    <div class="d">Excluir as três posições irmãs (34,99 · 46,99 · 46,99). Jesse, Cheech, James Brown,
-    Mad Max, Honolulu e Gaudério FICAM — mudam de casa na etapa 5.</div></div></div>
-  <div class="prop"><input type="checkbox" id="v2-exvitrine">
-    <div class="body"><div class="t">Em "Mais Pedidos": Berlim, Kentucky e o caldo</div>
-    <div class="d">Excluir os três re-links — as casas únicas são Porções (Berlim 31,99 · Kentucky) e
-    Caldos (caldo c/ costela). Ficam os 5 heróis: Ayrton, Nelson, Silvio, Alain, CDM.</div></div></div>
-  <div class="prop"><input type="checkbox" id="v2-exjantar">
-    <div class="body"><div class="t">Em "Caldos": as versões "- Jantar"</div>
-    <div class="d">Excluir "Caldo ... - Jantar" e "Canja de galinha - Jantar" — a campanha de turno já
-    faz o papel delas na posição única.</div></div></div>
-  <div class="prop"><input type="checkbox" id="v2-exalmoco">
-    <div class="body"><div class="t">Categoria "Almoço Campeão" — apagar só quando esvaziar</div>
-    <div class="d">⚠️ Alterado pelo desvio da elegibilidade: as posições saem daqui MOVENDO para as
-    famílias (teste do Agostinho acima), não excluindo. Apagar a categoria só quando estiver vazia.</div></div></div>
-  <div class="prop"><input type="checkbox" id="v2-exrecom">
-    <div class="body"><div class="t">Categoria "Recomendados Pelo Chef" inteira</div>
-    <div class="d">6 posições, todas re-link — apagar tudo.</div></div></div>
+  <div class="prop"><input type="checkbox" id="v3-a2">
+    <div class="body"><div class="t">A2 · Drawer do Hits R$ 8 ALMOÇO: Silvio dentro, Paulo fora</div>
+    <div class="d"><strong>Deve estar:</strong> PF Feijoada (37,99 → 29,99) · Severino (39,99 → 31,99,
+    o da seção Almoço Campeão) · Silvio (39,99 → 31,99, da seção "Mais Pedidos do Ifood").<br>
+    <strong>Se o Paulo Cintura ainda estiver:</strong> Remover Paulo → Adicionar o Silvio da seção
+    "Mais Pedidos" → Salvar.<br>
+    <strong>Por quê:</strong> o almoço é o turno do Silvio (195 vendas/mês vs 17 do Paulo); o Paulo sai
+    só da campanha, o prato dele continua normal no cardápio.</div></div></div>
 
-  <h3>Etapa 5 — Categorias: renomear e mover (só itens SEM campanha se movem)</h3>
-  <div class="prop"><input type="checkbox" id="v2-renomear">
-    <div class="body"><div class="t">Renomear "Hambúrgueres Campeões" → "Hambúrgueres da Casa"</div>
-    <div class="d">Só o nome — John, Rubens e Chaplin não saem do lugar e o Hits não sente (provado na
-    onda 1 com o "Mais Pedidos").</div></div></div>
-  <div class="prop"><input type="checkbox" id="v2-mover">
-    <div class="body"><div class="t">Mover os 6 de "Burgers Especiais" para "Hambúrgueres da Casa"</div>
-    <div class="d">Jesse, Cheech, James Brown, Mad Max, Honolulu, Gaudério (nenhum em campanha — livre).
-    Apagar "Burgers Especiais" vazia.</div></div></div>
-  <div class="prop"><input type="checkbox" id="v2-churrasco">
-    <div class="body"><div class="t">Fundir Churrasco + Carnes Defumadas</div>
-    <div class="d">Renomear "Carnes Defumadas" → <code>Churrasco &amp; Defumados na peça</code>; mover
-    T-Bone e Alcatra pra dentro; apagar "Churrasco" vazia.</div></div></div>
-  <div class="prop"><input type="checkbox" id="v2-ordem">
-    <div class="body"><div class="t">Arrastar as categorias para a ordem da seção 2</div>
-    <div class="d">Burger do Mês (quando existir) → Mais Pedidos → Seleção → Combos → Caldos → burgers → pratos → porções → sobremesas → bebidas.</div></div></div>
+  <h3>Bloco B — Enxugar o "Almoço Campeão" (ele sobrevive SÓ com os 4 de campanha)</h3>
 
-  <h3>Etapa 6 — Nascimento e conferência</h3>
-  <div class="prop"><input type="checkbox" id="v2-burgermes">
-    <div class="body"><div class="t">Criar a categoria "🍔 Burger do Mês" + primeiro burger</div>
-    <div class="d">Ficha validada por você ANTES de criar + foto real; preço cheio com sobra ≥ 57%;
-    fora de qualquer campanha.</div></div></div>
-  <div class="prop"><input type="checkbox" id="v2-confere">
-    <div class="body"><div class="t">Me chamar para a conferência final</div>
-    <div class="d">Releio a API (zero duplicata, preços da tabela) e os 9 drawers — incluindo checar se
-    John/Rubens/Chaplin seguiram nas campanhas depois dos riscados de hoje (se caíram, repor é 2
-    cliques). Aprovado → réplicas Comida Brasileira e Cidadão Vegan.</div></div></div>
+  <div class="prop"><input type="checkbox" id="v3-b1">
+    <div class="body"><div class="t">B1 · Excluir do Almoço Campeão as 4 linhas que NÃO estão em campanha</div>
+    <div class="d"><strong>Onde:</strong> Cardápio → categoria "Almoço Campeão !!!" → para cada um dos 4,
+    abrir o item → seção Categorias → 🗑 na linha "Almoço Campeão" → confirmar:<br>
+    1. Adoniran Barbosa (Parmegiana de Carne – Almoço) · 2. Adoniran Barbosa (Parmegiana de Frango) ·
+    3. Bezerra da Silva (Milanesa de Carne) · 4. Paulo Cintura.<br>
+    <strong>Como fica:</strong> Almoço Campeão com 4 itens (Agostinho, Pernil, Costela, Severino) —
+    todos em campanha, então NÃO se mexe mais neles aqui.<br>
+    <strong>Por quê:</strong> esses 4 excluídos são duplicatas puras — todos já existem nas categorias
+    de família, que ficam sendo a casa única deles.</div></div></div>
 
-  <div class="box note"><p class="small"><strong>Salvaguardas:</strong> campanha nunca fica salva com
-  menos de 3 itens · posição em campanha não se edita nem se exclui (tira da seleção primeiro, repõe
-  depois) · horário de vale · <strong>toda posição tem um Código PDV próprio (a ponte com o Saipos) —
-  ao adicionar produto a uma categoria, conferir que o PDV está preenchido igual ao da linha antiga,
-  senão a venda cai no Saipos sem amarração</strong> · na dúvida numa exclusão, me pergunta antes.</p></div>
+  <div class="box note"><p class="small"><strong>Pendência vigiada (não é passo seu):</strong> os 4 pratos
+  de campanha ficam temporariamente em dobro — a posição do Almoço Campeão (só aparece 10h–14h, é a da
+  campanha) e a posição-família (o preço do resto do dia, 42,99/35,99, acima do Por — não rouba a
+  campanha). Eu monitoro pela API; no dia que o pool do iFood marcar as posições-família como elegíveis,
+  trocamos a seleção nos drawers e o Almoço Campeão morre. Nada a fazer até lá.</p></div>
+
+  <h3>Bloco C — Preço de proteção do Alain, do CDM e do Silvio (tira → aplica → repõe, um por vez)</h3>
+  <p class="small">Por quê: preço de item DENTRO de campanha não se edita direto (risco de derrubar do
+  programa). Sem risco de elegibilidade: cada um volta pela MESMA posição que saiu — diferente do caso
+  do Agostinho, que tentava entrar com posição nova. Fazer cada item completo numa sentada só.</p>
+
+  <div class="prop"><input type="checkbox" id="v3-c1">
+    <div class="body"><div class="t">C1 · Alain Prost (posição de "Mais Pedidos do Ifood")</div>
+    <div class="d">1. Drawer <code>R$ 10 Sempre</code> → Remover Alain → Salvar (ficam Pratos executivos e CDM).<br>
+    2. Drawer <code>R$ 10 Jantar</code> → Remover Alain → Salvar (ficam John e CDM).<br>
+    3. Cardápio → Mais Pedidos → linha do Alain → etiqueta verde → aplicar <code>41,99</code> →
+    a linha mostra <em>R$ 46,99 riscado / R$ 41,99</em>.<br>
+    4. Voltar nos DOIS drawers → Adicionar o Alain (agora <strong>De 41,99 → Por 31,99</strong>) →
+    Salvar cada um com 3/3.<br>
+    <strong>Resultado:</strong> longe paga 41,99 com riscado; perto paga 31,99 com frete grátis.</div></div></div>
+
+  <div class="prop"><input type="checkbox" id="v3-c2">
+    <div class="body"><div class="t">C2 · Cidadão do Mundo Burger (posição de "Mais Pedidos do Ifood")</div>
+    <div class="d">Mesmos 4 passos do C1: sai das campanhas <code>R$ 10 Sempre</code> e <code>R$ 10
+    Jantar</code> → etiqueta verde <code>47,99</code> (riscado 54,99) → repõe nos dois drawers, conferindo
+    <strong>De 47,99 → Por 37,99</strong> → Salvar 3/3.</div></div></div>
+
+  <div class="prop"><input type="checkbox" id="v3-c3">
+    <div class="body"><div class="t">C3 · Silvio Santos (posição de "Mais Pedidos do Ifood")</div>
+    <div class="d">1. Drawer <code>R$ 8 Almoço</code> → Remover Silvio → Salvar.<br>
+    2. Drawer <code>R$ 8 Jantar</code> → Remover Silvio → Salvar.<br>
+    3. Cardápio → Mais Pedidos → Silvio → etiqueta verde → <code>37,99</code> (riscado 39,99).<br>
+    4. Repor nos dois drawers — <strong>De 37,99 → Por 29,99</strong> — e Salvar 3/3.<br>
+    <strong>Resultado:</strong> nos turnos das campanhas o cliente paga 29,99 (menos que os 31,99 de
+    hoje) com frete grátis; no meio da tarde, 37,99 com riscado. <em>Alternativa conservadora se preferir:
+    34,99 (fica âmbar na régua, 55%).</em></div></div></div>
+
+  <h3>Bloco D — Excluir as posições que sobraram em dobro (tela do produto → 🗑 na linha)</h3>
+
+  <div class="prop"><input type="checkbox" id="v3-d1">
+    <div class="body"><div class="t">D1 · Categoria "Burgers Clássicos" morre inteira (3 linhas)</div>
+    <div class="d">Excluir a linha "Burgers Clássicos" de: <strong>Alain</strong> (46,99 — a casa dele é
+    Mais Pedidos) · <strong>Michael Schumacher</strong> (a casa é Hambúrgueres da Casa, 35,99 riscado
+    45,99) · <strong>Rubens</strong> (36,99 — a casa é Hambúrgueres da Casa, onde está o do Hits).
+    Categoria vazia → excluir a categoria.</div></div></div>
+
+  <div class="prop"><input type="checkbox" id="v3-d2">
+    <div class="body"><div class="t">D2 · Em "Burgers Especiais": excluir 3 linhas</div>
+    <div class="d"><strong>Chaplin</strong> (34,99 — a casa é Hambúrgueres da Casa, 38,99→30,99 no Hits) ·
+    <strong>John Lennon</strong> (46,99 — idem) · <strong>CDM</strong> (46,99 — a casa é Mais Pedidos).
+    Ficam 6: Jesse, Cheech e Chong, James Brown, Mad Max, Honolulu, Gaudério — eles mudam de casa no E2.</div></div></div>
+
+  <div class="prop"><input type="checkbox" id="v3-d3">
+    <div class="body"><div class="t">D3 · Em "Mais Pedidos do Ifood": excluir 3 linhas</div>
+    <div class="d"><strong>Berlim</strong> (casa: Porções, 31,99) · <strong>Kentucky</strong> (casa:
+    Porções) · <strong>Caldo de mandioquinha c/ costela</strong> (casa: Caldos). Ficam os 5 heróis:
+    Ayrton, Nelson, Silvio, Alain, CDM — todos de campanha.</div></div></div>
+
+  <div class="prop"><input type="checkbox" id="v3-d4">
+    <div class="body"><div class="t">D4 · Em "Caldos !!!": excluir as versões de turno</div>
+    <div class="d"><strong>"Caldo de mandioquinha ( Batata Salsa ) com costela desfiada - Jantar"</strong>
+    e <strong>"Canja de galinha - Jantar"</strong> — a campanha de turno já faz esse papel na posição
+    única. Cuidado para excluir a versão "- Jantar" e não a principal.</div></div></div>
+
+  <div class="prop"><input type="checkbox" id="v3-d5">
+    <div class="body"><div class="t">D5 · Categoria "Recomendados Pelo Chef" morre inteira (6 linhas)</div>
+    <div class="d">T-Bone (casa: Churrasco) · Costelinha + arroz (casa: Carnes Defumadas) · Costelinha
+    peça/Ribs On Fire (idem) · Pork and Roll (casa: Porções) · Ufo Cheddar Bacon (casa: Ufo Burger) ·
+    Ufo Costela Catupiry (casa: Ufo Burger). Excluir as 6 linhas → excluir a categoria.</div></div></div>
+
+  <h3>Bloco E — Categorias: renomear, mudar itens de casa, ordenar</h3>
+
+  <div class="prop"><input type="checkbox" id="v3-e1">
+    <div class="body"><div class="t">E1 · Renomear "Hambúrgueres Campeões" → "Hambúrgueres da Casa"</div>
+    <div class="d">Lápis no nome da categoria → digitar → Salvar. John, Rubens e Chaplin não se mexem e
+    o Hits não sente (renomear categoria não edita item — provado na onda 1).</div></div></div>
+
+  <div class="prop"><input type="checkbox" id="v3-e2">
+    <div class="body"><div class="t">E2 · Levar os 6 de "Burgers Especiais" para "Hambúrgueres da Casa"</div>
+    <div class="d">Para CADA um (Jesse, Cheech e Chong, James Brown, Mad Max, Honolulu, Gaudério):<br>
+    1. Abrir o item → Categorias → <code>+ Adicionar categoria → Categoria existente → Hambúrgueres da
+    Casa</code>.<br>
+    2. Na linha nova: preencher o <strong>MESMO preço</strong> (base e promocional, se tiver) e o
+    <strong>MESMO Código PDV</strong> da linha antiga — o PDV é a amarração com o Saipos; sem ele a
+    venda cai solta.<br>
+    3. Excluir (🗑) a linha antiga de "Burgers Especiais".<br>
+    Quando os 6 terminarem: excluir a categoria "Burgers Especiais" vazia. Nenhum deles está em
+    campanha — movimento livre.</div></div></div>
+
+  <div class="prop"><input type="checkbox" id="v3-e3">
+    <div class="body"><div class="t">E3 · Fundir Churrasco + Carnes Defumadas</div>
+    <div class="d">1. Renomear "Carnes Defumadas" → <code>Churrasco &amp; Defumados na peça</code>.<br>
+    2. T-Bone e Alcatra: mesmo processo do E2 (adicionar à categoria renomeada com MESMO preço, riscado
+    e PDV; excluir a linha de "Churrasco").<br>
+    3. Excluir a categoria "Churrasco" vazia.</div></div></div>
+
+  <div class="prop"><input type="checkbox" id="v3-e4">
+    <div class="body"><div class="t">E4 · Preço único dos dois Ufo (agora sem a vitrine que morreu)</div>
+    <div class="d">Ufo Cheddar Bacon: base <code>50,99</code> + etiqueta <code>42,99</code>. Ufo Costela
+    Catupiry: base <code>57,99</code> + etiqueta <code>49,99</code>. (Sugestões — o riscado replica o
+    que a vitrine mostrava; ajusta se quiser outro posicionamento.)</div></div></div>
+
+  <div class="prop"><input type="checkbox" id="v3-e5">
+    <div class="body"><div class="t">E5 · Arrastar as categorias para a ordem final</div>
+    <div class="d">1 Burger do Mês (quando existir) · 2 Mais Pedidos do Ifood · 3 Seleção · 4 Combos
+    lanches · 5 Combos marmitas · 6 Caldos · 7 Almoço Campeão (enquanto viver) · 8 Hambúrgueres da Casa ·
+    9 Smash · 10 Sanduíches de Frango · 11 Ufo Burger · 12 Ufo Vegan/Burgers veganos · 13 Pratos
+    Clássicos · 14 Feijoada · 15 Pratos Defumados · 16 Pratos Veganos · 17 Churrasco &amp; Defumados ·
+    18 Porções · 19 Kids · 20 Sobremesas · 21 Sobremesas veganas · 22 Bebidas · 23 Quentão ·
+    24–25 Chopp 500ml / 1L.</div></div></div>
+
+  <h3>Bloco F — Nascimento e conferência final</h3>
+
+  <div class="prop"><input type="checkbox" id="v3-f1">
+    <div class="body"><div class="t">F1 · Criar "🍔 Burger do Mês" + primeiro burger</div>
+    <div class="d">Criar categoria no topo. O burger só entra com: ficha validada por você ANTES ·
+    foto real (exigência do iFood) · preço cheio com sobra ≥ 57% (me passa a composição que eu calculo) ·
+    e NUNCA entra em campanha (item de campanha não pode ser editado, e este morre todo mês).</div></div></div>
+
+  <div class="prop"><input type="checkbox" id="v3-f2">
+    <div class="body"><div class="t">F2 · Me chamar para a conferência final</div>
+    <div class="d">Releio o cardápio pela API (zero duplicata fora dos 4 vigiados, preços da tabela,
+    PDVs preenchidos) e os 9 drawers do Hits — incluindo conferir se John/Rubens/Chaplin seguiram nas
+    campanhas depois dos riscados de hoje (se caíram, repor é 2 cliques). Aprovado → réplicas da Comida
+    Brasileira e do Cidadão Vegan.</div></div></div>
+
+  <div class="box note"><p class="small"><strong>Salvaguardas gerais:</strong> item em campanha não se
+  edita nem se exclui — tira da seleção primeiro, repõe depois, na mesma sentada · drawer sempre salvo
+  com 3 itens no fim de cada passo · toda linha nova de categoria precisa do Código PDV copiado da
+  antiga · horário de vale para o grosso · na dúvida, me chama ANTES de excluir.</p></div>
 </section>
 
 <section>
