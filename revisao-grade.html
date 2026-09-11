@@ -1,0 +1,1451 @@
+<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="robots" content="noindex"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Revisão da grade — origem, embalagem e preço</title>
+<style>
+  :root { --papel:#faf6ef; --cartao:#fff; --tinta:#2b2620; --tinta2:#6f675c; --linha:#e5ddd0;
+          --vermelho:#c8102e; --verde:#2e7d4f; --campo:#fdfbf7; }
+  body { background:var(--papel); color:var(--tinta); font-family:Inter,"Segoe UI",system-ui,sans-serif;
+         margin:0; padding:18px 12px 120px; line-height:1.45; }
+  .folha { max-width:860px; margin:0 auto; }
+  h1 { font-size:clamp(24px,5vw,32px); margin:0 0 6px; }
+  .selo { font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:var(--vermelho); font-weight:700; }
+  .contexto { color:var(--tinta2); font-size:14px; max-width:70ch; margin:0 0 8px; }
+  .contexto b { color:var(--tinta); }
+  .grupo { font-size:12px; font-weight:800; letter-spacing:.1em; color:var(--vermelho);
+           border-bottom:2px solid var(--tinta); padding:16px 0 5px; margin-bottom:6px; text-transform:uppercase; }
+  .item { background:var(--cartao); border:1px solid var(--linha); border-radius:10px; padding:10px 12px; margin-bottom:8px; }
+  .item.mudou { border-color:var(--verde); box-shadow:0 0 0 1px var(--verde); }
+  .nome { font-weight:700; font-size:14.5px; }
+  .meta { color:var(--tinta2); font-size:12.5px; margin-left:6px; }
+  .campos { display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; align-items:center; }
+  .og { border:1px solid var(--linha); background:var(--campo); color:var(--tinta2); font:600 12.5px Inter,sans-serif;
+        padding:7px 12px; cursor:pointer; }
+  .og.c { border-radius:8px 0 0 8px; } .og.f { border-radius:0 8px 8px 0; margin-left:-1px; }
+  .og.on.c { background:var(--vermelho); border-color:var(--vermelho); color:#fff; }
+  .og.on.f { background:#1d5c8f; border-color:#1d5c8f; color:#fff; }
+  input.emb, input.obs { flex:1; min-width:180px; border:1px solid var(--linha); border-radius:8px;
+        background:var(--campo); padding:8px 9px; font:400 13px Inter,sans-serif; color:var(--tinta); }
+  input:focus { outline:2px solid var(--verde); outline-offset:1px; }
+  .barra { position:fixed; left:0; right:0; bottom:0; background:var(--cartao); border-top:2px solid var(--tinta);
+           padding:10px 12px; display:flex; gap:10px; align-items:center; justify-content:center; flex-wrap:wrap; }
+  .barra button { background:var(--vermelho); color:#fff; border:none; border-radius:9px; padding:12px 16px;
+                  font:700 13.5px Inter,sans-serif; cursor:pointer; }
+  .barra .estado { font-size:12.5px; color:var(--tinta2); }
+</style></head><body><div class="folha">
+  <div class="selo">Listas de transferência · revisão da grade</div>
+  <h1>Origem, forma de pedir e preço</h1>
+  <p class="contexto">Cada item mostra <b>como está hoje</b> (unidade, embalagem e preço de transferência).
+    Marque a <b>origem</b> — <b style="color:var(--vermelho);">Cidadão</b> (sai da produção da Água Verde) ou
+    <b style="color:#1d5c8f;">Fornecedor</b> (a Rita compra e entrega) — e, se algo estiver errado, escreva a
+    forma de pedir certa ou a correção de preço. <b>Em branco = fica como está.</b> O que você digita fica salvo
+    neste aparelho; no final, toque em <b>copiar alterações</b> e cole no chat para eu aplicar.</p>
+<div class="grupo">BEBIDAS</div>
+<div class="item" data-item="QUENTAO DEL REI">
+  <div class="cab"><span class="nome">QUENTAO DEL REI</span>
+    <span class="meta">lt · pede: <b>direto em lt</b> · R$ 15,47/lt</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="grupo">CARNE</div>
+<div class="item" data-item="ALCATRA (ORELHA DE ELEFANTE)">
+  <div class="cab"><span class="nome">ALCATRA (ORELHA DE ELEFANTE)</span>
+    <span class="meta">kg · pede: <b>direto em kg</b> · R$ 51,05/kg</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="BACON EM CUBOS MP">
+  <div class="cab"><span class="nome">BACON EM CUBOS MP</span>
+    <span class="meta">kg · pede: <b>caixa de 4,0000 kg</b> · R$ 26,78/kg</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="FILE C MIGNON (T BONE)">
+  <div class="cab"><span class="nome">FILE C MIGNON (T BONE)</span>
+    <span class="meta">kg · pede: <b>direto em kg</b> · R$ 39,75/kg</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="FRANGO A PASSARINHO">
+  <div class="cab"><span class="nome">FRANGO A PASSARINHO</span>
+    <span class="meta">kg · pede: <b>pacote de 200 g</b> · R$ 11,29/kg</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="ISCAS DE TILAPIA">
+  <div class="cab"><span class="nome">ISCAS DE TILAPIA</span>
+    <span class="meta">kg · pede: <b>caixa (10x300 g) de 3,0000 kg ou pacote 300 g</b> · R$ 66,84/kg</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="PEITO DE FRANGO">
+  <div class="cab"><span class="nome">PEITO DE FRANGO</span>
+    <span class="meta">kg · pede: <b>direto em kg</b> · R$ 18,53/kg</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="grupo">CARNES DEFUMADAS</div>
+<div class="item" data-item="1/2 COSTELINHA BARBECUE PECA">
+  <div class="cab"><span class="nome">1/2 COSTELINHA BARBECUE PECA</span>
+    <span class="meta">kg · pede: <b>meia peça de 500 g</b> · R$ 32,87/kg</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="COSTELA BOVINA PECA">
+  <div class="cab"><span class="nome">COSTELA BOVINA PECA</span>
+    <span class="meta">kg · pede: <b>pacote de 1,0000 kg</b> · R$ 36,50/kg</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="COSTELINHA BARBECUE PECA">
+  <div class="cab"><span class="nome">COSTELINHA BARBECUE PECA</span>
+    <span class="meta">kg · pede: <b>pacote de 1,0000 kg</b> · R$ 32,87/kg</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="PERNIL DESFIADO">
+  <div class="cab"><span class="nome">PERNIL DESFIADO</span>
+    <span class="meta">kg · pede: <b>pacote (20x130 g) de 2,6000 kg ou pacote 500 g</b> · R$ 17,09/kg</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="grupo">CONGELADOS</div>
+<div class="item" data-item="ANEIS DE CEBOLA CONGELADO KG">
+  <div class="cab"><span class="nome">ANEIS DE CEBOLA CONGELADO KG</span>
+    <span class="meta">kg · pede: <b>caixa de 10,1000 kg</b> · R$ 18,64/kg</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="BATATA CONGELADA KG">
+  <div class="cab"><span class="nome">BATATA CONGELADA KG</span>
+    <span class="meta">kg · pede: <b>caixa de 10,1000 kg</b> · R$ 11,89/kg</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="MORANGO CONGELADO">
+  <div class="cab"><span class="nome">MORANGO CONGELADO</span>
+    <span class="meta">kg · pede: <b>direto em kg</b> · R$ 12,72/kg</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="grupo">DESCARTAVEIS</div>
+<div class="item" data-item="BOBINA TERMICA IMPRESSORA">
+  <div class="cab"><span class="nome">BOBINA TERMICA IMPRESSORA</span>
+    <span class="meta">rl · pede: <b>caixa de 30 rl</b> · R$ 4,76/rl</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="BOBINA/FOLHA PICOTADA FRIOS 40X30">
+  <div class="cab"><span class="nome">BOBINA/FOLHA PICOTADA FRIOS 40X30</span>
+    <span class="meta">un · pede: <b>direto em un</b> · R$ 0,41/un</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="BOBINA/SACO PICOTADO 35X50">
+  <div class="cab"><span class="nome">BOBINA/SACO PICOTADO 35X50</span>
+    <span class="meta">un · pede: <b>direto em un</b> · R$ 0,07/un</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="BOBINA/SACO PICOTADO PORCOES 16X30">
+  <div class="cab"><span class="nome">BOBINA/SACO PICOTADO PORCOES 16X30</span>
+    <span class="meta">rl · pede: <b>direto em rl</b> · R$ 12,50/rl</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="COPO DESCARTAVEL 300ML">
+  <div class="cab"><span class="nome">COPO DESCARTAVEL 300ML</span>
+    <span class="meta">un · pede: <b>direto em un</b> · R$ 0,08/un</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="ETIQUETA BALANCA">
+  <div class="cab"><span class="nome">ETIQUETA BALANCA</span>
+    <span class="meta">un · pede: <b>direto em un</b> · R$ 0,04/un</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="ETIQUETA VALIDADE">
+  <div class="cab"><span class="nome">ETIQUETA VALIDADE</span>
+    <span class="meta">un · pede: <b>direto em un</b> · R$ 0,10/un</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="FACA DESCARTAVEL">
+  <div class="cab"><span class="nome">FACA DESCARTAVEL</span>
+    <span class="meta">un · pede: <b>direto em un</b> · R$ 0,19/un</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="GARFO DESCARTAVEL">
+  <div class="cab"><span class="nome">GARFO DESCARTAVEL</span>
+    <span class="meta">un · pede: <b>pacote de 50 un</b> · R$ 0,19/un</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="GAS MACARICO">
+  <div class="cab"><span class="nome">GAS MACARICO</span>
+    <span class="meta">un · pede: <b>direto em un</b> · R$ 15,25/un</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="ISOPOR H102 P/ UFO BURGER">
+  <div class="cab"><span class="nome">ISOPOR H102 P/ UFO BURGER</span>
+    <span class="meta">un · pede: <b>direto em un</b> · R$ 1,66/un</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="LUVA VINIL G SEM PO">
+  <div class="cab"><span class="nome">LUVA VINIL G SEM PO</span>
+    <span class="meta">un · pede: <b>caixa de 100 un</b> · R$ 0,21/un</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="PAPEL ALUMINIO">
+  <div class="cab"><span class="nome">PAPEL ALUMINIO</span>
+    <span class="meta">un · pede: <b>direto em un</b> · R$ 73,66/un</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="PAPEL TOALHA COZINHAS">
+  <div class="cab"><span class="nome">PAPEL TOALHA COZINHAS</span>
+    <span class="meta">un · pede: <b>direto em un</b> · R$ 14,70/un</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="grupo">EMBALAGENS</div>
+<div class="item" data-item="EMBALAGEM BATATA (COLADA) CIDADAO">
+  <div class="cab"><span class="nome">EMBALAGEM BATATA (COLADA) CIDADAO</span>
+    <span class="meta">un · pede: <b>direto em un</b> · R$ 0,62/un</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="EMBALAGEM BATATA (TO GO MINI) LISA">
+  <div class="cab"><span class="nome">EMBALAGEM BATATA (TO GO MINI) LISA</span>
+    <span class="meta">un · pede: <b>pacote de 100 un</b> · R$ 1,40/un</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="EMBALAGEM LONDON (TO GO P) CIDADAO">
+  <div class="cab"><span class="nome">EMBALAGEM LONDON (TO GO P) CIDADAO</span>
+    <span class="meta">un · pede: <b>direto em un</b> · R$ 1,30/un</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="EMBALAGEM LONDON (TO GO P) LISA">
+  <div class="cab"><span class="nome">EMBALAGEM LONDON (TO GO P) LISA</span>
+    <span class="meta">un · pede: <b>direto em un</b> · R$ 1,73/un</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="EMBALAGEM SOS 10KG PEQUENA CIDADAO">
+  <div class="cab"><span class="nome">EMBALAGEM SOS 10KG PEQUENA CIDADAO</span>
+    <span class="meta">un · pede: <b>pacote de 200 un</b> · R$ 0,48/un</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="EMBALAGEM SOS 10KG PEQUENA LISA">
+  <div class="cab"><span class="nome">EMBALAGEM SOS 10KG PEQUENA LISA</span>
+    <span class="meta">un · pede: <b>pacote de 200 un</b> · R$ 0,52/un</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="EMBALAGEM SOS 20KG GRANDE CIDADAO">
+  <div class="cab"><span class="nome">EMBALAGEM SOS 20KG GRANDE CIDADAO</span>
+    <span class="meta">un · pede: <b>pacote de 200 un</b> · R$ 0,74/un</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="EMBALAGEM SOS 20KG GRANDE LISA">
+  <div class="cab"><span class="nome">EMBALAGEM SOS 20KG GRANDE LISA</span>
+    <span class="meta">un · pede: <b>pacote de 200 un</b> · R$ 0,78/un</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="LACRE DE SEGURANCA CIDADAO">
+  <div class="cab"><span class="nome">LACRE DE SEGURANCA CIDADAO</span>
+    <span class="meta">un · pede: <b>rolo de 250 un</b> · R$ 0,06/un</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="PAPEL ACOPLADO SEDA CIDADAO">
+  <div class="cab"><span class="nome">PAPEL ACOPLADO SEDA CIDADAO</span>
+    <span class="meta">un · pede: <b>direto em un</b> · R$ 0,21/un</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="PET GROWLER 1L">
+  <div class="cab"><span class="nome">PET GROWLER 1L</span>
+    <span class="meta">un · pede: <b>direto em un</b> · R$ 4,55/un</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="PET GROWLER 500ML">
+  <div class="cab"><span class="nome">PET GROWLER 500ML</span>
+    <span class="meta">un · pede: <b>direto em un</b> · R$ 1,89/un</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="PLASTICO FILME MARMITAS">
+  <div class="cab"><span class="nome">PLASTICO FILME MARMITAS</span>
+    <span class="meta">un · pede: <b>direto em un</b> · R$ 0,23/un</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="POTE PRATOS 500ML (CANJA)">
+  <div class="cab"><span class="nome">POTE PRATOS 500ML (CANJA)</span>
+    <span class="meta">un · pede: <b>caixa de 26 un</b> · R$ 0,92/un</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="SACOLA DELIVERY">
+  <div class="cab"><span class="nome">SACOLA DELIVERY</span>
+    <span class="meta">un · pede: <b>direto em un</b> · R$ 0,08/un</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="grupo">ESCRITORIO</div>
+<div class="item" data-item="CANETA PILOT">
+  <div class="cab"><span class="nome">CANETA PILOT</span>
+    <span class="meta">un · pede: <b>direto em un</b> · R$ 4,17/un</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="GRAMPO">
+  <div class="cab"><span class="nome">GRAMPO</span>
+    <span class="meta">cx · pede: <b>direto em cx</b> · R$ 7,72/cx</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="grupo">FUNCIONARIOS</div>
+<div class="item" data-item="MARGARINA FUNCIONARIOS">
+  <div class="cab"><span class="nome">MARGARINA FUNCIONARIOS</span>
+    <span class="meta">kg · pede: <b>direto em kg</b> · R$ 16,99/kg</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="grupo">HORTIFRUTI</div>
+<div class="item" data-item="ABACATE">
+  <div class="cab"><span class="nome">ABACATE</span>
+    <span class="meta">kg · pede: <b>direto em kg</b> · não cobrado</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="ALFACE AMERICANA">
+  <div class="cab"><span class="nome">ALFACE AMERICANA</span>
+    <span class="meta">kg · pede: <b>direto em kg</b> · não cobrado</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="BETERRABA">
+  <div class="cab"><span class="nome">BETERRABA</span>
+    <span class="meta">kg · pede: <b>direto em kg</b> · não cobrado</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="CEBOLA">
+  <div class="cab"><span class="nome">CEBOLA</span>
+    <span class="meta">kg · pede: <b>direto em kg</b> · não cobrado</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="CENOURA">
+  <div class="cab"><span class="nome">CENOURA</span>
+    <span class="meta">kg · pede: <b>direto em kg</b> · não cobrado</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="LIMAO">
+  <div class="cab"><span class="nome">LIMAO</span>
+    <span class="meta">kg · pede: <b>direto em kg</b> · não cobrado</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="OVO">
+  <div class="cab"><span class="nome">OVO</span>
+    <span class="meta">un · pede: <b>bandeja de 30 un</b> · não cobrado</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="REPOLHO BRANCO">
+  <div class="cab"><span class="nome">REPOLHO BRANCO</span>
+    <span class="meta">kg · pede: <b>direto em kg</b> · não cobrado</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="REPOLHO ROXO">
+  <div class="cab"><span class="nome">REPOLHO ROXO</span>
+    <span class="meta">kg · pede: <b>direto em kg</b> · não cobrado</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="TOMATE">
+  <div class="cab"><span class="nome">TOMATE</span>
+    <span class="meta">kg · pede: <b>direto em kg</b> · não cobrado</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="grupo">LATICINEOS</div>
+<div class="item" data-item="MOZARELA FATIA">
+  <div class="cab"><span class="nome">MOZARELA FATIA</span>
+    <span class="meta">kg · pede: <b>pacote de 2,0000 kg</b> · R$ 37,49/kg</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="grupo">MATERIAL DE LIMPEZA</div>
+<div class="item" data-item="LIMPA FORNO (FORNO GRILL)">
+  <div class="cab"><span class="nome">LIMPA FORNO (FORNO GRILL)</span>
+    <span class="meta">lt · pede: <b>direto em lt</b> · R$ 17,61/lt</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="SACO DE LIXO PRETO 100L">
+  <div class="cab"><span class="nome">SACO DE LIXO PRETO 100L</span>
+    <span class="meta">un · pede: <b>direto em un</b> · R$ 0,62/un</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="grupo">PAES</div>
+<div class="item" data-item="PAO BRIOCHE">
+  <div class="cab"><span class="nome">PAO BRIOCHE</span>
+    <span class="meta">un · pede: <b>direto em un</b> · não cobrado</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="grupo">PREP LANCHES</div>
+<div class="item" data-item="CEBOLA CRISPY RECEITA">
+  <div class="cab"><span class="nome">CEBOLA CRISPY RECEITA</span>
+    <span class="meta">kg · pede: <b>pote de 300 g</b> · R$ 11,56/kg</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="CEBOLA GRELHADA RECEITA">
+  <div class="cab"><span class="nome">CEBOLA GRELHADA RECEITA</span>
+    <span class="meta">kg · pede: <b>pote de 700 g</b> · R$ 18,94/kg</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="CONFIT DE TOMATE CEREJA RECEITA">
+  <div class="cab"><span class="nome">CONFIT DE TOMATE CEREJA RECEITA</span>
+    <span class="meta">kg · pede: <b>pote de 700 g</b> · R$ 27,25/kg</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="grupo">PREP PRATOS</div>
+<div class="item" data-item="CALDO DE MANDIOQUINHA RECEITA">
+  <div class="cab"><span class="nome">CALDO DE MANDIOQUINHA RECEITA</span>
+    <span class="meta">kg · pede: <b>pote de 450 g</b> · R$ 4,21/kg</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="CANJA DE GALINHA RECEITA">
+  <div class="cab"><span class="nome">CANJA DE GALINHA RECEITA</span>
+    <span class="meta">kg · pede: <b>pote de 450 g</b> · R$ 4,51/kg</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="CARNE DESFIADA RECEITA">
+  <div class="cab"><span class="nome">CARNE DESFIADA RECEITA</span>
+    <span class="meta">kg · pede: <b>pacote de 200 g</b> · R$ 21,71/kg</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="ESPETINHO DE PTS RECEITA">
+  <div class="cab"><span class="nome">ESPETINHO DE PTS RECEITA</span>
+    <span class="meta">un · pede: <b>direto em un</b> · R$ 1,39/un</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="FAROFA RECEITA">
+  <div class="cab"><span class="nome">FAROFA RECEITA</span>
+    <span class="meta">kg · pede: <b>balde de 4,5000 kg</b> · R$ 11,28/kg</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="FEIJOADA RECEITA">
+  <div class="cab"><span class="nome">FEIJOADA RECEITA</span>
+    <span class="meta">kg · pede: <b>direto em kg</b> · R$ 9,49/kg</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="FRANGO EMPANADO RECEITA">
+  <div class="cab"><span class="nome">FRANGO EMPANADO RECEITA</span>
+    <span class="meta">kg · pede: <b>pacote de 250 g</b> · R$ 20,84/kg</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="FRANGO GRELHADO RECEITA">
+  <div class="cab"><span class="nome">FRANGO GRELHADO RECEITA</span>
+    <span class="meta">un · pede: <b>direto em un</b> · R$ 15,25/un</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="MOLHO AO SUGO RECEITA">
+  <div class="cab"><span class="nome">MOLHO AO SUGO RECEITA</span>
+    <span class="meta">kg · pede: <b>direto em kg</b> · R$ 9,47/kg</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="STROGONOFF DE CARNE RECEITA">
+  <div class="cab"><span class="nome">STROGONOFF DE CARNE RECEITA</span>
+    <span class="meta">kg · pede: <b>pacote de 200 g</b> · R$ 31,76/kg</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="STROGONOFF DE FRANGO RECEITA">
+  <div class="cab"><span class="nome">STROGONOFF DE FRANGO RECEITA</span>
+    <span class="meta">kg · pede: <b>pacote de 200 g</b> · R$ 17,28/kg</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="STROGONOFF DE PTS VEGAN RECEITA">
+  <div class="cab"><span class="nome">STROGONOFF DE PTS VEGAN RECEITA</span>
+    <span class="meta">kg · pede: <b>pacote de 200 g</b> · R$ 8,86/kg</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="grupo">PREP PRODUCAO</div>
+<div class="item" data-item="ALHO BATIDO RECEITA">
+  <div class="cab"><span class="nome">ALHO BATIDO RECEITA</span>
+    <span class="meta">kg · pede: <b>pote de 1,0000 kg</b> · R$ 18,02/kg</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="BIFE DE CARNE EMPANADO 170G RECEITA">
+  <div class="cab"><span class="nome">BIFE DE CARNE EMPANADO 170G RECEITA</span>
+    <span class="meta">kg · pede: <b>unidade de 170 g</b> · R$ 26,52/kg</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="BIFE DE CARNE GRELHADO RECEITA">
+  <div class="cab"><span class="nome">BIFE DE CARNE GRELHADO RECEITA</span>
+    <span class="meta">un · pede: <b>direto em un</b> · R$ 3,91/un</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="BOLINHO DE CARNE RECEITA">
+  <div class="cab"><span class="nome">BOLINHO DE CARNE RECEITA</span>
+    <span class="meta">kg · pede: <b>direto em kg</b> · R$ 22,97/kg</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="BOLINHO DE PERNIL 35G RECEITA">
+  <div class="cab"><span class="nome">BOLINHO DE PERNIL 35G RECEITA</span>
+    <span class="meta">kg · pede: <b>pacote (10x35 g) de 350 g</b> · R$ 33,96/kg</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="BROWNIE TRADICIONAL RECEITA">
+  <div class="cab"><span class="nome">BROWNIE TRADICIONAL RECEITA</span>
+    <span class="meta">un · pede: <b>direto em un</b> · R$ 2,01/un</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="BROWNIE VEGANO 70G RECEITA">
+  <div class="cab"><span class="nome">BROWNIE VEGANO 70G RECEITA</span>
+    <span class="meta">kg · pede: <b>direto em kg</b> · R$ 20,51/kg</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="CHEESECAKE TRADICIONAL RECEITA">
+  <div class="cab"><span class="nome">CHEESECAKE TRADICIONAL RECEITA</span>
+    <span class="meta">un · pede: <b>direto em un</b> · R$ 2,21/un</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="CHEESECAKE VEGANA RECEITA">
+  <div class="cab"><span class="nome">CHEESECAKE VEGANA RECEITA</span>
+    <span class="meta">un · pede: <b>direto em un</b> · R$ 2,82/un</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="COSTELA E ACEM DESFIADO RECEITA">
+  <div class="cab"><span class="nome">COSTELA E ACEM DESFIADO RECEITA</span>
+    <span class="meta">kg · pede: <b>pacote (20x130 g) de 2,6000 kg</b> · R$ 48,09/kg</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="COSTELINHA DEFUMADA RECEITA">
+  <div class="cab"><span class="nome">COSTELINHA DEFUMADA RECEITA</span>
+    <span class="meta">kg · pede: <b>direto em kg</b> · R$ 42,58/kg</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="DISCO DE MOZARELA EMPANADO 150G RECEITA">
+  <div class="cab"><span class="nome">DISCO DE MOZARELA EMPANADO 150G RECEITA</span>
+    <span class="meta">un · pede: <b>direto em un</b> · R$ 3,75/un</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="DISCO DE QUEIJO VEGANO EMPANADO 140G RECEITA">
+  <div class="cab"><span class="nome">DISCO DE QUEIJO VEGANO EMPANADO 140G RECEITA</span>
+    <span class="meta">un · pede: <b>direto em un</b> · R$ 2,37/un</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="HAMBURGUER DE CARNE 150G RECEITA">
+  <div class="cab"><span class="nome">HAMBURGUER DE CARNE 150G RECEITA</span>
+    <span class="meta">kg · pede: <b>unidade de 150 g</b> · R$ 27,42/kg</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="HAMBURGUER DE FEIJAO COM PTS 125G RECEITA">
+  <div class="cab"><span class="nome">HAMBURGUER DE FEIJAO COM PTS 125G RECEITA</span>
+    <span class="meta">un · pede: <b>direto em un</b> · R$ 0,62/un</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="MAIONESE DE CEBOLINHA LEITE RECEITA">
+  <div class="cab"><span class="nome">MAIONESE DE CEBOLINHA LEITE RECEITA</span>
+    <span class="meta">kg · pede: <b>pote de 3,2000 kg</b> · R$ 9,15/kg</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="MOLHO DE PIMENTA RECEITA">
+  <div class="cab"><span class="nome">MOLHO DE PIMENTA RECEITA</span>
+    <span class="meta">kg · pede: <b>pacote de 500 g</b> · R$ 17,36/kg</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="PASTEL DE QUEIJO RECEITA">
+  <div class="cab"><span class="nome">PASTEL DE QUEIJO RECEITA</span>
+    <span class="meta">un · pede: <b>pacote de 10 un</b> · R$ 0,69/un</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="QUEIJO VEGANO DE CASTANHA RECEITA">
+  <div class="cab"><span class="nome">QUEIJO VEGANO DE CASTANHA RECEITA</span>
+    <span class="meta">kg · pede: <b>pote de 1,0000 kg</b> · R$ 19,37/kg</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="SMASH BURGER 60G RECEITA">
+  <div class="cab"><span class="nome">SMASH BURGER 60G RECEITA</span>
+    <span class="meta">kg · pede: <b>unidade de 60 g</b> · R$ 27,25/kg</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="TORRESMO DE ROLO RECEITA">
+  <div class="cab"><span class="nome">TORRESMO DE ROLO RECEITA</span>
+    <span class="meta">kg · pede: <b>pacote de 450 g</b> · R$ 33,83/kg</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="TORRESMO EM CUBOS RECEITA">
+  <div class="cab"><span class="nome">TORRESMO EM CUBOS RECEITA</span>
+    <span class="meta">kg · pede: <b>pacote de 400 g</b> · R$ 34,24/kg</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="TORTA ALEMA VEGANA 150G RECEITA">
+  <div class="cab"><span class="nome">TORTA ALEMA VEGANA 150G RECEITA</span>
+    <span class="meta">kg · pede: <b>direto em kg</b> · R$ 20,77/kg</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="grupo">SECOS</div>
+<div class="item" data-item="ARROZ PARBOILIZADO">
+  <div class="cab"><span class="nome">ARROZ PARBOILIZADO</span>
+    <span class="meta">kg · pede: <b>pacote de 5,0000 kg</b> · R$ 5,28/kg</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="CALDO DE GALINHA 1,1KG">
+  <div class="cab"><span class="nome">CALDO DE GALINHA 1,1KG</span>
+    <span class="meta">kg · pede: <b>direto em kg</b> · R$ 18,67/kg</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="CATCHUP GALAO 3,8KG">
+  <div class="cab"><span class="nome">CATCHUP GALAO 3,8KG</span>
+    <span class="meta">kg · pede: <b>galão de 3,8000 kg</b> · R$ 11,55/kg</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="CHIMICHURRI">
+  <div class="cab"><span class="nome">CHIMICHURRI</span>
+    <span class="meta">kg · pede: <b>direto em kg</b> · R$ 27,27/kg</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="FEIJAO PRETO 1KG">
+  <div class="cab"><span class="nome">FEIJAO PRETO 1KG</span>
+    <span class="meta">kg · pede: <b>direto em kg</b> · R$ 6,27/kg</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="GELEIA DE ABACAXI COM PIMENTA">
+  <div class="cab"><span class="nome">GELEIA DE ABACAXI COM PIMENTA</span>
+    <span class="meta">kg · pede: <b>pote de 320 g</b> · R$ 54,07/kg</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="GELEIA DE PIMENTA">
+  <div class="cab"><span class="nome">GELEIA DE PIMENTA</span>
+    <span class="meta">kg · pede: <b>direto em kg</b> · R$ 40,46/kg</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="GORDURA VEGETAL">
+  <div class="cab"><span class="nome">GORDURA VEGETAL</span>
+    <span class="meta">kg · pede: <b>direto em kg</b> · R$ 13,04/kg</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="MACARRAO">
+  <div class="cab"><span class="nome">MACARRAO</span>
+    <span class="meta">kg · pede: <b>direto em kg</b> · R$ 7,12/kg</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="MAIONESE HELLMANS">
+  <div class="cab"><span class="nome">MAIONESE HELLMANS</span>
+    <span class="meta">kg · pede: <b>pacote de 2,8000 kg</b> · R$ 18,23/kg</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="MAIONESE VEGANA">
+  <div class="cab"><span class="nome">MAIONESE VEGANA</span>
+    <span class="meta">kg · pede: <b>pote de 450 g</b> · R$ 39,40/kg</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="MASSA PARA PASTEL">
+  <div class="cab"><span class="nome">MASSA PARA PASTEL</span>
+    <span class="meta">kg · pede: <b>pacote de 2,0000 kg</b> · R$ 10,90/kg</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="MOLHO BARBECUE 3,5KG">
+  <div class="cab"><span class="nome">MOLHO BARBECUE 3,5KG</span>
+    <span class="meta">kg · pede: <b>galão de 3,5000 kg</b> · R$ 10,20/kg</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="OREGANO">
+  <div class="cab"><span class="nome">OREGANO</span>
+    <span class="meta">kg · pede: <b>pote de 100 g</b> · R$ 30,68/kg</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="PACOCA">
+  <div class="cab"><span class="nome">PACOCA</span>
+    <span class="meta">un · pede: <b>direto em un</b> · R$ 0,44/un</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="PIMENTA JALAPENO 2KG DRENADO">
+  <div class="cab"><span class="nome">PIMENTA JALAPENO 2KG DRENADO</span>
+    <span class="meta">kg · pede: <b>direto em kg</b> · R$ 88,66/kg</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="PTS CARAMELO GROSSO">
+  <div class="cab"><span class="nome">PTS CARAMELO GROSSO</span>
+    <span class="meta">kg · pede: <b>direto em kg</b> · R$ 21,96/kg</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="PTS CARAMELO MEDIO">
+  <div class="cab"><span class="nome">PTS CARAMELO MEDIO</span>
+    <span class="meta">kg · pede: <b>direto em kg</b> · R$ 10,67/kg</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="item" data-item="SACHE DE CATCHUP CX C/ 190UN">
+  <div class="cab"><span class="nome">SACHE DE CATCHUP CX C/ 190UN</span>
+    <span class="meta">un · pede: <b>direto em un</b> · R$ 0,14/un</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="grupo">SOBREMESAS</div>
+<div class="item" data-item="TORTA ALEMA">
+  <div class="cab"><span class="nome">TORTA ALEMA</span>
+    <span class="meta">un · pede: <b>direto em un</b> · R$ 11,90/un</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+<div class="grupo">UTENSILIOS</div>
+<div class="item" data-item="GATILHO MACARICO">
+  <div class="cab"><span class="nome">GATILHO MACARICO</span>
+    <span class="meta">un · pede: <b>direto em un</b> · R$ 21,06/un</span></div>
+  <div class="campos">
+    <span class="origem" data-v="">
+      <button type="button" class="og c" data-origem="CIDADAO">Cidadão</button><button type="button" class="og f" data-origem="FORNECEDOR">Fornecedor</button>
+    </span>
+    <input class="emb" type="text" placeholder="mudar a forma de pedir? ex.: caixa 12un / pote 700g" maxlength="60">
+    <input class="obs" type="text" placeholder="correção de preço / observação" maxlength="90">
+  </div>
+</div>
+  <div class="barra">
+    <span class="estado" id="estado">nada alterado ainda</span>
+    <button id="btCopiar">📋 copiar alterações</button>
+    <button id="btZap" style="background:var(--verde);">📲 enviar no WhatsApp</button>
+  </div>
+</div>
+<script>
+const CH = 'revisaoGrade_v1';
+function marcaOrigem(bt, v) {
+  const par = bt.parentElement;
+  const ja = par.dataset.v === v;
+  par.dataset.v = ja ? '' : v;
+  par.querySelectorAll('.og').forEach(b => b.classList.remove('on'));
+  if (!ja) bt.classList.add('on');
+  toca(par.closest('.item'));
+}
+function toca(card) { card.classList.toggle('mudou', mudancaDe(card) !== null); salva(); conta(); }
+function mudancaDe(card) {
+  const o = card.querySelector('.origem').dataset.v;
+  const e = card.querySelector('.emb').value.trim();
+  const b = card.querySelector('.obs').value.trim();
+  if (!o && !e && !b) return null;
+  let t = card.dataset.item;
+  if (o) t += ' | origem: ' + o;
+  if (e) t += ' | pedir: ' + e;
+  if (b) t += ' | obs: ' + b;
+  return t;
+}
+function todas() {
+  return [...document.querySelectorAll('.item')].map(mudancaDe).filter(Boolean);
+}
+function conta() {
+  const n = todas().length;
+  document.getElementById('estado').textContent = n ? n + ' item(ns) alterado(s)' : 'nada alterado ainda';
+}
+function texto() {
+  const m = todas();
+  return m.length ? 'REVISÃO DA GRADE (' + m.length + ' itens):\n' + m.join('\n') : '';
+}
+function copiar() {
+  const t = texto();
+  if (!t) { alert('Nada alterado ainda.'); return; }
+  navigator.clipboard.writeText(t).then(() => alert('Copiado! Cola no chat do Claude.'),
+    () => prompt('Copie o texto:', t));
+}
+function zapear() {
+  const t = texto();
+  if (!t) { alert('Nada alterado ainda.'); return; }
+  window.open('https://wa.me/?text=' + encodeURIComponent(t));
+}
+function salva() {
+  try {
+    const d = {};
+    document.querySelectorAll('.item').forEach(c => {
+      const v = { o: c.querySelector('.origem').dataset.v, e: c.querySelector('.emb').value, b: c.querySelector('.obs').value };
+      if (v.o || v.e || v.b) d[c.dataset.item] = v;
+    });
+    localStorage.setItem(CH, JSON.stringify(d));
+  } catch (e) {}
+}
+function carrega() {
+  try {
+    const d = JSON.parse(localStorage.getItem(CH) || '{}');
+    document.querySelectorAll('.item').forEach(c => {
+      const v = d[c.dataset.item];
+      if (!v) return;
+      if (v.o) { c.querySelector('.origem').dataset.v = v.o; c.querySelector('.og.' + (v.o === 'CIDADAO' ? 'c' : 'f')).classList.add('on'); }
+      c.querySelector('.emb').value = v.e || '';
+      c.querySelector('.obs').value = v.b || '';
+      c.classList.toggle('mudou', mudancaDe(c) !== null);
+    });
+  } catch (e) {}
+  conta();
+}
+document.querySelectorAll('input.emb, input.obs').forEach(i =>
+  i.addEventListener('input', () => toca(i.closest('.item'))));
+document.querySelectorAll('.og').forEach(b =>
+  b.addEventListener('click', () => marcaOrigem(b, b.dataset.origem)));
+document.getElementById('btCopiar').addEventListener('click', copiar);
+document.getElementById('btZap').addEventListener('click', zapear);
+carrega();
+</script></body></html>
