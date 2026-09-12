@@ -12970,6 +12970,10 @@ document.addEventListener('click', (e) => {
   else if (MODULO_ATUAL === 'semana' && FX_S) renderSemana();
   else if (MODULO_ATUAL === 'fechamento' && FX_M) renderFechamento();
   else if (MODULO_ATUAL === 'placar' && FX_M) renderPlacar();
+  // desde 12/09/2026 a Analise de despesas tambem obedece este seletor (a view ganhou
+  // unidade). O `&& DESP_DET` e' obrigatorio: sem ele, trocar de loja antes de a
+  // consulta voltar cai no guard e pinta "Sem despesas importadas ainda", alarme falso.
+  else if (MODULO_ATUAL === 'despesas' && DESP_DET) renderModuloDespesas();
 });
 
 // ===== Fechamento do mes e A semana — em portugues, para a Jane e o Fabio (02/09/2026) =====
@@ -13211,8 +13215,7 @@ function plcCabecalhoQuebra(modulo) {
   if (c) return plcChip(modulo);
   const nums = plcNumerosDaTela(modulo);
   if (!nums.length) return '';
-  return `<div class="caption-label" style="text-align:center;">Esta tela abre por dentro
-    ${nums.length === 1 ? 'o número' : 'os números'} <b>${nums.join('</b>, <b>')}</b> do Placar.
+  return `<div class="caption-label" style="text-align:center;">Detalha <b>${nums.join('</b> e <b>')}</b>
     <button class="preset-btn" onclick="mostrarModulo('placar')">ver no Placar →</button></div>`;
 }
 
@@ -13221,14 +13224,12 @@ function plcCabecalhoQuebra(modulo) {
 function plcChip(modulo) {
   const c = plcCtx(modulo);
   if (!c) return '';
-  const loja = c.loja === 'REDE' ? 'a rede inteira' : (({ 'AGUA VERDE': 'Água Verde', 'AHU': 'Ahú', 'SÃO BRAZ': 'São Braz' })[c.loja] || c.loja);
+  const loja = c.loja === 'REDE' ? 'Rede' : (({ 'AGUA VERDE': 'Água Verde', 'AHU': 'Ahú', 'SÃO BRAZ': 'São Braz' })[c.loja] || c.loja);
   return `<div class="contexto" style="border-color:var(--brand);">
-    <b>Você veio do Placar</b>, do número <b>${c.rotTile}</b> de <b>${c.rotPeriodo}</b>, em ${loja}.
-    Esta tela abriu nesse recorte — não no padrão dela.
-    <span style="display:inline-block; margin-top:6px;">
-      <button class="preset-btn" onclick="plcVoltar()">← voltar ao Placar</button>
-      <button class="preset-btn" onclick="plcCtxLimpar('${modulo}')">ver a tela no padrão dela</button>
-    </span></div>`;
+    <b>${c.rotTile} · ${c.rotPeriodo} · ${loja}</b>
+    <button class="preset-btn" onclick="plcVoltar()">← Placar</button>
+    <button class="preset-btn" onclick="plcCtxLimpar('${modulo}')">limpar recorte</button>
+    </div>`;
 }
 
 // Roda `fn` como se a loja escolhida fosse outra. Existe para a quebra por loja
@@ -13481,30 +13482,22 @@ function renderPlacar() {
 
   alvo.innerHTML = `
     <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">O Placar — ${nomeLojaFin()} · ${atual.rot}</div>
-    <div class="caption-label" style="text-align:center;">
-      Oito números, o período que você escolher e duas comparações ao mesmo tempo: o <b>período anterior</b> do mesmo tamanho e a <b>meta</b>.
-      <b>Clique num número para abrir a quebra</b> por loja, período a período e do que ele é feito.
-      Os números saem da mesma conta do <b>Fechamento do mês</b> — não há segunda conta neste painel.
-    </div>
+    <div class="caption-label" style="text-align:center;">Contra o período anterior e contra a meta. <b>Clique num número para abrir.</b></div>
     ${(() => { const b = blocoAlertas(); return b ? `<div class="section-label">O que precisa de você agora</div>
       <div class="caption-label" style="text-align:center;">A mesma faixa da tela "Esta semana" — aqui e lá ela é a mesma conta, não uma cópia. Clique no aviso para ir direto na tela dele.</div>${b}` : ''; })()}
     ${seletorLojaFin()}
     <div class="periodo-presets" style="margin-top:10px;">${segGrao}</div>
     <div class="periodo-presets" style="margin-top:6px;">${segPer}</div>
     ${atual.completo ? '' : `<div class="contexto" style="border-color:var(--amber-2);">
-      <b>Este ${PLC_GRAO === 'tri' ? 'trimestre' : 'ano'} ainda não fechou:</b> tem ${atual.meses.length} de ${PLC_ESPERADO[PLC_GRAO]} meses
-      (${atual.meses.map(m => fxMesRot(m)).join(', ')}). Os valores são a soma do que existe, e não cabem ao lado de um período inteiro —
-      por isso a comparação aqui é com <b>${anterior ? anterior.rot : 'nada, não há meses suficientes antes'}</b>, ${atual.meses.length} ${atual.meses.length === 1 ? 'mês' : 'meses'} também.
-      Os percentuais e as metas não sofrem: são proporção, não soma.</div>`}
-    ${A.temFato ? '' : `<div class="contexto" style="border-color:var(--amber-2);">Neste período o custo dos canais ainda é calculado pela diferença entre o que foi vendido e o que foi recebido, não cobrança a cobrança. A leitura por fato vale de 2026 em diante, onde a conciliação existe.</div>`}
+      <b>${atual.rot} tem ${atual.meses.length} de ${PLC_ESPERADO[PLC_GRAO]} meses</b> (${atual.meses.map(m => fxMesRot(m)).join(', ')}).
+      Por isso a comparação é com ${anterior ? anterior.rot : '—'}, do mesmo tamanho.</div>`}
+    ${A.temFato ? '' : `<div class="contexto" style="border-color:var(--amber-2);">Custo dos canais neste período é vendido − recebido, não cobrança a cobrança.</div>`}
     <div class="fx-tiles">${cartoes}</div>
     ${quebra}
     <div class="caption-label">
-      <b>Só meses fechados.</b> ${fxMesLongo(plcMesesFechados()[plcMesesFechados().length - 1])} é o último; o mês em curso fica de fora porque compra do mês inteiro contra meia venda não é leitura, é susto.
-      <b>Não há comparação com 2025:</b> a venda do Saipos começa em 02/01/2026. O financeiro vai mais atrás, mas resultado sem venda ao lado seria meia comparação.
-      <b>Margem de contribuição</b> é receita líquida menos mercadoria — o mesmo número e a mesma meta da DRE.
-      <b>Caixa</b> é quanto o dinheiro em conta subiu ou caiu no período, pela ponte que fecha contra o extrato do banco.
-      As metas em % moram em <b>fin_metas_dre</b> e, quando mudam mês a mês, em <b>fin_metas_dre_mes</b>: num trimestre a meta do cartão é a média delas pesada pelo tamanho de cada mês.
+      Só meses fechados — o último é ${fxMesLongo(plcMesesFechados()[plcMesesFechados().length - 1])}.
+      Mesma conta do Fechamento do mês. <b>Margem de contribuição</b> = receita líquida − mercadoria.
+      <b>Caixa</b> = quanto subiu ou caiu na conta, pela ponte que fecha contra o banco. Sem comparação com 2025: a venda começa em 02/01/2026.
     </div>`;
 }
 
@@ -15644,12 +15637,15 @@ function renderModuloProjecao() {
 let DESP_DET = null;      // vw_fin_despesas_detalhe
 let despMes = null;       // mes selecionado (YYYY-MM-01) ou 'ano'
 const despAberto = new Set();
+// Guarda o recorte que veio do Placar para saber quando ele MUDOU. Sem isso, trocar
+// de numero no Placar (Mercadoria -> Pessoas) traria os grupos abertos do anterior.
+let despCtxChave = null;
 
 async function entrarDespesas() {
   const alvo = document.getElementById('view-despesas');
   if (DESP_DET === null) {
     alvo.innerHTML = '<div class="contexto">Carregando despesas...</div>';
-    DESP_DET = await consultarTudo('vw_fin_despesas_detalhe?select=mes,tipo,subtipo,fornecedor,lancamentos,valor&order=mes');
+    DESP_DET = await consultarTudo('vw_fin_despesas_detalhe?select=mes,unidade,tipo,subtipo,fornecedor,lancamentos,valor&order=mes');
     DESP_DET.forEach(r => { r.valor = Number(r.valor); r.lancamentos = Number(r.lancamentos); });
   }
   renderModuloDespesas();
@@ -15659,7 +15655,9 @@ function despToggle(chave) {
   if (despAberto.has(chave)) despAberto.delete(chave); else despAberto.add(chave);
   renderModuloDespesas();
 }
-function despMesSet(m) { despMes = m; despAberto.clear(); renderModuloDespesas(); }
+// Escolher o periodo na mao SOLTA o contexto do Placar: dali em diante o recorte e'
+// de quem esta olhando, e o aviso "voce veio do Placar, de agosto" mentiria.
+function despMesSet(m) { plcCtxSolta('despesas'); despMes = m; despAberto.clear(); renderModuloDespesas(); }
 
 function renderModuloDespesas() {
   const alvo = document.getElementById('view-despesas');
@@ -15667,29 +15665,52 @@ function renderModuloDespesas() {
     alvo.innerHTML = `<div class="contexto" style="border-color:#f5a623;">Sem despesas importadas ainda.</div>`;
     return;
   }
-  const meses = [...new Set(DESP_DET.map(r => r.mes))].sort();
-  const mesCorrente = new Date().toISOString().slice(0, 8) + '01';
+  // A VIEW GANHOU `unidade` EM 12/09/2026 e a tela passou a obedecer o seletor de loja
+  // do bloco financeiro. Antes ela somava as três lojas com "Água Verde" escrito no
+  // cabeçalho — e é por isso que ela nunca batia com a DRE nem com o Placar. Conferido
+  // depois da mudança: ago/26 na Água Verde dá mercadoria R$ 286.448,48 e pessoas
+  // R$ 165.890,05, exatamente os dois números do Placar.
+  const DESP = DESP_DET.filter(r => LOJA_FIN === 'REDE' || r.unidade === LOJA_FIN);
+  const ctx = plcCtx('despesas');
+  const chaveCtx = ctx ? ctx.tile + '|' + ctx.meses.join(',') + '|' + ctx.loja : null;
+  if (chaveCtx !== despCtxChave) { despCtxChave = chaveCtx; despAberto.clear(); }
+  const meses = [...new Set(DESP.map(r => r.mes))].sort();
+  const mesCorrente = mesCorrenteSP() + '-01';
   // 12/09/2026 (auditoria): abria no MES CORRENTE e comparava com a media dos
   // meses cheios. No dia 12, "Carnes R$ 34 mil contra media de R$ 146 mil" lia
   // como economia de R$ 112 mil e era so mes pela metade. Agora abre no ultimo
   // mes FECHADO; o corrente continua no seletor, com aviso de que esta em curso.
-  if (despMes === null) {
+  // o mes escolhido tem de existir NESTA loja: trocar de loja pode deixar para tras
+  // um mes que so a outra tinha, e ai a tela zeraria sem dizer por que
+  if (despMes === null || (despMes !== 'ano' && !meses.includes(despMes))) {
     const fechados = meses.filter(m => m < mesCorrente);
     despMes = fechados.length ? fechados[fechados.length - 1]
             : (meses.includes(mesCorrente) ? mesCorrente : meses[meses.length - 1]);
   }
-  const mesEmCurso = despMes === mesCorrente;
   const rotuloMes = (m) => { const [a, mm] = m.split('-'); return `${MESES_ABREV[Number(mm) - 1]}/${a.slice(2)}`; };
 
-  // periodo selecionado x base de comparacao (meses anteriores a ele)
-  const noPeriodo = (r) => despMes === 'ano' ? true : r.mes === despMes;
-  const anteriores = despMes === 'ano' ? [] : meses.filter(m => m < despMes);
+  // PERIODO: do Placar quando veio de la (pode ser um trimestre, varios meses), do
+  // proprio seletor quando nao veio. Um rotulo SO para a tela inteira — a armadilha
+  // que a revisao achou aqui foi justamente numero de um periodo com nome de outro.
+  // O fallback existe porque o mes do Placar pode nao ter despesa nesta loja.
+  const doCtx = ctx ? meses.filter(m => ctx.meses.includes(m)) : [];
+  const mesesSel = doCtx.length ? doCtx : (despMes === 'ano' ? meses : [despMes]);
+  const rotPer = (ctx && doCtx.length) ? ctx.rotPeriodo
+               : (despMes === 'ano' ? 'no ano' : 'em ' + rotuloMes(despMes));
+  const mesEmCurso = mesesSel.length === 1 && mesesSel[0] === mesCorrente;
+
+  const noPeriodo = (r) => mesesSel.includes(r.mes);
+  const anteriores = mesesSel.length ? meses.filter(m => m < mesesSel[0]) : [];
   const nAnt = anteriores.length;
 
   // soma no periodo e media/mes nos anteriores, para qualquer recorte
-  const soma = (pred) => DESP_DET.filter(r => noPeriodo(r) && pred(r)).reduce((s, r) => s + r.valor, 0);
+  const soma = (pred) => DESP.filter(r => noPeriodo(r) && pred(r)).reduce((s, r) => s + r.valor, 0);
+  // A media dos meses anteriores vale por UM mes; quando o periodo escolhido tem
+  // varios (um trimestre vindo do Placar), ela e' multiplicada pelo tamanho, senao a
+  // tela compara a soma de tres meses com a media de um e tudo aparece como "gastou
+  // muito mais". E' a mesma regra do Placar: periodo anterior do MESMO tamanho.
   const mediaAnt = (pred) => nAnt === 0 ? null :
-    DESP_DET.filter(r => anteriores.includes(r.mes) && pred(r)).reduce((s, r) => s + r.valor, 0) / nAnt;
+    DESP.filter(r => anteriores.includes(r.mes) && pred(r)).reduce((s, r) => s + r.valor, 0) / nAnt * mesesSel.length;
 
   const totalPeriodo = soma(() => true);
   const totalMediaAnt = mediaAnt(() => true);
@@ -15703,7 +15724,7 @@ function renderModuloDespesas() {
     return `<span style="color:${cor};">${d > 0 ? '▲' : '▼'} ${pct(Math.abs(d))}% vs média</span>`;
   };
 
-  const grupos = [...new Set(DESP_DET.filter(noPeriodo).map(r => r.tipo))]
+  const grupos = [...new Set(DESP.filter(noPeriodo).map(r => r.tipo))]
     .map(t => [t, soma(r => r.tipo === t), mediaAnt(r => r.tipo === t)])
     .sort((a, b) => b[1] - a[1]);
 
@@ -15717,7 +15738,7 @@ function renderModuloDespesas() {
       <td>${varia(valor, media)}</td>
     </tr>`;
     if (!abertoT) return;
-    const subs = [...new Set(DESP_DET.filter(r => noPeriodo(r) && r.tipo === tipo).map(r => r.subtipo))]
+    const subs = [...new Set(DESP.filter(r => noPeriodo(r) && r.tipo === tipo).map(r => r.subtipo))]
       .map(s => [s, soma(r => r.subtipo === s), mediaAnt(r => r.subtipo === s)])
       .sort((a, b) => b[1] - a[1]);
     subs.forEach(([sub, v, m]) => {
@@ -15729,7 +15750,7 @@ function renderModuloDespesas() {
         <td>${varia(v, m)}</td>
       </tr>`;
       if (!abertoS) return;
-      const forns = DESP_DET.filter(r => noPeriodo(r) && r.subtipo === sub)
+      const forns = DESP.filter(r => noPeriodo(r) && r.subtipo === sub)
         .reduce((acc, r) => { acc[r.fornecedor] = (acc[r.fornecedor] || 0) + r.valor; return acc; }, {});
       Object.entries(forns).sort((a, b) => b[1] - a[1]).forEach(([f, v2]) => {
         corpo += `<tr class="dfc-linha"><td>${f}</td>
@@ -15741,7 +15762,7 @@ function renderModuloDespesas() {
 
   // top fornecedores do periodo (ignora o balde "(sem fornecedor)", que
   // mistura folha, impostos e tudo que nao tem NF de fornecedor)
-  const porForn = DESP_DET.filter(noPeriodo).reduce((acc, r) => {
+  const porForn = DESP.filter(noPeriodo).reduce((acc, r) => {
     if (r.fornecedor === '(sem fornecedor)') return acc;
     acc[r.fornecedor] = (acc[r.fornecedor] || 0) + r.valor;
     return acc;
@@ -15749,27 +15770,26 @@ function renderModuloDespesas() {
   const topForn = Object.entries(porForn).sort((a, b) => b[1] - a[1]).slice(0, 12);
 
   // maiores variacoes do periodo (o que realmente mudou)
-  const variacoes = [...new Set(DESP_DET.filter(noPeriodo).map(r => r.subtipo))]
+  const variacoes = [...new Set(DESP.filter(noPeriodo).map(r => r.subtipo))]
     .map(s => { const v = soma(r => r.subtipo === s), m = mediaAnt(r => r.subtipo === s);
                 return [s, v, m, m === null ? 0 : v - m]; })
     .filter(x => x[2] !== null && Math.abs(x[3]) > 500)
     .sort((a, b) => Math.abs(b[3]) - Math.abs(a[3])).slice(0, 6);
 
-  alvo.innerHTML = `
-  <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Análise de Despesas — Água Verde</div>
+  alvo.innerHTML = plcCabecalhoQuebra('despesas') + seletorLojaFin() + `
+  <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Análise de Despesas — ${nomeLojaFin()}</div>
   <div class="caption-label" style="text-align:center;">
-    Despesas e investimentos por <b>competência</b> (mesma base da DRE), abrindo até o fornecedor.
-    Cada linha compara com a <b>média dos meses anteriores</b> — vermelho = gastou mais que o normal.
+    Vermelho = gastou mais que ${mesesSel.length > 1 ? 'o período anterior do mesmo tamanho' : 'a média dos meses anteriores'}. Inclui investimento, que o Placar deixa de fora.
   </div>
   <div class="periodo-presets" style="margin-top:10px;">
-    ${meses.map(m => `<button class="preset-btn ${despMes === m ? 'active' : ''}" onclick="despMesSet('${m}')">${rotuloMes(m)}${m === mesCorrente ? ' ·' : ''}</button>`).join('')}
-    <button class="preset-btn ${despMes === 'ano' ? 'active' : ''}" onclick="despMesSet('ano')">Ano todo</button>
+    ${meses.map(m => `<button class="preset-btn ${!ctx && despMes === m ? 'active' : ''}" onclick="despMesSet('${m}')">${rotuloMes(m)}${m === mesCorrente ? ' ·' : ''}</button>`).join('')}
+    <button class="preset-btn ${!ctx && despMes === 'ano' ? 'active' : ''}" onclick="despMesSet('ano')">Ano todo</button>
   </div>
-  ${mesEmCurso ? `<div class="contexto" style="border-color:#f5a623;"><b>${rotuloMes(despMes)} está em curso.</b>
+  ${mesEmCurso ? `<div class="contexto" style="border-color:#f5a623;"><b>${rotuloMes(mesesSel[0])} está em curso.</b>
     A comparação com a média é de mês inteiro contra mês pela metade — toda categoria vai aparecer como "gastou menos".
     Para ler economia de verdade, escolha o último mês fechado.</div>` : ''}
   <div class="cards">
-    <div class="card blue"><div class="card-lbl">Total ${despMes === 'ano' ? 'no ano' : 'em ' + rotuloMes(despMes)}</div>
+    <div class="card blue"><div class="card-lbl">Total ${rotPer}</div>
       <div class="card-val">R$ ${fmt(totalPeriodo)}</div>
       ${totalMediaAnt !== null ? `<div class="card-pct">${varia(totalPeriodo, totalMediaAnt)}</div>` : ''}</div>
     <div class="card"><div class="card-lbl">Maior grupo</div><div class="card-val">R$ ${fmt(grupos[0] ? grupos[0][1] : 0)}</div>
@@ -15797,7 +15817,7 @@ function renderModuloDespesas() {
       <tr class="dfc-resultado"><td>TOTAL</td><td>${fmt(-totalPeriodo)}<span class="dre-av">100%</span></td><td>${totalMediaAnt !== null ? varia(totalPeriodo, totalMediaAnt) : ''}</td></tr>
     </table>
   </div>
-  <div class="section-label">Top fornecedores ${despMes === 'ano' ? 'do ano' : 'de ' + rotuloMes(despMes)}</div>
+  <div class="section-label">Top fornecedores ${ctx ? rotPer : (despMes === 'ano' ? 'do ano' : 'de ' + rotuloMes(despMes))}</div>
   <div style="height:${Math.max(220, topForn.length * 26)}px;"><canvas id="chartFornecedores"></canvas></div>
   <div class="caption-label">Fornecedor vem do cadastro da NF no Saipos; folha, impostos e taxas caem em "(sem fornecedor)"
   no detalhe e ficam fora do ranking. Inclui contas a pagar já lançadas (competência), então o mês corrente cresce até fechar.</div>`;
