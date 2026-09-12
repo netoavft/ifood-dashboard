@@ -9435,10 +9435,15 @@ function renderModuloFichas() {
     const dataNf = o.custo_data ? o.custo_data.split('-').reverse().join('/') : '';
     return `<div class="contexto" style="text-align:left; ${bate ? '' : 'border-color:#ff6b6b;'}">
       <b>${esc(item)}</b> é insumo comprado.
-      ${daNota ? `<b>Última compra:</b> R$ ${fmt(usado)} por ${esc(o.un_uso)} em ${dataNf}${
-          o.custo_nf ? ' (' + esc(o.custo_nf) + ')' : ''}${
-          o.custo_nome_saipos ? ', item <b>' + esc(o.custo_nome_saipos) + '</b> no Saipos' : ''}.
-        É este o custo que a ficha usa — a nota manda sobre a planilha.` : ''}
+      ${daNota ? (String(o.base_custo || '').startsWith('MEDIANA')
+        ? `<b>Custo pelas notas:</b> R$ ${fmt(usado)} por ${esc(o.un_uso)} — <b>mediana das ${nu(o.n_60d)}
+           notas dos últimos 60 dias</b>${o.custo_nome_saipos ? ', item <b>' + esc(o.custo_nome_saipos) + '</b> no Saipos' : ''}.
+           A última, de ${dataNf}${o.custo_nf ? ' (' + esc(o.custo_nf) + ')' : ''}, veio a R$ ${fmt(nu(o.custo_ultima_nota))}.
+           A mediana é a régua porque uma compra solta oscila (hortifrúti muda toda semana).`
+        : `<b>Última compra:</b> R$ ${fmt(usado)} por ${esc(o.un_uso)} em ${dataNf}${
+           o.custo_nf ? ' (' + esc(o.custo_nf) + ')' : ''}${
+           o.custo_nome_saipos ? ', item <b>' + esc(o.custo_nome_saipos) + '</b> no Saipos' : ''}.
+           Só esta nota nos últimos 60 dias, então é ela que vale.`) : ''}
       ${o.custo_fonte === 'AJUSTE' ? `<b>Custo corrigido pelo Neto:</b> R$ ${fmt(usado)} por ${esc(o.un_uso)}
         (a planilha trazia outro valor; sem nota fiscal recente para conferir).` : ''}
       ${nu(o.qtd_un_compra) ? `<br><b>${daNota ? 'Cadastro da planilha' : 'Compra'}:</b> ${nu(o.qtd_un_compra).toFixed(3)} ${esc(o.un_compra)} por
