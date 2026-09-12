@@ -3854,12 +3854,18 @@ function renderChartUnidades() {
   const el = document.getElementById('chartUnidades');
   if (!el) return;
   const activeL = activeLojas();
-  const semanas = SEMANAS.slice(-12);                       // ate 12 semanas fechadas
+  let semanas = SEMANAS.slice(-12);                         // ate 12 semanas
   const primeira = SEMANAS.length - semanas.length;
+  // A semana EM CURSO fica de fora. Ela tem menos dias que as outras, entao toda linha
+  // mergulha no ultimo ponto e o grafico parece anunciar uma queda que e so o calendario
+  // — no modo "quem cresceu" o tombo chega a 30 pontos. Mesma regra que o painel ja usa
+  // para o mes corrente. O corte e o domingo da ultima semana fechada, nao um palpite.
+  const limite = ultimaSemanaCompleta().fim;
   const porUnidade = new Map();
   ROWS.forEach(r => {
     if (r[6] === 1) return;                                 // cancelamento total nao e pedido
     if (!activeL.has(r[0])) return;                         // respeita o filtro de loja/unidade
+    if (DATAS[r[5]] > limite) return;                       // semana em curso fica de fora
     const col = r[3] - primeira;
     if (col < 0) return;
     const u = UNIDADES[r[1]];
@@ -3867,6 +3873,15 @@ function renderChartUnidades() {
     porUnidade.get(u)[col] += r[7];
   });
   if (!porUnidade.size) { el.closest('.chart-box').style.display = 'none'; return; }
+
+  // Corta as colunas do fim que sobraram vazias por causa do corte acima (a semana em
+  // curso, e qualquer outra sem pedido nenhum na ponta).
+  let n = semanas.length;
+  while (n > 1 && [...porUnidade.values()].every(a => !a[n - 1])) n--;
+  if (n < semanas.length) {
+    semanas = semanas.slice(0, n);
+    porUnidade.forEach((a, u) => porUnidade.set(u, a.slice(0, n)));
+  }
 
   // Ordem fixa da paleta primeiro; unidade que ainda nao esta no mapa entra depois, em
   // cinza. Nao existe 5a cor segura (farol e marca ja ocupam o resto do circulo), entao
