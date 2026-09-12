@@ -1897,7 +1897,7 @@ function mostrarModulo(nome) {
   if (nome === 'cardapio') entrarCardapio();
   if (nome === 'clientes') entrarClientes();
   if (nome === 'site') entrarSite();
-  if (nome === 'cancelamentos') renderChartMotivos();
+  if (nome === 'cancelamentos') { renderChartMotivos(); carregarRecuperavelCancel(); }
   if (nome === 'promocoes') entrarPromocoes();
   // Modulos com carga sob demanda: os dados so sao buscados na primeira visita,
   // pra nao pesar a abertura do painel.
@@ -2589,9 +2589,76 @@ function cardsCancel(m, a) {
   </div>`;
 }
 
+// QUANTO DA PERDA AINDA DA PARA RECUPERAR (12/09/2026). A tela contava o que
+// aconteceu e parava ali; a unica acao concreta que existe sobre cancelamento e'
+// contestar, e ela mora em outro modulo. Este bloco liga as duas pontas: quanto da
+// fila de contestacao ainda esta dentro do prazo, qual motivo mais pesa nela, e o
+// botao que leva para la. Chega DEPOIS dos numeros, igual a faixa de alertas do
+// Placar — e' outra fonte e a tabela de motivos nao pode esperar por ela.
+// RECORTE PROPRIO, dito na tela: a fila e' da rede inteira e dos ultimos 60 dias,
+// o mesmo do modulo Contestacoes, e por isso NAO segue o filtro do topo.
+let CANCEL_RECUP = null;
+async function carregarRecuperavelCancel() {
+  const alvo = document.getElementById('cancelRecuperavel');
+  if (!alvo) return;
+  if (CANCEL_RECUP === null) {
+    try {
+      CANCEL_RECUP = await consultarTudo('vw_contestacoes_status?select=id_curto,nome_loja,motivo_cancelamento,valor,contestavel_ate&bloco=eq.A_CONTESTAR');
+    } catch (e) {
+      alvo.innerHTML = '<div class="contexto">Não consegui consultar a fila de contestação agora.</div>';
+      return;
+    }
+  }
+  const fila = CANCEL_RECUP.map(r => ({ ...r, valor: Number(r.valor) || 0 }));
+  if (!fila.length) {
+    alvo.innerHTML = '<div class="contexto" style="border-color:var(--farol-ok);">Nada dentro do prazo de contestação neste momento. ✔</div>';
+    return;
+  }
+  const totalRecup = fila.reduce((s, r) => s + r.valor, 0);
+  const porMotivoRecup = new Map();
+  fila.forEach(r => {
+    const mt = r.motivo_cancelamento || 'sem motivo informado';
+    if (!porMotivoRecup.has(mt)) porMotivoRecup.set(mt, { n: 0, valor: 0 });
+    const o = porMotivoRecup.get(mt); o.n++; o.valor += r.valor;
+  });
+  const pior = [...porMotivoRecup.entries()].map(([mt, o]) => ({ mt: mt, n: o.n, valor: o.valor }))
+    .sort((x, y) => y.valor - x.valor)[0];
+  const diasAte = (d) => d ? Math.ceil((new Date(String(d).slice(0, 10) + 'T23:59:59') - Date.now()) / 864e5) : null;
+  const curtos = fila.filter(r => { const d = diasAte(r.contestavel_ate); return d !== null && d <= 2; });
+  alvo.innerHTML = `<div class="contexto" style="border-color:var(--farol-perto);">
+    <b>R$ ${fmt(totalRecup)}</b> em <b>${fila.length}</b> pedido(s) cancelado(s) ainda estão dentro do prazo de contestação.
+    O motivo que mais pesa nessa fila é <b>${pior.mt}</b>: custou R$ ${fmt(pior.valor)} em ${pior.n} pedido(s).
+    ${curtos.length ? `<b style="color:var(--farol-fora);">${curtos.length} vence(m) em até 2 dias.</b>` : ''}
+    <div style="font-size:12px; color:var(--tx-3); margin-top:6px;" title="A fila de contestação é da rede inteira e dos últimos 60 dias — o mesmo recorte do módulo Contestações. Por isso ela não bate com a tabela de motivos acima, que segue o período e as unidades escolhidos no topo. O motivo aqui é o texto cru do cancelamento, não a categoria do arquivo de classificação.">
+      Rede inteira, últimos 60 dias — este bloco não segue o filtro do topo.
+    </div>
+    <div style="margin-top:8px;"><button class="preset-btn" onclick="mostrarModulo('contestacoes')">Abrir a fila de contestações →</button></div>
+  </div>`;
+}
+
 // Modulo Cancelamentos completo: os cards de totais (+ valor perdido real) e a analise por
 // categoria — dois graficos, cada um ordenado pela sua propria medida, e a tabela com os
 // numeros exatos, incluindo o custo medio por cancelamento.
+// RECORTE POR CATEGORIA DE MOTIVO (12/09/2026). Clicar na barra de "Onde se perde
+// mais dinheiro" fixa a categoria: a tabela de lojas e os dois graficos de evolucao
+// passam a falar so dela, e a pergunta "este motivo esta piorando ou foi pontual?"
+// se responde sem sair da tela. A lista de categorias continua INTEIRA, para dar
+// como trocar de escolha (regra do cross-filter do modulo Evolucao).
+// Os 4 cards do topo NAO entram no recorte: eles vem de computeMetrics, que nao
+// conhece motivo — a tela avisa isso em vez de deixar o leitor supor.
+let CANCEL_MOTIVO = null;
+function cancelFiltrarMotivo(nome) {
+  CANCEL_MOTIVO = (CANCEL_MOTIVO === nome) ? null : nome;   // clicar de novo solta
+  renderAll();
+}
+// nome de categoria vem da planilha de motivos: o clique da tabela vai por INDICE,
+// nunca como string dentro do atributo HTML
+let CANCEL_LISTA_MOTIVOS = [];
+function cancelFiltrarMotivoIdx(i) {
+  const nome = CANCEL_LISTA_MOTIVOS[i];
+  if (nome !== undefined) cancelFiltrarMotivo(nome);
+}
+
 function moduloCancelamentos(m, a) {
   const motivos = resumoMotivosCancelamento();
 
@@ -2600,7 +2667,8 @@ function moduloCancelamentos(m, a) {
   // A tabela de motivos responde "por que"; esta responde "onde" — e e a unica das
   // duas que diz com quem falar. Maior valor perdido primeiro, a mesma ordem da outra.
   const porLojaCancel = new Map();
-  linhasCancelamentoFiltradas().forEach(r => {
+  // com uma categoria fixada, esta tabela passa a dizer ONDE aquele motivo acontece
+  linhasCancelamentoFiltradas().filter(r => !CANCEL_MOTIVO || r[5] === CANCEL_MOTIVO).forEach(r => {
     if (!porLojaCancel.has(r[0])) porLojaCancel.set(r[0], { n: 0, valor: 0 });
     const o = porLojaCancel.get(r[0]);
     o.n += r[6]; o.valor += r[7];
@@ -2612,9 +2680,12 @@ function moduloCancelamentos(m, a) {
     <div id="tabelaMotivos">
       <table>
         <tr><th>Categoria do motivo</th><th>Pedidos</th><th>% do total</th><th>Valor perdido</th><th>R$ por cancelamento</th></tr>
-        ${motivos.slice().sort((a,b)=>b.valor-a.valor).map(x => `<tr>
-          <td>${x.responsavel}</td><td>${x.n}</td><td>${pct(x.pct)}%</td>
-          <td>R$ ${fmt(x.valor)}</td><td>R$ ${fmt(x.n ? x.valor/x.n : 0)}</td></tr>`).join('')}
+        ${(() => { const ord = motivos.slice().sort((a,b)=>b.valor-a.valor);
+          CANCEL_LISTA_MOTIVOS = ord.map(x => x.responsavel);   // o clique vai por indice
+          return ord.map((x, i) => { const sel = CANCEL_MOTIVO === x.responsavel;
+          return `<tr onclick="cancelFiltrarMotivoIdx(${i})" style="cursor:pointer;${sel ? 'background:var(--brand-wine);' : ''}" title="${sel ? 'clique para soltar o recorte' : 'clique para recortar a tela por esta categoria'}">
+          <td>${sel ? '<b>' : ''}${x.responsavel}${sel ? '</b> ✕' : ''}</td><td>${x.n}</td><td>${pct(x.pct)}%</td>
+          <td>R$ ${fmt(x.valor)}</td><td>R$ ${fmt(x.n ? x.valor/x.n : 0)}</td></tr>`; }).join(''); })()}
         ${(() => { const t = motivos.reduce((a, x) => ({ n: a.n + x.n, v: a.v + x.valor }), { n: 0, v: 0 });
           return `<tr class="liq"><td>TOTAL</td><td>${t.n}</td><td>100%</td>
             <td>R$ ${fmt(t.v)}</td><td>R$ ${fmt(t.n ? t.v / t.n : 0)}</td></tr>`; })()}
@@ -2622,6 +2693,11 @@ function moduloCancelamentos(m, a) {
     </div>` : '';
 
   return cardsCancel(m, a) + `
+  ${CANCEL_MOTIVO ? `<div class="contexto" style="border-color:var(--brand);">
+    <b>Filtrando:</b>
+    <button class="preset-btn active" onclick="cancelFiltrarMotivo(null)">categoria ${CANCEL_MOTIVO} ✕</button>
+    <div style="font-size:12px; color:var(--tx-3); margin-top:6px;">A tabela de lojas e os dois gráficos de "Estamos melhorando ou piorando?" estão neste recorte. <b>Os cartões acima, não.</b> A lista de categorias continua inteira, para você poder trocar.</div>
+  </div>` : ''}
   <div style="display:flex; flex-wrap:wrap; gap:14px; align-items:stretch; margin-top:14px;">
     <div class="chart-box" style="flex:1 1 340px; height:300px;">
       <div class="chart-title">Onde se perde mais dinheiro (R$)</div>
@@ -2642,8 +2718,11 @@ function moduloCancelamentos(m, a) {
   <div class="caption-label">Fonte da classificação: motivos.xlsx — categoria "NAO_MAPEADO" ainda não foi classificada</div>
   ${tabelaMotivos}
 
+  <div class="section-label">Quanto dessa perda ainda dá para recuperar</div>
+  <div id="cancelRecuperavel"><div class="contexto">Consultando a fila de contestação...</div></div>
+
   ${lojasCancel.length ? `
-  <div class="section-label">Onde mais se cancela — loja a loja</div>
+  <div class="section-label">Onde mais se cancela — loja a loja${CANCEL_MOTIVO ? ' · ' + CANCEL_MOTIVO : ''}</div>
   <div class="caption-label" style="text-align:center;">Ordenado pelo valor perdido: a primeira linha é onde o dinheiro está saindo.</div>
   <div id="tabelaLojasCancel">
     <table>
@@ -2656,14 +2735,14 @@ function moduloCancelamentos(m, a) {
     </table>
   </div>` : ''}
 
-  <div class="section-label">Estamos melhorando ou piorando?</div>
+  <div class="section-label">Estamos melhorando ou piorando?${CANCEL_MOTIVO ? ' · ' + CANCEL_MOTIVO : ''}</div>
   <div class="chart-grid">
     <div class="chart-box">
-      <div class="chart-title">Taxa de cancelamento (% dos pedidos)</div>
+      <div class="chart-title">Taxa de cancelamento (% dos pedidos)${CANCEL_MOTIVO ? ' — ' + CANCEL_MOTIVO : ''}</div>
       <div class="chart-canvas-wrap"><canvas id="chartCancelTaxa"></canvas></div>
     </div>
     <div class="chart-box">
-      <div class="chart-title">Valor perdido no período (R$)</div>
+      <div class="chart-title">Valor perdido no período (R$)${CANCEL_MOTIVO ? ' — ' + CANCEL_MOTIVO : ''}</div>
       <div class="chart-canvas-wrap"><canvas id="chartCancelValor"></canvas></div>
     </div>
   </div>
@@ -3260,6 +3339,22 @@ function renderChartsPromocoes() {
 // null = ainda nao buscado; array = pronto. Buscados so na primeira visita ao modulo.
 let NEGOCIACOES = null;
 
+// RECORTE POR MOTIVO (12/09/2026): clicar numa barra do grafico faz a tabela de
+// lojas falar so' daquele motivo. O cruzamento motivo x loja e' o que diz para qual
+// gerente ligar — hoje isso se faz de cabeca. Mecanismo copiado do modulo Evolucao:
+// clicar de novo solta, e a dimensao filtrada (o grafico de motivos) continua
+// mostrando TODOS os motivos, senao nao da para trocar de escolha.
+// O nome vai por INDICE, nunca como string dentro do onclick.
+let NEG_MOTIVO = null;
+let NEG_LISTA_MOTIVOS = [];
+function negMotivoFiltrar(i) {
+  const m = NEG_LISTA_MOTIVOS[i];
+  if (!m) return;
+  NEG_MOTIVO = (NEG_MOTIVO === m) ? null : m;
+  renderModuloNegociacoes();
+}
+function negMotivoLimpar() { NEG_MOTIVO = null; renderModuloNegociacoes(); }
+
 // Correcao 17/08/2026: "sem resposta" NAO e quem_respondeu vazio.
 // Esse campo fica vazio quando a reclamacao e de um tipo que o iFood resolve direto com o
 // cliente (momento "APOS A ENTREGA": item faltando, pedido improprio, item errado) — a loja
@@ -3339,6 +3434,21 @@ function renderModuloNegociacoes() {
     porMotivo.get(m).n++; porMotivo.get(m).valor += r[7];
   });
   const motivos = [...porMotivo.entries()].map(([m, o]) => ({ m, ...o })).sort((a, b) => b.n - a.n).slice(0, 8);
+  NEG_LISTA_MOTIVOS = motivos.map(x => x.m);
+  // Motivo escolhido que sumiu do periodo (a pessoa mexeu na data la em cima) nao
+  // pode deixar a tabela vazia sem dizer por que: solta sozinho.
+  if (NEG_MOTIVO && !NEG_LISTA_MOTIVOS.includes(NEG_MOTIVO)) NEG_MOTIVO = null;
+  const motivoDe = (r) => r[3] || 'SEM MOTIVO INFORMADO';
+  const linhasRec = NEG_MOTIVO ? linhas.filter(r => motivoDe(r) === NEG_MOTIVO) : linhas;
+  const linhasAntRec = !linhasAnt ? null : (NEG_MOTIVO ? linhasAnt.filter(r => motivoDe(r) === NEG_MOTIVO) : linhasAnt);
+  const totalRec = linhasRec.length;
+  const respondiveisRec = linhasRec.filter(negRespondivel).length;
+  const semRespostaRec = linhasRec.filter(negSemResposta).length;
+  const valorRec = linhasRec.reduce((s, r) => s + r[7], 0);
+  // Sem janela anterior NENHUMA nao ha comparacao; com janela anterior que existe e
+  // nao tem este motivo, o zero e' um zero de verdade — a mesma regra que a coluna
+  // por loja ja usa.
+  const semRespostaAntRec = (linhasAnt && linhasAnt.length) ? (linhasAntRec || []).filter(negSemResposta).length : null;
 
   // por loja
   const agruparNegPorLoja = (ls) => {
@@ -3350,8 +3460,8 @@ function renderModuloNegociacoes() {
     });
     return mapa;
   };
-  const porLoja = agruparNegPorLoja(linhas);
-  const porLojaAnt = linhasAnt ? agruparNegPorLoja(linhasAnt) : null;
+  const porLoja = agruparNegPorLoja(linhasRec);
+  const porLojaAnt = linhasAntRec ? agruparNegPorLoja(linhasAntRec) : null;
   // Loja sem linha na janela anterior teve ZERO sem resposta la — e diferente de
   // "nao da para comparar" (que e quando nao existe janela anterior nenhuma).
   const lojas = [...porLoja.entries()].map(([i, o]) => ({ nome: LOJAS[i], ...o, pctSem: o.resp ? o.sem / o.resp * 100 : 0,
@@ -3379,6 +3489,7 @@ function renderModuloNegociacoes() {
     <div class="chart-title">Por que os clientes abrem negociação</div>
     <div class="chart-canvas-wrap"><canvas id="chartNegMotivos"></canvas></div>
   </div>
+  <div class="caption-label" style="text-align:center;" title="A tabela de lojas passa a mostrar só as negociações daquele motivo, com a comparação no mesmo recorte. Clicar de novo na mesma barra solta. Os cards do topo continuam sendo o período inteiro.">Clique numa barra para ver esse motivo loja a loja.</div>
 
   <div class="section-label">Onde o silêncio custa caro</div>
   ${semResposta ? `<div class="contexto" style="border-color:var(--farol-fora);">
@@ -3386,6 +3497,13 @@ function renderModuloNegociacoes() {
     <b>R$ ${fmt(linhas.filter(negSemResposta).reduce((s, r) => s + r[7], 0))}</b> em cancelamentos.
     Responder no app é o que evita a perda.</div>` : ''}
   <div class="caption-label" style="text-align:center;">A coluna "Para responder" exclui as reclamações de pós-entrega, que o iFood decide sozinho — o "% sem resposta" é sobre ela, não sobre o total.</div>
+  ${NEG_MOTIVO ? `<div class="contexto" style="border-color:var(--brand);">
+    <b>Tabela recortada por motivo:</b>
+    <button class="preset-btn active" onclick="negMotivoLimpar()">${NEG_MOTIVO} ✕</button>
+    <div style="font-size:12px; color:var(--tx-3); margin-top:6px;" title="Os cards e o gráfico continuam sendo o período inteiro: o gráfico precisa mostrar todos os motivos para você poder trocar de escolha.">
+      Só a tabela abaixo está neste recorte.
+    </div>
+  </div>` : ''}
   <div id="tabelaNegLojas">
     <table>
       <tr><th>Loja</th><th>Negociações</th><th>Para responder</th><th>Sem resposta</th><th>% sem resposta</th><th>Valor cancelado</th><th title="Compara o número de negociações sem resposta com a janela imediatamente anterior, do mesmo tamanho do período filtrado.">vs período anterior</th></tr>
@@ -3393,9 +3511,9 @@ function renderModuloNegociacoes() {
         <td${x.sem ? ' style="color:#ff6b6b; font-weight:bold;"' : ''}>${x.sem}</td>
         <td>${pct(x.pctSem)}%</td><td>R$ ${fmt(x.valor)}</td>
         <td>${variacaoSpan(x.sem, x.semAnt, 'menorMelhor')}</td></tr>`).join('')}
-      <tr class="liq"><td>TOTAL</td><td>${total.toLocaleString('pt-BR')}</td><td>${respondiveis}</td><td>${semResposta}</td>
-        <td>${pct(respondiveis ? semResposta / respondiveis * 100 : 0)}%</td><td>R$ ${fmt(valorEnvolvido)}</td>
-        <td>${variacaoSpan(semResposta, aNeg && aNeg.semResposta, 'menorMelhor')}</td></tr>
+      <tr class="liq"><td>TOTAL${NEG_MOTIVO ? ' DO RECORTE' : ''}</td><td>${totalRec.toLocaleString('pt-BR')}</td><td>${respondiveisRec}</td><td>${semRespostaRec}</td>
+        <td>${pct(respondiveisRec ? semRespostaRec / respondiveisRec * 100 : 0)}%</td><td>R$ ${fmt(valorRec)}</td>
+        <td>${variacaoSpan(semRespostaRec, semRespostaAntRec, 'menorMelhor')}</td></tr>
     </table>
   </div>`;
 
@@ -3405,12 +3523,16 @@ function renderModuloNegociacoes() {
     type: 'bar',
     data: {
       labels: motivos.map(x => rotulo(x.m)),
-      datasets: [{ data: motivos.map(x => x.n), backgroundColor: corToken('--info'), borderRadius: 4 }],
+      // Uma cor so: a identidade do motivo vem do rotulo do eixo. A barra escolhida
+      // acende em --brand, o mesmo sinal do modulo Evolucao.
+      datasets: [{ data: motivos.map(x => x.n), backgroundColor: motivos.map(x => NEG_MOTIVO === x.m ? corToken('--brand') : corToken('--info')), borderRadius: 4 }],
     },
     plugins: [pluginRotulosBarra(i => `${motivos[i].n} (R$ ${fmt(motivos[i].valor)})`)],
     options: {
       indexAxis: 'y', responsive: true, maintainAspectRatio: false,
       layout: { padding: { right: 8 } },
+      onClick: (_e, els) => { if (els.length) negMotivoFiltrar(els[0].index); },
+      onHover: (e, els) => { e.native.target.style.cursor = els.length ? 'pointer' : 'default'; },
       plugins: {
         legend: { display: false },
         tooltip: { callbacks: { label: (c) => `${motivos[c.dataIndex].n} negociações — R$ ${fmt(motivos[c.dataIndex].valor)} cancelados` } },
@@ -4243,6 +4365,22 @@ async function entrarCardapio() {
   renderModuloCardapio();
 }
 
+// UM CONTROLE SO' PARA UMA ESCOLHA SO' (12/09/2026). O <select> "Itens e
+// complementos de:" escolhia o recorte de itens a trinta linhas da tabela do funil,
+// que mostra as mesmas lojas e nao clicava. Passa a ser UM controle so, e no lugar
+// onde a pergunta nasce: clicar na linha da loja no funil troca o recorte de itens e
+// complementos. Mecanismo do modulo Evolucao — clicar de novo solta (volta para o
+// primeiro escopo, a rede quando ela existe).
+// O nome da loja vai por INDICE, nunca como string dentro do onclick.
+let CARDAPIO_ESCOPOS = [];
+let CARDAPIO_ESCOPO = null;
+function cardapioEscopo(chave, i) {
+  const nome = CARDAPIO_ESCOPOS[i];
+  if (!nome) return;
+  renderModuloCardapio(chave, nome === CARDAPIO_ESCOPO ? null : nome);
+}
+function cardapioEscopoLimpar(chave) { renderModuloCardapio(chave, null); }
+
 function renderModuloCardapio(periodoSel, lojaSel) {
   const alvo = document.getElementById('view-cardapio');
   const periodos = [...new Map(CARDAPIO.funil.map(r => [r.periodo_ini + '|' + r.periodo_fim, [r.periodo_ini, r.periodo_fim]])).values()];
@@ -4264,17 +4402,21 @@ function renderModuloCardapio(periodoSel, lojaSel) {
   const escopos = [...new Set(itensPeriodo.map(r => r.nome_loja || 'REDE'))]
     .sort((a, b) => (a === 'REDE' ? -1 : b === 'REDE' ? 1 : a.localeCompare(b)));
   const escopo = (lojaSel && escopos.includes(lojaSel)) ? lojaSel : escopos[0];
+  CARDAPIO_ESCOPOS = escopos; CARDAPIO_ESCOPO = escopo;
   const doEscopo = (r) => (r.nome_loja || 'REDE') === escopo;
   const itensEscopo = itensPeriodo.filter(doEscopo);
   const itens = itensEscopo.slice(0, 12);
   const compl = complPeriodo.filter(doEscopo).slice(0, 8);
-  const seletorLoja = escopos.length > 1 ? `
-    <div style="display:flex; justify-content:center; align-items:center; gap:8px; margin:10px 0 4px;">
-      <span class="caption-label" style="margin:0;">Itens e complementos de:</span>
-      <select onchange="renderModuloCardapio('${chave}', this.value)"
-        style="background:#1a1a19; color:#fff; border:1px solid #34332f; border-radius:6px; padding:6px 10px; font-family:inherit; font-size:12.5px;">
-        ${escopos.map(e => `<option value="${e}" ${e === escopo ? 'selected' : ''}>${e === 'REDE' ? 'Rede inteira (agregado)' : e}</option>`).join('')}
-      </select>
+  // O <select> saiu (12/09/2026): quem escolhe agora e' a linha da loja na tabela do
+  // funil, logo acima. Fica so' o chip que diz qual recorte esta valendo e o ✕ que
+  // volta para o primeiro escopo — o mesmo chip do modulo Evolucao.
+  const chipEscopo = escopos.length > 1 ? `
+    <div class="contexto" style="border-color:var(--brand);">
+      <b>Itens e complementos de:</b> ${escopo === 'REDE' ? 'rede inteira (agregado)' : escopo}
+      ${escopo !== escopos[0] ? `<button class="preset-btn active" onclick="cardapioEscopoLimpar('${chave}')">${escopo} ✕</button>` : ''}
+      <div style="font-size:12px; color:var(--tx-3); margin-top:6px;" title="O funil vem de um relatório e os itens vêm de outro: só a loja com export próprio de itens neste período pode ser escolhida. As demais continuam na tabela, sem clique.">
+        Clique na linha da loja na tabela do funil, acima, para trocar.
+      </div>
     </div>` : '';
 
   const totV = funil.reduce((s, r) => s + (r.visitas || 0), 0);
@@ -4337,16 +4479,18 @@ function renderModuloCardapio(periodoSel, lojaSel) {
   </div>
 
   <div class="section-label">Funil por loja — piores primeiro</div>
-  <div class="caption-label" style="text-align:center;">Visita → viu item → colocou na sacola → revisou → concluiu. Conversão baixa com muitas visitas = cardápio que atrai mas não convence (foto, preço, descrição).</div>
+  <div class="caption-label" style="text-align:center;" title="Só a loja com export próprio de itens neste período pode ser escolhida; as outras continuam na tabela, sem clique. Clicar de novo na mesma loja volta para o primeiro escopo.">Visita → viu item → colocou na sacola → revisou → concluiu. Conversão baixa com muitas visitas = cardápio que atrai mas não convence (foto, preço, descrição). ${escopos.length > 1 ? '<b>Clique na loja para ver os itens dela.</b>' : ''}</div>
   <div id="tabelaFunil">
     <table>
       <tr><th>Loja</th><th>Visitas</th><th title="Quantas vezes alguém abriu a página de um item.">Viu item</th><th>Sacola</th><th title="Quantas vezes alguém chegou na tela de revisar o pedido — o passo antes de concluir.">Revisou</th><th>Concluídos</th><th>Conversão</th></tr>
-      ${funil.map(r => `<tr><td>${r.nome_loja}</td><td>${(r.visitas || 0).toLocaleString('pt-BR')}</td>
+      ${funil.map(r => { const iE = escopos.indexOf(r.nome_loja); const sel = iE >= 0 && escopo === r.nome_loja;
+        const solta = sel && escopo !== escopos[0];
+        return `<tr${iE >= 0 ? ` onclick="cardapioEscopo('${chave}', ${iE})" style="cursor:pointer;${sel ? 'background:var(--brand-wine);' : ''}" title="${sel ? (solta ? 'É o recorte que está na tela — clique para voltar ao primeiro escopo.' : 'É o recorte de itens e complementos que está na tela.') : 'Clique para ver os itens e complementos desta loja.'}"` : ' title="Sem export de itens desta loja neste período — o recorte de itens não muda."'}><td>${sel ? '<b>' : ''}${r.nome_loja}${sel ? '</b>' : ''}${solta ? ' ✕' : ''}</td><td>${(r.visitas || 0).toLocaleString('pt-BR')}</td>
         <td>${(r.visualizacoes || 0).toLocaleString('pt-BR')}</td>
         <td>${(r.sacola || 0).toLocaleString('pt-BR')}</td>
         <td>${(r.revisao || 0).toLocaleString('pt-BR')}</td>
         <td>${(r.concluidos || 0).toLocaleString('pt-BR')}</td>
-        <td${Number(r.conversao_pct) < CORTE_CONV ? ' style="color:var(--farol-fora); font-weight:bold;"' : ''}>${pct(Number(r.conversao_pct || 0))}%</td></tr>`).join('')}
+        <td${Number(r.conversao_pct) < CORTE_CONV ? ' style="color:var(--farol-fora); font-weight:bold;"' : ''}>${pct(Number(r.conversao_pct || 0))}%</td></tr>`; }).join('')}
       <tr class="liq"><td>TOTAL</td><td>${totV.toLocaleString('pt-BR')}</td>
         <td>${funil.reduce((s, r) => s + (r.visualizacoes || 0), 0).toLocaleString('pt-BR')}</td>
         <td>${funil.reduce((s, r) => s + (r.sacola || 0), 0).toLocaleString('pt-BR')}</td>
@@ -4356,9 +4500,9 @@ function renderModuloCardapio(periodoSel, lojaSel) {
   </div>
 
   <div class="section-label">Itens mais vendidos</div>
-  ${seletorLoja}
+  ${chipEscopo}
   <div class="caption-label" style="text-align:center;">${escopo === 'REDE'
-    ? 'Recorte agregado da rede inteira (o relatório soma tudo como uma marca só). Use o seletor acima quando houver exports por loja no período.'
+    ? 'Recorte agregado da rede inteira (o relatório soma tudo como uma marca só). Clique numa loja da tabela do funil quando houver exports por loja no período.'
     : `Itens vendidos na loja <b>${escopo}</b> no período selecionado.`}</div>
   <div id="tabelaItens">
     <table>
@@ -4520,6 +4664,13 @@ let DFC_MOV = null;      // vw_fin_saldo_conta_mensal: mes, conta, movimento
 // dfcModo aposentado em 13/08/2026: o % da receita agora aparece junto do
 // valor em cada celula de fluxo (proposta do financeiro), sem botao de troca.
 const dfcAberto = new Set();
+// Mes fixado por clique no cabecalho da coluna (12/09/2026). "O que houve em
+// agosto?" e a pergunta que a tabela provoca, e ate hoje ela exigia ler 9 colunas
+// na horizontal: os cartoes e os dois graficos de origem e destino falavam sempre
+// do periodo inteiro. Clicar de novo solta. A TABELA continua mostrando todos os
+// meses de proposito — e por ela que se troca de mes sem soltar o recorte.
+let FLX_MES = null;
+function fluxoFixarMes(m) { FLX_MES = (FLX_MES === m) ? null : m; renderModuloDFC(); }
 
 // Ordem dos grupos de despesa no DFC (mesma da planilha de fluxo de caixa).
 const DFC_ORDEM_TIPOS = ['MATERIA PRIMA','USO E CONSUMO','PESSOAL','PRO LABORE',
@@ -5702,7 +5853,10 @@ async function entrarRede() {
 }
 async function redeRecarregar() { REDE_DADOS = await carregarRede(); renderModuloRede(REDE_DADOS); }
 
-// O combinado so o dono grava (policy eh_dono). prompt() basta: sao poucos numeros.
+// O combinado so o dono grava (policy eh_dono). Desde 12/09/2026 ele digita NA
+// PROPRIA LINHA: o campo ja chega com o valor que esta gravado. Era prompt() em
+// sequencia, e prompt nao mostra o que ja existe — alem de que cancelar o segundo
+// jogava fora o primeiro. Gravava-se no escuro, sem ver e sem desfazer.
 async function redeGravar(tabela, conflito, corpo) {
   const s = rmbSessao();
   if (!s || !s.email) { alert('Sessão expirada — faça login de novo.'); return false; }
@@ -5715,30 +5869,30 @@ async function redeGravar(tabela, conflito, corpo) {
 }
 // A taxa combinada tem VIGENCIA desde 12/09/2026 (a chave ganhou `desde`), porque a
 // Rede mudou o patamar em 28/04 e sem historico os meses antigos acusavam cobranca
-// indevida. Quem digita aqui informa a taxa e desde quando ela vale; o padrao e hoje.
-async function redeDefinirTaxa(modalidade, bandeira, parcelas) {
-  const rot = modalidade === 'CREDIT' ? 'crédito' : modalidade === 'DEBIT' ? 'débito' : 'vale';
-  const v = prompt(`Taxa combinada com a Rede para ${rot} ${bandeira}${parcelas > 1 ? ' em ' + parcelas + 'x' : ''} (% sobre a venda, ex.: 1,43):`);
-  if (v === null) return;
-  const pct = Number(String(v).replace(',', '.'));
-  if (!(pct >= 0 && pct < 20)) { alert('Digite a taxa em %, como 1,43.'); return; }
-  const hoje = new Date(Date.now() - 3 * 36e5).toISOString().slice(0, 10);
-  const d = prompt('A partir de que dia essa taxa passou a valer? (AAAA-MM-DD)\n'
-    + 'Os meses anteriores continuam comparados com a taxa que valia neles.', hoje);
-  if (d === null) return;
-  const desde = /^\d{4}-\d{2}-\d{2}$/.test(String(d).trim()) ? String(d).trim() : hoje;
+// indevida. Os dois campos da linha (taxa e desde quando vale) ja chegam preenchidos
+// com o combinado vigente; nada e gravado sem os dois preenchidos.
+async function redeDefinirTaxa(modalidade, bandeira, parcelas, chave) {
+  const eT = document.getElementById('rdTx_' + chave), eD = document.getElementById('rdDt_' + chave);
+  if (!eT || !eD) return;
+  const txt = String(eT.value).trim();
+  const pct = Number(txt.replace(',', '.'));
+  if (!txt || !(pct >= 0 && pct < 20)) { alert('Digite a taxa em %, como 1,43.'); eT.focus(); return; }
+  const desde = String(eD.value).trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(desde)) {
+    alert('Escolha a partir de que dia essa taxa passa a valer. Os meses anteriores continuam comparados com a taxa que valia neles.');
+    eD.focus(); return;
+  }
   if (await redeGravar('rede_taxa_combinada', 'modalidade,bandeira,parcelas,desde',
       { modalidade, bandeira, parcelas, taxa_pct: pct, desde })) await redeRecarregar();
 }
-async function redeDefinirAluguel(unidade) {
-  const v = prompt(`Aluguel combinado por máquina, por mês, em ${unidade} (R$, ex.: 69):`);
-  if (v === null) return;
-  const valor = Number(String(v).replace('.', '').replace(',', '.'));
-  if (!(valor >= 0)) { alert('Digite o valor em reais, como 69 ou 69,00.'); return; }
-  const q = prompt(`Quantas máquinas em ${unidade}?`, '1');
-  if (q === null) return;
-  const maquinas = parseInt(q, 10);
-  if (!(maquinas >= 0)) { alert('Digite a quantidade de máquinas.'); return; }
+async function redeDefinirAluguel(unidade, chave) {
+  const eV = document.getElementById('rdAl_' + chave), eM = document.getElementById('rdMq_' + chave);
+  if (!eV || !eM) return;
+  const txt = String(eV.value).trim();
+  const valor = Number(txt.replace('.', '').replace(',', '.'));
+  if (!txt || !(valor >= 0)) { alert('Digite o valor em reais, como 69 ou 69,00.'); eV.focus(); return; }
+  const maquinas = parseInt(String(eM.value).trim(), 10);
+  if (!(maquinas >= 0)) { alert('Digite a quantidade de máquinas.'); eM.focus(); return; }
   if (await redeGravar('rede_aluguel_combinado', 'unidade', { unidade, valor_mes: valor, maquinas })) await redeRecarregar();
 }
 
@@ -5808,6 +5962,17 @@ function renderModuloRede(d) {
     if (valem.length > 1 && valem[valem.length - 1].desde > refIni) return 'VARIAS';
     return valem[valem.length - 1].taxa;
   };
+  // A MESMA vigencia, mas inteira (taxa + desde): e ela que enche os dois campos de
+  // edicao da linha, para o dono ver o que esta gravado ANTES de mudar.
+  const combinadaVig = (m, b, p) => {
+    const v = comb[m + '|' + b + '|' + p] || comb[m + '|*|' + p];
+    if (!v || !v.length) return null;
+    const valem = refFim ? v.filter(x => x.desde <= refFim) : v;
+    return valem.length ? valem[valem.length - 1] : null;
+  };
+  const redeHojeIso = new Date(Date.now() - 3 * 36e5).toISOString().slice(0, 10);
+  const idRede = (s) => String(s).replace(/[^A-Za-z0-9]/g, '');
+  const campoRede = (id, val, ph, w, tit) => `<input id="${id}" value="${val}" placeholder="${ph}" title="${tit}" style="background:var(--surface-2); border:1px solid var(--line); border-radius:6px; color:var(--tx-1); padding:3px 5px; width:${w}px; text-align:right; font:inherit; font-size:11px;">`;
   const grupos = {};
   tx.forEach(t => {
     const b = band(t.modalidade, t.bandeira_codigo), p = +t.parcelas || 1;
@@ -5839,7 +6004,17 @@ function renderModuloRede(d) {
     else if (cmb === 'VARIAS') { sit = 'o período tem duas taxas combinadas — escolha um mês para comparar'; cor = '#8a897e'; }
     else if (Math.abs(ef - cmb) < 0.02) { sit = '✔ bate com o combinado'; cor = '#3f9c5a'; }
     else { const d = ef - cmb; if (d > 0) cobradoAMais += g.bruto * d / 100; sit = `cobrou ${pc(Math.abs(d))} ${d > 0 ? 'a MAIS' : 'a menos'} que o combinado (${reais(g.bruto * d / 100)})`; cor = d > 0 ? '#ff6b6b' : '#f5a623'; foraDoCombinado++; }
-    const definir = dono && g.modalidade !== 'VAN' ? ` <button onclick="redeDefinirTaxa('${g.modalidade}','${g.bandeira}',${g.parcelas})" style="font:inherit; font-size:11px; padding:1px 7px; cursor:pointer;">${cmb === null ? 'definir' : 'alterar'}</button>` : '';
+    // edicao NA LINHA: os dois campos ja chegam com o combinado vigente
+    const kEd = idRede(g.modalidade + '_' + g.bandeira + '_' + g.parcelas);
+    const vig = combinadaVig(g.modalidade, g.bandeira, g.parcelas);
+    const definir = dono && g.modalidade !== 'VAN'
+      ? `<div style="margin-top:4px; display:flex; gap:4px; align-items:center; justify-content:flex-end; white-space:nowrap;">
+          ${campoRede('rdTx_' + kEd, vig ? String(vig.taxa).replace('.', ',') : '', '1,43', 48, 'taxa combinada com a Rede, em % sobre a venda')}
+          <span style="font-size:11px; color:var(--tx-5);">% desde</span>
+          <input id="rdDt_${kEd}" type="date" value="${vig ? vig.desde : redeHojeIso}" title="a partir de que dia essa taxa passa a valer — os meses anteriores continuam comparados com a taxa que valia neles" style="background:var(--surface-2); border:1px solid var(--line); border-radius:6px; color:var(--tx-1); padding:3px 5px; font:inherit; font-size:11px;">
+          <button class="preset-btn" onclick="redeDefinirTaxa('${g.modalidade}','${g.bandeira}',${g.parcelas},'${kEd}')">salvar</button>
+        </div>`
+      : '';
     return `<tr>
       <td style="padding:5px 8px;">${MOD[g.modalidade] || g.modalidade} ${g.bandeira.charAt(0) + g.bandeira.slice(1).toLowerCase()}${g.parcelas > 1 ? ' ' + g.parcelas + 'x' : ''}</td>
       <td style="padding:5px 8px; text-align:right; color:#a5a49a;">${g.n.toLocaleString('pt-BR')}</td>
@@ -5870,7 +6045,18 @@ function renderModuloRede(d) {
       if (Math.abs(+x.aluguel - esperado) < 0.01) { sit = '✔ bate com o combinado'; cor = '#3f9c5a'; }
       else { const d = +x.aluguel - esperado; if (d > 0) cobradoAMais += d; sit = `${d > 0 ? 'cobrou a MAIS' : 'cobrou a menos'}: ${reais(Math.abs(d))} (combinado ${reais(esperado)} = ${c.maquinas} × ${reais(c.valor_mes)})`; cor = d > 0 ? '#ff6b6b' : '#f5a623'; alugFora++; }
     }
-    const definir = dono ? ` <button onclick="redeDefinirAluguel('${x.unidade}')" style="font:inherit; font-size:11px; padding:1px 7px; cursor:pointer;">${c ? 'alterar' : 'definir'}</button>` : '';
+    // edicao NA LINHA: valor por maquina x quantidade, ja preenchidos. A chave leva
+    // o mes porque a mesma loja aparece em varias linhas (uma por mes) e dois campos
+    // com o mesmo id na pagina fariam o salvar ler sempre o primeiro.
+    const kAl = idRede(x.unidade + '_' + (x.mes || ''));
+    const definir = dono
+      ? `<div style="margin-top:4px; display:flex; gap:4px; align-items:center; justify-content:flex-end; white-space:nowrap;">
+          ${campoRede('rdAl_' + kAl, c ? String(+c.valor_mes).replace('.', ',') : '', '69,00', 58, 'aluguel combinado por máquina, por mês, em reais')}
+          <span style="font-size:11px; color:var(--tx-5);">×</span>
+          ${campoRede('rdMq_' + kAl, c ? String(c.maquinas) : '1', '1', 28, 'quantas máquinas nesta loja')}
+          <button class="preset-btn" onclick="redeDefinirAluguel('${x.unidade}','${kAl}')">salvar</button>
+        </div>`
+      : '';
     return `<tr>
       <td style="padding:5px 8px; font-weight:600;">${x.unidade}</td>
       <td style="padding:5px 8px;">${mesLabel(x.mes)}</td>
@@ -6042,6 +6228,22 @@ function renderModuloReembolsos(dados) {
 // bolso, e o que esta travado.
 // ------------------------------------------------------------------
 let RH = null;
+// Pessoa fixada (12/09/2026): a tela era a unica do grupo sem nenhuma interacao —
+// cinco tabelas empilhadas que nao conversam, e para saber tudo de uma pessoa
+// cruzava-se quatro listas com o olho. Clicar num nome recorta a tela nele, clicar
+// de novo solta. A lista de nomes fica INTEIRA de proposito: e por ela que se troca
+// de pessoa. Mesmo mecanismo do modulo evolucao.
+let RH_PESSOA = null;
+// O nome vai por INDICE, nunca como string dentro do onclick: nome com apostrofo
+// quebraria o atributo em silencio.
+let RH_NOMES = [];
+function rhFixar(i) {
+  const nome = RH_NOMES[i];
+  if (!nome) return;
+  RH_PESSOA = (RH_PESSOA === nome) ? null : nome;
+  renderModuloRh();
+}
+function rhSoltar() { RH_PESSOA = null; renderModuloRh(); }
 
 // ===== Conciliacao bancaria (modulo aplicado 18/08/2026) =====
 // A regra que este modulo existe para impor: LER DINHEIRO ANTES DE LER LINHA.
@@ -7596,8 +7798,34 @@ async function entrarRh() {
 function renderModuloRh() {
   const alvo = document.getElementById('view-rh');
   if (!alvo || RH === null) return;
-  const { colab, aberto, credor, credorDet, diverg } = RH;
+  const { colab } = RH;
   const n = (v) => Number(v) || 0;   // PostgREST pode devolver numeric como texto
+  // ---- o recorte da pessoa fixada, num lugar so ----
+  // Dali para baixo o modulo inteiro le estas listas ja recortadas: nao ha como um
+  // pedaco da tela falar de uma pessoa e o outro de todo mundo. `colab` (a lista de
+  // nomes) fica inteira, porque e o seletor. A conta de quem emprestou e o agregado
+  // de credorDet por credor — as MESMAS contas da vw_rh_credor, linha a linha —,
+  // entao ela tambem recorta sem inventar numero.
+  const P = RH_PESSOA && colab.some(c => c.colaborador === RH_PESSOA) ? RH_PESSOA : null;
+  const soP = (arr) => P ? arr.filter(r => r.colaborador === P) : arr;
+  const aberto = soP(RH.aberto), credorDet = soP(RH.credorDet), diverg = soP(RH.diverg);
+  const credor = !P ? RH.credor : (() => {
+    const m = new Map();
+    credorDet.forEach(d => {
+      const a = m.get(d.credor) || { credor: d.credor, emprestimos: 0, funcionarios: 1, emprestado: 0,
+        ja_descontado_do_funcionario: 0, a_descontar_do_funcionario: 0, ja_reembolsado: 0,
+        a_reembolsar: 0, devolver_agora: 0 };
+      a.emprestimos += 1;
+      a.emprestado += n(d.valor_total);
+      a.ja_descontado_do_funcionario += n(d.descontado);
+      a.a_descontar_do_funcionario += n(d.a_descontar);
+      a.ja_reembolsado += n(d.reembolsado);
+      a.a_reembolsar = a.emprestado - a.ja_reembolsado;
+      a.devolver_agora = a.ja_descontado_do_funcionario - a.ja_reembolsado;
+      m.set(d.credor, a);
+    });
+    return [...m.values()].sort((x, y) => y.devolver_agora - x.devolver_agora);
+  })();
   const soma = (arr, f) => arr.reduce((s, x) => s + n(f(x)), 0);
   const ddmm = (d) => d ? d.slice(8, 10) + '/' + d.slice(5, 7) + '/' + d.slice(2, 4) : '—';
   const mesTxt = (d) => new Date(d + 'T12:00:00')
@@ -7633,7 +7861,7 @@ function renderModuloRh() {
   const faltaParcela = diverg.filter(d => d.tipo === 'FALTA PARCELA');
 
   const cards = `<div class="cards">
-    <div class="card neutral"><div class="card-lbl">A descontar (saldo total)</div>
+    <div class="card neutral"><div class="card-lbl">A descontar ${P ? '— ' + P : '(saldo total)'}</div>
       <div class="card-val">R$ ${fmt(totalAberto)}</div>
       <div class="card-pct">${aberto.length} parcelas de ${new Set(aberto.map(r => r.colaborador)).size} pessoas</div></div>
     <div class="card blue"><div class="card-lbl">Próxima folha</div>
@@ -7669,8 +7897,12 @@ function renderModuloRh() {
   }).join('');
 
   // ---- quem deve ----
-  const linhasColab = colab.filter(c => n(c.a_descontar) > 0).map(c => `<tr>
-    <td>${c.colaborador}</td>
+  // A lista de nomes e o seletor da tela: clicar num nome fixa a pessoa, clicar de
+  // novo solta. RH_NOMES guarda os nomes na ordem em que sao desenhados.
+  const colabLista = colab.filter(c => n(c.a_descontar) > 0);
+  RH_NOMES = colabLista.map(c => c.colaborador);
+  const linhasColab = colabLista.map((c, i) => `<tr${c.colaborador === P ? ' style="background:var(--brand-wine);"' : ''}>
+    <td onclick="rhFixar(${i})" style="cursor:pointer;" title="${c.colaborador === P ? 'clique para soltar o recorte' : 'clique para a tela falar só desta pessoa'}">${c.colaborador === P ? '✕ ' : ''}${c.colaborador}</td>
     <td>R$ ${fmt(n(c.a_descontar))}</td>
     <td>${c.parcelas_abertas}</td>
     <td>${ddmm(c.proximo_desconto)}</td>
@@ -7712,6 +7944,11 @@ function renderModuloRh() {
     <div class="caption-label" style="text-align:center;">
       Vales e empréstimos que a empresa adiantou e recupera no contracheque. É saldo, não fluxo — sem janela de período.
     </div>
+    ${P ? `<div class="contexto" style="border-color:var(--brand);">
+      <b>Filtrando:</b>
+      <button class="preset-btn active" onclick="rhSoltar()">${P} ✕</button>
+      <div style="font-size:12px; color:var(--tx-3); margin-top:6px;">Os cartões e as quatro tabelas falam só desta pessoa. A lista "Quem ainda tem desconto a fazer" continua inteira, para você trocar de nome.</div>
+    </div>` : ''}
     ${cards}${contexto}
     <div class="section-label">Quanto sai de cada folha</div>
     <div id="tabelaRhMes"><table>
@@ -7906,6 +8143,40 @@ function renderModuloFrete(linhas) {
       </table></div>`;
   };
 
+  // ---------- matriz canal x faixa (12/09/2026) ----------
+  // Comparar iFood e site na MESMA faixa exigia pular entre tabelas separadas e
+  // guardar o numero na cabeca. A celula e a sobra/falta POR ENTREGA — o numero que
+  // decide — com as entregas do cruzamento embaixo. Menos de 30 entregas fica em
+  // cinza, a mesma regra de "poucas entregas" das tabelas por canal logo abaixo.
+  // Sem clique: o modulo Frete nao tem estado de filtro proprio, e clique que nao
+  // filtra nada e pior do que clique nenhum.
+  const faixasMatriz = [...new Set(agregado.map(l => l.faixa))].sort();
+  const corFrete = (r, n) => n < 30 ? 'var(--tx-3)' : r < 0 ? 'var(--farol-fora)' : 'var(--farol-ok)';
+  const celFrete = (c, f) => {
+    const o = agregado.find(l => l.canal === c && l.faixa === f);
+    if (!o || !o.entregas) return '<td>—</td>';
+    const r = o.res / o.entregas;
+    return `<td title="${o.entregas.toLocaleString('pt-BR')} entregas · no período a loja ${r < 0 ? 'banca' : 'ganha'} ${reais(Math.abs(o.res))} nesta faixa deste canal"><span style="color:${corFrete(r, o.entregas)}; font-weight:600;">${reais(r)}</span><span class="dre-av">${o.entregas.toLocaleString('pt-BR')} entregas</span></td>`;
+  };
+  const somaFrete = (ls) => {
+    const n = ls.reduce((a, l) => a + l.entregas, 0);
+    const res = ls.reduce((a, l) => a + l.res, 0);
+    return { n, r: n ? res / n : 0 };
+  };
+  const celTotFrete = (ls, forte) => {
+    const t = somaFrete(ls);
+    const txt = forte ? `<b>${reais(t.r)}</b>` : reais(t.r);
+    return `<td><span style="color:${corFrete(t.r, t.n)}; font-weight:600;">${txt}</span><span class="dre-av">${t.n.toLocaleString('pt-BR')} entregas</span></td>`;
+  };
+  const matrizFrete = canais.length > 1 ? `
+    <div class="section-label">Quanto sobra por entrega — canal por faixa de distância</div>
+    <div class="caption-label" style="text-align:center;" title="Sobra/falta por entrega = frete cobrado menos custo do entregador, dividido pelas entregas daquele cruzamento. Faixa com menos de 30 entregas fica em cinza: o número existe, mas oscila demais para decidir em cima dele. As tabelas por canal, logo abaixo, trazem o detalhe de custo do entregador, frete cobrado e ticket de cada faixa.">Quanto sobra (ou falta) em cada entrega. <b>Vermelho = a loja está bancando; verde = o frete se paga.</b></div>
+    <div id="tabelaFreteMatriz"><table>
+      <tr><th>Distância</th>${canais.map(c => `<th>${c}</th>`).join('')}<th>Todos os canais</th></tr>
+      ${faixasMatriz.map(f => `<tr><td>${f}</td>${canais.map(c => celFrete(c, f)).join('')}${celTotFrete(agregado.filter(l => l.faixa === f), true)}</tr>`).join('')}
+      <tr class="liq"><td>TODAS AS FAIXAS</td>${canais.map(c => celTotFrete(agregado.filter(l => l.canal === c))).join('')}${celTotFrete(agregado, true)}</tr>
+    </table></div>` : '';
+
   const rotJanela = FRETE_JANELA === 0
     ? (todasDatas.length ? `tudo, de ${ddmm(todasDatas[0])} a ${ddmm(maxData)}` : 'tudo')
     : `${ddmm(corte)} a ${ddmm(maxData)}`;
@@ -7919,6 +8190,7 @@ function renderModuloFrete(linhas) {
     </div>
     ${seletor}
     ${agregado.length ? cardsFrete : ''}
+    ${agregado.length ? matrizFrete : ''}
     ${agregado.length ? canais.map((c, i) => tabela(c, i)).join('')
       : '<div class="contexto" style="border-color:#f5a623;">Sem entrega nesta janela e nestas unidades.</div>'}
     <div class="caption-label" title="Faixa com menos de 30 entregas fica em cinza: o número existe, mas oscila demais para decidir em cima dele. Ahú e São Braz saíram do Foody em 26 e 29/08, então janelas recentes mostram só a Água Verde — a etiqueta no topo da tela lista as unidades com dado.">
@@ -8909,6 +9181,22 @@ async function entrarSite() {
 function siteJanela(n) { SITE_JANELA = n; renderModuloSite(); }
 function siteMedida(m) { SITE_MEDIDA = m; renderModuloSite(); }
 
+// RECORTE DA TELA DO SITE (12/09/2026) — mesmo mecanismo do modulo Evolucao.
+// A tela respondia "o site cresceu?" e nao "o site do Ahu cresceu, ou e a Agua
+// Verde puxando?". Clicar numa linha de loja ou de tipo de entrega fixa a dimensao
+// e os cartoes, o grafico, a tabela de semanas, o CSV e o resumo andam junto.
+// Regra do cross-filter: a dimensao fixada continua listando TODAS as suas opcoes
+// (senao nao da para trocar de escolha); as outras se recortam.
+// Coorte, recencia, segmentos, cupom e UTM ficam DE FORA de proposito: a Accon
+// exporta as quatro primeiras da rede inteira, sem loja, e o cupom vem por mes
+// fechado — recortar ali seria inventar dado.
+let SITE_F = { loja: null, canal: null };
+function siteFiltrar(tipo, valor) {
+  SITE_F[tipo] = (SITE_F[tipo] === valor) ? null : valor;   // clicar de novo solta
+  renderModuloSite();
+}
+function siteLimparFiltros() { SITE_F = { loja: null, canal: null }; renderModuloSite(); }
+
 // Hoje em Sao Paulo. O banco roda em UTC e o navegador pode estar em outro
 // fuso — data no palpite ja custou um dia de erro em outros modulos.
 function siteISO(d) {
@@ -8936,13 +9224,14 @@ function siteSemana(dataISO) {
 // O iFood no MESMO periodo e nas MESMAS unidades, direto de ROWS (ja esta na
 // memoria desde a abertura do painel). Responde uma pergunta so: quanto vale,
 // em venda, o pedido que migra de la para ca.
-function siteIfoodNoPeriodo(iniISO, fimISO) {
+function siteIfoodNoPeriodo(iniISO, fimISO, lojaF) {
   let pedidos = 0, bruto = 0;
   ROWS.forEach(r => {
     if (r[6] === 1) return;                       // cancelamento total fora
     const data = DATAS[r[5]];
     if (data < iniISO || data > fimISO) return;
     if (!activeUnidades.has(UNIDADES[r[1]])) return;
+    if (lojaF && UNIDADES[r[1]] !== lojaF) return;   // segue o recorte de loja da tela
     pedidos += r[7];
     bruto += (r[8] - r[9]) + r[10];
   });
@@ -8970,6 +9259,15 @@ function renderModuloSite() {
   const naJanela = (r) => activeUnidades.has(r.loja) && r.data >= iniISO && r.data <= fimISO;
   const vendas = SITE.vendas.filter(naJanela);
   const cli = SITE.cliente.filter(naJanela);
+  // recorte da tela. Escolha que sumiu da janela ou do filtro de unidades do topo
+  // cai sozinha, em vez de deixar a tela zerada sem dizer por que.
+  if (SITE_F.loja && !vendas.some(v => v.loja === SITE_F.loja)) SITE_F.loja = null;
+  if (SITE_F.canal && !vendas.some(v => v.canal === SITE_F.canal)) SITE_F.canal = null;
+  // quem passa 'ignora' esta desenhando a propria dimensao e ve todas as categorias
+  const passaSF = (r, ignora) => (ignora === 'loja' || !SITE_F.loja || r.loja === SITE_F.loja)
+    && (ignora === 'canal' || !SITE_F.canal || r.canal === SITE_F.canal);
+  const vendasF = vendas.filter(r => passaSF(r));
+  const cliF = cli.filter(r => passaSF(r));
 
   // ---------- as duas datas de corte, e o aviso quando uma atrasa ----------
   const ativas = SITE.atualizacao.filter(a => activeUnidades.has(a.loja));
@@ -9026,18 +9324,21 @@ function renderModuloSite() {
   }
 
   const V = {
-    pedidos: soma(vendas, 'pedidos'), fat: soma(vendas, 'faturamento'),
+    pedidos: soma(vendasF, 'pedidos'), fat: soma(vendasF, 'faturamento'),
   };
   V.ticket = V.pedidos ? V.fat / V.pedidos : 0;
   const C = {
-    novos: soma(cli, 'clientes_novos'), pedNovos: soma(cli, 'pedidos_novos'),
-    pedidos: soma(cli, 'pedidos'), cupomPrim: soma(cli, 'pedidos_cupom_primeira'),
-    comFrete: soma(cli, 'pedidos_com_frete'), frete: soma(cli, 'frete_cobrado'),
-    desc: soma(cli, 'descontos'),
+    novos: soma(cliF, 'clientes_novos'), pedNovos: soma(cliF, 'pedidos_novos'),
+    pedidos: soma(cliF, 'pedidos'), cupomPrim: soma(cliF, 'pedidos_cupom_primeira'),
+    comFrete: soma(cliF, 'pedidos_com_frete'), frete: soma(cliF, 'frete_cobrado'),
+    desc: soma(cliF, 'descontos'),
   };
-  const ifood = siteIfoodNoPeriodo(iniISO, fimISO);
+  // O iFood entra no MESMO recorte de loja: sem isso a "diferença de ticket"
+  // compararia o site de uma loja com o iFood da rede inteira. Tipo de entrega nao
+  // tem par do lado do iFood, entao o canal nao recorta essa comparacao.
+  const ifood = siteIfoodNoPeriodo(iniISO, fimISO, SITE_F.loja);
   const difTicket = V.ticket - ifood.ticket;
-  const fontes = [...new Set(vendas.map(v => v.fonte))];
+  const fontes = [...new Set(vendasF.map(v => v.fonte))];
 
   // ---------- semana a semana ----------
   const porSemana = new Map();
@@ -9045,11 +9346,11 @@ function renderModuloSite() {
     if (!porSemana.has(k)) porSemana.set(k, { sem: k, pedidos: 0, fat: 0, novos: 0, pedNovos: 0, cupomPrim: 0, temCliente: false });
     return porSemana.get(k);
   };
-  vendas.forEach(r => {
+  vendasF.forEach(r => {
     const o = pega(siteSemana(r.data));
     o.pedidos += Number(r.pedidos || 0); o.fat += Number(r.faturamento || 0);
   });
-  cli.forEach(r => {
+  cliF.forEach(r => {
     const o = pega(siteSemana(r.data));
     o.novos += Number(r.clientes_novos || 0); o.pedNovos += Number(r.pedidos_novos || 0);
     o.cupomPrim += Number(r.pedidos_cupom_primeira || 0); o.temCliente = true;
@@ -9082,10 +9383,15 @@ function renderModuloSite() {
     });
     return [...m.values()].sort((a, b) => b.fat - a.fat);
   };
-  const porLoja = agrupar(vendas, 'loja');
-  const porCanal = agrupar(vendas, 'canal');
+  // as duas tabelas do recorte: cada uma ignora a PROPRIA dimensao para continuar
+  // listando todas as opcoes, e obedece a outra
+  const porLoja = agrupar(vendas.filter(r => passaSF(r, 'loja')), 'loja');
+  const porCanal = agrupar(vendas.filter(r => passaSF(r, 'canal')), 'canal');
+  // a "parte dos pedidos" da tabela de canais divide pelo total DELA, nao por
+  // V.pedidos: com um canal fixado, V.pedidos e so o do canal e a conta passaria de 100%
+  const totPedCanal = porCanal.reduce((a, c) => a + c.pedidos, 0);
   const novosPorLoja = new Map();
-  cli.forEach(r => novosPorLoja.set(r.loja, (novosPorLoja.get(r.loja) || 0) + Number(r.clientes_novos || 0)));
+  cli.filter(r => passaSF(r, 'loja')).forEach(r => novosPorLoja.set(r.loja, (novosPorLoja.get(r.loja) || 0) + Number(r.clientes_novos || 0)));
 
   // ---------- cupons no periodo (Accon, por mes) ----------
   const mesIni = iniISO.slice(0, 7);
@@ -9143,7 +9449,14 @@ function renderModuloSite() {
   const clientesPagos = pagas.reduce((a, c) => a + c.clientes, 0);
   const convPagos = pagas.reduce((a, c) => a + c.conv, 0);
 
-  SITE_ULTIMO = { iniISO, fimISO, V, C, ifood, porLoja, vendas, cli, corteVenda, corteCliente, semAsc };
+  // o CSV e o resumo copiado saem do MESMO recorte da tela — relatorio que discorda
+  // da tela vira discussao, que e por que este guardado existe. porLoja vai RECORTADO
+  // aqui (na tela ela continua inteira, para dar como trocar de loja): sem isso o
+  // resumo copiado diria "Pedidos: 325" no alto e listaria as duas lojas somando 650
+  // logo abaixo — medido em 12/09/2026 antes de publicar.
+  SITE_ULTIMO = { iniISO, fimISO, V, C, ifood,
+    porLoja: porLoja.filter(l => !SITE_F.loja || l.chave === SITE_F.loja),
+    vendas: vendasF, cli: cliF, corteVenda, corteCliente, semAsc };
 
   alvo.innerHTML = `
   <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;" title="O canal que é nosso: sem comissão de marketplace e com o cliente no nome. A venda vem do Saipos, que chega todo dia pela API; quem é o cliente vem da Accon (novo, recência, cupom, campanha). O período é o desta tela; o filtro de unidades do topo vale aqui.">Site próprio (Accon)</div>
@@ -9152,6 +9465,13 @@ function renderModuloSite() {
   </div>
   ${avisoVenda}${notaSemPedido}${avisoCliente}
   ${siteBarraPeriodo()}
+  ${(SITE_F.loja || SITE_F.canal) ? `<div class="contexto" style="border-color:var(--brand);">
+    <b>Filtrando:</b>
+    ${SITE_F.loja ? `<button class="preset-btn active" onclick="siteFiltrar('loja','${SITE_F.loja}')">loja ${SITE_F.loja} ✕</button>` : ''}
+    ${SITE_F.canal ? `<button class="preset-btn active" onclick="siteFiltrar('canal','${SITE_F.canal}')">${SITE_F.canal} ✕</button>` : ''}
+    <button class="preset-btn" onclick="siteLimparFiltros()">limpar</button>
+    <div style="font-size:12px; color:var(--tx-3); margin-top:6px;">Os cartões, o gráfico, a tabela de semanas e o CSV estão neste recorte. Coorte, recência, base de clientes e campanhas não — a Accon exporta essas quatro da rede inteira; os cupons também ficam de fora, porque vêm por mês fechado. As tabelas de loja e de tipo de entrega continuam mostrando todas as opções, para você poder trocar.</div>
+  </div>` : ''}
 
   <div class="cards">
     <div class="card pos"><div class="card-lbl">Pedidos no site</div><div class="card-val">${num(V.pedidos)}</div>
@@ -9213,20 +9533,24 @@ function renderModuloSite() {
   </div>
 
   <div class="section-label">Por loja</div>
+  <div class="caption-label" style="text-align:center;"><b>Clique numa loja para recortar a tela por ela.</b></div>
   <div id="tabelaSiteLojas"><table>
     <tr><th>Loja</th><th>Pedidos</th><th>Faturamento</th><th>Ticket</th><th>Clientes novos</th><th>Fonte da venda</th></tr>
-    ${porLoja.map(l => `<tr><td>${l.chave}</td><td>${num(l.pedidos)}</td>
+    ${porLoja.map(l => { const sel = SITE_F.loja === l.chave;
+      return `<tr onclick="siteFiltrar('loja','${l.chave}')" style="cursor:pointer;${sel ? 'background:var(--brand-wine);' : ''}" title="${sel ? 'clique para soltar o recorte' : 'clique para ver só ' + l.chave}"><td>${sel ? '<b>' : ''}${l.chave}${sel ? '</b> ✕' : ''}</td><td>${num(l.pedidos)}</td>
       <td>${reais(l.fat)}</td><td>${reais(l.pedidos ? l.fat / l.pedidos : 0)}</td>
       <td>${num(novosPorLoja.get(l.chave) || 0)}</td>
-      <td>${[...l.fontes].map(f => f === 'saipos' ? 'Saipos' : 'Accon').join(' + ')}</td></tr>`).join('')}
+      <td>${[...l.fontes].map(f => f === 'saipos' ? 'Saipos' : 'Accon').join(' + ')}</td></tr>`; }).join('')}
   </table></div>
 
   <div class="section-label">Entrega e retirada</div>
+  <div class="caption-label" style="text-align:center;"><b>Clique numa linha para recortar a tela por entrega ou por retirada.</b></div>
   <div id="tabelaSiteCanais"><table>
     <tr><th>Como o cliente recebe</th><th>Pedidos</th><th>Parte dos pedidos</th><th>Faturamento</th><th>Ticket</th></tr>
-    ${porCanal.map(c => `<tr><td>${c.chave}</td><td>${num(c.pedidos)}</td>
-      <td>${pct(V.pedidos ? c.pedidos / V.pedidos * 100 : 0)}%</td>
-      <td>${reais(c.fat)}</td><td>${reais(c.pedidos ? c.fat / c.pedidos : 0)}</td></tr>`).join('')}
+    ${porCanal.map(c => { const sel = SITE_F.canal === c.chave;
+      return `<tr onclick="siteFiltrar('canal','${c.chave}')" style="cursor:pointer;${sel ? 'background:var(--brand-wine);' : ''}" title="${sel ? 'clique para soltar o recorte' : 'clique para ver só ' + c.chave}"><td>${sel ? '<b>' : ''}${c.chave}${sel ? '</b> ✕' : ''}</td><td>${num(c.pedidos)}</td>
+      <td>${pct(totPedCanal ? c.pedidos / totPedCanal * 100 : 0)}%</td>
+      <td>${reais(c.fat)}</td><td>${reais(c.pedidos ? c.fat / c.pedidos : 0)}</td></tr>`; }).join('')}
   </table></div>
 
   <div class="section-label">Cupons usados no período</div>
@@ -12584,6 +12908,39 @@ function mediaDe(valores) {
   return v.reduce((s, x) => s + x, 0) / v.length;
 }
 
+// RECORTE DA TELA DE ATRASOS (12/09/2026) — o padrao do modulo Evolucao trazido
+// para ca. As quebras (turno, dia da semana, entregador) eram recortes
+// independentes das MESMAS entregas: nao dava para perguntar "como esta o jantar
+// de sexta". Agora clicar fixa a dimensao e a tela inteira anda junto.
+// Regra do cross-filter: a dimensao que voce filtrou continua mostrando TODAS as
+// suas categorias (senao nao da para trocar de escolha); as outras se recortam.
+// A unidade NAO mora aqui de proposito: ela ja e o chip de cima, e dois controles
+// para a mesma coisa e o jeito mais rapido de ninguem confiar em nenhum dos dois.
+let ATRASOS_F = { turno: null, dow: null, entregador: null };
+function atrasosFiltrar(tipo, valor) {
+  ATRASOS_F[tipo] = (ATRASOS_F[tipo] === valor) ? null : valor;   // clicar de novo solta
+  renderModuloAtrasos();
+}
+// a matriz turno x dia da semana e o mapa: clicar numa celula fixa as duas de uma vez
+function atrasosMatriz(turno, dow) {
+  const jaEra = ATRASOS_F.turno === turno && ATRASOS_F.dow === dow;
+  ATRASOS_F.turno = jaEra ? null : turno;
+  ATRASOS_F.dow = jaEra ? null : dow;
+  renderModuloAtrasos();
+}
+// Nome de entregador tem acento, ponto e as vezes aspas: o clique vai por INDICE,
+// nunca como string dentro do atributo HTML — e exatamente ali que a fuga quebra
+// em silencio (mesma licao do filtro de item do modulo Evolucao).
+let ATRASOS_LISTA_ENT = [];
+function atrasosFiltrarEnt(i) {
+  const k = ATRASOS_LISTA_ENT[i];
+  if (k !== undefined) atrasosFiltrar('entregador', k);
+}
+function atrasosLimparFiltros() {
+  ATRASOS_F = { turno: null, dow: null, entregador: null };
+  renderModuloAtrasos();
+}
+
 function renderModuloAtrasos() {
   const alvo = document.getElementById('view-atrasos');
   if (!alvo || ATRASOS === null) return;
@@ -12595,6 +12952,19 @@ function renderModuloAtrasos() {
   if (ATRASOS_UNIDADE !== 'TODAS' && !base.some(r => r.unidade === ATRASOS_UNIDADE)) ATRASOS_UNIDADE = 'TODAS';
   const rows = base.filter(r => ATRASOS_UNIDADE === 'TODAS' || r.unidade === ATRASOS_UNIDADE);
   const chips = chipsUnidadeFoody(base, ATRASOS_UNIDADE, 'atrasosUnidade');
+  // A chave do entregador leva a unidade: com "Todas", um mesmo nome em duas lojas
+  // nao se mistura — e e esta chave que ATRASOS_F guarda.
+  const chaveEnt = (r) => r.unidade + '|' + (r.entregador || '(sem apontamento)');
+  // escolha que sumiu da janela ou da unidade cai sozinha, em vez de deixar a tela vazia
+  if (ATRASOS_F.turno && !rows.some(r => r.turno === ATRASOS_F.turno)) ATRASOS_F.turno = null;
+  if (ATRASOS_F.dow && !rows.some(r => r.dia_semana === ATRASOS_F.dow)) ATRASOS_F.dow = null;
+  if (ATRASOS_F.entregador && !rows.some(r => chaveEnt(r) === ATRASOS_F.entregador)) ATRASOS_F.entregador = null;
+  // Regra do cross-filter: quem passa 'ignora' esta desenhando a propria dimensao e
+  // por isso ve todas as categorias; o resto da tela ve o recorte inteiro.
+  const passaF = (r, ignora) => (ignora === 'turno' || !ATRASOS_F.turno || r.turno === ATRASOS_F.turno)
+    && (ignora === 'dow' || !ATRASOS_F.dow || r.dia_semana === ATRASOS_F.dow)
+    && (ignora === 'entregador' || !ATRASOS_F.entregador || chaveEnt(r) === ATRASOS_F.entregador);
+  const rowsF = rows.filter(r => passaF(r));
   const ddmm = (v) => v ? v.slice(8, 10) + '/' + v.slice(5, 7) : '—';
   if (!rows.length) {
     alvo.innerHTML = `<div class="contexto">Sem entregas do Foody entre ${ddmm(ATRASOS.ini)} e ${ddmm(ATRASOS.fim)} — confira se o importador (import_foody.py) já cobriu esse período.</div>`;
@@ -12629,11 +12999,13 @@ function renderModuloAtrasos() {
     };
   };
 
-  const geral = resumo(rows);
-  const semPronto = rows.filter(r => r.sem_pronto).length;
-  const prontoJunto = rows.filter(r => r.pronto_com_despacho).length;
-  const semPromessa = rows.filter(r => r.sem_promessa).length;
-  const semSentido = rows.filter(r =>
+  // cartoes e caixa de qualidade leem o RECORTE (rowsF): fixar sexta a noite tem de
+  // mudar o numero de cima, senao o clique mente sobre o que a tela esta mostrando
+  const geral = resumo(rowsF);
+  const semPronto = rowsF.filter(r => r.sem_pronto).length;
+  const prontoJunto = rowsF.filter(r => r.pronto_com_despacho).length;
+  const semPromessa = rowsF.filter(r => r.sem_promessa).length;
+  const semSentido = rowsF.filter(r =>
     (r.atraso_min !== null && !plausivel(r.atraso_min, FAIXA.atraso)) ||
     (r.rua_min !== null && !plausivel(r.rua_min, FAIXA.rua)) ||
     (r.preparo_min !== null && !plausivel(r.preparo_min, FAIXA.preparo)) ||
@@ -12647,7 +13019,9 @@ function renderModuloAtrasos() {
   });
   const DOW = { 1: 'segunda', 2: 'terça', 3: 'quarta', 4: 'quinta', 5: 'sexta', 6: 'sábado', 7: 'domingo' };
 
-  const linhaResumo = (rotulo, g, classe = '') => `<tr class="${classe}"><td>${rotulo}</td>
+  // 'attrs' entrou em 12/09/2026 para a linha virar clicavel sem duplicar as celulas:
+  // a mesma linha serve para a leitura e para o filtro.
+  const linhaResumo = (rotulo, g, classe = '', attrs = '') => `<tr class="${classe}"${attrs}><td>${rotulo}</td>
     <td>${g.n.toLocaleString('pt-BR')}</td>
     <td>${pctTxt(g.medidos - g.fora, g.medidos)}</td>
     <td>${g.fora.toLocaleString('pt-BR')}</td>
@@ -12659,26 +13033,76 @@ function renderModuloAtrasos() {
 
   // ranking de entregadores: minimo de 10 entregas no periodo para nao
   // crucificar ninguem por 2 pedidos ruins
+  // O ranking obedece ao recorte de turno e de dia (mas nao ao de entregador: essa
+  // dimensao e a desta tabela e tem de continuar inteira, senao nao da para trocar).
+  const rowsEnt = rows.filter(r => passaF(r, 'entregador'));
+  const geralEnt = resumo(rowsEnt);
   const porEntregador = {};
-  rows.forEach(r => {
+  rowsEnt.forEach(r => {
     // unidade na chave: com "Todas", um mesmo nome em duas lojas nao se mistura
-    const k = r.unidade + '|' + (r.entregador || '(sem apontamento)');
+    const k = chaveEnt(r);
     (porEntregador[k] = porEntregador[k] || []).push(r);
   });
   const multiUnidade = new Set(rows.map(r => r.unidade)).size > 1;
   const entregadores = Object.values(porEntregador)
     .filter(g => g.length >= 10)
     .map(g => ({ nome: (g[0].entregador || '(sem apontamento)') + (multiUnidade ? ' · ' + g[0].unidade : ''),
+                 chave: chaveEnt(g[0]),   // o que o recorte guarda; o rotulo e so texto
                  tipo: g[0].entregador_tipo || '—', g: resumo(g),
                  dist: mediaDe(g.map(r => r.dist_km)) }))
     .sort((a, b) => (b.g.medidos ? b.g.fora / b.g.medidos : 0) - (a.g.medidos ? a.g.fora / a.g.medidos : 0));
   const foraRanking = Object.values(porEntregador).filter(g => g.length < 10).length;
+
+  // ---------- matriz turno x dia da semana (12/09/2026) ----------
+  // "Sexta a noite atrasa?" so aparecia varrendo as duas tabelas de baixo e cruzando
+  // na cabeca: elas viviam lado a lado sem se encontrar. A celula e o % FORA DO PRAZO
+  // do cruzamento; com menos de 30 entregas fica em cinza, a mesma regra de "poucas
+  // entregas" do modulo Frete — o numero existe, mas oscila demais para decidir.
+  // O corte de 10% e o MESMO do cartao "Dentro do prazo" la em cima (90% dentro):
+  // numero de corte escrito duas vezes com valores diferentes e como a tela se
+  // contradiz sozinha. A matriz NAO se recorta por turno nem por dia — e dela que
+  // se troca de escolha.
+  const POUCAS_ATR = 30;
+  const baseMat = rows.filter(r => passaF(r, 'turno') && passaF(r, 'dow'));
+  const turnosMat = turnos.filter(t => t !== null);
+  const dowsMat = [1, 2, 3, 4, 5, 6, 7].filter(d => rows.some(r => r.dia_semana === d));
+  const celTxt = (g) => {
+    const p = g.medidos ? g.fora / g.medidos * 100 : null;
+    const cor = (p === null || g.n < POUCAS_ATR) ? 'var(--tx-3)'
+      : p > 10 ? 'var(--farol-fora)' : 'var(--farol-ok)';
+    return `<span style="color:${cor}; font-weight:600;">${p === null ? '—' : n1(p) + '%'}</span><span class="dre-av">${g.n.toLocaleString('pt-BR')} entregas</span>`;
+  };
+  const celulaMat = (t, d) => {
+    const g = resumo(baseMat.filter(r => r.turno === t && r.dia_semana === d));
+    const sel = ATRASOS_F.turno === t && ATRASOS_F.dow === d;
+    const tit = sel ? 'clique para soltar o recorte'
+      : 'clique para ver só ' + DOW[d] + ' no ' + String(t).toLowerCase()
+        + ' · ' + g.fora + ' de ' + g.medidos + ' entregas medidas fora do prazo';
+    const clic = g.n ? ` onclick="atrasosMatriz('${t}',${d})" style="cursor:pointer;${sel ? 'background:var(--brand-wine);' : ''}" title="${tit}"` : '';
+    return `<td${clic}>${celTxt(g)}</td>`;
+  };
+  // Clique na LINHA das quebras: mesma ideia da celula, uma dimensao de cada vez.
+  const linhaClic = (rotulo, g, tipo, valor) => {
+    const sel = ATRASOS_F[tipo] === valor;
+    const arg = tipo === 'dow' ? String(valor) : `'${valor}'`;
+    const attrs = ` onclick="atrasosFiltrar('${tipo}',${arg})" style="cursor:pointer;${sel ? 'background:var(--brand-wine);' : ''}" title="${sel ? 'clique para soltar o recorte' : 'clique para filtrar a tela por ' + rotulo}"`;
+    return linhaResumo(`${sel ? '<b>' : ''}${rotulo}${sel ? '</b> ✕' : ''}`, g, '', attrs);
+  };
 
   alvo.innerHTML = `
   <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Atrasos e turnos — entregas próprias${ATRASOS_UNIDADE !== 'TODAS' ? ' · ' + ATRASOS_UNIDADE : ''}, ${ddmm(ATRASOS.ini)} a ${ddmm(ATRASOS.fim)}</div>
   ${chips}
   ${foodyCobertura(ATRASOS.rows)}
   <div class="contexto" style="border-color:#f5a623;" title="O prazo usado aqui é o horário prometido ao cliente no iFood, não o prazo padrão de 60 min do Foody. Os tempos são apontados por pessoas: veja a caixa Qualidade do apontamento, no fim da tela, antes de tirar conclusão fina.">Fonte: Foody Delivery (logística própria). ${PERIMETRO === 'rede' ? 'Visão Rede completa — <b>inclui Boqueirão, que é gestão separada</b> e tem tabela de corrida e fretes próprios.' : 'Visão Minha gestão — <b>Boqueirão (gestão separada) fica fora</b>; para vê-lo, troque para Rede completa lá em cima.'}</div>
+
+  ${(ATRASOS_F.turno || ATRASOS_F.dow || ATRASOS_F.entregador) ? `<div class="contexto" style="border-color:var(--brand);">
+    <b>Filtrando:</b>
+    ${ATRASOS_F.turno ? `<button class="preset-btn active" onclick="atrasosFiltrar('turno','${ATRASOS_F.turno}')">turno ${ATRASOS_F.turno} ✕</button>` : ''}
+    ${ATRASOS_F.dow ? `<button class="preset-btn active" onclick="atrasosFiltrar('dow',${ATRASOS_F.dow})">${DOW[ATRASOS_F.dow]} ✕</button>` : ''}
+    ${ATRASOS_F.entregador ? `<button class="preset-btn active" onclick="atrasosFiltrar('entregador',null)">entregador ${ATRASOS_F.entregador.split('|')[1]} ✕</button>` : ''}
+    <button class="preset-btn" onclick="atrasosLimparFiltros()">limpar</button>
+    <div style="font-size:12px; color:var(--tx-3); margin-top:6px;">Os cartões, as tabelas e a caixa de qualidade estão neste recorte. A matriz não se recorta por turno nem por dia, e a dimensão que você fixou continua mostrando todas as suas opções — é por elas que se troca de escolha.</div>
+  </div>` : ''}
 
   <div class="cards">
     <div class="card"><div class="card-lbl">Entregas no período</div><div class="card-val">${geral.n.toLocaleString('pt-BR')}</div><div class="card-pct">${geral.medidos.toLocaleString('pt-BR')} têm horário prometido para comparar</div></div>
@@ -12688,32 +13112,44 @@ function renderModuloAtrasos() {
   </div>
   <div class="caption-label" style="text-align:center;">Prazo = o horário prometido ao cliente no iFood, com 5 minutos de tolerância. "Atraso médio" conta só as entregas que saíram do prazo; preparo, bancada e rua são tempos médios de todas.</div>
 
+  <div class="section-label">Onde o atraso acontece — turno por dia da semana</div>
+  <div class="caption-label" style="text-align:center;" title="A célula é a parte das entregas MEDIDAS (as que têm horário prometido) que chegou fora do prazo; embaixo vai quantas entregas o cruzamento teve. Acima de 10% fora do prazo é o mesmo corte do cartão Dentro do prazo, lá em cima. Menos de 30 entregas fica em cinza: o número existe, mas oscila demais para decidir em cima dele.">Quanto de cada cruzamento saiu do prazo. <b>Clique numa célula para fixar o turno e o dia de uma vez.</b></div>
+  <div id="tabelaAtrasosMatriz"><table>
+    <tr><th>Turno</th>${dowsMat.map(d => `<th>${DOW[d]}</th>`).join('')}<th>Todos os dias</th></tr>
+    ${turnosMat.map(t => `<tr><td>${t}</td>${dowsMat.map(d => celulaMat(t, d)).join('')}<td>${celTxt(resumo(baseMat.filter(r => r.turno === t)))}</td></tr>`).join('')}
+    <tr class="liq"><td>TODOS OS TURNOS</td>${dowsMat.map(d => `<td>${celTxt(resumo(baseMat.filter(r => r.dia_semana === d)))}</td>`).join('')}<td>${celTxt(resumo(baseMat))}</td></tr>
+  </table></div>
+
   <div class="section-label">Por turno (turnos do iFood: almoço 10h–14h · café 15h–16h · jantar 17h–23h · madrugada 0h–1h)</div>
   <div id="tabelaAtrasosTurno"><table>
     ${cabecalho}
-    ${turnos.map(t => linhaResumo(t === null ? '— (fora das faixas)' : t, resumo(rows.filter(r => r.turno === t)))).join('')}
-    ${linhaResumo('TOTAL', geral, 'liq')}
+    ${turnos.map(t => t === null
+      ? linhaResumo('— (fora das faixas)', resumo(rows.filter(r => r.turno === null && passaF(r, 'turno'))))
+      : linhaClic(t, resumo(rows.filter(r => r.turno === t && passaF(r, 'turno'))), 'turno', t)).join('')}
+    ${linhaResumo('TOTAL', resumo(rows.filter(r => passaF(r, 'turno'))), 'liq')}
   </table></div>
 
   <div class="section-label">Por dia da semana</div>
   <div id="tabelaAtrasosDow"><table>
     ${cabecalho}
-    ${[1, 2, 3, 4, 5, 6, 7].map(d => {
-      const g = rows.filter(r => r.dia_semana === d);
-      return g.length ? linhaResumo(DOW[d], resumo(g)) : '';
-    }).join('')}
-    ${linhaResumo('TOTAL', geral, 'liq')}
+    ${[1, 2, 3, 4, 5, 6, 7].map(d => rows.some(r => r.dia_semana === d)
+      ? linhaClic(DOW[d], resumo(rows.filter(r => r.dia_semana === d && passaF(r, 'dow'))), 'dow', d)
+      : '').join('')}
+    ${linhaResumo('TOTAL', resumo(rows.filter(r => passaF(r, 'dow'))), 'liq')}
   </table></div>
 
   <div class="section-label">Por entregador — piores primeiro (mínimo 10 entregas no período)</div>
+  <div class="caption-label" style="text-align:center;"><b>Clique numa linha para deixar a tela inteira falando daquele entregador.</b></div>
   <div id="tabelaAtrasosEntregador"><table>
     <tr><th>Entregador</th><th>Tipo</th><th>Entregas</th><th>Dentro do prazo</th><th>Fora do prazo</th><th>Atraso médio</th><th>Rua</th><th>Distância média</th></tr>
-    ${entregadores.map(e => `<tr><td>${e.nome}</td><td>${e.tipo === 'internal' ? 'próprio' : e.tipo === 'external' ? 'externo' : e.tipo}</td>
-      <td>${e.g.n}</td><td>${pctTxt(e.g.medidos - e.g.fora, e.g.medidos)}</td><td>${e.g.fora}</td><td>${e.g.atrasoMedio === null ? '—' : n1(e.g.atrasoMedio) + ' min'}</td><td>${n1(e.g.rua)} min</td><td>${n1(e.dist)} km</td></tr>`).join('')}
+    ${(() => { ATRASOS_LISTA_ENT = entregadores.map(e => e.chave);
+      return entregadores.map((e, i) => { const sel = ATRASOS_F.entregador === e.chave;
+      return `<tr onclick="atrasosFiltrarEnt(${i})" style="cursor:pointer;${sel ? 'background:var(--brand-wine);' : ''}" title="${sel ? 'clique para soltar o recorte' : 'clique para filtrar a tela por este entregador'}"><td>${sel ? '<b>' : ''}${e.nome}${sel ? '</b> ✕' : ''}</td><td>${e.tipo === 'internal' ? 'próprio' : e.tipo === 'external' ? 'externo' : e.tipo}</td>
+      <td>${e.g.n}</td><td>${pctTxt(e.g.medidos - e.g.fora, e.g.medidos)}</td><td>${e.g.fora}</td><td>${e.g.atrasoMedio === null ? '—' : n1(e.g.atrasoMedio) + ' min'}</td><td>${n1(e.g.rua)} min</td><td>${n1(e.dist)} km</td></tr>`; }).join(''); })()}
     <tr class="liq"><td>TODAS AS ENTREGAS</td><td>—</td>
-      <td>${geral.n.toLocaleString('pt-BR')}</td><td>${pctTxt(geral.medidos - geral.fora, geral.medidos)}</td><td>${geral.fora.toLocaleString('pt-BR')}</td>
-      <td>${geral.atrasoMedio === null ? '—' : n1(geral.atrasoMedio) + ' min'}</td><td>${n1(geral.rua)} min</td>
-      <td>${n1(mediaDe(rows.map(r => r.dist_km)))} km</td></tr>
+      <td>${geralEnt.n.toLocaleString('pt-BR')}</td><td>${pctTxt(geralEnt.medidos - geralEnt.fora, geralEnt.medidos)}</td><td>${geralEnt.fora.toLocaleString('pt-BR')}</td>
+      <td>${geralEnt.atrasoMedio === null ? '—' : n1(geralEnt.atrasoMedio) + ' min'}</td><td>${n1(geralEnt.rua)} min</td>
+      <td>${n1(mediaDe(rowsEnt.map(r => r.dist_km)))} km</td></tr>
   </table></div>
   ${foraRanking ? `<div class="caption-label" style="text-align:center;">${foraRanking} entregador(es) com menos de 10 entregas no período ficaram fora do ranking.</div>` : ''}
 
@@ -12761,20 +13197,67 @@ let LOGFIN_DIARIA = 50;   // diaria por turno de escala — padrao R$50, editave
 let LOGFIN_SIM = {};      // taxa nova por taxa atual, editada na tela
 let LOGFIN_TAXAS_TELA = {}; // ultimo valor mostrado de cada taxa (p/ congelar)
 
+// SIMULACAO QUE NAO REFAZ A TELA (12/09/2026). Cada digitacao chamava
+// renderModuloLogfin(), e o innerHTML novo destruia o campo seguinte ANTES de o Tab
+// chegar nele: com 6 taxas para editar, a unica ferramenta de decisao desta tela so
+// andava com o mouse. Agora o change recalcula e reescreve SO as celulas calculadas
+// e os tres cards — nenhum <input> e tocado, entao o foco continua andando.
+// LOGFIN_SIM_BASE guarda o que o recalculo precisa; o resto da tela nao muda mesmo
+// (taxa e diaria nao mexem em entregas, turnos, abate nem custo de hoje).
+let LOGFIN_SIM_BASE = null;
+function logfinSimCalc() {
+  const b = LOGFIN_SIM_BASE;
+  if (!b) return null;
+  const simDiarias = LOGFIN_DIARIA * b.turnosReais;
+  const linhas = b.taxasTabela.map(t => {
+    const nova = LOGFIN_SIM[t.chave] !== undefined ? LOGFIN_SIM[t.chave] : t.nova;
+    return { chave: t.chave, n: t.n, abate3: t.abate3, nova, total: nova * t.n };
+  });
+  const simCustoNovo = simDiarias + linhas.reduce((s, l) => s + l.total, 0) + b.outrosSoma;
+  return { simDiarias, linhas, simCustoNovo,
+    simDelta: simCustoNovo - b.custoTotal,
+    turnoHoje: b.turnosReais ? b.custoTotal / b.turnosReais : 0,
+    turnoNovo: b.turnosReais ? simCustoNovo / b.turnosReais : 0 };
+}
+// Os tres cards moram numa funcao so: a primeira pintura e o recalculo leem o mesmo
+// texto, entao nao ha como um discordar do outro depois de umas edicoes.
+function logfinSimCardsHTML() {
+  const b = LOGFIN_SIM_BASE, s = logfinSimCalc();
+  if (!b || !s) return '';
+  return `
+    <div class="card ${s.simDelta > 0 ? 'neg' : 'pos'}"><div class="card-lbl">Custo simulado vs atual</div><div class="card-val">${s.simDelta >= 0 ? '+' : '−'} R$ ${fmt(Math.abs(s.simDelta))}</div><div class="card-pct">no período (custo atual R$ ${fmt(b.custoTotal)} → simulado R$ ${fmt(s.simCustoNovo)})${b.dias ? ' · em 30 dias, ≈ R$ ' + fmt(Math.abs(s.simDelta) / b.dias * 30) + (s.simDelta >= 0 ? ' a mais' : ' a menos') : ''} · líquido do frete acima de 3 km: R$ ${fmt(b.custoLiquido)} → R$ ${fmt(s.simCustoNovo - b.abate)}</div></div>
+    <div class="card neutral"><div class="card-lbl">Turno médio do motoboy</div><div class="card-val">R$ ${fmt(s.turnoNovo)}</div><div class="card-pct">hoje o turno médio paga R$ ${fmt(s.turnoHoje)} (diária + corridas do turno)</div></div>
+    <div class="card neutral"><div class="card-lbl">Mês cheio 6x1</div><div class="card-val">R$ ${fmt(s.turnoNovo * 26)}</div><div class="card-pct">26 turnos no ritmo médio · hoje seria R$ ${fmt(s.turnoHoje * 26)}</div></div>`;
+}
+function logfinAtualizarSim() {
+  const b = LOGFIN_SIM_BASE, s = logfinSimCalc();
+  if (!b || !s) { renderModuloLogfin(); return; }   // sem base, o caminho antigo
+  const escreve = (id, html) => { const el = document.getElementById(id); if (el) el.innerHTML = html; };
+  s.linhas.forEach((l, i) => {
+    escreve('lgsimNova' + i, 'R$ ' + fmt(l.total));
+    escreve('lgsimLiq' + i, `<b>${l.total - l.abate3 < 0 ? 'sobra R$ ' + fmt(l.abate3 - l.total) : 'R$ ' + fmt(l.total - l.abate3)}</b>`);
+  });
+  escreve('lgsimDiariasN', 'R$ ' + fmt(s.simDiarias));
+  escreve('lgsimDiariasLiq', 'R$ ' + fmt(s.simDiarias));
+  escreve('lgsimTotN', 'R$ ' + fmt(s.simCustoNovo));
+  escreve('lgsimTotLiq', `<b>R$ ${fmt(s.simCustoNovo - b.abate)}</b>`);
+  escreve('lgsimCards', logfinSimCardsHTML());
+}
 function logfinTaxa(atual, v) {
   const num = Number(String(v).replace(',', '.'));
   if (!isNaN(num) && num >= 0) LOGFIN_SIM[atual] = num;
-  renderModuloLogfin();
+  logfinAtualizarSim();
 }
 function logfinDiaria(v) {
   const num = Number(String(v).replace(',', '.'));
   if (isNaN(num) || num < 0) return;
   // congela as taxas que estao na tela: mexer na diaria deve mexer SO na
   // linha das diarias (senao o proporcional recalcula por baixo e o total
-  // quase nao se move — confuso de conferir)
+  // quase nao se move — confuso de conferir). E e o que deixa os <input> de
+  // taxa intocados no recalculo: o valor deles nao muda mais sozinho.
   Object.entries(LOGFIN_TAXAS_TELA).forEach(([k, t]) => { if (LOGFIN_SIM[k] === undefined) LOGFIN_SIM[k] = t; });
   LOGFIN_DIARIA = num;
-  renderModuloLogfin();
+  logfinAtualizarSim();
 }
 function logfinSimReset() { LOGFIN_SIM = {}; LOGFIN_DIARIA = 50; renderModuloLogfin(); }
 
@@ -12963,10 +13446,10 @@ function renderModuloLogfin() {
   });
   const simCorridas = taxasTabela.reduce((s, t) => s + t.nova * t.n, 0) + outrosSoma;
   const simCustoNovo = simDiarias + simCorridas;
-  const simDelta = simCustoNovo - custoTotal;
-  // atratividade: o que o turno medio passa a pagar ao motoboy
-  const turnoHoje = turnosReais ? custoTotal / turnosReais : 0;
-  const turnoNovo = turnosReais ? simCustoNovo / turnosReais : 0;
+  // Base do recalculo sem refazer a tela. O delta e os dois "turno medio" saiam
+  // daqui e agora saem de logfinSimCalc(), para a primeira pintura e cada edicao
+  // lerem exatamente a mesma conta.
+  LOGFIN_SIM_BASE = { taxasTabela, outrosSoma, turnosReais, custoTotal, custoLiquido, abate, dias };
 
   alvo.innerHTML = `
   <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Financeiro da logística — entregas próprias${LOGFIN_UNIDADE !== 'TODAS' ? ' · ' + LOGFIN_UNIDADE : ''}, ${ddmm(LOGFIN.ini)} a ${ddmm(LOGFIN.fim)}</div>
@@ -13025,22 +13508,18 @@ function renderModuloLogfin() {
   <button class="preset-btn" onclick="logfinSimReset()" style="margin-left:8px;">voltar ao padrão (diária 50 + proporcional)</button></div>
   <div id="tabelaLogfinSim"><table>
     <tr><th>Taxa de hoje</th><th>Corridas no período</th><th>Taxa nova</th><th>Corridas com a nova</th><th>Frete do cliente abate (&gt;3 km)</th><th>Custo líquido da faixa</th></tr>
-    ${taxasTabela.map(t => `<tr><td>R$ ${fmt(t.v)}</td><td>${t.n.toLocaleString('pt-BR')}</td>
+    ${taxasTabela.map((t, i) => `<tr><td>R$ ${fmt(t.v)}</td><td>${t.n.toLocaleString('pt-BR')}</td>
       <td>R$ <input type="number" value="${t.nova.toFixed(2)}" min="0" step="0.25" style="width:75px; font-size:14px;" onchange="logfinTaxa('${t.chave}', this.value)"></td>
-      <td>R$ ${fmt(t.nova * t.n)}</td>
+      <td id="lgsimNova${i}">R$ ${fmt(t.nova * t.n)}</td>
       <td>${t.abate3 > 0 ? '− R$ ' + fmt(t.abate3) : '—'}</td>
-      <td><b>${t.nova * t.n - t.abate3 < 0 ? 'sobra R$ ' + fmt(t.abate3 - t.nova * t.n) : 'R$ ' + fmt(t.nova * t.n - t.abate3)}</b></td></tr>`).join('')}
+      <td id="lgsimLiq${i}"><b>${t.nova * t.n - t.abate3 < 0 ? 'sobra R$ ' + fmt(t.abate3 - t.nova * t.n) : 'R$ ' + fmt(t.nova * t.n - t.abate3)}</b></td></tr>`).join('')}
     ${outrosN ? `<tr><td>outros valores</td><td>${outrosN.toLocaleString('pt-BR')}</td><td>como estão</td><td>R$ ${fmt(outrosSoma)}</td><td>${outrosAbate > 0 ? '− R$ ' + fmt(outrosAbate) : '—'}</td><td>${outrosSoma - outrosAbate < 0 ? 'sobra R$ ' + fmt(outrosAbate - outrosSoma) : 'R$ ' + fmt(outrosSoma - outrosAbate)}</td></tr>` : ''}
     <tr><td><b>Diárias</b></td><td>${turnosReais.toLocaleString('pt-BR')} turnos</td>
       <td>R$ <input type="number" value="${LOGFIN_DIARIA.toFixed(2)}" min="0" step="5" style="width:75px; font-size:14px;" onchange="logfinDiaria(this.value)"></td>
-      <td>R$ ${fmt(simDiarias)}</td><td>—</td><td>R$ ${fmt(simDiarias)}</td></tr>
-    <tr class="liq"><td><b>Total simulado</b></td><td>${entregas.toLocaleString('pt-BR')}</td><td>diárias + corridas</td><td>R$ ${fmt(simCustoNovo)}</td><td>${abate > 0 ? '− R$ ' + fmt(abate) : '—'}</td><td><b>R$ ${fmt(simCustoNovo - abate)}</b></td></tr>
+      <td id="lgsimDiariasN">R$ ${fmt(simDiarias)}</td><td>—</td><td id="lgsimDiariasLiq">R$ ${fmt(simDiarias)}</td></tr>
+    <tr class="liq"><td><b>Total simulado</b></td><td>${entregas.toLocaleString('pt-BR')}</td><td>diárias + corridas</td><td id="lgsimTotN">R$ ${fmt(simCustoNovo)}</td><td>${abate > 0 ? '− R$ ' + fmt(abate) : '—'}</td><td id="lgsimTotLiq"><b>R$ ${fmt(simCustoNovo - abate)}</b></td></tr>
   </table></div>
-  <div class="cards">
-    <div class="card ${simDelta > 0 ? 'neg' : 'pos'}"><div class="card-lbl">Custo simulado vs atual</div><div class="card-val">${simDelta >= 0 ? '+' : '−'} R$ ${fmt(Math.abs(simDelta))}</div><div class="card-pct">no período (custo atual R$ ${fmt(custoTotal)} → simulado R$ ${fmt(simCustoNovo)})${dias ? ' · em 30 dias, ≈ R$ ' + fmt(Math.abs(simDelta) / dias * 30) + (simDelta >= 0 ? ' a mais' : ' a menos') : ''} · líquido do frete acima de 3 km: R$ ${fmt(custoLiquido)} → R$ ${fmt(simCustoNovo - abate)}</div></div>
-    <div class="card neutral"><div class="card-lbl">Turno médio do motoboy</div><div class="card-val">R$ ${fmt(turnoNovo)}</div><div class="card-pct">hoje o turno médio paga R$ ${fmt(turnoHoje)} (diária + corridas do turno)</div></div>
-    <div class="card neutral"><div class="card-lbl">Mês cheio 6x1</div><div class="card-val">R$ ${fmt(turnoNovo * 26)}</div><div class="card-pct">26 turnos no ritmo médio · hoje seria R$ ${fmt(turnoHoje * 26)}</div></div>
-  </div>
+  <div class="cards" id="lgsimCards">${logfinSimCardsHTML()}</div>
   <div class="caption-label" style="text-align:center;">A diária substitui o garantido por hora — manter os dois seria pagar a garantia duas vezes. O "turno médio" reparte todo o custo simulado pelos ${turnosReais} turnos do período; turno forte paga mais, fraco paga menos.</div>
 
   <div class="section-label">Qualidade do apontamento — o quanto dá pra confiar nessa conta</div>
@@ -13199,6 +13678,22 @@ async function entrarQualidade() {
   renderModuloQualidade();
 }
 
+// A SERIE DA LOJA (12/09/2026). A tela mostrava so' semana atual x anterior, e o
+// resto do dado ja estava carregado: a consulta traz TODOS os periodos
+// (order=periodo_ini.desc) e renderModuloQualidade usava dois. Clicar na linha abre
+// as 8 ultimas semanas daquela loja — nivel e os quatro criterios — que e' o que
+// separa tropeco de tendencia. Mecanismo do modulo Evolucao: clicar de novo solta.
+// O nome vai por INDICE, nunca como string dentro do onclick.
+let QUAL_LOJA = null;
+let QUAL_LISTA = [];
+function qualAbrirLoja(i) {
+  const nome = QUAL_LISTA[i];
+  if (!nome) return;
+  QUAL_LOJA = (QUAL_LOJA === nome) ? null : nome;
+  renderModuloQualidade();
+}
+function qualFecharLoja() { QUAL_LOJA = null; renderModuloQualidade(); }
+
 function renderModuloQualidade() {
   const alvo = document.getElementById('view-qualidade');
   const activeL = activeLojas();
@@ -13264,6 +13759,39 @@ function renderModuloQualidade() {
     rankNivel(a.nivel_super) - rankNivel(b.nivel_super) ||
     (Number(b.pct_atrasados_5min) || 0) - (Number(a.pct_atrasados_5min) || 0));
 
+  // AS 8 ULTIMAS SEMANAS DA LOJA ESCOLHIDA. Nenhuma consulta nova e nenhuma conta
+  // nova: sai de `rows`, a mesma lista da tabela de cima, que ja respeita o filtro
+  // de unidade do topo. Loja que saiu do recorte (mudou o filtro) solta sozinha,
+  // em vez de abrir um bloco vazio.
+  QUAL_LISTA = ordenado.map(r => r.nome_loja);
+  if (QUAL_LOJA && !QUAL_LISTA.includes(QUAL_LOJA)) QUAL_LOJA = null;
+  let blocoSerie = '';
+  if (QUAL_LOJA) {
+    const serie = rows.filter(r => r.nome_loja === QUAL_LOJA)
+      .sort((x, y) => String(y.periodo_ini || '').localeCompare(String(x.periodo_ini || '')))
+      .slice(0, 8);
+    const corNivel = (n) => rankNivel(n) >= 5 ? 'var(--farol-ok)' : rankNivel(n) === 4 ? 'var(--tx-2)' : 'var(--farol-fora)';
+    blocoSerie = `
+  <div class="section-label">${QUAL_LOJA} — as últimas ${serie.length} semanas</div>
+  <div class="contexto" style="border-color:var(--brand);">
+    <b>Abrindo ${QUAL_LOJA}</b> — nível e os quatro critérios, semana a semana.
+    <button class="preset-btn active" onclick="qualFecharLoja()">${QUAL_LOJA} ✕</button>
+    <div style="font-size:12px; color:var(--tx-3); margin-top:6px;" title="Mesma fonte da tabela acima (relatório semanal de qualidade da rede) e mesmo recorte de unidades do topo. Uma semana ruim no meio de semanas boas é tropeço; três em fila é tendência.">
+      Da semana mais recente para a mais antiga.
+    </div>
+  </div>
+  <div id="tabelaQualidadeSerie"><table>
+    <tr><th>Semana</th><th>Nível</th><th>% atraso +5min</th><th>Atraso médio</th><th>% canc. Super</th><th>Nota</th><th>% resp. negoc.</th></tr>
+    ${serie.map(r => `<tr><td>${ddmm(r.periodo_ini)} a ${ddmm(r.periodo_fim)}</td>
+      <td style="color:${corNivel(r.nivel_super)}; font-weight:bold;">${r.nivel_super}</td>
+      <td>${num(r.pct_atrasados_5min)}%</td>
+      <td>${num(r.tempo_medio_atraso_min, 0)} min</td>
+      <td>${num(r.pct_cancelamentos_super, 2)}%</td>
+      <td>${num(r.media_avaliacoes, 2)}${r.qtd_avaliacoes ? ' <span style="color:var(--tx-5); font-size:10px;">(' + r.qtd_avaliacoes + ')</span>' : ''}</td>
+      <td>${num(r.pct_respostas_negociacoes)}%</td></tr>`).join('')}
+  </table></div>`;
+  }
+
   alvo.innerHTML = `
   <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Qualidade &amp; Super — semana ${ddmm(atualIni)}${antIni ? ' (vs ' + ddmm(antIni) + ')' : ''}</div>
   <div class="caption-label" style="text-align:center;">O nível Super afeta visibilidade e condições no iFood. Fonte: relatório semanal de qualidade da rede.</div>
@@ -13279,12 +13807,14 @@ function renderModuloQualidade() {
   <div class="section-label">Loja a loja — piores primeiro</div>
   <div id="tabelaQualidade"><table>
     <tr><th>Loja</th><th>Nível</th><th>vs ant.</th><th>% atraso +5min</th><th>Atraso médio</th><th>% canc. Super</th><th title="Vem do relatório semanal de qualidade do iFood e vale só para a semana fechada mostrada no título — por isso não bate com o módulo Avaliações, que conta avaliação por avaliação no período escolhido no topo.">Nota</th><th>% resp. negoc.</th></tr>
-    ${ordenado.map(r => {
+    ${ordenado.map((r, iL) => {
+      const sel = QUAL_LOJA === r.nome_loja;
       const a = antPor[r.nome_loja];
       const d = a ? rankNivel(r.nivel_super) - rankNivel(a.nivel_super) : null;
       const seta = d === null ? '—' : d > 0 ? '<span style="color:#3fb950;">▲ subiu</span>' : d < 0 ? '<span style="color:#ff6b6b;">▼ caiu</span>' : '=';
       const nivelCor = rankNivel(r.nivel_super) >= 5 ? '#3fb950' : rankNivel(r.nivel_super) === 4 ? '#c3c2b7' : '#ff6b6b';
-      return `<tr><td>${r.nome_loja}</td>
+      return `<tr onclick="qualAbrirLoja(${iL})" style="cursor:pointer;${sel ? 'background:var(--brand-wine);' : ''}" title="${sel ? 'A série desta loja está aberta logo abaixo — clique para fechar.' : 'Clique para ver as 8 últimas semanas desta loja.'}">
+        <td>${sel ? '<b>' : ''}${r.nome_loja}${sel ? '</b> ✕' : ''}</td>
         <td style="color:${nivelCor}; font-weight:bold;">${r.nivel_super}</td>
         <td>${seta}</td>
         <td>${num(r.pct_atrasados_5min)}%</td>
@@ -13294,6 +13824,8 @@ function renderModuloQualidade() {
         <td>${num(r.pct_respostas_negociacoes)}%</td></tr>`;
     }).join('')}
   </table></div>
+  <div class="caption-label" style="text-align:center;" title="A linha da loja abre a série dela logo abaixo; clicar de novo fecha.">Clique numa loja para ver as 8 últimas semanas dela.</div>
+  ${blocoSerie}
   <div class="caption-label" style="text-align:center;">Atualiza quando o relatório semanal de qualidade é importado — a rotina automática dele ainda está na fila (hoje o download é manual, quebra SEMANA).</div>`;
 }
 
@@ -13588,6 +14120,22 @@ async function entrarIndicadores() {
   const atual = computeKpisSemana(sem.ini, sem.fim);
   const anterior = computeKpisSemana(iso(antIni), iso(antFim));
 
+  // AS 8 SEMANAS DE CADA KPI (12/09/2026). Com um ponto e uma comparacao nao da
+  // para separar "ruim desde sempre" de "estragou esta semana", e sao dois
+  // problemas diferentes. Nao entra consulta nova: computeKpisSemana le ROWS,
+  // NEGOCIACOES e AVALIACOES, que ja estao na memoria — sao 8 execucoes das mesmas
+  // contas. Semanas fechadas seg-dom, da mais antiga para a mais recente; a ultima
+  // e' a mesma semana do placar acima.
+  const N_SEMANAS_SPARK = 8;
+  const semanasSpark = [];
+  for (let k = N_SEMANAS_SPARK - 1; k >= 0; k--) {
+    const f = new Date(sem.fim + 'T00:00:00'); f.setDate(f.getDate() - 7 * k);
+    const i = new Date(f); i.setDate(i.getDate() - 6);
+    semanasSpark.push({ ini: iso(i), fim: iso(f) });
+  }
+  const serieSpark = semanasSpark.map(s => computeKpisSemana(s.ini, s.fim));
+  const rotSpark = semanasSpark.map(s => formatarDataCurta(s.ini));
+
   // 12/09/2026: o aviso disparava SEMPRE. Ele comparava com as 17 lojas da rede,
   // e a visao padrao ("Minha gestao") mostra 13 — entao abrir a tela ja acendia
   // o alerta vermelho sem ninguem ter filtrado nada. Agora a base de comparacao
@@ -13661,6 +14209,13 @@ async function entrarIndicadores() {
         varTxt = `<span style="color:#8a897e;">· vs sem. anterior: ${palavra}${palavra !== 'estável' ? ' ' + pct(Math.abs(d)) + '%' : ''}</span>`;
       }
       const gap = gapDe[k.chave] ? `<div style="font-size:12px; color:#a5a49a; margin-top:4px;">${gapDe[k.chave]}</div>` : '';
+      // Semana sem dado NAO vira zero — zero desenharia um tombo que nao houve.
+      // Sem as 8 semanas inteiras o indicador fica so' com o numero, sem linha.
+      const vals = serieSpark.map(s => s[k.chave]);
+      const temSerie = vals.every(x => x !== null && x !== undefined && isFinite(x));
+      const spark = temSerie
+        ? `<div style="max-width:340px;" title="As ${N_SEMANAS_SPARK} últimas semanas fechadas (segunda a domingo), da mais antiga à mais recente. O último ponto é a semana do placar. Mesma conta do número acima, semana a semana.">${fxSpark(vals, rotSpark, x => fmtKpi(k.unidade, x))}</div>`
+        : '';
       return `
       <div class="contexto" style="text-align:left; display:flex; gap:14px; align-items:flex-start;">
         <div style="width:14px; height:14px; border-radius:50%; background:${cor}; flex-shrink:0; margin-top:3px;" title="${rotulo}"></div>
@@ -13670,6 +14225,7 @@ async function entrarIndicadores() {
           <span style="color:#a5a49a;">/ meta ${fmtMeta(k)}</span>
           <span style="color:${cor}; font-weight:bold;">· ${rotulo}</span> ${varTxt}
           ${gap}
+          ${spark}
           <div style="font-size:11px; color:#8a897e; margin-top:3px;">${k.descricao || ''}</div>
           ${acaoLinha(k.chave)}
         </div>
@@ -13689,7 +14245,7 @@ async function entrarIndicadores() {
   <div class="contexto" style="text-align:left;">
     <b>Placar da semana ${formatarDataCurta(sem.ini)} – ${formatarDataCurta(sem.fim)}</b>
     (última semana completa seg–dom) · <b style="color:${naMeta >= 6 ? '#3fb950' : naMeta >= 4 ? '#f5a623' : '#ff6b6b'}">${naMeta} de ${METAS_KPI.length} metas atingidas</b><br>
-    <span style="font-size:12px; color:#a5a49a;">As metas moram no banco (tabela metas_kpi) — o resumo de segunda-feira analisa como fechar cada gap.
+    <span style="font-size:12px; color:#a5a49a;" title="A linha embaixo de cada indicador são as ${N_SEMANAS_SPARK} últimas semanas fechadas, da mais antiga à mais recente; o último ponto é esta semana. Indicador sem as 8 semanas completas aparece só com o número, sem linha.">As metas moram no banco (tabela metas_kpi) — o resumo de segunda-feira analisa como fechar cada gap. A linha em cada indicador são as ${N_SEMANAS_SPARK} últimas semanas.
     Líquido/margem dependem da conciliação da semana estar completa no iFood.</span>
   </div>
   ${aviso}
@@ -13865,6 +14421,18 @@ const FX_SUBT_PDV = ['RECEITAS CARTAO', 'RECEITAS ONLINE', 'RECEITAS DINHEIRO', 
 const FX_GRUPOS = { CUSTO: ['MATERIA PRIMA', 'USO E CONSUMO'], PESSOAL: ['PESSOAL', 'PRO LABORE'],
   VENDA: ['DESPESAS COMERCIAIS', 'DESPESAS LOGISTICA', 'DESPESAS MARKETING'],
   ADMIN: ['DESPESAS ADMINISTRATIVAS', 'DESPESAS MANUTENÇÃO', 'IMPOSTOS E TAXAS'] };
+// O BALDE DA SECAO 2 ABRE (12/09/2026). Qual balde tem composicao pronta e de onde
+// ela vem — sempre plcComposicao, a MESMA do Placar. OUTROS fica fora de proposito:
+// juros, tarifas, IRPJ e o que sobrou sem classe vem de cinco cantos diferentes e
+// nao ha uma lista unica que o explique; linha que abre vazia ensina a nao clicar.
+const FX_COMPOSICAO = { CUSTO: 'merc', PESSOAL: 'pess', VENDA: 'venda', ADMIN: 'admin', TAXAS: 'canal' };
+// O que NAO vem do plano de contas, para o total da abertura sempre fechar com o
+// balde em vez de bater perto: em VENDA sao os anuncios e a entrega sob demanda
+// (vem de vw_canal_custo_mes) e em TAXAS e' o ICMS (DEDUCOES DA RECEITA).
+const FX_RESTO_ROT = { VENDA: 'anúncios e entrega sob demanda (cobrados pelo iFood)',
+                       TAXAS: 'ICMS e outras deduções da receita' };
+let FX_BALDE = null;
+function fxAbrirBalde(id) { FX_BALDE = (FX_BALDE === id) ? null : id; renderFechamento(); }
 // A CARGA E' COMPARTILHADA (12/09/2026): o Fechamento do mes e o Placar leem o
 // MESMO FX_M. Foi o jeito de garantir que as duas telas nao possam divergir —
 // quem abre primeiro carrega, quem abre depois reusa.
@@ -14182,6 +14750,11 @@ function plcComposicao(id, meses) {
   }
   if (id === 'merc') return porTipo(FX_GRUPOS.CUSTO);
   if (id === 'pess') return porTipo(FX_GRUPOS.PESSOAL);
+  // 12/09/2026: os dois baldes que faltavam, para o Fechamento do mes poder abrir
+  // "do que e' feito" em todos. E' o MESMO porTipo — conta nova aqui seria a
+  // segunda versao do mesmo numero.
+  if (id === 'venda') return porTipo(FX_GRUPOS.VENDA);
+  if (id === 'admin') return porTipo(FX_GRUPOS.ADMIN);
   if (id === 'canal') {
     const cf = FX_M.canal.filter(r => meses.includes(r.mes) && L.includes(r.unidade) && r.classe === 'CANAL' && r.linha !== 'ANUNCIOS');
     const m = {};
@@ -14391,7 +14964,11 @@ function renderFechamento() {
   const baldes = x => [['CUSTO', 'Mercadoria', 'insumos, bebidas, embalagens (inclusive as de envio)', x.grupos.CUSTO], ['PESSOAL', 'Pessoas', 'salários, encargos, pró-labore', x.grupos.PESSOAL],
     ['VENDA', 'Entrega, comercial e marketing', 'motoboys, anúncios, marketing', x.grupos.VENDA], ['ADMIN', 'A casa', 'aluguel, energia, gás, manutenção, sistemas', x.grupos.ADMIN],
     ['TAXAS', 'Taxas dos canais e impostos', 'comissão e taxas do iFood e dos cartões, ICMS', x.taxasCanais + x.deducoes],
-    ['OUTROS', 'Juros, tarifas e outros', '', x.despFin - x.recFin - x.semClass + x.irpj + x.outrasDesp]].map(b => [b[0], b[1], b[2], x.base ? b[3] / x.base * 100 : 0]);
+    ['OUTROS', 'Juros, tarifas e outros', '', x.despFin - x.recFin - x.semClass + x.irpj + x.outrasDesp]]
+    // b[3] e' o "de cada R$ 100" que a secao mostra; b[4] guarda o mesmo balde em
+    // REAIS, que e' o total com que a composicao tem de fechar. Sem ele a abertura
+    // refaria a conta do balde — segunda versao do mesmo numero.
+    .map(b => [b[0], b[1], b[2], x.base ? b[3] / x.base * 100 : 0, b[3]]);
   const ba = baldes(a), bj = j ? baldes(j) : null;
   const maxv = Math.max(...ba.map(b => Math.abs(b[3])), Math.abs(cem(a.resultado)), 1);
   const reais = v => (v < -0.5 ? '−R$ ' : 'R$ ') + Math.abs(Math.round(v));
@@ -14408,16 +14985,54 @@ function renderFechamento() {
     const d = (m.sentido === 'abaixo' ? b[3] - m.meta : m.meta - b[3]) / m.meta;
     if (d > piorDist) { piorDist = d; piorBalde = b[0]; }
   });
+  // TAXAS so abre quando o mes tem o custo dos canais por FATO: sem ele o balde e'
+  // a diferenca entre vendido e recebido, que nao tem composicao nenhuma.
+  const podeAbrir = (id) => !!FX_COMPOSICAO[id] && (id !== 'TAXAS' || a.temFato);
+  if (FX_BALDE && !podeAbrir(FX_BALDE)) FX_BALDE = null;
   ba.forEach((b, i) => {
     if (b[0] === 'OUTROS' && Math.abs(b[3]) < 0.5) return;
     somaArr += Math.round(b[3]);
     const m = M[b[0]]; const f = m ? fxFarol(b[3], m.meta, m.sentido) : null;
     const pior = b[0] === piorBalde;
-    h += `<div class="fx-linha"${pior ? ' style="box-shadow:inset 3px 0 0 var(--farol-fora);"' : ''}><div class="fx-nome">${b[1]}<small>${b[2]}${m ? ` · meta: até R$ ${m.meta}` : ''}</small></div><div class="fx-num">${reais(b[3])}</div><div class="fx-barra"><i style="width:${Math.max(0, Math.abs(b[3])) / maxv * 100}%"></i></div><div class="fx-jul">${bj ? `${fxMesRot(ant)}: ${reais(bj[i][3])}` : ''}${f ? ' · ' + fxPill(f) : ''}${pior ? ' · <b style="color:var(--farol-fora);" title="Entre os baldes que têm meta, é o que está mais longe da sua.">o mais fora</b>' : ''}</div></div>`;
+    const abre = podeAbrir(b[0]);
+    const aberto = FX_BALDE === b[0];
+    const marca = aberto ? 'var(--brand)' : pior ? 'var(--farol-fora)' : null;
+    const attr = (abre ? ` onclick="fxAbrirBalde('${b[0]}')"` : '')
+      + ((abre || marca) ? ` style="${abre ? 'cursor:pointer;' : ''}${marca ? ` box-shadow:inset 3px 0 0 ${marca};` : ''}"` : '')
+      + (abre ? ` title="${aberto ? 'Clique para fechar a composição deste balde.' : 'Clique para ver do que é feito este balde.'}"` : '');
+    h += `<div class="fx-linha"${attr}><div class="fx-nome">${b[1]}${aberto ? ' ✕' : ''}<small>${b[2]}${m ? ` · meta: até R$ ${m.meta}` : ''}</small></div><div class="fx-num">${reais(b[3])}</div><div class="fx-barra"><i style="width:${Math.max(0, Math.abs(b[3])) / maxv * 100}%"></i></div><div class="fx-jul">${bj ? `${fxMesRot(ant)}: ${reais(bj[i][3])}` : ''}${f ? ' · ' + fxPill(f) : ''}${pior ? ' · <b style="color:var(--farol-fora);" title="Entre os baldes que têm meta, é o que está mais longe da sua.">o mais fora</b>' : ''}</div></div>`;
   });
   const fs = M.RESULTADO ? fxFarol(cem(a.resultado), M.RESULTADO.meta, M.RESULTADO.sentido) : ['neutro', ''];
   h += `<div class="fx-linha sobrou ${fs[0]}"><div class="fx-nome">Sobrou<small>meta: R$ ${M.RESULTADO ? M.RESULTADO.meta : '—'} ou mais de cada 100</small></div><div class="fx-num">R$ ${100 - somaArr}</div><div class="fx-barra"><i style="width:${Math.max(0, cem(a.resultado)) / maxv * 100}%"></i></div><div class="fx-jul">${j ? `${fxMesRot(ant)}: R$ ${Math.round(j.base ? j.resultado / j.base * 100 : 0)}` : ''} · ${fxPill(fs)}</div></div></div>`;
   h += `<div class="fx-nota">Valores arredondados para o real, por isso a soma fecha em 100 no "Sobrou".${a.temFato ? ` As taxas dos canais são o que o iFood e a Rede cobraram de fato no mês (cada cobrança com nome), não a diferença entre vendido e recebido — por isso o mês não oscila com o atraso dos repasses.${Math.abs(a.defasagem) > 500 ? ` Conferência: caiu na conta ${fxMil(Math.abs(a.defasagem))} ${a.defasagem > 0 ? 'a menos' : 'a mais'} do que a venda do mês menos essas cobranças — é repasse atravessando a virada do mês (e a taxa dos vales, que ainda não tem fonte).` : ''}` : ''}</div>`;
+  // "DO QUE E' FEITO ESTE BALDE" — abre embaixo da secao 2, no mesmo lugar para
+  // qualquer balde, e fecha no ✕. A composicao vem de plcComposicao, a MESMA do
+  // Placar. O que nao aparece na lista de contas entra numa linha de resto com nome
+  // proprio, para o TOTAL fechar com o balde da linha de cima.
+  if (FX_BALDE && podeAbrir(FX_BALDE)) {
+    const bSel = ba.find(x => x[0] === FX_BALDE) || ['', FX_BALDE, '', 0, 0];
+    const comp = (plcComposicao(FX_COMPOSICAO[FX_BALDE], [mes]) || []).filter(c => Math.abs(c.v) > 0.5);
+    const resto = bSel[4] - comp.reduce((s, c) => s + c.v, 0);
+    const linhasComp = Math.abs(resto) > 0.5
+      ? comp.concat([{ k: FX_RESTO_ROT[FX_BALDE] || 'outros lançamentos deste balde', v: resto }])
+      : comp;
+    const totComp = linhasComp.reduce((s, c) => s + c.v, 0);
+    h += `<div class="fx-secao"><h3>Do que é feito: ${bSel[1]}</h3><span>${fxMesLongo(mes)} de ${mes.slice(0, 4)} · ${nomeLojaFin()}</span></div>
+      <div class="contexto" style="border-color:var(--brand);">
+        <b>${bSel[1]}</b> — ${fxMil(totComp)} no mês, R$ ${Math.round(bSel[3])} de cada R$ 100 que entraram.
+        <button class="preset-btn active" onclick="fxAbrirBalde('${FX_BALDE}')">${bSel[1]} ✕</button>
+        <div style="font-size:12px; color:var(--tx-3); margin-top:6px;" title="É a mesma abertura que o Placar mostra ao abrir este número, no mesmo mês e na mesma loja escolhida aqui em cima. O total fecha com o balde: o que não vem do plano de contas aparece na última linha, com nome.">
+          A mesma conta do balde, aberta conta a conta.
+        </div>
+      </div>
+      <div id="tabelaFxBalde"><table>
+        <tr><th>Conta</th><th>Valor</th><th>parte do balde</th><th title="O mesmo R$ de cada 100 da seção 2, agora conta a conta.">de cada R$ 100</th></tr>
+        ${linhasComp.map(c => `<tr><td>${c.k}</td><td>${fxMil(c.v)}</td>
+          <td>${totComp ? fxPct1(c.v / totComp * 100) : '—'}</td>
+          <td>${a.base ? 'R$ ' + Math.round(c.v / a.base * 100) : '—'}</td></tr>`).join('')}
+        <tr class="liq"><td>TOTAL</td><td>${fxMil(totComp)}</td><td>100,0%</td><td>${a.base ? 'R$ ' + Math.round(totComp / a.base * 100) : '—'}</td></tr>
+      </table></div>`;
+  }
   // 3. quanto sobrou
   const serieRes = serie.map(x => x.resultado);
   h += `<div class="fx-secao"><h3>3. Quanto sobrou</h3><span>o resultado do mês</span></div><div class="fx-duas">
@@ -14524,6 +15139,19 @@ function renderFechamento() {
 
 // ---------------- A SEMANA ----------------
 let FX_S = null, FX_SEM_SEL = null;
+// Categoria de despesa aberta no bloco 6 (12/09/2026): clicar na linha abre, logo
+// embaixo dela, a serie das mesmas 8 semanas da tela. "A manutencao subiu" termina
+// na tela sem isso; com a serie, ve-se na hora se e pico ou tendencia — que e o
+// que decide se alguem age. Clicar de novo fecha; so uma categoria por vez.
+// O nome vai por INDICE, nunca como string dentro do onclick: e o mesmo cuidado
+// que o modulo evolucao ja toma com nome de item.
+let FX_DESP_SEL = null, FX_DESP_LISTA = [];
+function fxDespAbrir(i) {
+  const c = FX_DESP_LISTA[i];
+  if (!c) return;
+  FX_DESP_SEL = (FX_DESP_SEL === c) ? null : c;
+  renderSemana();
+}
 async function entrarSemana() {
   const alvo = document.getElementById('view-semana');
   if (!FX_S) {
@@ -14669,8 +15297,22 @@ function renderSemana() {
   // uma de R$ 4 mil que subiu um terco. Categoria que nao existia nas 4 anteriores
   // entra pelo proprio valor, que e' o desvio dela.
   const desvio = (c, v) => Math.abs(v - (catA[c] || 0) / nA);
-  h += `<div class="fx-secao"><h3>6. Onde o dinheiro foi</h3><span>as despesas que mais fugiram do normal das 4 semanas anteriores, em reais</span></div><div class="fx-tabela"><table><tr><th>Categoria</th><th>Esta semana</th><th>Normal (média 4 sem.)</th><th class="esq">Leitura</th></tr>`
-    + Object.entries(cat).sort((x, y) => desvio(y[0], y[1]) - desvio(x[0], x[1])).slice(0, 8).map(([c, v]) => `<tr><td>${c}</td><td>${fxMil(v)}</td><td>${fxMil((catA[c] || 0) / nA)}</td><td class="esq">${leitura(v, (catA[c] || 0) / nA)}</td></tr>`).join('')
+  // A serie de 8 semanas da categoria, das MESMAS semanas do resto da tela (SEM),
+  // pela mesma fonte da tabela (FX_S.despesas, que carrega 12 semanas).
+  const despSerie = (c) => SEM.map(w => fxSoma(FX_S.despesas.filter(r => r.semana === w && r.subtipo === c && L.includes(r.unidade)), 'valor'));
+  const catTop = Object.entries(cat).sort((x, y) => desvio(y[0], y[1]) - desvio(x[0], x[1])).slice(0, 8);
+  FX_DESP_LISTA = catTop.map(([c]) => c);
+  const linhaDesp = ([c, v], i) => {
+    const ab = FX_DESP_SEL === c;
+    let t = `<tr onclick="fxDespAbrir(${i})" style="cursor:pointer;${ab ? 'background:var(--brand-wine);' : ''}" title="${ab ? 'clique para fechar' : 'clique para ver as ' + SEM.length + ' semanas desta categoria'}"><td>${ab ? '▾ ' : '▸ '}${c}</td><td>${fxMil(v)}</td><td>${fxMil((catA[c] || 0) / nA)}</td><td class="esq">${leitura(v, (catA[c] || 0) / nA)}</td></tr>`;
+    if (ab) {
+      const se = despSerie(c), med = se.reduce((s, x) => s + x, 0) / se.length, mx = Math.max(...se);
+      t += `<tr><td colspan="4" class="esq">${fxSpark(se, rots, fxMil)}<div class="fx-extra">${c} nas últimas ${se.length} semanas · média ${fxMil(med)} · maior ${fxMil(mx)} em ${fxSemRot(SEM[se.indexOf(mx)])}</div></td></tr>`;
+    }
+    return t;
+  };
+  h += `<div class="fx-secao"><h3>6. Onde o dinheiro foi</h3><span>as despesas que mais fugiram do normal das 4 semanas anteriores, em reais · clique numa categoria para ver as ${SEM.length} semanas dela</span></div><div class="fx-tabela"><table><tr><th>Categoria</th><th>Esta semana</th><th>Normal (média 4 sem.)</th><th class="esq">Leitura</th></tr>`
+    + catTop.map(linhaDesp).join('')
     + `<tr class="tot"><td>Total pago na semana</td><td>${fxMil(totA)}</td><td>${fxMil(totN)}</td><td class="esq">${leitura(totA, totN)}</td></tr></table></div>`;
   h += `<div class="fx-rodape">Caixa das lojas (Saipos), semanas de segunda a domingo. O Boqueirão fica fora; a mercadoria do atacado ainda está dentro das compras da Água Verde.</div>`;
   alvo.innerHTML = h;
@@ -14792,6 +15434,13 @@ function renderModuloDFC() {
   };
   const somaArr = (arrs) => arrs.reduce((acc, a) => acc.map((x, i) => x + a[i]), Array(nM).fill(0));
   const total = (v) => v.reduce((s, x) => s + x, 0);
+  // Com um mes fixado, `tot` le a COLUNA daquele mes em vez de somar a serie; e o
+  // unico ponto por onde os cartoes e os dois graficos de origem e destino passam.
+  // Mes que nao existe na loja escolhida (trocou de loja depois de fixar) cai
+  // sozinho no periodo inteiro, porque indexOf devolve -1.
+  const iSel = FLX_MES ? meses.indexOf(FLX_MES) : -1;
+  const tot = (v) => iSel >= 0 ? v[iSel] : total(v);
+  const iFim = iSel >= 0 ? iSel : nM - 1;
 
   // subtipos de um recorte, na ordem do plano de contas
   const subtiposDe = (pred) => {
@@ -14987,11 +15636,11 @@ function renderModuloDFC() {
 
   // distribuição "de onde vem / pra onde vai" (proposta do financeiro, 13/08)
   const entradasPorSub = subtiposDe(r => r.natureza === 'RECEITAS')
-    .map(s => [s, total(somar(r => r.natureza === 'RECEITAS' && r.subtipo === s))])
+    .map(s => [s, tot(somar(r => r.natureza === 'RECEITAS' && r.subtipo === s))])
     .filter(x => x[1] > 0).sort((a, b) => b[1] - a[1]);
   const saidasPorTipo = [...new Set(DFC_MENSAL
       .filter(r => r.natureza === 'DESPESAS' && r.tipo !== 'INVESTIMENTOS').map(r => r.tipo))]
-    .map(t => [t, total(somar(r => r.natureza === 'DESPESAS' && r.tipo === t, -1))])
+    .map(t => [t, tot(somar(r => r.natureza === 'DESPESAS' && r.tipo === t, -1))])
     .filter(x => x[1] > 0).sort((a, b) => b[1] - a[1]);
 
   const nSemClass = Math.abs(total(semClass));
@@ -15001,29 +15650,39 @@ function renderModuloDFC() {
     Caixa realizado mês a mês, todos os canais da loja escolhida no botão acima — os filtros de período e
     loja do topo <b>não valem aqui</b>, eles são só do iFood.
   </div>
+  ${iSel >= 0 ? `<div class="contexto" style="border-color:var(--brand);">
+    <b>Filtrando:</b>
+    <button class="preset-btn active" onclick="fluxoFixarMes('${meses[iSel]}')">${rotuloMes(meses[iSel])} ✕</button>
+    <div style="font-size:12px; color:var(--tx-3); margin-top:6px;">Os quatro cartões e os dois gráficos de origem e destino falam deste mês. A tabela continua mostrando todos os meses, para você trocar.</div>
+  </div>` : ''}
   <div class="cards">
-    <div class="card blue"><div class="card-lbl">Receitas no ano</div><div class="card-val">R$ ${fmt(receitasTot)}</div></div>
-    <div class="card ${total(resultOper) >= 0 ? 'pos' : 'neg'}"><div class="card-lbl">Resultado operacional</div><div class="card-val">R$ ${fmt(total(resultOper))}</div>
-      <div class="card-pct">${receitasTot ? pct(total(resultOper) / receitasTot * 100) : 0}% da receita</div></div>
-    <div class="card ${total(resultFim) >= 0 ? 'pos' : 'neg'}"><div class="card-lbl">Resultado final (caixa)</div><div class="card-val">R$ ${fmt(total(resultFim))}</div></div>
-    <div class="card highlight"><div class="card-lbl">Saldo em conta (${rotuloMes(meses[nM - 1])})</div><div class="card-val">R$ ${fmt(saldoFim[nM - 1])}</div></div>
+    <div class="card blue"><div class="card-lbl">Receitas ${iSel >= 0 ? 'em ' + rotuloMes(meses[iSel]) : 'no ano'}</div><div class="card-val">R$ ${fmt(tot(receitas))}</div></div>
+    <div class="card ${tot(resultOper) >= 0 ? 'pos' : 'neg'}"><div class="card-lbl">Resultado operacional</div><div class="card-val">R$ ${fmt(tot(resultOper))}</div>
+      <div class="card-pct">${tot(receitas) ? pct(tot(resultOper) / tot(receitas) * 100) : 0}% da receita</div></div>
+    <div class="card ${tot(resultFim) >= 0 ? 'pos' : 'neg'}"><div class="card-lbl">Resultado final (caixa)</div><div class="card-val">R$ ${fmt(tot(resultFim))}</div></div>
+    <div class="card highlight"><div class="card-lbl">Saldo em conta (${rotuloMes(meses[iFim])})</div><div class="card-val">R$ ${fmt(saldoFim[iFim])}</div></div>
   </div>
   ${nSemClass > 0.005 ? `<div class="contexto" style="border-color:#c8102e;">
     <b>R$ ${fmt(nSemClass)}</b> em lançamentos ainda <b>sem classificação</b> (linha "SEM CLASSIFICAÇÃO" abaixo) —
     classifique na origem e reimporte para o DFC ficar 100% detalhado.</div>` : ''}
-  <div style="height:300px; margin:14px 0;"><canvas id="chartFluxoEvolucao"></canvas></div>
+  <div style="height:260px; margin:14px 0 4px;"><canvas id="chartFluxoEvolucao"></canvas></div>
+  <div style="height:150px; margin:0 0 14px;"><canvas id="chartFluxoSaldo"></canvas></div>
   <div id="tabelaDFC">
     <table>
       <tr><th></th>${meses.map(m => {
         // o mes que veio do Placar fica marcado: a tabela tem 9 colunas e sem a
         // marca a pessoa clica em "Caixa de agosto" e precisa procurar agosto
         const doPlacar = ctxFluxo && ctxFluxo.meses.includes(m);
-        return `<th${doPlacar ? ' style="color:var(--brand); border-bottom:2px solid var(--brand);"' : ''}>${rotuloMes(m)}${m.slice(0, 7) === mesAtual ? '<div class="th-emcurso">em curso</div>' : ''}${doPlacar ? '<div class="th-emcurso" style="color:var(--brand);">do Placar</div>' : ''}</th>`;
+        // clicar na coluna fixa o mes nos cartoes e nos dois graficos; de novo, solta
+        const fixo = m === FLX_MES;
+        const est = fixo ? 'color:var(--brand); border-bottom:2px solid var(--brand); background:var(--brand-wine);'
+          : doPlacar ? 'color:var(--brand); border-bottom:2px solid var(--brand);' : '';
+        return `<th onclick="fluxoFixarMes('${m}')" style="cursor:pointer;${est}" title="${fixo ? 'clique para soltar o mês' : 'clique para os cartões e os dois gráficos falarem só de ' + rotuloMes(m)}">${rotuloMes(m)}${m.slice(0, 7) === mesAtual ? '<div class="th-emcurso">em curso</div>' : ''}${doPlacar ? '<div class="th-emcurso" style="color:var(--brand);">do Placar</div>' : ''}${fixo ? '<div class="th-emcurso" style="color:var(--brand);">fixado ✕</div>' : ''}</th>`;
       }).join('')}<th>Total</th></tr>
       ${corpo}
     </table>
   </div>
-  <div class="section-label">De onde vem e para onde vai o dinheiro</div>
+  <div class="section-label">De onde vem e para onde vai o dinheiro${iSel >= 0 ? ' — ' + rotuloMes(meses[iSel]) : ''}</div>
   <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:16px;">
     <div><div class="caption-label">Entradas por origem</div>
       <div style="height:${Math.max(200, entradasPorSub.length * 30)}px;">
@@ -15036,9 +15695,11 @@ function renderModuloDFC() {
   Nos saldos, a coluna Total mostra o saldo na ponta do período (não a soma dos meses).</div>`;
 
   // ---- graficos (proposta do chat financeiro, 13/08/2026) ----
-  // Evolucao: barras receita x despesa + linha de saldo em eixo proprio.
-  // Dois eixos DE PROPOSITO: o saldo acumulado e uma ordem de grandeza
-  // acima do movimento mensal — num eixo so as barras achatam.
+  // Evolucao: barras receita x despesa. O saldo do fim do mes MOROU AQUI DENTRO ate
+  // 12/09/2026, numa linha com eixo Y proprio a direita. Dois eixos Y fazem "subiu
+  // ou caiu" depender de qual deles o olho pegou: a mesma linha parece furar as
+  // barras num mes e passar longe noutro so pela escala. Duas medidas de grandeza
+  // diferente viram DOIS graficos, na mesma sequencia de meses, um debaixo do outro.
   destroyChart('chartFluxoEvolucao');
   chartInstances['chartFluxoEvolucao'] = new Chart(
     document.getElementById('chartFluxoEvolucao').getContext('2d'), {
@@ -15048,26 +15709,38 @@ function renderModuloDFC() {
         // FAROL E STATUS, NAO SERIE (12/09/2026). O verde aqui dizia "bom" sobre
         // um numero que e so MEDIDA. A dupla passa a ser --info para o que entra
         // e --brand para o que sai, a mesma do par de graficos logo abaixo.
-        // O saldo acumulado sai da briga de cor: ele e a linha de CONTEXTO do
-        // grafico, nao uma terceira entidade — por isso um neutro de texto.
         { type: 'bar', label: 'Receitas', data: receitas,
-          backgroundColor: corTokenA('--info', 0.75), order: 2 },
+          backgroundColor: corTokenA('--info', 0.75) },
         { type: 'bar', label: 'Despesas', data: despesas,
-          backgroundColor: corTokenA('--brand', 0.75), order: 2 },
-        { type: 'line', label: 'Saldo no fim do mês', data: saldoFim,
-          borderColor: corToken('--tx-creme'), backgroundColor: corToken('--tx-creme'), borderWidth: 2,
-          tension: 0.25, pointRadius: 3, yAxisID: 'y2', order: 1 },
+          backgroundColor: corTokenA('--brand', 0.75) },
       ],
     },
     options: {
       responsive: true, maintainAspectRatio: false,
       interaction: { mode: 'index', intersect: false },
       plugins: { tooltip: { callbacks: { label: (c) => `${c.dataset.label}: R$ ${fmt(c.parsed.y)}` } } },
-      scales: {
-        y:  { position: 'left',  title: { display: true, text: 'Receita e despesa (R$)' } },
-        y2: { position: 'right', title: { display: true, text: 'Saldo (R$)' },
-              grid: { drawOnChartArea: false } },
-      },
+      scales: { y: { title: { display: true, text: 'Receita e despesa (R$)' } } },
+    },
+  });
+
+  // O saldo sozinho, na mesma escala de tempo e com escala propria de valor: uma
+  // serie, um eixo, sem competir com as barras. Neutro de texto porque o saldo aqui
+  // e o CONTEXTO do grafico de cima, nao uma terceira entidade.
+  destroyChart('chartFluxoSaldo');
+  chartInstances['chartFluxoSaldo'] = new Chart(
+    document.getElementById('chartFluxoSaldo').getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: meses.map(rotuloMes),
+      datasets: [{ label: 'Saldo no fim do mês', data: saldoFim,
+        borderColor: corToken('--tx-creme'), backgroundColor: corToken('--tx-creme'),
+        borderWidth: 2, tension: 0.25, pointRadius: 3 }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: { tooltip: { callbacks: { label: (c) => `Saldo no fim do mês: R$ ${fmt(c.parsed.y)}` } } },
+      scales: { y: { title: { display: true, text: 'Saldo (R$)' } } },
     },
   });
 
@@ -15253,8 +15926,6 @@ async function entrarDre() {
       consultarTudo('vw_canal_custo_mes?select=mes,unidade,linha,classe,rotulo,custo&mes=gte.2026-01-01'),
       garantirDadosFin(),   // DFC (caixa) para a ponte DRE x DFC do mes fechado
     ]);
-    // "Pra onde foi o dinheiro": do resultado à variação real do caixa operacional
-    DRE_PONTE = await consultarTudo('vw_fin_ponte_mensal?select=*&order=mes');
     // A mercadoria que a filial compra da AV entra por COMPETENCIA e ja vem
     // dentro de vw_fin_dre_mensal (fin_dre_ajuste, 25/08/2026) — nao buscar a
     // lista de novo aqui: somar por fora dobrava o efeito por loja (corrigido
@@ -15283,39 +15954,11 @@ function dreRangeSet() {
   renderModuloDRE();
 }
 
-// "Pra onde foi o dinheiro" (pedido do dono, 24/08/2026): do resultado do mês
-// até a variação REAL do caixa operacional (bancos + cofres, fora XP/cartões),
-// degrau a degrau — investimento, retirada, empréstimo, aporte e o que foi para
-// a XP (inclusive o benefício do iFood). Fonte: vw_fin_ponte_mensal.
-let DRE_PONTE = null;
-function blocoCaixaReal(mesF, rotuloMes) {
-  const rows = (DRE_PONTE || []).filter(r => r.mes === mesF &&
-    (LOJA_FIN === 'REDE' || r.unidade === LOJA_FIN));
-  if (!rows.length) return '';
-  const s = (c) => rows.reduce((a, r) => a + Number(r[c] || 0), 0);
-  const linhas = [
-    ['Resultado apurado do mês', s('resultado_apurado'), 'o número do fechamento (competência)'],
-    ['± Ajuste de competência', s('ajuste_competencia'), 'conta do mês paga noutro mês (capital de giro)'],
-    ['− Investimentos', s('investimentos'), 'obras, máquinas, tecnologia — vira patrimônio, não some'],
-    ['− Retiradas dos sócios', s('retiradas'), 'distribuição de lucros e gastos dos sócios'],
-    ['± Empréstimos', s('emprestimos'), 'entradas e saídas de empréstimos com sócios'],
-    ['+ Aportes e lucros das filiais', s('aportes'), 'dinheiro das filiais que entra fora da operação'],
-    ['+ Rendimentos', s('aplicacoes'), 'rendimento das aplicações'],
-    ['± Foi para a XP', s('transferencias_liquidas'), 'transferências para fora do caixa operacional — inclui o benefício do iFood (a fatura do cartão não entra aqui: é despesa, na linha de cima)'],
-    ['± Sem classificação', s('sem_classificacao'), 'lançamento sem conta — deveria ser zero'],
-  ].filter(([, v]) => Math.abs(v) > 0.005);
-  const varCaixa = s('variacao_caixa');
-  return `
-  <div class="section-label" style="margin-top:26px;">Pra onde foi o dinheiro — ${rotuloMes(mesF)}</div>
-  <div class="caption-label" style="text-align:center;">Do resultado do fechamento até o que de fato sobrou (ou faltou)
-    nos bancos e cofres do dia a dia. Cada linha é um destino do dinheiro.</div>
-  <div id="tabelaPonte"><table>
-    <tr><th>Degrau</th><th>R$</th><th style="text-align:left">O que é</th></tr>
-    ${linhas.map(([n, v, d]) => `<tr><td>${n}</td><td class="${v < -0.005 ? 'negativo' : ''}">${v >= 0 ? '' : '−'} ${fmt(Math.abs(v))}</td><td style="text-align:left; white-space:normal; color:var(--tx-4);">${d}</td></tr>`).join('')}
-    <tr class="liq"><td>= Caixa operacional no mês</td><td class="${varCaixa < 0 ? 'negativo' : ''}">${varCaixa >= 0 ? '+' : '−'} ${fmt(Math.abs(varCaixa))}</td>
-      <td style="text-align:left; white-space:normal;">${varCaixa >= 0 ? 'o caixa do dia a dia cresceu isso no mês' : 'o caixa do dia a dia encolheu isso no mês'}</td></tr>
-  </table></div>`;
-}
+// "Pra onde foi o dinheiro" saiu da DRE em 12/09/2026: era copia da secao 4 do
+// Fechamento do mes, mesma view (vw_fin_ponte_mensal) e as mesmas 9 linhas, e as
+// duas dividiam o id "tabelaPonte" na mesma pagina. Um calculo, um dono — mora no
+// Fechamento. A DRE ficou com o que so ela tem: os 3 cards, o fechamento e a ponte
+// DRE x DFC. A funcao blocoCaixaReal e a busca de DRE_PONTE foram removidas junto.
 
 function renderModuloDRE() {
   const alvo = document.getElementById('view-dre');
@@ -15707,7 +16350,13 @@ function renderModuloDRE() {
                 : difTot > 0 ? 'o caixa rendeu mais que o papel: entrou dinheiro de meses anteriores ou ficou conta para depois'
                 : 'o caixa rendeu menos que o papel: o mês pagou contas antigas ou tem venda ainda por cair'}</td></tr>
           </table>
-        </div>` + blocoCaixaReal(mesF, rotuloMes);
+        </div>
+        <div class="caption-label" style="text-align:center;">
+          "Pra onde foi o dinheiro" — do resultado do mês até o que sobrou nos bancos e cofres —
+          é a mesma conta, na mesma view, da seção <b>4. E no caixa?</b> do
+          <a href="javascript:void(0)" onclick="mostrarModulo('fechamento')" style="color:var(--info);">Fechamento do mês</a>.
+          Um cálculo, um dono: mora lá.
+        </div>`;
       }
       const iA = iF - 1;
       const custo = gruposVals[0][3], pessoal = gruposVals[1][3], venda = gruposVals[2][3], admin = gruposVals[3][3];
@@ -16163,13 +16812,22 @@ function renderModuloProjecao() {
   // OFX (ex.: COFRE AV) segue pelo Saipos, e a legenda diz isso. ----
   const ancoraPorConta = {};
   (PROJ_ANCORA || []).forEach(a => { ancoraPorConta[a.conta] = a; });
+  // A PROJECAO E' DA REDE, SEMPRE (12/09/2026). Tudo que ela projeta ja era das
+  // tres lojas — PROJ_PAGAR e PROJ_RECEB sao carregados sem filtro de unidade —,
+  // mas o caixa de partida lia DFC_CONTAS/DFC_MOV, que o seletor de loja FILTRA.
+  // Com "Agua Verde" escolhido noutra tela, "Caixa operacional hoje" era de uma
+  // loja e "A pagar (30 dias)" era das tres: quem lesse o menor saldo projetado
+  // lia uma conta que nao existe. Aqui le-se o RAW, todas as contas, e o titulo
+  // da tela diz Rede. Number() em tudo: aplicarLojaFin so converte os numeros das
+  // contas da loja escolhida, entao no RAW as outras ainda sao TEXTO — e texto
+  // mais numero, em JavaScript, vira texto grudado em vez de soma.
   const movTotal = {};
-  DFC_MOV.forEach(r => { movTotal[r.conta] = (movTotal[r.conta] || 0) + r.movimento; });
+  (DFC_MOV_RAW || []).forEach(r => { movTotal[r.conta] = (movTotal[r.conta] || 0) + Number(r.movimento); });
   let caixaOper = 0, investido = 0;
   let atrasoSaipos = 0, idadeMax = 0, dataExtrato = null;
-  DFC_CONTAS.forEach(c => {
+  (DFC_CONTAS_RAW || []).forEach(c => {
     const a = ancoraPorConta[c.conta];
-    const s = a ? Number(a.saldo_banco) : c.saldo_inicial + (movTotal[c.conta] || 0);
+    const s = a ? Number(a.saldo_banco) : Number(c.saldo_inicial) + (movTotal[c.conta] || 0);
     if (c.conta.startsWith('CREDITO')) return;   // cartao nao e caixa; a fatura a vencer ja vem em PROJ_PAGAR
     if (PROJ_FORA_CAIXA.includes(c.conta)) investido += s;
     else {
@@ -16420,11 +17078,13 @@ function renderModuloProjecao() {
    </div>`;
 
   alvo.innerHTML = plcCabecalhoQuebra('projecao') + `
-  <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Fluxo de Caixa Projetado — Água Verde</div>
+  <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Fluxo de Caixa Projetado — Rede (as três lojas)</div>
   <div class="caption-label" style="text-align:center;">
     Próximos ${HORIZONTE} dias, dia a dia: contas a pagar lançadas no Saipos + receita projetada
-    (média por dia da semana das últimas 4 semanas). <b>O que não está lançado no Saipos não aparece aqui</b> —
-    com duas exceções que entram sozinhas: as cobranças das filiais (listas e benefício) e o envio do benefício para a XP.
+    (média por dia da semana das últimas 4 semanas). <b>Esta tela é sempre da rede</b> — saldos, contas a pagar
+    e receita das três lojas juntas; o botão de loja das outras telas do financeiro não vale aqui.
+    <b>O que não está lançado no Saipos não aparece</b> — com duas exceções que entram sozinhas:
+    as cobranças das filiais (listas e benefício) e o envio do benefício para a XP.
   </div>
   <div id="projCaixaWrap">${blocoCaixaDoDia()}</div>
   ${blocoAtacadoReceber()}
@@ -17384,14 +18044,28 @@ function granularidadeAutomatica() {
 function computeEvolucaoCancelamentos(gran) {
   const rows = linhasFiltradas();
   const grupos = new Map();
-  rows.forEach(r => {
-    const info = periodoKeyGenerico(DATAS[r[5]], gran);
+  const pegaGrupo = (info) => {
     if (!grupos.has(info.key)) grupos.set(info.key, { label: info.label, sort: info.sort, total: 0, cancelados: 0, valor: 0 });
-    const g = grupos.get(info.key);
+    return grupos.get(info.key);
+  };
+  rows.forEach(r => {
+    const g = pegaGrupo(periodoKeyGenerico(DATAS[r[5]], gran));
     g.total += r[7];
+    if (CANCEL_MOTIVO) return;   // com categoria fixada o cancelado vem de MOTIVOS
     if (r[6] === 1) { g.cancelados += r[7]; g.valor += r[8]; }          // cancelamento total
     else if (r[6] === 2) { g.cancelados += r[7]; g.valor += r[9]; }     // parcial: so o item cancelado
   });
+  // Categoria fixada: o cancelado vem de vw_cancelamentos_motivo, a unica fonte que
+  // sabe o motivo (ROWS nao tem essa coluna). O TOTAL de pedidos continua saindo de
+  // ROWS — senao a taxa deixaria de ser "% dos pedidos" e nao se compararia com a
+  // mesma tela sem recorte. MOTIVOS: 4=data, 5=responsavel, 6=pedidos, 7=valor.
+  if (CANCEL_MOTIVO) {
+    linhasCancelamentoFiltradas().forEach(r => {
+      if (r[5] !== CANCEL_MOTIVO) return;
+      const g = pegaGrupo(periodoKeyGenerico(DATAS[r[4]], gran));
+      g.cancelados += r[6]; g.valor += r[7];
+    });
+  }
   return Array.from(grupos.values())
     .sort((a,b) => a.sort < b.sort ? -1 : a.sort > b.sort ? 1 : 0)
     .map(g => ({ label: g.label, taxa: g.total ? g.cancelados/g.total*100 : 0, valor: g.valor, cancelados: g.cancelados, total: g.total }));
@@ -17435,7 +18109,7 @@ function renderChartMotivos() {
   // sua pergunta de imediato: "onde se perde mais dinheiro" e "o que mais acontece". A ordem
   // das categorias muda de um grafico pro outro de proposito — e essa mudanca que mostra
   // quando algo e frequente mas barato. O custo unitario esta na tabela abaixo.
-  function barras(id, chave, cor, tituloEixo, formatarTooltip, formatarRotulo) {
+  function barras(id, chave, cor, tituloEixo, formatarTooltip, formatarRotulo, clicavel) {
     const el = document.getElementById(id);
     if (!el) return;
     destroyChart(id);
@@ -17446,7 +18120,10 @@ function renderChartMotivos() {
       type: 'bar',
       data: {
         labels: dados.map(d => d.responsavel),
-        datasets: [{ data: valores, backgroundColor: cor, borderRadius: 4, borderSkipped: false }],
+        // Uma cor so por barra: a identidade vem do rotulo do eixo. A categoria
+        // fixada fica na cor da marca nos DOIS graficos — e o que mostra, de
+        // relance, que a tela inteira esta falando dela.
+        datasets: [{ data: valores, backgroundColor: dados.map(d => CANCEL_MOTIVO === d.responsavel ? corToken('--brand') : cor), borderRadius: 4, borderSkipped: false }],
       },
       plugins: [pluginRotulosBarra(i => formatarRotulo(dados[i]))],
       options: {
@@ -17454,9 +18131,14 @@ function renderChartMotivos() {
         responsive: true,
         maintainAspectRatio: false,
         layout: { padding: { right: 8 } },
+        onClick: clicavel ? (_e, els) => { if (els.length) cancelFiltrarMotivo(dados[els[0].index].responsavel); } : undefined,
+        onHover: clicavel ? (e, els) => { e.native.target.style.cursor = els.length ? 'pointer' : 'default'; } : undefined,
         plugins: {
           legend: { display: false },
-          tooltip: { callbacks: { label: (c) => formatarTooltip(dados[c.dataIndex]) } },
+          tooltip: { callbacks: {
+            label: (c) => formatarTooltip(dados[c.dataIndex]),
+            afterLabel: clicavel ? (c) => (CANCEL_MOTIVO === dados[c.dataIndex].responsavel ? 'clique para soltar o recorte' : 'clique para recortar a tela por esta categoria') : undefined,
+          } },
         },
         scales: {
           // Sobra de 22% no eixo pra caber o numero na ponta da barra sem cortar.
@@ -17467,9 +18149,12 @@ function renderChartMotivos() {
     });
   }
 
+  // So a barra do VALOR filtra: e a que responde "onde se perde mais dinheiro", a
+  // pergunta que leva a agir. A de quantidade acompanha o destaque, sem virar um
+  // segundo controle para a mesma coisa.
   barras('chartMotivosValor', 'valor', corToken('--info'), 'R$ perdidos',
     d => `R$ ${fmt(d.valor)} em ${d.n} pedidos (R$ ${fmt(d.n ? d.valor/d.n : 0)} por cancelamento)`,
-    d => 'R$ ' + fmt(d.valor));
+    d => 'R$ ' + fmt(d.valor), true);
 
   barras('chartMotivosQtd', 'n', corToken('--info'), 'pedidos cancelados',
     d => `${d.n} pedidos (${pct(d.pct)}% dos cancelamentos) — R$ ${fmt(d.valor)}`,
@@ -17521,7 +18206,7 @@ function renderAll() {
   // container escondido, e o grafico sairia deformado.
   const ativo = moduloAtivo();
   if (ativo === 'resumo') { renderChartWaterfall(m, a, ant); renderChartTendencia(); renderChartUnidades(); }
-  if (ativo === 'cancelamentos') renderChartMotivos();
+  if (ativo === 'cancelamentos') { renderChartMotivos(); carregarRecuperavelCancel(); }
   if (ativo === 'promocoes') entrarPromocoes();
   // Modulos de carga sob demanda: so re-renderiza se os dados ja foram buscados.
   // A home ESTAVA FORA desta lista — clicar numa unidade com a home aberta
