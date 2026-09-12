@@ -12958,6 +12958,10 @@ function nomeLojaFin() {
 document.addEventListener('click', (e) => {
   const b = e.target && e.target.closest && e.target.closest('.loja-fin');
   if (!b || b.dataset.loja === LOJA_FIN) return;
+  // Trocar a loja na mao SOLTA o contexto que veio do Placar: dali em diante o
+  // recorte e' escolha de quem esta olhando, e o aviso "voce veio do Placar,
+  // em Agua Verde" passaria a mentir na tela que ja esta em Sao Braz.
+  plcCtxSolta(MODULO_ATUAL);
   LOJA_FIN = b.dataset.loja;
   aplicarLojaFin();
   if (MODULO_ATUAL === 'fluxo') renderModuloDFC();
@@ -13832,6 +13836,14 @@ async function entrarFluxo() {
   const alvo = document.getElementById('view-fluxo');
   if (DFC_MENSAL === null) alvo.innerHTML = '<div class="contexto">Carregando fluxo de caixa...</div>';
   await garantirDadosFin();
+  // Vindo do Placar, a tela abre na LOJA do Placar. LOJA_FIN e' o seletor compartilhado
+  // do bloco financeiro (DRE, Fechamento, Projecao, Conciliacao): mudar aqui muda la
+  // tambem, e isso e' o comportamento de sempre, nao um vazamento novo — o seletor
+  // aparece na tela e a pessoa desfaz num clique.
+  // TEM de vir depois do await: garantirDadosFin sai na primeira linha quando os dados
+  // ja estao carregados, e nesse caminho o aplicarLojaFin interno dele nunca roda.
+  const c = plcCtx('fluxo');
+  if (c && c.loja !== LOJA_FIN) { LOJA_FIN = c.loja; aplicarLojaFin(); }
   renderModuloDFC();
 }
 
@@ -13890,10 +13902,13 @@ function dfcToggle(chave) {
 function renderModuloDFC() {
   const alvo = document.getElementById('view-fluxo');
   if (!DFC_MENSAL || !DFC_MENSAL.length) {
-    alvo.innerHTML = seletorLojaFin() +
+    // o cabecalho entra aqui tambem: loja sem lancamento nao pode ficar sem o
+    // caminho de volta para o Placar
+    alvo.innerHTML = plcCabecalhoQuebra('fluxo') + seletorLojaFin() +
       `<div class="contexto" style="border-color:#c8102e;">Sem lançamentos financeiros para esta loja.</div>`;
     return;
   }
+  const ctxFluxo = plcCtx('fluxo');
   const mesAtual = mesCorrenteSP();
   const meses = [...new Set(DFC_MENSAL.map(r => r.mes))].sort().filter(m => m.slice(0, 7) <= mesAtual);
   const nM = meses.length;
@@ -14112,7 +14127,7 @@ function renderModuloDFC() {
     .filter(x => x[1] > 0).sort((a, b) => b[1] - a[1]);
 
   const nSemClass = Math.abs(total(semClass));
-  alvo.innerHTML = seletorLojaFin() + `
+  alvo.innerHTML = plcCabecalhoQuebra('fluxo') + seletorLojaFin() + `
   <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Fluxo de Caixa — ${nomeLojaFin()}</div>
   <div class="caption-label" style="text-align:center;">
     DFC realizado, mês a mês, da empresa inteira (todos os canais) — <b>não segue os filtros de período/loja do topo</b>,
@@ -14131,7 +14146,12 @@ function renderModuloDFC() {
   <div style="height:300px; margin:14px 0;"><canvas id="chartFluxoEvolucao"></canvas></div>
   <div id="tabelaDFC">
     <table>
-      <tr><th></th>${meses.map(m => `<th>${rotuloMes(m)}${m.slice(0, 7) === mesAtual ? '<div class="th-emcurso">em curso</div>' : ''}</th>`).join('')}<th>Total</th></tr>
+      <tr><th></th>${meses.map(m => {
+        // o mes que veio do Placar fica marcado: a tabela tem 9 colunas e sem a
+        // marca a pessoa clica em "Caixa de agosto" e precisa procurar agosto
+        const doPlacar = ctxFluxo && ctxFluxo.meses.includes(m);
+        return `<th${doPlacar ? ' style="color:var(--brand); border-bottom:2px solid var(--brand);"' : ''}>${rotuloMes(m)}${m.slice(0, 7) === mesAtual ? '<div class="th-emcurso">em curso</div>' : ''}${doPlacar ? '<div class="th-emcurso" style="color:var(--brand);">do Placar</div>' : ''}</th>`;
+      }).join('')}<th>Total</th></tr>
       ${corpo}
     </table>
   </div>
