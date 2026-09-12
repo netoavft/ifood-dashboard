@@ -17773,8 +17773,57 @@ let CONF_IMPORT = null, CONF_GENERICAS = null, CONF_DIVERG = null, CONF_CARTOES 
 let CONF_FATURAS = null;  // vw_fin_cartao_fatura_conferencia: fatura lancada x compras x extrato, por cartao e mes (10/09/2026)
 let CONF_ACEITAS = null;   // fin_divergencias_aceitas: divergências já conferidas pelo dono
 
+// ---- ACEITAR UMA DIVERGÊNCIA PELA TELA (12/09/2026) ----
+// A lista dizia "estas R$ X não têm explicação" e parava ali; para a linha sumir era
+// preciso sair do painel e escrever no banco. Agora grava daqui, com o e-mail de quem
+// aceitou e a data. A lista vai por ÍNDICE no onclick: nome de conta tem espaço e
+// acento, e escapar isso dentro de atributo HTML é onde quebra em silêncio.
+let CONF_DIVERG_LISTA = [];
+// Só o dono aceita — a policy do banco (eh_dono) manda de verdade; isto aqui é só para
+// não mostrar um botão que vai falhar. O e-mail do dono é o mesmo que o Plano já usa.
+const confPodeAceitar = () => {
+  const s = rmbSessao();
+  return !!(s && s.email && typeof souODono === 'function' && souODono());
+};
+
+async function confAceitar(i) {
+  const d = CONF_DIVERG_LISTA[i];
+  if (!d) return;
+  const nome = nomeConta(d.conta);
+  const motivo = prompt(
+    `Aceitar a diferença de R$ ${fmt(d.pendente)} em ${nome}?\n\n` +
+    'Escreva o que você conferiu. Este texto fica na tela, em "Já conferidas", ' +
+    'e é o que explica a diferença para quem olhar depois.');
+  if (motivo === null) return;
+  if (!motivo.trim()) { alert('Sem o motivo escrito o aceite não entra: uma linha que some sem explicação é pior que a divergência.'); return; }
+  const email = (rmbSessao() || {}).email || '';
+  // POST com merge-duplicates = upsert: a chave é a CONTA, uma linha por conta. Aceitar
+  // de novo substitui o valor aceito, que é o desenho da tabela ("o aceite é um valor de
+  // estrutura, não uma lista de exceções").
+  const r = await fetch(SUPABASE_URL + '/rest/v1/fin_divergencias_aceitas', {
+    method: 'POST',
+    headers: Object.assign({}, rmbHeaders(), { Prefer: 'resolution=merge-duplicates,return=representation' }),
+    body: JSON.stringify({
+      conta: d.conta, valor: Number(d.pendente), fonte_correta: 'SAIPOS',
+      motivo: motivo.trim(), aceito_por: email,
+      verificado_em: new Date(Date.now() - 3 * 36e5).toISOString().slice(0, 10),
+    }),
+  });
+  if (!r.ok) {
+    alert(r.status === 401 || r.status === 403
+      ? 'O banco recusou: aceitar divergência é do dono. Entre com a conta dele pelo Plano.'
+      : 'Não consegui gravar (' + r.status + ').');
+    return;
+  }
+  // recarrega do banco em vez de adivinhar o resultado. Tem de ser CONF_SALDOS: e' ele
+  // que entrarConciliacao olha para decidir se busca tudo de novo.
+  CONF_SALDOS = null;
+  entrarConciliacao();
+}
+
 async function entrarConciliacao() {
   await carregarApelidos();
+  await carregarEmailDono();   // decide se aparece o botao "ja conferi" (so o dono aceita)
   const alvo = document.getElementById('view-conciliacao');
   if (CONF_SALDOS === null) {
     alvo.innerHTML = '<div class="contexto">Carregando conferências...</div>';
@@ -17920,12 +17969,21 @@ function renderModuloConciliacao() {
     <div class="section-label">Planilha × Saipos (jan–jul) — as duas contam a mesma história?</div>
     <div class="contexto" style="border-color:#f5a623; text-align:left;">
       <table style="width:100%; font-size:12.5px;">
-        <tr><th style="text-align:left;">Conta</th><th>Planilha</th><th>Saipos</th><th>Falta resolver</th></tr>
-        ${divergentes.sort((a, b) => Math.abs(b.pendente) - Math.abs(a.pendente)).map(d => `
+        <tr><th style="text-align:left;">Conta</th><th>Planilha</th><th>Saipos</th><th>Falta resolver</th><th></th></tr>
+        ${(() => {
+          // O BOTAO DE ACEITAR (12/09/2026): era a unica acao que esta tela pedia e nao
+          // oferecia. Quem conferia tinha de sair do painel e escrever no banco a mao —
+          // e' assim que as linhas de hoje entraram. So o dono grava (policy eh_dono).
+          CONF_DIVERG_LISTA = divergentes.slice().sort((a, b) => Math.abs(b.pendente) - Math.abs(a.pendente));
+          return CONF_DIVERG_LISTA.map((d, i) => `
           <tr><td>${nomeConta(d.conta)}</td><td>${fmt(d.planilha)}</td><td>${fmt(d.saipos)}</td>
-          <td class="negativo">${fmt(d.pendente)}</td></tr>`).join('')}
+          <td class="negativo">${fmt(d.pendente)}</td>
+          <td style="text-align:right;">${confPodeAceitar()
+            ? `<button class="preset-btn" onclick="confAceitar(${i})" title="Grava esta diferença como conferida: ela sai da lista e passa a aparecer em 'Já conferidas', com o seu e-mail e a data.">já conferi</button>`
+            : ''}</td></tr>`).join('');
+        })()}
         <tr style="border-top:1px solid #45443f;"><td colspan="3"><b>Total pendente</b></td>
-          <td class="negativo"><b>${fmt(divergentes.reduce((s, d) => s + d.pendente, 0))}</b></td></tr>
+          <td class="negativo"><b>${fmt(divergentes.reduce((s, d) => s + d.pendente, 0))}</b></td><td></td></tr>
       </table>
       <div style="font-size:12px; color:#a5a49a; margin-top:6px;">
         Movimento de jan a jul nas duas fontes. Enquanto houver pendência, o DFC continua na planilha —
