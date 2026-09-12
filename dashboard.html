@@ -2337,9 +2337,11 @@ function linhaContexto(ant) {
     ? `Comparado com os ${ant.dias} dias anteriores: ${formatarDataCurta(ant.ini)} a ${formatarDataCurta(ant.fim)}.`
     : `Sem período anterior de mesmo tamanho para comparar.`;
 
+  // 12/09/2026: este texto dizia que a visao consolidada "nascera" — ela existe
+  // desde 12/08 e vive em Resultado. Promessa cumprida vira caminho, nao promessa.
   const canais = `<div style="margin-top:6px; color:#8a897e; font-size:11.5px;">
-    Estes módulos cobrem o <b>canal iFood</b>. A visão consolidada (com site próprio, salão e atacado)
-    nascerá na seção Resultado quando os demais canais forem integrados.
+    Estes módulos cobrem o <b>canal iFood</b>. Para ver o iFood ao lado do salão, do site e do balcão,
+    abra <a href="javascript:void(0)" onclick="mostrarModulo('consolidada')" style="color:#a5a49a;">Resultado &rsaquo; Visão consolidada</a>.
   </div>`;
 
   return `<div class="contexto">
@@ -7784,24 +7786,42 @@ function renderModuloSite() {
   const vendaAtrasada = atrasadas('venda');
   const clienteAtrasado = atrasadas('cliente');
 
+  // 12/09/2026 (auditoria): esta tela dava DOIS avisos que se contradiziam —
+  // "a venda do site está atrasada" e, tres linhas abaixo, "a venda está em dia".
+  // Causa: `ate` da fonte saipos era a data do ULTIMO PEDIDO PELO SITE, entao
+  // loja sem pedido no site por tres dias virava "importacao atrasada". A view
+  // passou a separar as duas datas (ate = fronteira da importacao;
+  // ultima_venda_canal = ultimo pedido pelo site) e aqui cada uma diz o que e.
   const avisoVenda = vendaAtrasada.length ? `
     <div class="contexto" style="border-color:#c8102e; margin-bottom:10px;">
-      <b>A venda do site está atrasada — não mande relatório antes de conferir.</b><br>
+      <b>A importação da venda está atrasada — não mande relatório antes de conferir.</b><br>
       ${vendaAtrasada.map(a => `${a.loja}: até <b>${ddmm(a.ate)}</b> (${siteDias(a.ate, fimISO)} dias atrás, fonte ${a.fonte})`).join(' · ')}<br>
       <span style="font-size:12px; color:#a5a49a;">Onde a fonte é o Saipos, o problema é a importação diária das APIs (08:00). Onde é a Accon, é o cookie do portal.</span>
     </div>` : '';
+  // Loja que esta em dia na importacao mas passou dias sem pedido pelo site: e
+  // fato do negocio, nao falha de fonte. Fica como nota, nao como alerta.
+  const semPedido = ativas.filter(a => a.o_que === 'venda' && a.fonte === 'saipos'
+      && a.ultima_venda_canal && siteDias(a.ultima_venda_canal, a.ate) >= 2
+      && !vendaAtrasada.some(v => v.loja === a.loja))
+    .sort((a, b) => a.ultima_venda_canal < b.ultima_venda_canal ? -1 : 1);
+  const notaSemPedido = semPedido.length ? `
+    <div class="contexto" style="margin-bottom:10px;">
+      <b>Importação em dia; o que faltou foi pedido.</b>
+      ${semPedido.map(a => `${a.loja}: último pedido pelo site em <b>${ddmm(a.ultima_venda_canal)}</b>, com o Saipos já trazido até ${ddmm(a.ate)}`).join(' · ')}.<br>
+      <span style="font-size:12px; color:#a5a49a;">Nenhuma venda foi perdida — a loja vendeu nos outros canais nesses dias e no site não entrou pedido.</span>
+    </div>` : '';
   const avisoCliente = clienteAtrasado.length ? `
     <div class="contexto" style="border-color:#f5a623; margin-bottom:10px;">
-      <b>A venda está em dia; o que envelheceu é o dado de cliente.</b>
+      <b>O dado de cliente envelheceu.</b>
       Novos, recência, cupom e campanha vão até <b>${ddmm(corteCliente)}</b> —
       ${clienteAtrasado.map(a => `${a.loja} ${ddmm(a.ate)}`).join(' · ')}.<br>
-      <span style="font-size:12px; color:#a5a49a;">Isso é o cookie do portal da Accon, que vence e precisa ser renovado pelo dono (o login tem CAPTCHA). Nada de venda foi perdido.</span>
+      <span style="font-size:12px; color:#a5a49a;">Isso é o cookie do portal da Accon, que vence e precisa ser renovado pelo dono (o login tem CAPTCHA). A venda não depende dele.</span>
     </div>` : '';
 
   if (!vendas.length) {
     alvo.innerHTML = `
       <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Site próprio (Accon)</div>
-      ${avisoVenda}${avisoCliente}
+      ${avisoVenda}${notaSemPedido}${avisoCliente}
       ${siteBarraPeriodo()}
       <div class="contexto" style="border-color:#c8102e;">Sem pedido do site nesta janela e nestas unidades.</div>`;
     return;
@@ -7906,7 +7926,7 @@ function renderModuloSite() {
     <b>Quem é o cliente vem da Accon</b> (novo, recência, cupom, campanha) — cliente até <b>${ddmm(corteCliente)}</b>.
     Período próprio abaixo; o filtro de unidades do topo vale aqui.
   </div>
-  ${avisoVenda}${avisoCliente}
+  ${avisoVenda}${notaSemPedido}${avisoCliente}
   ${siteBarraPeriodo()}
 
   <div class="cards">
@@ -11399,10 +11419,14 @@ function renderModuloLogfin() {
 // visto AO LADO dos outros canais (salao, balcao, site) — fonte Saipos,
 // via vw_consolidado_diario (dia x canal; a tabela crua tem 82 mil
 // vendas e nao pode vir ao navegador). Limites ditos NA TELA, nao em
-// nota de rodape: so Agua Verde por enquanto, e o valor e o do PDV —
-// nao se compara direto com o bruto do portal iFood.
-// Filtros de unidade/loja/marca NAO se aplicam (uma unidade so); o que
-// vale e a janela de periodo do modulo.
+// nota de rodape: o valor e o do PDV — nao se compara direto com o bruto
+// do portal iFood.
+// 12/09/2026 (auditoria): o FILTRO DE UNIDADE passou a valer aqui. Ate
+// entao a tela dizia "so Agua Verde" e somava as tres lojas — medido na
+// semana 31/08 a 06/09, os R$ 188.204 exibidos eram AV 137.417 + Ahu
+// 16.881 + SB 33.906. O Saipos cobre as tres unidades proprias desde
+// janeiro; o Boqueirao e de outra gestao e nao entra nesta fonte.
+// Filtro de MARCA continua sem efeito: a fonte nao tem marca, so canal.
 let CONSOLIDADO = null;
 
 async function entrarConsolidada() {
@@ -11420,6 +11444,7 @@ function consolidadoPorCanal(ini, fim) {
   const por = {};
   CONSOLIDADO.forEach(r => {
     if (r.shift_date < ini || r.shift_date > fim) return;
+    if (activeUnidades.size && !activeUnidades.has(r.unidade)) return;
     const c = por[r.canal] || (por[r.canal] = { vendas: 0, total: 0, canceladas: 0, cancelado: 0 });
     c.vendas += Number(r.vendas) || 0;
     c.total += Number(r.total) || 0;
@@ -11440,6 +11465,14 @@ function renderModuloConsolidada() {
   const ini = fDataIni.value, fim = fDataFim.value;
   const maxData = CONSOLIDADO[CONSOLIDADO.length - 1].shift_date;
   const ddmm = (v) => v ? v.slice(8, 10) + '/' + v.slice(5, 7) : '—';
+
+  // Quais unidades este numero cobre, dito na tela (auditoria de 12/09/2026).
+  const UN_ROTULO = { 'AGUA VERDE': 'Água Verde', 'AHU': 'Ahú', 'SÃO BRAZ': 'São Braz' };
+  const unsComDado = [...new Set(CONSOLIDADO.map(r => r.unidade))].sort();
+  const unsMostradas = unsComDado.filter(u => !activeUnidades.size || activeUnidades.has(u));
+  const unsTexto = unsMostradas.length === 0 ? 'nenhuma unidade (o filtro não deixou nada)'
+    : unsMostradas.length === unsComDado.length ? 'as três lojas somadas (Água Verde, Ahú e São Braz)'
+    : unsMostradas.map(u => UN_ROTULO[u] || u).join(' e ');
 
   // Janela anterior do MESMO tamanho, colada na atual (mesma regra do Resumo).
   const dias = Math.round((new Date(fim + 'T00:00:00') - new Date(ini + 'T00:00:00')) / 864e5) + 1;
@@ -11478,7 +11511,7 @@ function renderModuloConsolidada() {
 
   alvo.innerHTML = `
   <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Visão consolidada — todos os canais, ${ddmm(ini)} a ${ddmm(fim)}</div>
-  <div class="contexto" style="border-color:#f5a623;"><b>Por enquanto, só ÁGUA VERDE:</b> a fonte é o Saipos (PDV), que ainda não está conectado nas outras unidades. Os filtros de unidade e loja não valem nesta tela.${fim > maxData ? ` <b>Dados até ${ddmm(maxData)}</b> — o período escolhido vai além.` : ''}</div>
+  <div class="contexto"><b>Mostrando ${unsTexto}.</b> A fonte é o caixa das lojas (Saipos), que cobre as três unidades próprias; o Boqueirão é de outra gestão e não entra aqui. O filtro de unidade lá em cima vale nesta tela; o de marca não, porque a fonte tem canal e não marca.${fim > maxData ? ` <b>Dados até ${ddmm(maxData)}</b> — o período escolhido vai além.` : ''}</div>
 
   <div class="cards">
     <div class="card"><div class="card-lbl">Faturamento total (todos os canais)</div>
@@ -11795,11 +11828,19 @@ async function entrarIndicadores() {
   const atual = computeKpisSemana(sem.ini, sem.fim);
   const anterior = computeKpisSemana(iso(antIni), iso(antFim));
 
-  const filtroAtivo = activeLojas().size < LOJAS.length;
+  // 12/09/2026: o aviso disparava SEMPRE. Ele comparava com as 17 lojas da rede,
+  // e a visao padrao ("Minha gestao") mostra 13 — entao abrir a tela ja acendia
+  // o alerta vermelho sem ninguem ter filtrado nada. Agora a base de comparacao
+  // e o proprio perimetro: so avisa quando a pessoa estreitou de verdade.
+  const lojasDoPerimetro = LOJAS.filter((_, i) => lojaPermitida(i)).length;
+  const filtroAtivo = activeLojas().size < lojasDoPerimetro;
   const aviso = filtroAtivo
-    ? `<div class="contexto" style="border-color:#c8102e;">Atenção: há filtro de unidade/loja ativo — o placar abaixo
-       é do recorte filtrado, mas as metas são da REDE inteira. Limpe os filtros para o placar oficial.</div>`
-    : '';
+    ? `<div class="contexto" style="border-color:#f5a623;">Atenção: há filtro de loja ativo — o placar abaixo
+       é do recorte filtrado, mas as metas valem para o conjunto. Limpe os filtros para o placar oficial.</div>`
+    : (PERIMETRO === 'rede'
+      ? `<div class="contexto" style="border-color:#f5a623;">Você está na visão <b>Rede iFood completa</b>, que inclui o Boqueirão.
+         As metas foram calibradas sem ele — compare com cuidado.</div>`
+      : '');
 
   // Onde esta o gap (por loja) — para os KPIs operacionais
   const notaPorLoja = {};
