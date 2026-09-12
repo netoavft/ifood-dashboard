@@ -7623,8 +7623,12 @@ async function evolCarregarItens(semIni, semFim, antIni, antFim) {
   renderModuloEvolucao();
 }
 // [dias, grao, rotulo] — dias 0 = tudo o que existe
-const EVOL_JANELAS = [[56, 'semana', '8 semanas'], [182, 'mes', '6 meses'], [0, 'mes', 'Ano todo']];
-let EVOL_JANELA = 0;
+// [dias, grao, rotulo] — dias 0 = tudo o que existe.
+// As duas primeiras sao de grao DIA e NAO encostam na segunda-feira de proposito: 7 e 28
+// sao multiplos de 7, entao o periodo anterior cai no mesmo dia da semana e a comparacao
+// dia a dia compara sabado com sabado. Encostar na segunda quebraria esse alinhamento.
+const EVOL_JANELAS = [[7, 'dia', '7 dias'], [28, 'dia', '4 semanas'], [56, 'semana', '8 semanas'], [182, 'mes', '6 meses'], [0, 'mes', 'Ano todo']];
+let EVOL_JANELA = 2;   // abre em 8 semanas
 let EVOL_MEDIDA = 'total';   // 'total' | 'pedidos' | 'ticket'
 
 async function entrarEvolucao() {
@@ -7641,14 +7645,19 @@ function evolMedida(m) { EVOL_MEDIDA = m; renderModuloEvolucao(); }
 
 // Rotulo do periodo do grao: a semana vira "seg 31/08", o mes vira "ago/26".
 function evolChave(data, grao) {
+  if (grao === 'dia') return data;
   if (grao === 'mes') return data.slice(0, 7);
   const d = new Date(data + 'T12:00:00');
   d.setDate(d.getDate() - ((d.getDay() + 6) % 7));      // volta para a segunda
   return d.toISOString().slice(0, 10);
 }
+const EVOL_DIA_SEM = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
 function evolRotulo(chave, grao) {
   if (grao === 'mes') return MESES_ABREV[Number(chave.slice(5, 7)) - 1] + '/' + chave.slice(2, 4);
-  return chave.slice(8, 10) + '/' + chave.slice(5, 7);
+  const dm = chave.slice(8, 10) + '/' + chave.slice(5, 7);
+  // no grao dia o dia da semana e a informacao que explica o tamanho da barra
+  if (grao === 'dia') return EVOL_DIA_SEM[new Date(chave + 'T12:00:00').getDay()] + ' ' + dm;
+  return dm;
 }
 
 function renderModuloEvolucao() {
@@ -7664,6 +7673,7 @@ function renderModuloEvolucao() {
   // metade (janela de 56 dias caindo numa quarta-feira) e o grafico mostra duas
   // barras curtas que nao sao queda. Semana volta para a segunda; mes, para o dia 1.
   const inicioDoGrao = (d) => {
+    if (grao === 'dia') return d;          // ver a nota em EVOL_JANELAS
     if (grao === 'mes') return d.slice(0, 8) + '01';
     const x = new Date(d + 'T12:00:00');
     x.setDate(x.getDate() - ((x.getDay() + 6) % 7));
@@ -7709,11 +7719,31 @@ function renderModuloEvolucao() {
   const chaves = Object.keys(serie).sort();
   const medidaDe = (o) => EVOL_MEDIDA === 'total' ? o.total : EVOL_MEDIDA === 'pedidos' ? o.pedidos : (o.pedidos ? o.total / o.pedidos : 0);
   const valores = chaves.map(k => medidaDe(serie[k]));
+
+  // O PERIODO ANTERIOR ENTRA NO GRAFICO como linha tracejada por tras das barras —
+  // mesma escala, alinhado POSICAO A POSICAO (1a semana com 1a semana, sabado com
+  // sabado). E por isso que as janelas de grao dia sao multiplos de 7: sem isso a
+  // linha compararia terca com domingo e o desenho mentiria.
+  // Barras lado a lado foram descartadas (dobram o numero de marcas e o grafico de 9
+  // pontos vira 18) e segundo eixo Y esta proibido no painel.
+  const serieAnt = {};
+  anterior.forEach(r => {
+    const k = evolChave(r.data, grao);
+    const o = serieAnt[k] || (serieAnt[k] = { total: 0, pedidos: 0 });
+    o.total += Number(r.total || 0); o.pedidos += Number(r.pedidos || 0);
+  });
+  const chavesAnt = Object.keys(serieAnt).sort().slice(-chaves.length);
+  const valoresAnt = temBase && chavesAnt.length === chaves.length
+    ? chavesAnt.map(k => medidaDe(serieAnt[k])) : null;
+  const rotAnt = valoresAnt ? chavesAnt.map(k => evolRotulo(k, grao)) : [];
   // O ULTIMO periodo do grao quase sempre esta pela metade (a semana ou o mes em
   // curso). Mostrar sem avisar faz parecer queda — entao ele fica marcado.
-  const fimDoGrao = grao === 'mes'
-    ? (() => { const d = new Date(maxData + 'T12:00:00'); return d.getDate() >= new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate(); })()
-    : new Date(maxData + 'T12:00:00').getDay() === 0;
+  const hojeSP = new Date(Date.now() - 3 * 36e5).toISOString().slice(0, 10);
+  const fimDoGrao = grao === 'dia'
+    ? maxData < hojeSP                      // dia fechado e' dia que ja passou
+    : grao === 'mes'
+      ? (() => { const d = new Date(maxData + 'T12:00:00'); return d.getDate() >= new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate(); })()
+      : new Date(maxData + 'T12:00:00').getDay() === 0;
   const ultimoParcial = !fimDoGrao;
 
   // ---------- quebra generica ----------
@@ -7875,8 +7905,8 @@ function renderModuloEvolucao() {
     </div>
 
     <div class="section-label">Como a venda evoluiu</div>
-    <div class="caption-label" style="text-align:center;">Por ${grao === 'mes' ? 'mês' : 'semana (segunda a domingo)'}.
-      ${ultimoParcial ? `A última barra é ${grao === 'mes' ? 'o mês' : 'a semana'} em curso e está pela metade — não leia como queda.` : ''}</div>
+    <div class="caption-label" style="text-align:center;">Por ${grao === 'mes' ? 'mês' : grao === 'dia' ? 'dia' : 'semana (segunda a domingo)'}.${valoresAnt ? ' A linha tracejada é o mesmo ponto do período anterior, na mesma escala.' : ''}
+      ${ultimoParcial ? `A última barra é ${grao === 'mes' ? 'o mês' : grao === 'dia' ? 'o dia' : 'a semana'} em curso e está pela metade — não leia como queda.` : ''}</div>
     ${seletor([['total', 'Venda'], ['pedidos', 'Pedidos'], ['ticket', 'Valor médio']], EVOL_MEDIDA, 'evolMedida', true)}
     <div class="chart-box" style="height:260px;"><canvas id="chartEvolucao"></canvas></div>
 
@@ -7910,18 +7940,44 @@ function renderModuloEvolucao() {
       data: {
         labels: chaves.map(k => evolRotulo(k, grao)),
         datasets: [{
-          label: EVOL_MEDIDA === 'total' ? 'Venda' : EVOL_MEDIDA === 'pedidos' ? 'Pedidos' : 'Valor médio',
+          type: 'bar',
+          label: (EVOL_MEDIDA === 'total' ? 'Venda' : EVOL_MEDIDA === 'pedidos' ? 'Pedidos' : 'Valor médio') + ' — período atual',
           data: valores,
           backgroundColor: chaves.map((_, i) => (ultimoParcial && i === chaves.length - 1) ? parcial : cheia),
           borderRadius: 3,
-        }],
+          order: 2,
+        }].concat(valoresAnt ? [{
+          type: 'line',
+          label: 'Mesmo ponto do período anterior',
+          data: valoresAnt,
+          borderColor: corToken('--tx-4'),
+          backgroundColor: corToken('--tx-4'),
+          borderDash: [5, 4],
+          borderWidth: 2,
+          pointRadius: 2,
+          fill: false,
+          tension: .2,
+          order: 1,
+        }] : []),
       },
       options: {
         responsive: true, maintainAspectRatio: false,
         plugins: {
-          legend: { display: false },
-          tooltip: { callbacks: { label: (c) => (EVOL_MEDIDA === 'pedidos' ? c.parsed.y.toLocaleString('pt-BR') + ' pedidos' : 'R$ ' + fmt(c.parsed.y))
-            + ((ultimoParcial && c.dataIndex === chaves.length - 1) ? ' (em curso)' : '') } },
+          legend: { display: !!valoresAnt, labels: { boxWidth: 12, boxHeight: 2 } },
+          tooltip: { callbacks: {
+            label: (c) => {
+              const v = EVOL_MEDIDA === 'pedidos' ? c.parsed.y.toLocaleString('pt-BR') + ' pedidos' : 'R$ ' + fmt(c.parsed.y);
+              if (c.datasetIndex === 1) return 'Anterior (' + rotAnt[c.dataIndex] + '): ' + v;
+              return v + ((ultimoParcial && c.dataIndex === chaves.length - 1) ? ' (em curso)' : '');
+            },
+            afterBody: (cs) => {
+              if (!valoresAnt || !cs.length) return '';
+              const i = cs[0].dataIndex, a = valores[i], b = valoresAnt[i];
+              if (!b) return '';
+              const d = (a - b) / Math.abs(b) * 100;
+              return (Math.abs(d) < 0.05 ? 'igual ao anterior' : (d > 0 ? 'subiu ' : 'caiu ') + Math.abs(d).toFixed(1).replace('.', ',') + '% vs o anterior');
+            },
+          } },
         },
         scales: {
           x: { ticks: { maxRotation: 60, autoSkip: true } },
