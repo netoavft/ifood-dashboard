@@ -7606,18 +7606,31 @@ let EVOL = null;
 // coisa e' o jeito mais rapido de ninguem confiar em nenhum dos dois.
 // Regra do cross-filter: a dimensao que voce filtrou continua mostrando TODAS as suas
 // categorias (senao nao da para trocar de escolha); as outras dimensoes sim se filtram.
-let EVOL_F = { canal: null, faixa: null };
+let EVOL_F = { canal: null, faixa: null, item: null };
 function evolFiltrar(tipo, valor) {
   EVOL_F[tipo] = (EVOL_F[tipo] === valor) ? null : valor;   // clicar de novo solta
   renderModuloEvolucao();
 }
-function evolLimparFiltros() { EVOL_F = { canal: null, faixa: null }; renderModuloEvolucao(); }
+function evolLimparFiltros() { EVOL_F = { canal: null, faixa: null, item: null }; renderModuloEvolucao(); }
 // a matriz canal x faixa e' o mapa: clicar numa celula fixa as duas dimensoes juntas
 function evolMatriz(canal, faixa) {
   const jaEra = EVOL_F.canal === canal && EVOL_F.faixa === faixa;
-  EVOL_F = jaEra ? { canal: null, faixa: null } : { canal, faixa };
+  EVOL_F.canal = jaEra ? null : canal;
+  EVOL_F.faixa = jaEra ? null : faixa;
   renderModuloEvolucao();
 }
+// O ITEM como filtro fecha o cruzamento que o dono pediu ("cruzar canal, item,
+// periodo"). O nome vai por INDICE, nunca como string dentro do onclick: nome de
+// produto tem aspas, & e parenteses, e a fuga de um literal JS dentro de atributo
+// HTML e' exatamente o lugar onde isso quebra em silencio.
+let EVOL_LISTA_ITENS = [];
+function evolItemFiltrar(i) {
+  const nome = EVOL_LISTA_ITENS[i];
+  if (!nome) return;
+  EVOL_F.item = (EVOL_F.item === nome) ? null : nome;
+  renderModuloEvolucao();
+}
+function evolLimparItem() { EVOL_F.item = null; renderModuloEvolucao(); }
 
 let EVOL_ITENS = null;        // { chave, carregando, atual: [], anterior: [] }
 let EVOL_ITEM_N = 10;         // 10 = so os quadros do topo e do fundo; 9999 = lista inteira
@@ -7627,7 +7640,7 @@ async function evolCarregarItens(semIni, semFim, antIni, antFim) {
   const chave = [semIni, semFim, antIni, antFim].join('|');
   if (EVOL_ITENS && EVOL_ITENS.chave === chave) return;
   EVOL_ITENS = { chave, carregando: true, atual: [], anterior: [] };
-  const campos = 'semana,unidade,canal,faixa,item,qtd,receita';
+  const campos = 'semana,unidade,canal,faixa,item,qtd,receita,pedidos';
   try {
     const [a, b] = await Promise.all([
       consultarTudo(`vw_venda_item_semana?select=${campos}&semana=gte.${semIni}&semana=lte.${semFim}`),
@@ -7682,7 +7695,7 @@ function renderModuloEvolucao() {
   if (!alvo || EVOL === null) return;
   if (!EVOL.length) { alvo.innerHTML = '<div class="contexto">Sem venda importada ainda.</div>'; return; }
 
-  const [dias, grao, rotJanela] = EVOL_JANELAS[EVOL_JANELA];
+  const [dias, graoJanela, rotJanela] = EVOL_JANELAS[EVOL_JANELA];
   const datas = EVOL.map(r => r.data).sort();
   const maxData = datas[datas.length - 1], minData = datas[0];
   const recuar = (d, n) => { const x = new Date(d + 'T12:00:00'); x.setDate(x.getDate() - n); return x.toISOString().slice(0, 10); };
@@ -7690,8 +7703,8 @@ function renderModuloEvolucao() {
   // metade (janela de 56 dias caindo numa quarta-feira) e o grafico mostra duas
   // barras curtas que nao sao queda. Semana volta para a segunda; mes, para o dia 1.
   const inicioDoGrao = (d) => {
-    if (grao === 'dia') return d;          // ver a nota em EVOL_JANELAS
-    if (grao === 'mes') return d.slice(0, 8) + '01';
+    if (graoJanela === 'dia') return d;    // ver a nota em EVOL_JANELAS
+    if (graoJanela === 'mes') return d.slice(0, 8) + '01';
     const x = new Date(d + 'T12:00:00');
     x.setDate(x.getDate() - ((x.getDay() + 6) % 7));
     return x.toISOString().slice(0, 10);
@@ -7704,9 +7717,44 @@ function renderModuloEvolucao() {
   const antFim = recuar(ini, 1), antIni = dias ? recuar(antFim, tamanho - 1) : null;
   const temBase = antIni !== null && antIni >= minData;
 
+  // A base do ITEM e' SEMANAL (vw_venda_item_semana), entao o recorte dele anda em
+  // semanas fechadas, segunda a domingo. Estas quatro datas servem para carregar os
+  // itens e, no modo item, para recortar a tela inteira.
+  const segundaDe = (d) => { const x = new Date(d + 'T12:00:00'); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x.toISOString().slice(0, 10); };
+  const semIni = segundaDe(ini), semFim = segundaDe(maxData);
+  const antSemIni = temBase ? segundaDe(antIni) : null, antSemFim = temBase ? segundaDe(antFim) : null;
+  // carrega os itens da janela (so a janela) e redesenha quando chegar
+  evolCarregarItens(semIni, semFim, antSemIni, antSemFim);
+  const itensProntos = !!(EVOL_ITENS && !EVOL_ITENS.carregando && !EVOL_ITENS.erro
+    && EVOL_ITENS.chave === [semIni, semFim, antSemIni, antSemFim].join('|'));
+
+  // ---------- MODO ITEM ----------
+  // Com um item fixado a tela TROCA DE BASE: so vw_venda_item_semana sabe o que foi
+  // vendido item a item. As linhas dela sao remoldadas no formato de vw_venda_evolucao
+  // (data = segunda da semana, total = receita do item) e, com isso, cards, grafico,
+  // canal, faixa, loja e matriz passam a falar do item sem mudar uma linha de calculo.
+  // O preco sao duas ressalvas que a tela diz em voz alta: o grao vira SEMANA e a
+  // receita e' BRUTA (item x preco, antes do desconto do pedido e sem taxa de servico).
+  const ITEM = EVOL_F.item;
+  if (ITEM && !itensProntos) {
+    alvo.innerHTML = `<div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Evolução de vendas — ${ITEM}</div>
+      <div class="contexto"${EVOL_ITENS && EVOL_ITENS.erro ? ' style="border-color:var(--farol-fora);"' : ''}>
+        ${EVOL_ITENS && EVOL_ITENS.erro ? 'Não consegui carregar os itens: ' + EVOL_ITENS.erro : 'Carregando a venda deste item...'}
+        <div style="margin-top:8px;"><button class="preset-btn" onclick="evolLimparFiltros()">voltar para a tela toda</button></div>
+      </div>`;
+    return;
+  }
+  const grao = ITEM ? 'semana' : graoJanela;
+  const janIni = ITEM ? semIni : ini, janFim = ITEM ? semFim : maxData;
+  const janAntIni = ITEM ? antSemIni : antIni, janAntFim = ITEM ? antSemFim : antFim;
+  const comoEvol = (rows) => rows.filter(r => r.item === ITEM).map(r => ({
+    data: r.semana, unidade: r.unidade, canal: r.canal, faixa: r.faixa,
+    pedidos: Number(r.pedidos || 0), total: Number(r.receita || 0),
+  }));
+
   const naJanela = (r, a, b) => r.data >= a && r.data <= b && (!activeUnidades.size || activeUnidades.has(r.unidade));
-  const atual = EVOL.filter(r => naJanela(r, ini, maxData));
-  const anterior = temBase ? EVOL.filter(r => naJanela(r, antIni, antFim)) : [];
+  const atual = (ITEM ? comoEvol(EVOL_ITENS.atual) : EVOL).filter(r => naJanela(r, janIni, janFim));
+  const anterior = temBase ? (ITEM ? comoEvol(EVOL_ITENS.anterior) : EVOL).filter(r => naJanela(r, janAntIni, janAntFim)) : [];
 
   // `ignora` deixa a propria dimensao passar inteira — e o que mantem as outras
   // categorias clicaveis depois de escolher uma.
@@ -7741,6 +7789,12 @@ function renderModuloEvolucao() {
     const o = serie[k] || (serie[k] = { total: 0, pedidos: 0 });
     o.total += Number(r.total || 0); o.pedidos += Number(r.pedidos || 0);
   });
+  // ITEM QUE PAROU DE VENDER PRECISA CAIR ATE ZERO, nao simplesmente sumir. A base do
+  // item so tem linha na semana em que houve venda, entao sem este preenchimento um
+  // produto descontinuado termina o grafico no ultimo pico — e queda vira "acabou o
+  // periodo". Medido em 12/09: "2 BURGERS COM DESCONTO" some depois de 24/08.
+  const maisSete = (d) => { const x = new Date(d + 'T12:00:00'); x.setDate(x.getDate() + 7); return x.toISOString().slice(0, 10); };
+  if (ITEM) for (let d = janIni; d <= janFim; d = maisSete(d)) if (!serie[d]) serie[d] = { total: 0, pedidos: 0 };
   const chaves = Object.keys(serie).sort();
   const medidaDe = (o) => EVOL_MEDIDA === 'total' ? o.total : EVOL_MEDIDA === 'pedidos' ? o.pedidos : (o.pedidos ? o.total / o.pedidos : 0);
   const valores = chaves.map(k => medidaDe(serie[k]));
@@ -7757,6 +7811,9 @@ function renderModuloEvolucao() {
     const o = serieAnt[k] || (serieAnt[k] = { total: 0, pedidos: 0 });
     o.total += Number(r.total || 0); o.pedidos += Number(r.pedidos || 0);
   });
+  // No periodo anterior o preenchimento so vale se o item JA EXISTIA: item lancado
+  // depois nao ganha uma linha reta no zero, que parece defeito e nao ausencia.
+  if (ITEM && Object.keys(serieAnt).length) for (let d = janAntIni; d <= janAntFim; d = maisSete(d)) if (!serieAnt[d]) serieAnt[d] = { total: 0, pedidos: 0 };
   const chavesAnt = Object.keys(serieAnt).sort().slice(-chaves.length);
   const valoresAnt = temBase && chavesAnt.length === chaves.length
     ? chavesAnt.map(k => medidaDe(serieAnt[k])) : null;
@@ -7849,9 +7906,7 @@ function renderModuloEvolucao() {
   // semanal. Quando a janela começa no meio de uma semana — o caso do grão mês, que
   // começa no dia 1º — o recorte do item pode ficar alguns dias atrás do resto. Por
   // isso este bloco mostra o PRÓPRIO período em vez de herdar o do topo.
-  const segundaDe = (d) => { const x = new Date(d + 'T12:00:00'); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x.toISOString().slice(0, 10); };
-  const semIni = segundaDe(ini), semFim = segundaDe(maxData);
-  const antSemIni = temBase ? segundaDe(antIni) : null, antSemFim = temBase ? segundaDe(antFim) : null;
+  // (semIni/semFim e o carregamento moram lá em cima, junto do modo item.)
 
   let blocoItens;
   if (!EVOL_ITENS || EVOL_ITENS.carregando) {
@@ -7879,6 +7934,21 @@ function renderModuloEvolucao() {
     const totIt = Object.values(mA).reduce((s, o) => s + o.receita, 0);
     const itens = Object.entries(mA).map(([item, o]) => ({ item, ...o, ant: mB[item] || null }))
       .sort((x, y) => y.receita - x.receita);
+
+    // A LINHA DO ITEM E' CLICAVEL e fecha o cruzamento: fixa o item e a tela inteira
+    // passa a falar dele. A lista de itens NAO se filtra por item — igual as barras de
+    // canal e faixa, a dimensao escolhida continua inteira para dar como trocar.
+    EVOL_LISTA_ITENS = itens.map(x => x.item);
+    const idxIt = new Map(itens.map((x, i) => [x.item, i]));
+    const trIt = (x) => {
+      const sel = ITEM === x.item;
+      return `<tr onclick="evolItemFiltrar(${idxIt.get(x.item)})" style="cursor:pointer;${sel ? 'background:var(--brand-wine);' : ''}" title="${sel ? 'clique para soltar o filtro' : 'clique para ver a tela inteira só deste item'}">
+        <td>${sel ? '<b>' : ''}${x.item}${sel ? '</b> ✕' : ''}</td>
+        <td>${x.qtd.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</td>
+        <td>R$ ${fmt(x.receita)}<span class="dre-av">${pct(totIt ? x.receita / totIt * 100 : 0)}%</span></td>
+        <td>R$ ${fmt(x.qtd ? x.receita / x.qtd : 0)}</td>
+        <td>${varTxt(x.receita, x.ant && x.ant.receita)}</td></tr>`;
+    };
 
 
     // Quem mais subiu e quem mais caiu, em R$. O piso de R$ 1.000 existe para item de
@@ -7914,37 +7984,23 @@ function renderModuloEvolucao() {
         O item como foi vendido: o combo conta como combo, não aberto em componentes.
         A receita aqui é <b>quantidade × preço do item</b>, antes do desconto do pedido e sem a taxa de serviço —
         por isso o total desta tabela fica 2 a 3% distante do das quebras acima, e isso não é erro.
+        <b>Clique num item para a tela inteira falar só dele.</b>
         ${temBase ? '' : 'Sem período anterior para comparar.'}
       </div>
       ${subiram.length || cairam.length ? `<div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:12px;">${listaMov(subiram, 'Os que mais subiram em R$')}${listaMov(cairam, 'Os que mais caíram em R$')}</div>` : ''}
       <div id="tabelaEvolItemTopo" style="margin-top:12px;"><table>
         <tr><th>Os 10 que mais venderam</th><th>Quantidade</th><th>Receita · % do total</th><th>Preço médio</th><th>vs período anterior</th></tr>
-        ${itens.slice(0, 10).map(x => `<tr>
-          <td>${x.item}</td>
-          <td>${x.qtd.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</td>
-          <td>R$ ${fmt(x.receita)}<span class="dre-av">${pct(totIt ? x.receita / totIt * 100 : 0)}%</span></td>
-          <td>R$ ${fmt(x.qtd ? x.receita / x.qtd : 0)}</td>
-          <td>${varTxt(x.receita, x.ant && x.ant.receita)}</td></tr>`).join('')}
+        ${itens.slice(0, 10).map(trIt).join('')}
       </table></div>
       ${doFundo.length ? `<div id="tabelaEvolItemFundo" style="margin-top:12px;"><table>
         <tr><th>Os 10 que menos venderam</th><th>Quantidade</th><th>Receita · % do total</th><th>Preço médio</th><th>vs período anterior</th></tr>
-        ${doFundo.map(x => `<tr>
-          <td>${x.item}</td>
-          <td>${x.qtd.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</td>
-          <td>R$ ${fmt(x.receita)}<span class="dre-av">${pct(totIt ? x.receita / totIt * 100 : 0)}%</span></td>
-          <td>R$ ${fmt(x.qtd ? x.receita / x.qtd : 0)}</td>
-          <td>${varTxt(x.receita, x.ant && x.ant.receita)}</td></tr>`).join('')}
+        ${doFundo.map(trIt).join('')}
       </table></div>
       <div class="caption-label">Entre os que venderam pelo menos <b>${PISO_MENOS} unidades</b> e saíram com preço. Sem o corte de quantidade a lista seria de itens com uma ou duas unidades; sem o corte de preço, seria a lista de brinde e refeição de funcionário.
         ${semPreco.length ? `Neste período <b>${semPreco.length} itens saíram com preço zero</b>, somando <b>${qtdSemPreco.toLocaleString('pt-BR', { maximumFractionDigits: 0 })} unidades</b> — é consumo, não venda, e por isso fica fora do ranking.` : ''}</div>` : ''}
       ${abertos ? `<div id="tabelaEvolItem" style="margin-top:12px;"><table>
         <tr><th>Todos os itens (${itens.length})</th><th>Quantidade</th><th>Receita · % do total</th><th>Preço médio</th><th>vs período anterior</th></tr>
-        ${itens.slice(0, nMostra).map(x => `<tr>
-          <td>${x.item}</td>
-          <td>${x.qtd.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</td>
-          <td>R$ ${fmt(x.receita)}<span class="dre-av">${pct(totIt ? x.receita / totIt * 100 : 0)}%</span></td>
-          <td>R$ ${fmt(x.qtd ? x.receita / x.qtd : 0)}</td>
-          <td>${varTxt(x.receita, x.ant && x.ant.receita)}</td></tr>`).join('')}
+        ${itens.slice(0, nMostra).map(trIt).join('')}
         <tr class="liq"><td>TOTAL</td>
           <td>${Object.values(mA).reduce((s, o) => s + o.qtd, 0).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</td>
           <td>R$ ${fmt(totIt)}</td><td>—</td>
@@ -7958,46 +8014,54 @@ function renderModuloEvolucao() {
     + '</div>';
 
   alvo.innerHTML = `
-    <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Evolução de vendas — ${ddmm(ini)} a ${ddmm(maxData)}</div>
+    <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Evolução de vendas${ITEM ? ' · ' + ITEM : ''} — ${ddmm(janIni)} a ${ddmm(maxData)}</div>
     <div class="caption-label" style="text-align:center;">
       A venda registrada no caixa das lojas (Saipos), por canal e por faixa de horário.
       ${unsComDado.length ? `<b>${unsComDado.map(u => UN_ROT[u] || u).join(', ')}</b>.` : ''}
       ${temBase ? `Comparando com ${ddmm(antIni)} a ${ddmm(antFim)}, do mesmo tamanho.` : 'Não há período anterior do mesmo tamanho na base para comparar.'}
     </div>
     ${seletor(EVOL_JANELAS, EVOL_JANELA, 'evolJanela')}
-    ${(EVOL_F.canal || EVOL_F.faixa) ? `<div class="contexto" style="border-color:var(--brand);">
+    ${(EVOL_F.canal || EVOL_F.faixa || ITEM) ? `<div class="contexto" style="border-color:var(--brand);">
       <b>Filtrando:</b>
       ${EVOL_F.canal ? `<button class="preset-btn active" onclick="evolFiltrar('canal','${EVOL_F.canal}')">canal ${EVOL_F.canal} ✕</button>` : ''}
       ${EVOL_F.faixa ? `<button class="preset-btn active" onclick="evolFiltrar('faixa','${EVOL_F.faixa}')">${FAIXA_ROT[EVOL_F.faixa] || EVOL_F.faixa} ✕</button>` : ''}
+      ${ITEM ? `<button class="preset-btn active" onclick="evolLimparItem()">item ${ITEM} ✕</button>` : ''}
       <button class="preset-btn" onclick="evolLimparFiltros()">limpar</button>
-      <div style="font-size:12px; color:var(--tx-3); margin-top:6px;">Os cards, o gráfico, a matriz e os itens estão neste recorte. As tabelas de canal e de faixa continuam mostrando todas as opções, para você poder trocar.</div>
+      <div style="font-size:12px; color:var(--tx-3); margin-top:6px;">Os cards, o gráfico, a matriz e os itens estão neste recorte. As tabelas de canal, de faixa e de item continuam mostrando todas as opções, para você poder trocar.</div>
+    </div>` : ''}
+    ${ITEM ? `<div class="contexto" style="border-color:var(--amber-2);">
+      <b>A tela inteira está falando de ${ITEM}.</b> Duas coisas mudam enquanto o item está fixado, porque a base do item é outra:
+      o gráfico passa a andar de <b>semana em semana</b> (segunda a domingo), e o valor é a <b>receita bruta do item</b> —
+      quantidade × preço, antes do desconto do pedido e sem a taxa de serviço. Por isso os números aqui não batem
+      centavo a centavo com a tela sem item fixado. Os pedidos são os <b>pedidos que levaram este item</b>.
     </div>` : ''}
 
     <div class="cards">
-      <div class="card blue"><div class="card-lbl">Venda no período</div>
+      <div class="card blue"><div class="card-lbl">${ITEM ? 'Receita do item no período' : 'Venda no período'}</div>
         <div class="card-val">R$ ${fmt(tot)}</div><div class="card-pct">${varTxt(tot, totA)}</div></div>
-      <div class="card neutral"><div class="card-lbl">Pedidos</div>
+      <div class="card neutral"><div class="card-lbl">${ITEM ? 'Pedidos com o item' : 'Pedidos'}</div>
         <div class="card-val">${ped.toLocaleString('pt-BR')}</div><div class="card-pct">${varTxt(ped, pedA)}</div></div>
-      <div class="card neutral"><div class="card-lbl">Valor médio por pedido</div>
+      <div class="card neutral"><div class="card-lbl">${ITEM ? 'Do item por pedido' : 'Valor médio por pedido'}</div>
         <div class="card-val">R$ ${fmt(tk)}</div><div class="card-pct">${varTxt(tk, tkA)}</div></div>
-      <div class="card neutral"><div class="card-lbl">Venda por dia</div>
-        <div class="card-val">R$ ${fmt(tot / nDias)}</div><div class="card-pct">média de ${nDias} dia(s) com venda</div></div>
+      <div class="card neutral"><div class="card-lbl">${ITEM ? 'Receita por semana' : 'Venda por dia'}</div>
+        <div class="card-val">R$ ${fmt(tot / nDias)}</div><div class="card-pct">média de ${nDias} ${ITEM ? 'semana(s)' : 'dia(s)'} com venda</div></div>
     </div>
 
-    <div class="section-label">Como a venda evoluiu</div>
+    <div class="section-label">Como ${ITEM ? 'este item' : 'a venda'} evoluiu</div>
     <div class="caption-label" style="text-align:center;">Por ${grao === 'mes' ? 'mês' : grao === 'dia' ? 'dia' : 'semana (segunda a domingo)'}.${valoresAnt ? ' A linha tracejada é o período anterior, ponto a ponto na mesma escala — passe o mouse para ver as duas datas e os dois valores.' : ''}
       ${ultimoParcial ? `O último ponto é ${grao === 'mes' ? 'o mês' : grao === 'dia' ? 'o dia' : 'a semana'} em curso: fica vazado e com o traço pontilhado, porque ainda não fechou.` : ''}</div>
     ${seletor([['total', 'Venda'], ['pedidos', 'Pedidos'], ['ticket', 'Valor médio']], EVOL_MEDIDA, 'evolMedida', true)}
     <div class="chart-box" style="height:260px;"><canvas id="chartEvolucao"></canvas></div>
 
-    ${tabela('Por canal', 'Onde a venda entra.', 'tabelaEvolCanal', porCanal, 'canal', totCanal)}
+    ${tabela('Por canal', ITEM ? 'Por onde este item sai.' : 'Onde a venda entra.', 'tabelaEvolCanal', porCanal, 'canal', totCanal)}
     ${tabela('Por faixa de horário', 'A faixa sai da hora da venda registrada no Saipos, não do turno do cadastro.', 'tabelaEvolFaixa', porFaixa, 'faixa', totFaixa)}
     ${matriz}
     ${unsComDado.length > 1 ? tabela('Por loja', 'Para isolar uma loja, use o filtro de unidade lá em cima — é o mesmo controle do resto do painel.', 'tabelaEvolLoja', porLoja) : ''}
     ${blocoItens}
 
     <div class="caption-label">
-      Fonte: <b>vw_venda_evolucao</b>, sobre a venda do caixa do Saipos, sem canceladas — cobre Água Verde, Ahú e São Braz.
+      Fonte: <b>${ITEM ? 'vw_venda_item_semana' : 'vw_venda_evolucao'}</b>, sobre a venda do caixa do Saipos, sem canceladas — cobre Água Verde, Ahú e São Braz.
+      ${ITEM ? 'Com um item fixado a tela lê a base do item, que é semanal e traz a receita bruta; sem item, lê a base do pedido, que é diária e já vem com desconto e taxa de serviço.' : ''}
       O Boqueirão é de outra gestão e não entra. O valor é o do PDV e não se compara direto com o bruto do portal do iFood,
       que conta promoção e cancelamento de outro jeito.
       A faixa de horário vem da <b>hora da venda</b>: no salão é a abertura da comanda, no delivery é a criação do pedido.
@@ -8051,9 +8115,6 @@ function renderModuloEvolucao() {
   };
   barra('charttabelaEvolCanal', porCanal, 'canal');
   barra('charttabelaEvolFaixa', porFaixa, 'faixa');
-
-  // carrega os itens da janela (so a janela) e redesenha quando chegar
-  evolCarregarItens(semIni, semFim, antSemIni, antSemFim);
 
   destroyChart('chartEvolucao');
   const ctx = document.getElementById('chartEvolucao');
@@ -8281,6 +8342,8 @@ function rateioLinhasCanal() {
 // (docs/dre-turno.html, gerada por script/gerar_dre_turno.py) — este modulo
 // ficou so com o que e dele: PRECO (markup do canal x custo da ficha) e o
 // alerta de despesa sem criterio. Atacado e Filiais da AV seguem nos cartoes.
+// 12/09/2026: a Mini DRE por turno saiu do menu (pagina parada em julho). A leitura
+// viva de venda por canal x faixa x dia e o modulo Evolucao de vendas.
 function renderModuloRateio() {
   const alvo = document.getElementById('view-rateio');
   if (!alvo || !RATEIO) return;
@@ -8357,7 +8420,7 @@ function renderModuloRateio() {
   alvo.innerHTML = `
     <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Preço alvo por produto · ${mesNome(de)} a ${mesNome(ate)}</div>
     ${rateioBarraUnidades()}
-    <div class="contexto">Aqui é <b>preço</b>: o custo de operar cada canal vira um <b>markup</b> sobre o custo da ficha, e o markup × CMV dá o preço alvo de cada produto. Os cartões mostram quanto de cada R$ 100 vendidos vai para operar o canal — <b>sem a matéria-prima</b> (ela entra pela ficha) — na leitura <b>cheia</b> (comissão de 9,5% do iFood que o benefício zera até dez/26–jan/27; é por ela que se precifica). Clique no canal para ver o preço alvo dele. Para ler <b>resultado</b> (quanto sobrou por canal, turno e dia), use a <b>Mini DRE por turno</b> aqui do menu.${canais.some(c => porCanal[c].provisorio) ? ' <span style="color:#a5a49a;">Parte da folha ainda cai na proporção geral (nomes sem setor).</span>' : ''}</div>
+    <div class="contexto">Aqui é <b>preço</b>: o custo de operar cada canal vira um <b>markup</b> sobre o custo da ficha, e o markup × CMV dá o preço alvo de cada produto. Os cartões mostram quanto de cada R$ 100 vendidos vai para operar o canal — <b>sem a matéria-prima</b> (ela entra pela ficha) — na leitura <b>cheia</b> (comissão de 9,5% do iFood que o benefício zera até dez/26–jan/27; é por ela que se precifica). Clique no canal para ver o preço alvo dele. Para ler <b>venda</b> por canal, faixa de horário e dia, use a <b>Evolução de vendas</b> aqui do menu.${canais.some(c => porCanal[c].provisorio) ? ' <span style="color:#a5a49a;">Parte da folha ainda cai na proporção geral (nomes sem setor).</span>' : ''}</div>
     ${(RATEIO.semCriterio || []).length ? `<div class="contexto" style="border-color:#c8102e;"><b>Conta nova sem critério de rateio</b> — está caindo em "por vendas" sem ninguém ter decidido: ${RATEIO.semCriterio.map(r => `${String(r.subtipo).toLowerCase()} (${reais(r.valor_3m)} em 3 meses)`).join(' · ')}. Decidir em rateio_criterios.</div>` : ''}
     <div class="cards">${cards}</div>
     ${precoBloco}`;
