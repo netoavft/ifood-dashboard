@@ -7602,9 +7602,9 @@ let EVOL = null;
 // devolve so o recorte. Por isso este bloco tem carregamento proprio, separado do resto.
 let EVOL_ITENS = null;        // { chave, carregando, atual: [], anterior: [] }
 let EVOL_ITEM_CANAL = '';     // '' = todos os canais
-let EVOL_ITEM_N = 25;         // quantos itens a tabela mostra
+let EVOL_ITEM_N = 10;         // 10 = so os quadros do topo e do fundo; 9999 = lista inteira
 function evolItemCanal(c) { EVOL_ITEM_CANAL = c; renderModuloEvolucao(); }
-function evolItemMais() { EVOL_ITEM_N = EVOL_ITEM_N >= 200 ? 25 : EVOL_ITEM_N + 50; renderModuloEvolucao(); }
+function evolItemTodos() { EVOL_ITEM_N = EVOL_ITEM_N >= 9999 ? 10 : 9999; renderModuloEvolucao(); }
 
 async function evolCarregarItens(semIni, semFim, antIni, antFim) {
   const chave = [semIni, semFim, antIni, antFim].join('|');
@@ -7853,7 +7853,14 @@ function renderModuloEvolucao() {
         <ul class="fx-lista">${arr.map(x => `<li><span>${x.item}</span><b>${x.dif > 0 ? '+' : '−'} R$ ${fmt(Math.abs(x.dif))}</b></li>`).join('')}</ul>
       </div>` : '';
 
-    const nMostra = Math.min(EVOL_ITEM_N, itens.length);
+    // OS 10 MAIS E OS 10 MENOS (pedido do dono, 12/09/2026), com "abrir todos".
+    // O "menos" precisa de PISO: sem ele a lista vira cauda de item que vendeu uma
+    // unidade no periodo — informacao nenhuma. O corte e' 10 unidades vendidas, e a
+    // tela diz qual e', para ninguem achar que e' o fundo do cardapio inteiro.
+    const PISO_MENOS = 10;
+    const doFundo = itens.filter(x => x.qtd >= PISO_MENOS).slice().sort((a, b) => a.receita - b.receita).slice(0, 10);
+    const abertos = EVOL_ITEM_N >= itens.length;
+    const nMostra = abertos ? itens.length : Math.min(EVOL_ITEM_N, itens.length);
     blocoItens = `
       <div class="section-label">Por item — ${ddmm(semIni)} a ${ddmm(maxData)}</div>
       <div class="caption-label" style="text-align:center;">
@@ -7864,20 +7871,39 @@ function renderModuloEvolucao() {
       </div>
       ${seletorCanal}
       ${subiram.length || cairam.length ? `<div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:12px;">${listaMov(subiram, 'Os que mais subiram em R$')}${listaMov(cairam, 'Os que mais caíram em R$')}</div>` : ''}
-      <div id="tabelaEvolItem" style="margin-top:12px;"><table>
-        <tr><th>Item</th><th>Quantidade</th><th>Receita · % do total</th><th>Preço médio</th><th>vs período anterior</th></tr>
+      <div id="tabelaEvolItemTopo" style="margin-top:12px;"><table>
+        <tr><th>Os 10 que mais venderam</th><th>Quantidade</th><th>Receita · % do total</th><th>Preço médio</th><th>vs período anterior</th></tr>
+        ${itens.slice(0, 10).map(x => `<tr>
+          <td>${x.item}</td>
+          <td>${x.qtd.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</td>
+          <td>R$ ${fmt(x.receita)}<span class="dre-av">${pct(totIt ? x.receita / totIt * 100 : 0)}%</span></td>
+          <td>R$ ${fmt(x.qtd ? x.receita / x.qtd : 0)}</td>
+          <td>${varTxt(x.receita, x.ant && x.ant.receita)}</td></tr>`).join('')}
+      </table></div>
+      ${doFundo.length ? `<div id="tabelaEvolItemFundo" style="margin-top:12px;"><table>
+        <tr><th>Os 10 que menos venderam</th><th>Quantidade</th><th>Receita · % do total</th><th>Preço médio</th><th>vs período anterior</th></tr>
+        ${doFundo.map(x => `<tr>
+          <td>${x.item}</td>
+          <td>${x.qtd.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</td>
+          <td>R$ ${fmt(x.receita)}<span class="dre-av">${pct(totIt ? x.receita / totIt * 100 : 0)}%</span></td>
+          <td>R$ ${fmt(x.qtd ? x.receita / x.qtd : 0)}</td>
+          <td>${varTxt(x.receita, x.ant && x.ant.receita)}</td></tr>`).join('')}
+      </table></div>
+      <div class="caption-label">Entre os que venderam pelo menos <b>${PISO_MENOS} unidades</b> no período. Sem esse corte a lista seria de itens com uma ou duas unidades, que não dizem nada sobre o cardápio.</div>` : ''}
+      ${abertos ? `<div id="tabelaEvolItem" style="margin-top:12px;"><table>
+        <tr><th>Todos os itens (${itens.length})</th><th>Quantidade</th><th>Receita · % do total</th><th>Preço médio</th><th>vs período anterior</th></tr>
         ${itens.slice(0, nMostra).map(x => `<tr>
           <td>${x.item}</td>
           <td>${x.qtd.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</td>
           <td>R$ ${fmt(x.receita)}<span class="dre-av">${pct(totIt ? x.receita / totIt * 100 : 0)}%</span></td>
           <td>R$ ${fmt(x.qtd ? x.receita / x.qtd : 0)}</td>
           <td>${varTxt(x.receita, x.ant && x.ant.receita)}</td></tr>`).join('')}
-        <tr class="liq"><td>TOTAL${nMostra < itens.length ? ` (a tabela mostra ${nMostra} de ${itens.length})` : ''}</td>
+        <tr class="liq"><td>TOTAL</td>
           <td>${Object.values(mA).reduce((s, o) => s + o.qtd, 0).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</td>
           <td>R$ ${fmt(totIt)}</td><td>—</td>
           <td>${varTxt(totIt, Object.values(mB).reduce((s, o) => s + o.receita, 0))}</td></tr>
-      </table></div>
-      ${itens.length > 25 ? `<div style="text-align:center; margin-top:8px;"><button class="preset-btn" onclick="evolItemMais()">${nMostra >= itens.length ? 'mostrar menos' : `mostrar mais ${Math.min(50, itens.length - nMostra)}`}</button></div>` : ''}`;
+      </table></div>` : ''}
+      <div style="text-align:center; margin-top:10px;"><button class="preset-btn" onclick="evolItemTodos()">${abertos ? 'fechar a lista completa' : `abrir todos os ${itens.length} itens`}</button></div>`;
   }
 
   const seletor = (arr, atualIdx, fn, rot) => `<div class="periodo-presets" style="margin-top:10px;">`
@@ -7905,8 +7931,8 @@ function renderModuloEvolucao() {
     </div>
 
     <div class="section-label">Como a venda evoluiu</div>
-    <div class="caption-label" style="text-align:center;">Por ${grao === 'mes' ? 'mês' : grao === 'dia' ? 'dia' : 'semana (segunda a domingo)'}.${valoresAnt ? ' A linha tracejada é o mesmo ponto do período anterior, na mesma escala.' : ''}
-      ${ultimoParcial ? `A última barra é ${grao === 'mes' ? 'o mês' : grao === 'dia' ? 'o dia' : 'a semana'} em curso e está pela metade — não leia como queda.` : ''}</div>
+    <div class="caption-label" style="text-align:center;">Por ${grao === 'mes' ? 'mês' : grao === 'dia' ? 'dia' : 'semana (segunda a domingo)'}.${valoresAnt ? ' A linha tracejada é o período anterior, ponto a ponto na mesma escala — passe o mouse para ver as duas datas e os dois valores.' : ''}
+      ${ultimoParcial ? `O último ponto é ${grao === 'mes' ? 'o mês' : grao === 'dia' ? 'o dia' : 'a semana'} em curso: fica vazado e com o traço pontilhado, porque ainda não fechou.` : ''}</div>
     ${seletor([['total', 'Venda'], ['pedidos', 'Pedidos'], ['ticket', 'Valor médio']], EVOL_MEDIDA, 'evolMedida', true)}
     <div class="chart-box" style="height:260px;"><canvas id="chartEvolucao"></canvas></div>
 
@@ -7934,50 +7960,84 @@ function renderModuloEvolucao() {
   destroyChart('chartEvolucao');
   const ctx = document.getElementById('chartEvolucao');
   if (ctx && chaves.length) {
-    const cheia = corTokenA('--info', 0.85), parcial = corTokenA('--info', 0.30);
+    // DUAS LINHAS, uma por periodo (pedido do dono, 12/09/2026). Eram barras + linha
+    // fantasma; virou linha contra linha porque e' comparacao de MESMA medida em dois
+    // tempos, e linha e' o que o olho segue para ver onde uma descolou da outra —
+    // ainda mais no grao dia, onde 28 barras viram ruido.
+    //
+    // COR: o periodo atual fica em --info (a cor de dado do painel) e o anterior em
+    // --tx-4, tracejado. Nao usei --serie-1/2 de proposito: aquela paleta e' de ENTIDADE
+    // (identidade de loja, ordem fixa) e aqui as duas series sao a MESMA medida em tempos
+    // diferentes — dar peso igual as duas faz o olho comparar duas coisas em vez de ler
+    // uma contra a referencia. Se um dia o dono quiser as duas fortes, e' trocar
+    // corToken('--tx-4') por corToken('--serie-2') nas tres linhas abaixo.
+    const corAtual = corToken('--info'), corAnt = corToken('--tx-4');
+    const ultimo = chaves.length - 1;
     chartInstances['chartEvolucao'] = new Chart(ctx.getContext('2d'), {
-      type: 'bar',
+      type: 'line',
       data: {
         labels: chaves.map(k => evolRotulo(k, grao)),
         datasets: [{
-          type: 'bar',
-          label: (EVOL_MEDIDA === 'total' ? 'Venda' : EVOL_MEDIDA === 'pedidos' ? 'Pedidos' : 'Valor médio') + ' — período atual',
+          label: 'Período atual',
           data: valores,
-          backgroundColor: chaves.map((_, i) => (ultimoParcial && i === chaves.length - 1) ? parcial : cheia),
-          borderRadius: 3,
-          order: 2,
-        }].concat(valoresAnt ? [{
-          type: 'line',
-          label: 'Mesmo ponto do período anterior',
-          data: valoresAnt,
-          borderColor: corToken('--tx-4'),
-          backgroundColor: corToken('--tx-4'),
-          borderDash: [5, 4],
+          borderColor: corAtual,
+          backgroundColor: corTokenA('--info', 0.12),
           borderWidth: 2,
-          pointRadius: 2,
-          fill: false,
-          tension: .2,
+          fill: true,
+          tension: .25,
+          // o ponto em curso fica vazado e o traco ate ele, pontilhado
+          pointRadius: chaves.map((_, i) => (ultimoParcial && i === ultimo) ? 5 : 3),
+          pointBackgroundColor: chaves.map((_, i) => (ultimoParcial && i === ultimo) ? corToken('--surface') : corAtual),
+          pointBorderColor: corAtual,
+          pointBorderWidth: 2,
+          segment: { borderDash: (c) => (ultimoParcial && c.p1DataIndex === ultimo) ? [4, 4] : undefined },
           order: 1,
+        }].concat(valoresAnt ? [{
+          label: 'Período anterior',
+          data: valoresAnt,
+          borderColor: corAnt,
+          backgroundColor: corAnt,
+          borderWidth: 2,
+          borderDash: [5, 4],
+          fill: false,
+          tension: .25,
+          pointRadius: 2,
+          order: 2,
         }] : []),
       },
       options: {
         responsive: true, maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
         plugins: {
-          legend: { display: !!valoresAnt, labels: { boxWidth: 12, boxHeight: 2 } },
-          tooltip: { callbacks: {
-            label: (c) => {
-              const v = EVOL_MEDIDA === 'pedidos' ? c.parsed.y.toLocaleString('pt-BR') + ' pedidos' : 'R$ ' + fmt(c.parsed.y);
-              if (c.datasetIndex === 1) return 'Anterior (' + rotAnt[c.dataIndex] + '): ' + v;
-              return v + ((ultimoParcial && c.dataIndex === chaves.length - 1) ? ' (em curso)' : '');
+          legend: { display: !!valoresAnt, labels: { boxWidth: 14, boxHeight: 2, usePointStyle: false } },
+          tooltip: {
+            callbacks: {
+              // O QUADRO MOSTRA OS DOIS, cada um com a SUA data (pedido do dono):
+              // "sáb 06/09" em cima, e dentro "atual 06/09: R$ x" / "anterior 09/08: R$ y".
+              title: (cs) => cs.length ? chaves.map(k => evolRotulo(k, grao))[cs[0].dataIndex] : '',
+              label: (c) => {
+                const v = EVOL_MEDIDA === 'pedidos'
+                  ? Number(c.parsed.y).toLocaleString('pt-BR', { maximumFractionDigits: 0 }) + ' pedidos'
+                  : 'R$ ' + fmt(c.parsed.y);
+                const dt = c.datasetIndex === 0 ? evolRotulo(chaves[c.dataIndex], grao) : (rotAnt[c.dataIndex] || '');
+                const quem = c.datasetIndex === 0 ? 'Atual' : 'Anterior';
+                return `${quem} · ${dt}: ${v}`;
+              },
+              afterBody: (cs) => {
+                if (!valoresAnt || !cs.length) return '';
+                const i = cs[0].dataIndex, a = valores[i], b = valoresAnt[i];
+                const linhas = [];
+                if (b) {
+                  const d = (a - b) / Math.abs(b) * 100;
+                  linhas.push(Math.abs(d) < 0.05 ? 'igual ao anterior'
+                    : (d > 0 ? 'subiu ' : 'caiu ') + Math.abs(d).toFixed(1).replace('.', ',') + '%'
+                      + (EVOL_MEDIDA === 'pedidos' ? '' : ' (R$ ' + fmt(Math.abs(a - b)) + ')'));
+                }
+                if (ultimoParcial && i === ultimo) linhas.push(grao === 'dia' ? 'o dia ainda não fechou' : grao === 'mes' ? 'o mês ainda não fechou' : 'a semana ainda não fechou');
+                return linhas.join(String.fromCharCode(10));
+              },
             },
-            afterBody: (cs) => {
-              if (!valoresAnt || !cs.length) return '';
-              const i = cs[0].dataIndex, a = valores[i], b = valoresAnt[i];
-              if (!b) return '';
-              const d = (a - b) / Math.abs(b) * 100;
-              return (Math.abs(d) < 0.05 ? 'igual ao anterior' : (d > 0 ? 'subiu ' : 'caiu ') + Math.abs(d).toFixed(1).replace('.', ',') + '% vs o anterior');
-            },
-          } },
+          },
         },
         scales: {
           x: { ticks: { maxRotation: 60, autoSkip: true } },
