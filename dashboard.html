@@ -12574,41 +12574,28 @@ const HOME_ACAO = {
   roa_promo: 'abrir Promoções e comparar mecânicas — cortar as de pior retorno',
 };
 
-async function entrarEstaSemana() {
-  const alvo = document.getElementById('view-estasemana');
-  if (!alvo) return;
-  alvo.innerHTML = '<div class="contexto">Montando a leitura da semana...</div>';
-  try {
-    if (METAS_KPI === null) {
-      METAS_KPI = await consultarTudo('metas_kpi?select=chave,nome,bloco,sentido,meta,meta2,unidade,descricao,ordem&ativo=eq.true&order=ordem');
-    }
-    if (NEGOCIACOES === null) await entrarNegociacoesSoDados();
-    if (AVALIACOES === null) await entrarAvaliacoesSoDados();
-    if (HOME_PEND === null) {
-      const [pend, rot, concFresh] = await Promise.all([
-        consultarTudo('vw_contestacoes_status?select=id_curto,nome_loja,valor,contestavel_ate,automatizavel&bloco=eq.A_CONTESTAR'),
-        consultarTudo('vw_rotinas_status?select=rotina,status,inicio,resumo'),
-        consultarTudo('mv_conciliacao_agregado?select=data&order=data.desc&limit=1'),
-      ]);
-      HOME_PEND = { pend, rot, concAte: concFresh.length ? concFresh[0].data : null };
-    }
-    renderEstaSemana();
-  } catch (e) {
-    alvo.innerHTML = '<div class="contexto" style="border-color:#ff6b6b;">Não consegui montar a home: ' + e.message + '</div>';
+// ---------------- A FAIXA DE ALERTAS, compartilhada (12/09/2026) ----------------
+// Era o bloco A da tela "Esta semana" e, na revisão dos módulos, a decisão foi que
+// ela vira a barra de alertas do PLACAR. Em vez de copiar, virou função: as duas
+// telas chamam a MESMA. Regra da casa — alerta duplicado é alerta que um dia diverge.
+// Ela é a única coisa do painel que diz "faça isto agora", não "isto aconteceu".
+async function carregarAlertas() {
+  if (NEGOCIACOES === null) await entrarNegociacoesSoDados();
+  if (AVALIACOES === null) await entrarAvaliacoesSoDados();
+  if (HOME_PEND === null) {
+    const [pend, rot, concFresh] = await Promise.all([
+      consultarTudo('vw_contestacoes_status?select=id_curto,nome_loja,valor,contestavel_ate,automatizavel&bloco=eq.A_CONTESTAR'),
+      consultarTudo('vw_rotinas_status?select=rotina,status,inicio,resumo'),
+      consultarTudo('mv_conciliacao_agregado?select=data&order=data.desc&limit=1'),
+    ]);
+    HOME_PEND = { pend, rot, concAte: concFresh.length ? concFresh[0].data : null };
   }
 }
 
-function renderEstaSemana() {
-  const alvo = document.getElementById('view-estasemana');
-  const iso = (d) => d.toISOString().slice(0, 10);
-  const ddmm = (v) => v ? v.slice(8, 10) + '/' + v.slice(5, 7) : '—';
+function alertasAgora() {
+  if (!HOME_PEND || AVALIACOES === null || NEGOCIACOES === null) return null;
   const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
-  const dow = (hoje.getDay() + 6) % 7; // 0 = segunda
-  const segAtual = new Date(hoje); segAtual.setDate(segAtual.getDate() - dow);
-  const ontem = new Date(hoje); ontem.setDate(ontem.getDate() - 1);
-  const temSemanaEmCurso = ontem >= segAtual;
-
-  // ---------------- FAIXA A: precisa de gente agora ----------------
+  const ddmm = (v) => v ? String(v).slice(8, 10) + '/' + String(v).slice(5, 7) : '—';
   const pendManual = HOME_PEND.pend.filter(r => !r.automatizavel);
   const pendValor = pendManual.reduce((s, r) => s + Number(r.valor || 0), 0);
   const prazoMin = pendManual.map(r => r.contestavel_ate).filter(Boolean).sort()[0] || null;
@@ -12629,11 +12616,46 @@ function renderEstaSemana() {
     txt: '<b>Fonte parada:</b> avaliações vão só até ' + ddmm(maxAv) + ' — a rotina de terça 14:00 não trouxe; ver Sistema → Rotinas' });
   if (idade(maxNeg) !== null && idade(maxNeg) > 9) agora.push({ cor: '#f5a623', link: 'negociacoes',
     txt: '<b>Fonte parada:</b> negociações vão só até ' + ddmm(maxNeg) + ' — a rotina de terça 14:00 não trouxe; ver Sistema → Rotinas' });
+  return agora;
+}
 
-  const blocoAgora = agora.length
+function blocoAlertas() {
+  const agora = alertasAgora();
+  if (agora === null) return '';
+  return agora.length
     ? agora.map(a => '<div class="contexto" style="border-color:' + a.cor + '; margin-bottom:8px;' + (a.link ? ' cursor:pointer;' : '') + '"' +
         (a.link ? ' onclick="mostrarModulo(\'' + a.link + '\')"' : '') + '>' + a.txt + '</div>').join('')
     : '<div class="contexto" style="border-color:#3fb950;">Nada esperando ação sua neste momento. ✔</div>';
+}
+
+async function entrarEstaSemana() {
+  const alvo = document.getElementById('view-estasemana');
+  if (!alvo) return;
+  alvo.innerHTML = '<div class="contexto">Montando a leitura da semana...</div>';
+  try {
+    if (METAS_KPI === null) {
+      METAS_KPI = await consultarTudo('metas_kpi?select=chave,nome,bloco,sentido,meta,meta2,unidade,descricao,ordem&ativo=eq.true&order=ordem');
+    }
+    await carregarAlertas();
+    renderEstaSemana();
+  } catch (e) {
+    alvo.innerHTML = '<div class="contexto" style="border-color:#ff6b6b;">Não consegui montar a home: ' + e.message + '</div>';
+  }
+}
+
+function renderEstaSemana() {
+  const alvo = document.getElementById('view-estasemana');
+  const iso = (d) => d.toISOString().slice(0, 10);
+  const ddmm = (v) => v ? v.slice(8, 10) + '/' + v.slice(5, 7) : '—';
+  const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+  const dow = (hoje.getDay() + 6) % 7; // 0 = segunda
+  const segAtual = new Date(hoje); segAtual.setDate(segAtual.getDate() - dow);
+  const ontem = new Date(hoje); ontem.setDate(ontem.getDate() - 1);
+  const temSemanaEmCurso = ontem >= segAtual;
+
+  // FAIXA A: precisa de gente agora. A conta mora em alertasAgora(), fora daqui,
+  // porque o Placar mostra a MESMA faixa (decisao da revisao, 12/09/2026).
+  const blocoAgora = blocoAlertas();
 
   // ---------- FAIXA B: semana em curso vs mesmos dias da anterior ----------
   let blocoEmCurso = '';
@@ -13237,6 +13259,9 @@ async function entrarPlacar() {
     await fxCarregarM();
   }
   renderPlacar();
+  // A faixa de alertas chega depois, sem segurar os numeros: ela vem de outras
+  // quatro fontes e o Placar nao pode esperar por elas para aparecer.
+  carregarAlertas().then(renderPlacar).catch(() => {});
 }
 
 function renderPlacar() {
@@ -13352,6 +13377,8 @@ function renderPlacar() {
       <b>Clique num número para abrir a quebra</b> por loja, período a período e do que ele é feito.
       Os números saem da mesma conta do <b>Fechamento do mês</b> — não há segunda conta neste painel.
     </div>
+    ${(() => { const b = blocoAlertas(); return b ? `<div class="section-label">O que precisa de você agora</div>
+      <div class="caption-label" style="text-align:center;">A mesma faixa da tela "Esta semana" — aqui e lá ela é a mesma conta, não uma cópia. Clique no aviso para ir direto na tela dele.</div>${b}` : ''; })()}
     ${seletorLojaFin()}
     <div class="periodo-presets" style="margin-top:10px;">${segGrao}</div>
     <div class="periodo-presets" style="margin-top:6px;">${segPer}</div>
