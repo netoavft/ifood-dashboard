@@ -3814,6 +3814,53 @@ async function entrarAvaliacoesSoDados() {
   ]);
 }
 
+// Comparacao entre as unidades: pedidos por semana, uma linha por unidade.
+// E o primeiro grafico do painel em que a SERIE e uma entidade (a loja) em vez de uma
+// medida ou um status — por isso e o unico que usa a paleta --serie-*.
+//
+// A cor vem de um mapa por NOME, nunca por indice: cor segue a unidade, entao tirar uma
+// do filtro nao repinta as que sobraram (se fosse por posicao, sumir a Agua Verde faria
+// o Ahu herdar o azul dela e o grafico mentiria de um clique para o outro).
+// A grafia vem do dado como esta em dim_lojas — tres sem acento e "SÃO BRAZ" COM acento;
+// e a armadilha registrada no CLAUDE.md, e por isso a chave e copiada, nao digitada.
+const SERIE_UNIDADE = {
+  'AGUA VERDE': { token: '--serie-1', nome: 'Água Verde' },
+  'AHU':        { token: '--serie-2', nome: 'Ahú' },
+  'BOQUEIRAO':  { token: '--serie-3', nome: 'Boqueirão' },
+  'SÃO BRAZ':   { token: '--serie-4', nome: 'São Braz' },
+};
+
+function renderChartUnidades() {
+  const el = document.getElementById('chartUnidades');
+  if (!el) return;
+  const activeL = activeLojas();
+  const semanas = SEMANAS.slice(-12);                       // ate 12 semanas fechadas
+  const primeira = SEMANAS.length - semanas.length;
+  const porUnidade = new Map();
+  ROWS.forEach(r => {
+    if (r[6] === 1) return;                                 // cancelamento total nao e pedido
+    if (!activeL.has(r[0])) return;                         // respeita o filtro de loja/unidade
+    const col = r[3] - primeira;
+    if (col < 0) return;
+    const u = UNIDADES[r[1]];
+    if (!porUnidade.has(u)) porUnidade.set(u, new Array(semanas.length).fill(0));
+    porUnidade.get(u)[col] += r[7];
+  });
+  if (!porUnidade.size) { el.closest('.chart-box').style.display = 'none'; return; }
+
+  // Ordem fixa da paleta primeiro; unidade que ainda nao esta no mapa entra depois, em
+  // cinza. Nao existe 5a cor segura (farol e marca ja ocupam o resto do circulo), entao
+  // unidade nova e decisao de quem cuida da paleta, nao sorteio do codigo.
+  const conhecidas = Object.keys(SERIE_UNIDADE).filter(u => porUnidade.has(u));
+  const novas = [...porUnidade.keys()].filter(u => !SERIE_UNIDADE[u]).sort();
+  const datasets = conhecidas.concat(novas).map(u => {
+    const s = SERIE_UNIDADE[u];
+    const cor = corToken(s ? s.token : '--tx-4');
+    return { label: s ? s.nome : u, data: porUnidade.get(u), borderColor: cor, backgroundColor: cor };
+  });
+  renderLineChart('chartUnidades', semanas.map(formatarSemana), datasets, 'pedidos');
+}
+
 // Tendencia bruto x liquido no rodape da Visao geral (formula completa, com conciliacao).
 function renderChartTendencia() {
   const el = document.getElementById('chartTendencia');
@@ -5311,12 +5358,22 @@ async function redeGravar(tabela, conflito, corpo) {
   if (!r.ok) { alert('Não consegui gravar: ' + (await r.text()).slice(0, 160)); return false; }
   return true;
 }
+// A taxa combinada tem VIGENCIA desde 12/09/2026 (a chave ganhou `desde`), porque a
+// Rede mudou o patamar em 28/04 e sem historico os meses antigos acusavam cobranca
+// indevida. Quem digita aqui informa a taxa e desde quando ela vale; o padrao e hoje.
 async function redeDefinirTaxa(modalidade, bandeira, parcelas) {
-  const v = prompt(`Taxa combinada com a Rede para ${modalidade === 'CREDIT' ? 'crédito' : modalidade === 'DEBIT' ? 'débito' : 'vale'} ${bandeira}${parcelas > 1 ? ' em ' + parcelas + 'x' : ''} (% sobre a venda, ex.: 1,43):`);
+  const rot = modalidade === 'CREDIT' ? 'crédito' : modalidade === 'DEBIT' ? 'débito' : 'vale';
+  const v = prompt(`Taxa combinada com a Rede para ${rot} ${bandeira}${parcelas > 1 ? ' em ' + parcelas + 'x' : ''} (% sobre a venda, ex.: 1,43):`);
   if (v === null) return;
   const pct = Number(String(v).replace(',', '.'));
   if (!(pct >= 0 && pct < 20)) { alert('Digite a taxa em %, como 1,43.'); return; }
-  if (await redeGravar('rede_taxa_combinada', 'modalidade,bandeira,parcelas', { modalidade, bandeira, parcelas, taxa_pct: pct })) await redeRecarregar();
+  const hoje = new Date(Date.now() - 3 * 36e5).toISOString().slice(0, 10);
+  const d = prompt('A partir de que dia essa taxa passou a valer? (AAAA-MM-DD)\n'
+    + 'Os meses anteriores continuam comparados com a taxa que valia neles.', hoje);
+  if (d === null) return;
+  const desde = /^\d{4}-\d{2}-\d{2}$/.test(String(d).trim()) ? String(d).trim() : hoje;
+  if (await redeGravar('rede_taxa_combinada', 'modalidade,bandeira,parcelas,desde',
+      { modalidade, bandeira, parcelas, taxa_pct: pct, desde })) await redeRecarregar();
 }
 async function redeDefinirAluguel(unidade) {
   const v = prompt(`Aluguel combinado por máquina, por mês, em ${unidade} (R$, ex.: 69):`);
@@ -5368,9 +5425,34 @@ function renderModuloRede(d) {
     + card('Custo total com a Rede', reais(totMdr + totAlug), 'taxa + aluguel', '#f5a623');
 
   // taxa cobrada x combinada, por modalidade + bandeira + parcelas
+  // O COMBINADO TEM VIGENCIA (12/09/2026). A taxa da Rede mudou de patamar num dia
+  // so, 28/04/2026, em todas as bandeiras: credito 1,47→1,43, Elo/Amex 2,27→2,23,
+  // debito 0,77→0,68, Elo 1,57→1,48. Sem escolher pela data, fevereiro a abril
+  // apareceriam como "cobrou a mais que o combinado" — alarme falso em tres meses.
+  // Por isso a tabela guarda `desde` e aqui vale a vigencia do MES que esta na tela.
   const comb = {};
-  taxaComb.forEach(c => { comb[c.modalidade + '|' + c.bandeira + '|' + c.parcelas] = +c.taxa_pct; });
-  const combinada = (m, b, p) => comb[m + '|' + b + '|' + p] ?? comb[m + '|*|' + p] ?? null;
+  taxaComb.forEach(c => {
+    const k = c.modalidade + '|' + c.bandeira + '|' + c.parcelas;
+    (comb[k] = comb[k] || []).push({ desde: c.desde || '1900-01-01', taxa: +c.taxa_pct });
+  });
+  Object.values(comb).forEach(v => v.sort((a, b) => a.desde < b.desde ? -1 : 1));
+  // Referencia: o fim do mes escolhido. Em "tudo", o periodo pode atravessar duas
+  // vigencias — ai nao da para julgar uma taxa efetiva que e mistura das duas, e a
+  // tela diz isso em vez de acusar diferenca.
+  const refFim = F.mes ? (() => { const d = new Date(F.mes + 'T12:00:00'); d.setMonth(d.getMonth() + 1); d.setDate(0); return d.toISOString().slice(0, 10); })() : null;
+  const refIni = F.mes || null;
+  const combinada = (m, b, p) => {
+    const v = comb[m + '|' + b + '|' + p] || comb[m + '|*|' + p];
+    if (!v || !v.length) return null;
+    if (!refFim) {                       // "tudo": so julga se houver uma vigencia so
+      return v.length === 1 ? v[0].taxa : 'VARIAS';
+    }
+    const valem = v.filter(x => x.desde <= refFim);
+    if (!valem.length) return null;
+    // vigencia que comecou DENTRO do mes exibido: o mes tem duas taxas
+    if (valem.length > 1 && valem[valem.length - 1].desde > refIni) return 'VARIAS';
+    return valem[valem.length - 1].taxa;
+  };
   const grupos = {};
   tx.forEach(t => {
     const b = band(t.modalidade, t.bandeira_codigo), p = +t.parcelas || 1;
@@ -5386,6 +5468,7 @@ function renderModuloRede(d) {
     let sit, cor = '#e8e6dc';
     if (g.modalidade === 'VAN') { sit = 'a Rede só captura; a taxa é da bandeira'; cor = '#8a897e'; }
     else if (cmb === null) { sit = 'sem combinado cadastrado'; cor = '#9aa4af'; semCombinado++; }
+    else if (cmb === 'VARIAS') { sit = 'o período tem duas taxas combinadas — escolha um mês para comparar'; cor = '#8a897e'; }
     else if (Math.abs(ef - cmb) < 0.02) { sit = '✔ bate com o combinado'; cor = '#3f9c5a'; }
     else { const d = ef - cmb; sit = `cobrou ${pc(Math.abs(d))} ${d > 0 ? 'a MAIS' : 'a menos'} que o combinado (${reais(g.bruto * d / 100)})`; cor = d > 0 ? '#ff6b6b' : '#f5a623'; foraDoCombinado++; }
     const definir = dono && g.modalidade !== 'VAN' ? ` <button onclick="redeDefinirTaxa('${g.modalidade}','${g.bandeira}',${g.parcelas})" style="font:inherit; font-size:11px; padding:1px 7px; cursor:pointer;">${cmb === null ? 'definir' : 'alterar'}</button>` : '';
@@ -5395,7 +5478,7 @@ function renderModuloRede(d) {
       <td style="padding:5px 8px; text-align:right;">${reais(g.bruto)}</td>
       <td style="padding:5px 8px; text-align:right;">${reais(g.mdr)}</td>
       <td style="padding:5px 8px; text-align:right; font-weight:600;">${g.modalidade === 'VAN' ? '—' : pc(ef)}</td>
-      <td style="padding:5px 8px; text-align:right; color:#a5a49a;">${cmb === null ? '—' : pc(cmb)}${definir}</td>
+      <td style="padding:5px 8px; text-align:right; color:#a5a49a;">${cmb === null ? '—' : cmb === 'VARIAS' ? 'duas' : pc(cmb)}${definir}</td>
       <td style="padding:5px 8px; color:${cor};">${sit}</td></tr>`;
   }).join('');
 
@@ -15358,6 +15441,11 @@ function renderAll() {
       <div class="chart-title">Faturamento bruto x líquido no tempo</div>
       <div class="chart-canvas-wrap"><canvas id="chartTendencia"></canvas></div>
     </div>
+    <div class="chart-box" style="height:300px; margin-top:14px;">
+      <div class="chart-title">Pedidos por semana, unidade a unidade</div>
+      <div class="chart-canvas-wrap"><canvas id="chartUnidades"></canvas></div>
+    </div>
+    <div class="caption-label" style="text-align:center;">Cancelamento total não conta como pedido, a mesma regra do resto do painel. Cada unidade tem cor fixa: tirar uma do filtro não troca a cor das outras.</div>
     <div class="caption-label" style="text-align:center;">Agrupado por ${granularidadeAutomatica() === 'dia' ? 'dia' : granularidadeAutomatica() === 'semana' ? 'semana' : 'mês'}, conforme o tamanho do período filtrado.</div>`;
   document.getElementById('view-content').innerHTML = html;
   document.getElementById('view-cancelamentos').innerHTML = contexto + moduloCancelamentos(m, a);
@@ -15365,7 +15453,7 @@ function renderAll() {
   // So desenha os graficos do modulo que esta visivel — Chart.js calcula tamanho zero em
   // container escondido, e o grafico sairia deformado.
   const ativo = moduloAtivo();
-  if (ativo === 'resumo') { renderChartWaterfall(m, a, ant); renderChartTendencia(); }
+  if (ativo === 'resumo') { renderChartWaterfall(m, a, ant); renderChartTendencia(); renderChartUnidades(); }
   if (ativo === 'cancelamentos') renderChartMotivos();
   if (ativo === 'promocoes') entrarPromocoes();
   // Modulos de carga sob demanda: so re-renderiza se os dados ja foram buscados.
