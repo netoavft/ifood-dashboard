@@ -2359,7 +2359,6 @@ function kpisRapidos(m, a) {
     <div class="card neg"><div class="card-lbl">Custo iFood</div><div class="card-val">R$ ${fmt(m.custoIfood)}</div><div class="card-pct">${pct(m.custoIfoodPct)}% do bruto</div>${selo(m.custoIfood, a && a.custoIfood, 'menorMelhor')}</div>
     <div class="card neutral"${cardFarol('mkt_por_pedido', m.custoMktPorPedido)}><div class="card-lbl">Marketing por pedido</div><div class="card-val">R$ ${fmt(m.custoMktPorPedido)}</div>${selo(m.custoMktPorPedido, a && a.custoMktPorPedido, 'menorMelhor')}</div>
     <div class="card neutral"><div class="card-lbl">Taxa de cancelamento</div><div class="card-val">${pct(m.totalCanceladosPct)}%</div>${selo(m.totalCanceladosPct, a && a.totalCanceladosPct, 'menorMelhor')}</div>
-    <div class="card neutral"><div class="card-lbl">Perdido com cancelamentos</div><div class="card-val">R$ ${fmt(m.valorPerdidoReal)}</div>${selo(m.valorPerdidoReal, a && a.valorPerdidoReal, 'menorMelhor')}</div>
   </div>`;
 }
 
@@ -2457,20 +2456,20 @@ function linhaContexto(ant) {
   // 12/09/2026: este texto dizia que a visao consolidada "nascera" — ela existe
   // desde 12/08 e vive em Resultado. Promessa cumprida vira caminho, nao promessa.
   const canais = `<div style="margin-top:6px; color:#8a897e; font-size:11.5px;">
-    Estes módulos cobrem o <b>canal iFood</b>. Para ver o iFood ao lado do salão, do site e do balcão,
-    abra <a href="javascript:void(0)" onclick="mostrarModulo('consolidada')" style="color:#a5a49a;">Resultado &rsaquo; Visão consolidada</a>.
+    Canal iFood. <a href="javascript:void(0)" onclick="mostrarModulo('consolidada')" style="color:#a5a49a;">Ver ao lado do salão, site e balcão &rsaquo;</a>
   </div>`;
 
   return `<div class="contexto">
     Mostrando ${partes.join(' &middot; ')}.<br>${comparacao}
     ${canais}
-    <div style="margin-top:8px; padding-top:8px; border-top:1px solid #34332f; font-size:11.5px; color:#8a897e;">
-      Nas comparações, a palavra diz o que aconteceu (<b>subiu</b> / <b>caiu</b>) e a cor diz se é bom ou ruim:
+    <details style="margin-top:8px; padding-top:8px; border-top:1px solid #34332f; font-size:11.5px; color:#8a897e;">
+      <summary style="cursor:pointer;">O que a cor quer dizer</summary>
+      A palavra diz o que aconteceu (<b>subiu</b> / <b>caiu</b>) e a cor diz se é bom ou ruim:
       <span style="color:#3fb950; font-weight:bold;">verde</span> melhora o resultado,
       <span style="color:#ff6b6b; font-weight:bold;">vermelho</span> piora.
       Em custos, cair é verde. Investimento em marketing fica em
       <span style="color:#8a897e; font-weight:bold;">cinza</span> — gastar mais não é bom nem ruim por si só, depende do retorno.
-    </div>
+    </details>
   </div>`;
 }
 
@@ -2823,8 +2822,8 @@ function blocoAlavancagemPorLoja() {
     const o = porLoja.get(k);
     o.ped += r[7];
     o.bruto += (r[8] - r[9]) + r[10];
-    o.nosso += r[13];          // incentivo bancado pela loja
-    o.ifood += r[11] + r[12];  // incentivo do iFood
+    o.nosso += r[13] + r[12];  // incentivo bancado pela loja + pela rede (os dois são nossos)
+    o.ifood += r[11];          // incentivo do iFood
   });
 
   const lista = [...porLoja.values()]
@@ -2845,9 +2844,8 @@ function blocoAlavancagemPorLoja() {
 
   return `
   <div class="section-label">Alavancagem por loja — quem faz o iFood pagar mais</div>
-  <div class="caption-label" style="text-align:center;">
-    Quanto o iFood investe em promoção para cada R$ 1 nosso, loja a loja, no período filtrado acima.
-    <b>Acima de 1,00x o iFood banca mais que a loja.</b> É por esta tabela que acompanhamos o teste semana a semana.
+  <div class="caption-label" style="text-align:center;" title="Nosso = incentivo da loja + incentivo da rede (os dois saem do nosso bolso); iFood = incentivo do iFood. Acima de 1,00x o iFood banca mais que nós. É por esta tabela que acompanhamos o teste semana a semana.">
+    Mesmos valores do teste acima, loja a loja, da melhor <b>alavancagem</b> para a pior — com o total da rede no fim.
   </div>
   <div id="tabelaAlavLoja">
     <table>
@@ -2981,9 +2979,8 @@ function blocoTestePromos() {
   const alavGeral = alav(t);
   return `
   <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Teste de promoções — quem está pagando a conta</div>
-  <div class="caption-label" style="text-align:center;">
-    Desde <b>10/08/2026</b>: Hits + Campanha Inteligente + Frete grátis até R$ 9,99 em todas as lojas, anúncios desligados.
-    Dados diários dos pedidos (segue o filtro de período do topo). <b>Alavancagem</b> = quantos R$ o iFood investe para cada R$ 1 nosso — a meta é ficar acima de <b>1,00x</b>.
+  <div class="caption-label" style="text-align:center;" title="Teste desde 10/08/2026: Hits + Campanha Inteligente + Frete grátis até R$ 9,99 em todas as lojas, anúncios desligados. Nosso = incentivo da loja + incentivo da rede (os dois saem do nosso bolso); iFood = incentivo do iFood. Fonte: pedidos do dia, no período filtrado no topo.">
+    Quanto cada loja gastou de promoção e quanto o iFood pôs em cima — <b>alavancagem</b> é o R$ do iFood para cada R$ 1 nosso, e a meta é acima de <b>1,00x</b>.
   </div>
   <div class="cards">
     <div class="card neutral"><div class="card-lbl">Investimos (loja + rede)</div><div class="card-val">R$ ${fmt(t.nosso)}</div>${selo(t.nosso, antR && antR.tot.nosso, 'neutro')}</div>
@@ -2993,15 +2990,12 @@ function blocoTestePromos() {
   </div>
   <div id="tabelaTestePromo">
     <table>
-      <tr><th>Loja</th><th>Pedidos</th><th>Nós (R$)</th><th>iFood (R$)</th><th>Alavanc.</th><th>Nosso R$/pedido</th><th>% da verba do dia</th><th>Nosso invest. vs anterior</th></tr>
+      <tr><th>Loja</th><th>Pedidos</th><th>Nós (R$)</th><th>iFood (R$)</th><th>Alavanc.</th><th>Nosso R$/pedido</th><th title="O que gastamos comparado ao teto diário configurado no portal (Hits + Campanha Inteligente somados), multiplicado pelos dias do período. A verba vem da tabela verbas_promo, não do código, e só é calculada de 10/08/2026 em diante. Lojas do Boqueirão não têm verba cadastrada e aparecem com traço.">% da verba do dia</th><th>Nosso invest. vs anterior</th></tr>
       ${linhas}
     </table>
   </div>
   <div class="caption-label" style="text-align:center;">
-    "% da verba do dia" compara o que gastamos com o teto <b>diário</b> configurado no portal (Hits + Campanha
-    Inteligente somados, multiplicado pelos dias do período). A verba vem da tabela <b>verbas_promo</b>, não do código.
-    Só é calculado a partir de <b>10/08/2026</b>, quando as verbas do teste entraram em vigor. Acima de 100% em vermelho
-    quer dizer que o Hits passou a racionar a exibição. Lojas do Boqueirão não têm verba cadastrada (coluna —).
+    Acima de 100% na "% da verba do dia" (em vermelho) quer dizer que o Hits passou a racionar a exibição da loja.
   </div>`;
 }
 
@@ -3087,16 +3081,12 @@ function moduloPromocoes() {
   <div id="tabelaPromo">
     <table>
       <tr><th>Estratégia (verbas combinadas)</th><th>Pedidos</th><th>Investido</th><th>% da verba</th>
-          <th>R$ por pedido</th><th>Ticket médio</th><th>iFood banca</th><th>Retorno atribuído</th></tr>
+          <th>R$ por pedido</th><th>Ticket médio</th><th>iFood banca</th><th title="Conta do portal do iFood: venda do pedido menos o investimento, dividido pelo investimento. Ela credita a venda inteira à promoção, como se o cliente não fosse comprar sem ela — por isso, quanto menor o desconto, maior o número.">Retorno atribuído</th></tr>
       ${linhasTabela}
     </table>
   </div>
   <div class="contexto" style="border-color:#ff6b6b; margin-top:14px;">
-    <b style="color:#ff6b6b;">Cuidado com a coluna "Retorno atribuído".</b><br>
-    Ela é a conta que o iFood mostra no portal: <i>(venda do pedido − investimento) ÷ investimento</i>.
-    Ela credita <b>a venda inteira</b> à promoção, como se o cliente não fosse comprar sem ela.
-    Por isso <b>quanto menor o desconto, maior o número</b> — uma promoção quase irrelevante aparece com retorno altíssimo.
-    Serve para conferir com o portal, <b>não</b> para decidir onde investir.
+    <b style="color:#ff6b6b;">"Retorno atribuído" é o número do portal e serve para conferir com o iFood, não para decidir onde investir.</b>
   </div>
 
   <div class="section-label">Mesma estratégia, lojas diferentes</div>
@@ -3376,7 +3366,7 @@ function renderModuloAvaliacoes() {
     <table>
       <tr><th>Loja</th><th>Avaliações</th><th>Nota média</th><th>% notas 1-2</th></tr>
       ${lojas.map(x => `<tr><td>${x.nome}</td><td>${x.n}</td>
-        <td${x.media < 4.5 ? ' style="color:#ff6b6b; font-weight:bold;"' : ''}>${x.media.toFixed(2).replace('.', ',')}</td>
+        <td${(() => { const k = (METAS_KPI || []).find(m => m.chave === 'nota_media'); if (!k) return ''; const f = farolKpi(k, x.media); const cor = (f[1] === 'fora' || f[1] === 'perto') ? ' style="color:' + f[0] + '; font-weight:bold;"' : ''; return cor + ' title="Meta da nota: ' + fmtMeta(k) + ' — ' + f[1] + '"'; })()}>${x.media.toFixed(2).replace('.', ',')}</td>
         <td>${pct(x.pctRuins)}%</td></tr>`).join('')}
       <tr class="liq"><td>TODAS</td><td>${total.toLocaleString('pt-BR')}</td>
         <td>${media.toFixed(2).replace('.', ',')}</td><td>${pct(pctRuins)}%</td></tr>
@@ -3568,9 +3558,7 @@ async function gerarRelatorioAdHoc() {
 
   alvo.innerHTML = `<div class="relatorio-corpo" style="margin-top:12px;">
     <h2>Relatório de ${formatarDataCurta(ini)} a ${formatarDataCurta(fim)} (${dias} dias)</h2>
-    <p style="color:#8a897e;">Gerado agora, no navegador — números do banco, sem análise interpretada.
-      Comparação: ${temAnterior ? `${formatarDataCurta(iniAnt)} a ${formatarDataCurta(fimAnt)}` : 'sem período anterior disponível'}.
-      Recorte atual de unidades/marcas aplicado.</p>
+    <p style="color:#8a897e;" title="Números do banco, sem análise interpretada. Recorte atual de unidades e marcas aplicado.">Comparação: ${temAnterior ? `${formatarDataCurta(iniAnt)} a ${formatarDataCurta(fimAnt)}` : 'sem período anterior disponível'}.</p>
     <h3>Resultado</h3>
     <table>
       <tr><th>Indicador</th><th>Período</th><th>Anterior</th><th>Variação</th></tr>
@@ -3716,7 +3704,7 @@ function renderModuloContestacoes() {
 
   ${perdidas.length ? `<div class="section-label">Prazo encerrado sem contestação</div>
   <div id="tabelaContestPerd">${grade(perdidas, colQuem)}</div>
-  <div class="caption-label" style="text-align:center;">Não dá mais para contestar — serve para medir quanto escapa.</div>` : ''}
+  <div class="caption-label" style="text-align:center;">Não dá mais para contestar: escaparam R$ ${fmt(soma(perdidas))}, contra R$ ${fmt(soma(aprovadas))} recuperados nas aprovadas.</div>` : ''}
 
   <div class="caption-label" style="text-align:center; margin-top:14px;">Janela: últimos 60 dias.
   “Cancelamento é contestável” no export indica o <i>tipo</i> do cancelamento e continua SIM mesmo depois de aprovado —
@@ -4021,7 +4009,7 @@ function renderModuloCardapio(periodoSel, lojaSel) {
   const activeL = activeLojas();
 
   const funil = CARDAPIO.funil.filter(r => r.periodo_ini === pIni && r.periodo_fim === pFim && activeL.has(LOJAS.indexOf(r.nome_loja)))
-    .sort((a, b) => Number(b.conversao_pct) - Number(a.conversao_pct));
+    .sort((a, b) => Number(a.conversao_pct) - Number(b.conversao_pct));
 
   // Itens/complementos: cada export e um recorte — 'REDE' (arquivos agregados,
   // nome_loja nulo) ou uma loja especifica (exports feitos loja a loja).
@@ -4044,6 +4032,13 @@ function renderModuloCardapio(periodoSel, lojaSel) {
 
   const totV = funil.reduce((s, r) => s + (r.visitas || 0), 0);
   const totC = funil.reduce((s, r) => s + (r.concluidos || 0), 0);
+  // Um corte so de conversao na tela (12/09/2026). O card pintava de verde a
+  // partir de 20% e a celula da tabela pintava de vermelho abaixo de 15%: dois
+  // cortes diferentes para a mesma conta, na mesma tela. Fica o 20% do card,
+  // que ja era o que a tela chamava de bom; abaixo dele a loja aparece em
+  // vermelho. Nao ha meta de conversao em metas_kpi, entao o numero e um dos
+  // dois que ja existiam no arquivo, nao um inventado.
+  const CORTE_CONV = 20;
 
   alvo.innerHTML = `
   <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Cardápio — conversão e itens</div>
@@ -4057,17 +4052,17 @@ function renderModuloCardapio(periodoSel, lojaSel) {
   <div class="cards">
     <div class="card neutral"><div class="card-lbl">Visitas ao cardápio</div><div class="card-val">${totV.toLocaleString('pt-BR')}</div></div>
     <div class="card neutral"><div class="card-lbl">Pedidos concluídos</div><div class="card-val">${totC.toLocaleString('pt-BR')}</div></div>
-    <div class="card ${totV && totC / totV >= 0.2 ? 'pos' : 'neutral'}"><div class="card-lbl">Conversão</div><div class="card-val">${pct(totV ? totC / totV * 100 : 0)}%</div><div class="card-pct">de quem visita, quantos compram</div></div>
+    <div class="card ${totV && totC / totV * 100 >= CORTE_CONV ? 'pos' : 'neutral'}"><div class="card-lbl">Conversão</div><div class="card-val">${pct(totV ? totC / totV * 100 : 0)}%</div><div class="card-pct">de quem visita, quantos compram · verde a partir de ${CORTE_CONV}%</div></div>
   </div>
 
-  <div class="section-label">Funil por loja</div>
+  <div class="section-label">Funil por loja — piores primeiro</div>
   <div class="caption-label" style="text-align:center;">Visita → viu item → colocou na sacola → revisou → concluiu. Conversão baixa com muitas visitas = cardápio que atrai mas não convence (foto, preço, descrição).</div>
   <div id="tabelaFunil">
     <table>
       <tr><th>Loja</th><th>Visitas</th><th>Sacola</th><th>Concluídos</th><th>Conversão</th></tr>
       ${funil.map(r => `<tr><td>${r.nome_loja}</td><td>${(r.visitas || 0).toLocaleString('pt-BR')}</td>
         <td>${(r.sacola || 0).toLocaleString('pt-BR')}</td><td>${(r.concluidos || 0).toLocaleString('pt-BR')}</td>
-        <td${Number(r.conversao_pct) < 15 ? ' style="color:#ff6b6b; font-weight:bold;"' : ''}>${pct(Number(r.conversao_pct || 0))}%</td></tr>`).join('')}
+        <td${Number(r.conversao_pct) < CORTE_CONV ? ' style="color:#ff6b6b; font-weight:bold;"' : ''}>${pct(Number(r.conversao_pct || 0))}%</td></tr>`).join('')}
       <tr class="liq"><td>TOTAL</td><td>${totV.toLocaleString('pt-BR')}</td>
         <td>${funil.reduce((s, r) => s + (r.sacola || 0), 0).toLocaleString('pt-BR')}</td>
         <td>${totC.toLocaleString('pt-BR')}</td><td>${pct(totV ? totC / totV * 100 : 0)}%</td></tr>
@@ -6947,10 +6942,9 @@ function renderConcbanco() {
     (blocosConferir
       ? '<div class="section-label">O que conferir no Saipos</div>' +
         '<div class="contexto">' + (quem ? 'Você está como <b>' + quem + '</b>. ' : '') +
-        '<b>Comece pelas entradas, depois as saídas.</b> Marque as linhas que você já ' +
-        'lançou ou achou no Saipos e clique <b>conciliar marcadas</b> no fim do quadro. ' +
-        'Linha sem descrição tem um <b>ensinar</b>: escreva como ela se chama no Saipos ' +
-        'e da próxima vez ela vem pronta.</div>' +
+        'Marque o que você já lançou ou achou no Saipos e clique <b>conciliar marcadas</b> — ' +
+        '<b>comece pelas entradas, depois as saídas</b>. Toda linha tem um <b>ensinar</b>: ' +
+        'escreva como ela se chama no Saipos e da próxima vez ela vem pronta.</div>' +
         blocosConferir
       : '') +
     detalhe + blocoMaturidade;
@@ -7143,14 +7137,11 @@ function renderForaFolha() {
         <td><a href="javascript:void(0)" style="color:#a5a49a;" title="abre o recibo pronto para imprimir ou salvar em PDF" onclick="ffRecibo(${p.id}, '${x.m.mes}', '${x.nome}')">🧾 recibo</a></td>
       </tr>`;
     }
-    h += `</table></div>`;
-    h += `
-      <div class="caption-label" style="margin-top:6px;">Saldo = salário + gratificação fixa + salão + ajuste − consumo − VT − adiantamento.
-        O 5º dia útil conta segunda a sábado fora de feriado (tabela <code>feriados</code>: nacional, Paraná e Curitiba) e,
-        se cair em sábado, domingo ou feriado, antecipa para a sexta — é como a folha desta empresa sempre saiu.
-        Mês em que a pessoa entra ou sai no meio é proporcional em trintavos.</div>
+    h += `</table></div>
     </div>`;
   }
+  h += `<div class="caption-label" style="max-width:820px; margin-top:10px;" title="O 5º dia útil conta de segunda a sábado, fora de feriado — tabela feriados: nacional, Paraná e Curitiba.">Saldo = salário + gratificação fixa + salão + ajuste − consumo − VT − adiantamento.
+    Mês em que a pessoa entra ou sai no meio é proporcional em trintavos.</div>`;
   alvo.innerHTML = h;
 }
 // Valor por extenso em reais (recibo). Cobre ate 999 milhoes.
@@ -7373,12 +7364,9 @@ function renderModuloRh() {
       <div class="card-pct">${diverg.length} empréstimos · ${faltaParcela.length} sem parcela lançada</div></div>` : ''}
   </div>`;
 
-  const contexto = `<div class="contexto">
-    <b>${estacionado ? 'R$ ' + fmt(estacionado[1]) + ' dos R$ ' + fmt(totalAberto) + ' em aberto estão numa data só (' + ddmm(estacionado[0]) + ').</b> ' : ''}
-    A planilha usa essa data para guardar dívida antiga que não tem plano de desconto —
-    parte é de gente que já saiu. O cartão “Próxima folha” já ignora esse dia.
-    ${credor.length ? ' Quem emprestou do bolso ainda tem <b>R$ ' + fmt(aReceberCredor) + '</b> a receber via desconto, além do que já está no caixa.' : ''}
-  </div>`;
+  const contexto = estacionado ? `<div class="contexto" title="A planilha usa essa data para guardar dívida antiga que não tem plano de desconto — parte é de gente que já saiu. O cartão “Próxima folha” já ignora esse dia.">
+    <b>R$ ${fmt(estacionado[1])} dos R$ ${fmt(totalAberto)} em aberto estão numa data só (${ddmm(estacionado[0])})</b> — dívida antiga, sem plano de desconto.
+  </div>` : '';
 
   // ---- proximas folhas, mes a mes ----
   const porMes = {};
@@ -7461,11 +7449,8 @@ function renderModuloRh() {
 
     ${credor.length ? `
     <div class="section-label">Quem emprestou do próprio bolso</div>
-    <div class="contexto">Aqui a empresa é a devedora. <b>Devolver agora</b> é o dinheiro que já
-      foi descontado do funcionário e ainda não voltou para a pessoa — devolver mais do que isso
-      é pôr dinheiro novo, porque o resto ainda nem saiu do contracheque.
-      A <b>Jane</b> também tem crédito no módulo <a href="javascript:void(0)" onclick="mostrarModulo('reembolsos')" style="color:#a5a49a;">Reembolsos</a>
-      (gastos do bolso pela empresa) — dívidas de origens diferentes, não somadas aqui.</div>
+    <div class="contexto" title="Devolver mais do que isso é pôr dinheiro novo: o resto ainda nem saiu do contracheque. A Jane também tem crédito no módulo Reembolsos (gastos do bolso pela empresa) — são dívidas de origens diferentes, não somadas aqui."><b>Devolver agora</b> é o que já foi descontado do funcionário e ainda não voltou para quem emprestou
+      (a Jane também tem crédito em <a href="javascript:void(0)" onclick="mostrarModulo('reembolsos')" style="color:#a5a49a;">Reembolsos</a>).</div>
     <div id="tabelaRhCredor"><table>
       <tr><th>Quem emprestou</th><th>Empréstimos</th><th>Funcionários</th><th>Emprestado</th>
           <th>Já descontado</th><th>Já devolvido</th><th>Devolver agora</th><th>Ainda a descontar</th></tr>
@@ -7484,13 +7469,10 @@ function renderModuloRh() {
 
     ${diverg.length ? `
     <div class="section-label">Empréstimos que não fecham</div>
-    <div class="contexto">A soma das parcelas não bate com o valor concedido.
-      <b>FALTA PARCELA</b> = sobrou valor sem desconto lançado (ninguém está cobrando).
-      <b>PARCELA A MAIS</b> = quase sempre vale replanejado, com a parcela antiga ainda na base.
-      Corrigir na planilha e reimportar — o painel não conserta sozinho.</div>
+    <div class="contexto">A soma das parcelas não bate com o valor concedido — corrigir na planilha e reimportar, o painel não conserta sozinho.</div>
     <div id="tabelaRhDiverg"><table>
       <tr><th>Funcionário</th><th>Descrição</th><th>Data</th><th>Concedido</th>
-          <th>Soma das parcelas</th><th>Diferença</th><th>Tipo</th></tr>
+          <th>Soma das parcelas</th><th>Diferença</th><th title="FALTA PARCELA: sobrou valor sem desconto lançado, ninguém está cobrando. PARCELA A MAIS: quase sempre vale replanejado, com a parcela antiga ainda na base.">Tipo</th></tr>
       ${linhasDiv}
     </table></div>` : ''}`;
 }
@@ -7616,11 +7598,8 @@ function renderModuloFrete(linhas) {
     ${seletor}
     ${agregado.length ? canais.map((c, i) => tabela(c, i)).join('')
       : '<div class="contexto" style="border-color:#f5a623;">Sem entrega nesta janela e nestas unidades.</div>'}
-    <div class="caption-label">
-      A coluna do ticket é a que decide: quem está acima de 3 km costuma levar o carrinho maior e já paga o frete,
-      enquanto o subsídio vai para quem está perto e gasta menos. Faixa com menos de 30 entregas fica em cinza:
-      o número existe, mas oscila demais para decidir em cima dele. Ahú e São Braz saíram do Foody em 26 e 29/08,
-      então janelas recentes mostram só a Água Verde.
+    <div class="caption-label" title="Faixa com menos de 30 entregas fica em cinza: o número existe, mas oscila demais para decidir em cima dele. Ahú e São Braz saíram do Foody em 26 e 29/08, então janelas recentes mostram só a Água Verde — a etiqueta no topo da tela lista as unidades com dado.">
+      A coluna do ticket é a que decide: quem está acima de 3 km costuma levar o carrinho maior e já paga o frete, enquanto o subsídio vai para quem está perto e gasta menos.
     </div>`;
 }
 
@@ -8792,13 +8771,9 @@ function renderModuloSite() {
   SITE_ULTIMO = { iniISO, fimISO, V, C, ifood, porLoja, vendas, cli, corteVenda, corteCliente, semAsc };
 
   alvo.innerHTML = `
-  <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Site próprio (Accon)</div>
+  <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;" title="O canal que é nosso: sem comissão de marketplace e com o cliente no nome. A venda vem do Saipos, que chega todo dia pela API; quem é o cliente vem da Accon (novo, recência, cupom, campanha). O período é o desta tela; o filtro de unidades do topo vale aqui.">Site próprio (Accon)</div>
   <div class="caption-label" style="text-align:center;">
-    O canal que é nosso: sem comissão de marketplace e com o cliente no nome.
-    <b>A venda vem do Saipos</b> (chega todo dia pela API${fontes.includes('accon') ? '; Boqueirão e 2025 vêm da Accon' : ''}) —
-    venda até <b>${ddmm(corteVenda)}</b>.
-    <b>Quem é o cliente vem da Accon</b> (novo, recência, cupom, campanha) — cliente até <b>${ddmm(corteCliente)}</b>.
-    Período próprio abaixo; o filtro de unidades do topo vale aqui.
+    Venda até <b>${ddmm(corteVenda)}</b> (Saipos)${fontes.includes('accon') ? '; Boqueirão e 2025 vêm da Accon' : ''} · cliente até <b>${ddmm(corteCliente)}</b> (Accon).
   </div>
   ${avisoVenda}${notaSemPedido}${avisoCliente}
   ${siteBarraPeriodo()}
@@ -8824,10 +8799,8 @@ function renderModuloSite() {
       <div class="card-val">${pct(C.pedidos ? C.comFrete / C.pedidos * 100 : 0)}%</div>
       <div class="card-pct">${reais(C.frete)} cobrados de frete</div></div>
   </div>
-  <div class="caption-label">
+  <div class="caption-label" title="Isso é venda, não lucro: comparar resultado depende das taxas de cada canal e mora na DRE. Os quatro cartões de cliente contam só os pedidos que a Accon já entregou (até ${ddmm(corteCliente)}), por isso podem ser menores que o total de pedidos.">
     O ticket do site está ${difTicket >= 0 ? 'acima' : 'abaixo'} do ticket do iFood em ${reais(Math.abs(difTicket))} por pedido.
-    Isso é venda, não lucro — comparar resultado depende das taxas de cada canal e mora na DRE.
-    Os quatro cartões de cliente contam só os pedidos que a Accon já entregou (até ${ddmm(corteCliente)}), por isso podem ser menores que o total de pedidos.
   </div>
 
   <div class="section-label">Semana a semana</div>
@@ -8846,9 +8819,8 @@ function renderModuloSite() {
     <tr class="liq"><td>TOTAL</td><td>${num(V.pedidos)}</td><td>${reais(V.fat)}</td><td>${reais(V.ticket)}</td>
       <td>${num(C.novos)}</td><td>${num(C.pedidos - C.pedNovos)}</td><td>${num(C.cupomPrim)}</td></tr>
   </table></div>
-  <div class="caption-label">
-    A semana começa na segunda. <b>"—" quer dizer "ainda não sabemos"</b>: a venda daquela semana já chegou, o dado de cliente da Accon não.
-    A última linha pode estar incompleta se a semana ainda está correndo.
+  <div class="caption-label" title="A semana começa na segunda. O traço quer dizer que a venda daquela semana já chegou e o dado de cliente da Accon ainda não. A última linha pode estar incompleta se a semana ainda está correndo.">
+    A semana começa na segunda; <b>"—" quer dizer que o dado de cliente ainda não chegou</b>.
   </div>
 
   <div class="section-label">Relatório para a equipe de tráfego</div>
@@ -8899,9 +8871,8 @@ function renderModuloSite() {
         <td>${reais(c.receita_total)}</td></tr>`;
     }).join('')}
   </table></div>
-  <div class="caption-label">
-    Vem da Accon e é da rede inteira — não segue o filtro de unidades. É a pergunta que decide se o tráfego pago se paga:
-    trazer cliente que compra uma vez só custa caro. Mês recente teve menos tempo de voltar; a queda no fim da lista é esperada.
+  <div class="caption-label" title="É a pergunta que decide se o tráfego pago se paga: trazer cliente que compra uma vez só custa caro. Mês recente teve menos tempo de voltar, então a queda no fim da lista é esperada.">
+    Vem da Accon e é da rede inteira — não segue o filtro de unidades.
   </div>
 
   <div class="section-label">Base de clientes hoje</div>
@@ -8932,11 +8903,8 @@ function renderModuloSite() {
       <td>${num(c.clientes)}</td><td>${num(c.conv)}</td>
       <td>${pct(c.clientes ? c.conv / c.clientes * 100 : 0)}%</td><td>${num(c.pedidos)}</td></tr>`).join('')}
   </table></div>
-  <div class="caption-label">
-    Leitura honesta para passar à equipe de tráfego: o rastreio funciona e já grava o id da campanha do Meta, mas o volume é pequeno —
-    <b>${num(clientesPagos)} pessoas</b> chegaram por link marcado como pago desde nov/2025, e <b>${num(convPagos)}</b> delas compraram.
-    A maior parte do que aparece aqui é o próprio link da Accon (accon_links / referral), que não é campanha.
-    Isto é a linha de base "antes": serve para comparar daqui pra frente, não para julgar o trabalho de agora.
+  <div class="caption-label" title="O rastreio funciona e já grava o id da campanha do Meta, mas o volume é pequeno. A maior parte do que aparece aqui é o próprio link da Accon (accon_links / referral), que não é campanha. Isto é a linha de base: serve para comparar daqui pra frente, não para julgar o trabalho de agora.">
+    <b>${num(clientesPagos)} pessoas</b> chegaram por link marcado como pago desde nov/2025 e <b>${num(convPagos)}</b> delas compraram.
   </div>`;
 
   // O grafico so depois do innerHTML — Chart.js mede zero em container escondido.
@@ -9466,8 +9434,7 @@ function renderModuloTelas() {
 
   alvo.innerHTML =
       '<div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Telas do painel</div>'
-    + '<div class="caption-label" style="text-align:center;">O Plano diz o que <b>fazer</b>; esta tela diz o que <b>existe</b>. '
-    + 'Uma linha por tela: o que ela responde, quem olha, com que frequencia — e para onde ela vai quando o Neto sair. '
+    + '<div class="caption-label" style="text-align:center;" title="Uma linha por tela: o que ela responde, quem olha, com que frequencia — e para onde ela vai quando o Neto sair.">O Plano diz o que <b>fazer</b>; esta tela diz o que <b>existe</b>. '
     + 'Escrever num campo salva sozinho.</div>'
     + '<div class="caption-label" style="text-align:center;">Embaixo do nome vem a <b>camada</b>, decidida na revisão dos módulos de 12/09: '
     + Object.entries(TELAS_CAMADAS).map(([k, c]) =>
@@ -9744,9 +9711,8 @@ function renderModuloPlano() {
 
   alvo.innerHTML = `
     <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Plano</div>
-    <div class="caption-label" style="text-align:center;">
-      Tudo que precisa acontecer, com dono e estado. Marcar aqui vale para todo mundo —
-      não fica só no seu navegador. Entrou como <b>${esc((sess && sess.email) || '')}</b>.
+    <div class="caption-label" style="text-align:center;" title="Marcar aqui vale para todo mundo — não fica só no seu navegador.">
+      Tudo que precisa acontecer, com dono e estado. Entrou como <b>${esc((sess && sess.email) || '')}</b>.
       <button class="preset-btn" onclick="planoSair()">sair</button></div>
     ${avisoRecados(esc)}
     <div class="plano-barra">
@@ -9846,7 +9812,7 @@ function renderModuloEngcard() {
         sel ? 'box-shadow:0 0 0 2px ' + GRUPOS[g].cor + ';' : ''}" onclick="engcardGrupo('${g}')">
       <div class="card-lbl">${GRUPOS[g].nome}${sel ? ' ·' : ''}</div>
       <div class="card-val">${doGrupo.length}</div>
-      <div class="card-pct">${GRUPOS[g].o}<br>R$ ${fmt(mg)} de margem${
+      <div class="card-pct">${GRUPOS[g].o}<br><b>${GRUPOS[g].faz}</b><br>R$ ${fmt(mg)} de margem${
         totMg ? ' · ' + (mg / totMg * 100).toFixed(0) + '% do total' : ''}</div></div>`;
   }).join('');
 
@@ -10009,8 +9975,8 @@ function renderModuloEngcard() {
     </div>
     <div class="cards">${cards}</div>
     <div class="caption-label" style="text-align:center;">
-      ${ENGCARD_GRUPO ? 'Mostrando só <b>' + GRUPOS[ENGCARD_GRUPO].nome + '</b> — ' + GRUPOS[ENGCARD_GRUPO].faz
-                      + '. <button class="preset-btn" onclick="engcardGrupo(null)">ver todos</button>'
+      ${ENGCARD_GRUPO ? 'Mostrando só <b>' + GRUPOS[ENGCARD_GRUPO].nome
+                      + '</b>. <button class="preset-btn" onclick="engcardGrupo(null)">ver todos</button>'
                       : 'Clique num grupo para filtrar a tabela.'}</div>
     <div id="tabelaEngcard"><table>
       <thead><tr><th>Item</th><th>Grupo</th><th>Unidades</th><th>Preço médio</th>
@@ -10373,11 +10339,11 @@ function renderModuloFichas() {
 
   alvo.innerHTML = `
     <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Fichas técnicas</div>
-    <div class="caption-label" style="text-align:center;">
-      ${lista.length} fichas na planilha do Neto — ${lista.filter(f=>!f.e_preparacao).length} vendáveis e
+    <div class="caption-label" style="text-align:center;" title="Ficha criada aqui fica numa tabela própria (ft_fichas_manual) e é reaplicada depois de cada carga da planilha; se o mesmo nome existir nos dois lugares, vale o da planilha.">
+      ${lista.length} fichas — ${lista.filter(f=>!f.e_preparacao).length} vendáveis e
       ${lista.filter(f=>f.e_preparacao).length} de preparação (base que outra ficha consome).
       ${semCusto ? '<b style="color:#ff6b6b;">' + semCusto + ' sem custo calculado.</b>' : ''}
-      Consulta apenas: quem manda é a planilha, e reimportá-la reescreve tudo.</div>
+      Pode criar e editar ficha aqui — reimportar a planilha não apaga o que você criar.</div>
     ${FICHA_MSG ? '<div class="contexto" style="border-color:#3fb950; text-align:left;">' + FICHA_MSG + '</div>' : ''}
     <div class="ficha-busca-linha">
       <label class="ficha-check"><input type="checkbox" id="fichaSoVendaveis" ${esconderPrep ? 'checked' : ''}
@@ -10678,10 +10644,8 @@ async function entrarListas() {   // Listas · Pedidos
   TR_MODULO = 'pedidos';
   alvo.innerHTML = `
     <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Listas · Pedidos</div>
-    <div class="caption-label" style="text-align:center;">
-      A filial pede, a Água Verde separa e envia, quem recebe confere — tudo por peso (kg), menos embalagens.
-      Preço de tabela = CMV + 19% de custo de produção, congelado no ato do pedido.
-      Fechamento e contas ficam em <b>Listas · Financeiro</b>.
+    <div class="caption-label" style="text-align:center;" title="Tudo por peso (kg), menos embalagens. Preço de tabela = CMV + 19% de custo de produção, congelado no ato do pedido. Fechamento e contas ficam em Listas · Financeiro.">
+      A filial pede, a Água Verde separa, quem recebe confere.
     </div>
     <div id="trOperacao"><div class="contexto">Carregando a operação...</div></div>`;
   entrarOperacaoListas();
@@ -10789,8 +10753,7 @@ function renderModuloListasFin() {
         ${historico.map(r => linhaMes(r, `<td>R$ ${fmt(nu(r.total_pago))}</td>
           <td class="${r.sem_fechar ? 'negativo' : ''}">${r.sem_fechar ? 'SEM FECHAR' : 'fechado'}</td>`)).join('')}
       </table></div>
-      ${derivas.length ? `<div class="caption-label" style="color:#ff6b6b;">⚠ ${derivas.length} mês(es) fechado(s) com custo reescrito pela planilha
-        (deriva de R$ ${fmt(Math.abs(derivaTotal))} — positiva = cobrou a menos). Mês fechado vale pelo congelado.</div>` : ''}
+      ${derivas.length ? `<div class="caption-label" style="color:#ff6b6b;" title="A conta é o custo recalculado hoje menos o valor congelado no fechamento do mês. Diferença positiva quer dizer que a filial foi cobrada a menos do que o custo de hoje; negativa, a mais.">⚠ A planilha reescreveu depois o custo de ${derivas.length} mês(es) já fechado(s): R$ ${fmt(Math.abs(derivaTotal))} ${derivaTotal >= 0 ? 'cobrado a menos' : 'cobrado a mais'} — vale o valor congelado no fechamento.</div>` : ''}
     </details>`;
   entrarOperacaoListas();
 }
@@ -11427,7 +11390,7 @@ async function trAbrirSeparacao(id) {
           style="width:80px; text-align:right;"></td></tr>`).join('')}
     </table></div>
     <div style="margin-top:12px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-      <button class="preset-btn" onclick="trSalvarSeparacao(${id})">Salvar separação</button>
+      <button class="preset-btn" onclick="trSalvarSeparacao(${id})">Salvar e marcar como SEPARADA</button>
       <span>entrega: <input type="date" id="trDataEntrega" class="trc-in" value="${trHoje()}"></span>
       <label style="font-size:12.5px;"><input type="checkbox" id="trFreteMichiro"> 🛵 o Michiro levou (gera o frete de R$ 50)</label>
       <button class="preset-btn" onclick="trEnviarLista(${id})">Enviar para a filial</button>
@@ -12021,7 +11984,7 @@ function renderModuloAtrasos() {
   <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Atrasos e turnos — entregas próprias${ATRASOS_UNIDADE !== 'TODAS' ? ' · ' + ATRASOS_UNIDADE : ''}, ${ddmm(ATRASOS.ini)} a ${ddmm(ATRASOS.fim)}</div>
   ${chips}
   ${foodyCobertura(ATRASOS.rows)}
-  <div class="contexto" style="border-color:#f5a623;">Fonte: Foody Delivery (logística própria). ${PERIMETRO === 'rede' ? 'Visão Rede completa — <b>inclui Boqueirão, que é gestão separada</b> e tem tabela de corrida e fretes próprios.' : 'Visão Minha gestão — <b>Boqueirão (gestão separada) fica fora</b>; para vê-lo, troque para Rede completa lá em cima.'} O prazo usado aqui é <b>o horário prometido ao cliente no iFood</b>, não o prazo padrão de 60 min do Foody. E os tempos são apontados por pessoas — veja a caixa no fim da tela antes de tirar conclusão fina.</div>
+  <div class="contexto" style="border-color:#f5a623;" title="O prazo usado aqui é o horário prometido ao cliente no iFood, não o prazo padrão de 60 min do Foody. Os tempos são apontados por pessoas: veja a caixa Qualidade do apontamento, no fim da tela, antes de tirar conclusão fina.">Fonte: Foody Delivery (logística própria). ${PERIMETRO === 'rede' ? 'Visão Rede completa — <b>inclui Boqueirão, que é gestão separada</b> e tem tabela de corrida e fretes próprios.' : 'Visão Minha gestão — <b>Boqueirão (gestão separada) fica fora</b>; para vê-lo, troque para Rede completa lá em cima.'}</div>
 
   <div class="cards">
     <div class="card"><div class="card-lbl">Entregas no período</div><div class="card-val">${geral.n.toLocaleString('pt-BR')}</div><div class="card-pct">${geral.medidos.toLocaleString('pt-BR')} têm horário prometido para comparar</div></div>
@@ -12060,12 +12023,11 @@ function renderModuloAtrasos() {
   </table></div>
   ${foraRanking ? `<div class="caption-label" style="text-align:center;">${foraRanking} entregador(es) com menos de 10 entregas no período ficaram fora do ranking.</div>` : ''}
 
-  <div class="section-label">Qualidade do apontamento — o quanto dá pra confiar nos tempos</div>
+  <div class="section-label" title="Sem o pronto marcado, preparo e bancada daquelas entregas não existem. Pronto marcado junto do despacho, a menos de 1 min, é cheiro de correção atrasada: o pedido esperou na estufa e alguém marcou tudo de uma vez. Sem horário prometido nas observações, a entrega fica fora da conta de prazo. Quanto maiores esses números, menos dá pra confiar no preparo e na bancada; o prazo continua confiável, porque a entrega é apontada pelo motoboy na porta do cliente.">Qualidade do apontamento — o quanto dá pra confiar nos tempos</div>
   <div class="contexto">${semSentido ? `Tempos sem sentido, fora das contas: <b>${pctTxt(semSentido, geral.n)}</b> (${semSentido}) — ex.: entrega apontada 1h30 antes do horário prometido ou mais de 2h de rua; provável erro de apontamento.
-  · ` : ''}Sem "pronto" marcado: <b>${pctTxt(semPronto, geral.n)}</b> (${semPronto}) — preparo e bancada dessas entregas não existem.
-  · "Pronto" marcado junto do despacho (menos de 1 min): <b>${pctTxt(prontoJunto, geral.n)}</b> (${prontoJunto}) — cheiro de correção atrasada: o pedido esperou na estufa e alguém marcou tudo de uma vez.
-  · Sem horário prometido nas observações: <b>${pctTxt(semPromessa, geral.n)}</b> (${semPromessa}) — essas ficam fora da conta de prazo.
-  <br>Quanto maiores esses números, menos dá pra confiar no "preparo" e na "bancada". Já o prazo (horário prometido vs hora da entrega) continua confiável, porque a entrega é apontada pelo motoboy na porta do cliente.</div>`;
+  · ` : ''}Sem "pronto" marcado: <b>${pctTxt(semPronto, geral.n)}</b> (${semPronto})
+  · "Pronto" junto do despacho: <b>${pctTxt(prontoJunto, geral.n)}</b> (${prontoJunto})
+  · Sem horário prometido: <b>${pctTxt(semPromessa, geral.n)}</b> (${semPromessa}).</div>`;
 }
 
 // ------------------------------------------------------------------
@@ -12311,7 +12273,7 @@ function renderModuloLogfin() {
   <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Financeiro da logística — entregas próprias${LOGFIN_UNIDADE !== 'TODAS' ? ' · ' + LOGFIN_UNIDADE : ''}, ${ddmm(LOGFIN.ini)} a ${ddmm(LOGFIN.fim)}</div>
   ${chips}
   ${foodyCobertura(LOGFIN.rows)}
-  <div class="contexto" style="border-color:#f5a623;">Fonte: Foody Delivery (logística própria). ${PERIMETRO === 'rede' ? 'Visão Rede completa — <b>inclui Boqueirão, que é gestão separada</b>, com tabela de corrida mais cara (7,50/9,00) e fretes próprios no iFood (quase sem abate).' : 'Visão Minha gestão — <b>Boqueirão (gestão separada) fica fora</b> dos totais e do simulador; para vê-lo, troque para Rede completa lá em cima.'} A regra usada aqui é a combinada: o motoboy recebe <b>o maior entre as corridas e o garantido por hora</b>, turno a turno — <b>R$ ${fmt(logfinPisoSemana())} de segunda a sexta e R$ ${fmt(logfinPisoFds())} no sábado e no domingo</b> — a tarde parada entre almoço e jantar não conta como trabalhada. A hora é <b>estimada da primeira à última entrega do turno</b>, não é ponto batido; o complemento é a estimativa do painel para vigiar a conta, não substitui o acerto real.</div>
+  <div class="contexto" style="border-color:#f5a623;" title="Regra combinada de pagamento: o motoboy recebe o maior entre as corridas e o garantido por hora, turno a turno — R$ ${fmt(logfinPisoSemana())} de segunda a sexta e R$ ${fmt(logfinPisoFds())} no sábado e no domingo. A tarde parada entre almoço e jantar não conta como trabalhada. A hora é estimada da primeira à última entrega do turno, não é ponto batido: o complemento é a estimativa do painel para vigiar a conta, não o acerto real.">Fonte: Foody Delivery (logística própria). ${PERIMETRO === 'rede' ? 'Visão Rede completa — <b>inclui Boqueirão, que é gestão separada</b>, com tabela de corrida mais cara (7,50/9,00) e fretes próprios no iFood (quase sem abate).' : 'Visão Minha gestão — <b>Boqueirão (gestão separada) fica fora</b> dos totais e do simulador; para vê-lo, troque para Rede completa lá em cima.'}</div>
 
   <div class="cards">
     <div class="card"><div class="card-lbl">Entregas no período</div><div class="card-val">${entregas.toLocaleString('pt-BR')}</div><div class="card-pct">média de ${n1(dias ? entregas / dias : null)} por dia, em ${dias} dia(s) com entrega</div></div>
@@ -12319,7 +12281,7 @@ function renderModuloLogfin() {
     <div class="card ${complemento > corridas * 0.05 ? 'neg' : 'neutral'}"><div class="card-lbl">Custo total estimado</div><div class="card-val">R$ ${fmt(custoTotal)}</div><div class="card-pct">corridas + R$ ${fmt(complemento)} de complemento do garantido</div></div>
     <div class="card pos"><div class="card-lbl">Custo líquido do frete</div><div class="card-val">R$ ${fmt(custoLiquido)}</div><div class="card-pct">o frete cobrado do cliente acima de 3 km (R$ ${fmt(abate)} em ${acima3.length.toLocaleString('pt-BR')} corridas) abate o custo</div></div>
   </div>
-  <div class="caption-label" style="text-align:center;">Corridas = soma do valor pago por entrega registrado no Foody. Complemento = quanto o garantido por hora paga além das corridas, calculado turno a turno, com R$ ${fmt(logfinPisoFds())} no fim de semana e R$ ${fmt(logfinPisoSemana())} nos outros dias. Os valores vêm da tabela <b>log_regras_pagamento</b>, não do código. Até 3 km o frete do cliente é subsidiado na promoção (verba contada no módulo de promoções), por isso só o frete acima de 3 km abate aqui.</div>
+  <div class="caption-label" style="text-align:center;" title="Corridas = soma do valor pago por entrega registrado no Foody. Complemento = quanto o garantido por hora paga além das corridas, calculado turno a turno; os valores vêm da tabela log_regras_pagamento, não do código. Até 3 km o frete do cliente é subsidiado na promoção (a verba está no módulo de promoções), por isso só o frete acima de 3 km abate aqui.">Garantido por hora: R$ ${fmt(logfinPisoSemana())} de segunda a sexta e R$ ${fmt(logfinPisoFds())} no fim de semana; só o frete acima de 3 km abate o custo.</div>
 
   <div class="section-label">Por turno (janelas do iFood: almoço 10h–14h · café 15h–16h · jantar 17h–23h · madrugada 0h–1h)</div>
   <div id="tabelaLogfinTurno"><table>
@@ -12360,7 +12322,7 @@ function renderModuloLogfin() {
   </table></div>
 
   <div class="section-label">Simulação — diária por turno + taxa por corrida, tudo editável</div>
-  <div class="contexto">Cada motoboy ganha uma <b>diária por turno de escala</b> (dia = almoço+café, noite = jantar+madrugada — a janela do iFood não vale como turno, senão a diária contaria duas vezes) mais a taxa por corrida. No período foram <b>${turnosReais} turnos</b>. <b>Edite a coluna "Taxa nova" e a diária na última linha</b> e veja na hora quanto o custo muda e quanto o motoboy passa a levar. As taxas começam no reajuste proporcional que, com diária de R$ 50, empata com o custo de hoje.
+  <div class="contexto" title="Cada motoboy ganha uma diária por turno de escala (dia = almoço+café, noite = jantar+madrugada; a janela do iFood não vale como turno, senão a diária contaria duas vezes) mais a taxa por corrida. As taxas começam no reajuste proporcional que, com diária de R$ 50, empata com o custo de hoje.">Edite a coluna <b>Taxa nova</b> e a diária na última linha e veja na hora quanto muda — foram <b>${turnosReais} turnos</b> no período.
   <button class="preset-btn" onclick="logfinSimReset()" style="margin-left:8px;">voltar ao padrão (diária 50 + proporcional)</button></div>
   <div id="tabelaLogfinSim"><table>
     <tr><th>Taxa de hoje</th><th>Corridas no período</th><th>Taxa nova</th><th>Corridas com a nova</th><th>Frete do cliente abate (&gt;3 km)</th><th>Custo líquido da faixa</th></tr>
@@ -12383,10 +12345,9 @@ function renderModuloLogfin() {
   <div class="caption-label" style="text-align:center;">A diária substitui o garantido por hora — manter os dois seria pagar a garantia duas vezes. O "turno médio" reparte todo o custo simulado pelos ${turnosReais} turnos do período; turno forte paga mais, fraco paga menos.</div>
 
   <div class="section-label">Qualidade do apontamento — o quanto dá pra confiar nessa conta</div>
-  <div class="contexto">Entregas sem entregador apontado: <b>${pctTxt(semEntregador, entregas)}</b> (${semEntregador}) — o valor das corridas delas entra no total, mas ficam fora da conta por pessoa.
+  <div class="contexto" title="As corridas das entregas sem entregador apontado entram no total, mas ficam fora da conta por pessoa. Turno sem horário confiável fica fora das horas e do complemento: hoje são ${turnosSemHora} sem horário e ${turnosSemSentido} com hora sem sentido (mais de ${fmt(logfinTeto())}h no turno). Turno com uma entrega só tem hora do tamanho daquela corrida, então o garantido quase não aparece nele: é o limite da régua primeira-última entrega, que ponto batido resolveria.">Entregas sem entregador apontado: <b>${pctTxt(semEntregador, entregas)}</b> (${semEntregador}).
   ${semCusto ? ` · Entregas sem valor de corrida registrado: <b>${semCusto}</b>.` : ''}
-  · Turnos sem horário confiável: <b>${turnosSemHora + turnosSemSentido}</b> de ${lista.length} (${turnosSemHora} sem horário, ${turnosSemSentido} com hora sem sentido — mais de ${fmt(logfinTeto())}h no turno) — ficam fora das horas e do complemento.
-  <br>Turno com uma entrega só tem "hora" do tamanho daquela corrida — o piso quase não aparece nele. É o limite conhecido da régua primeira→última entrega; ponto batido de verdade resolveria.</div>`;
+  · Turnos sem horário confiável: <b>${turnosSemHora + turnosSemSentido}</b> de ${lista.length}.</div>`;
 }
 
 // ------------------------------------------------------------------
@@ -12590,7 +12551,7 @@ function renderModuloQualidade() {
 
   <div class="section-label">Loja a loja — piores primeiro</div>
   <div id="tabelaQualidade"><table>
-    <tr><th>Loja</th><th>Nível</th><th>vs ant.</th><th>% atraso +5min</th><th>Atraso médio</th><th>% canc. Super</th><th>Nota</th><th>% resp. negoc.</th></tr>
+    <tr><th>Loja</th><th>Nível</th><th>vs ant.</th><th>% atraso +5min</th><th>Atraso médio</th><th>% canc. Super</th><th title="Vem do relatório semanal de qualidade do iFood e vale só para a semana fechada mostrada no título — por isso não bate com o módulo Avaliações, que conta avaliação por avaliação no período escolhido no topo.">Nota</th><th>% resp. negoc.</th></tr>
     ${ordenado.map(r => {
       const a = antPor[r.nome_loja];
       const d = a ? rankNivel(r.nivel_super) - rankNivel(a.nivel_super) : null;
@@ -12744,13 +12705,13 @@ function renderEstaSemana() {
       '<div class="section-label">Semana em curso — seg ' + ddmm(iso(segAtual)) + ' a ' + ddmm(iso(ontem)) +
       ' <span style="text-transform:none; font-weight:normal; font-size:12px; color:#8a897e;">(vs os mesmos dias da semana passada)</span></div>' +
       '<div class="cards">' +
-      cardHome('Pedidos', atual.totalPedidos, vs(atual.totalPedidos, antes.totalPedidos)) +
-      cardHome('Bruto', 'R$ ' + fmt(atual.bruto), vs(atual.bruto, antes.bruto)) +
-      cardHome('Ticket médio', 'R$ ' + fmt(ticketA), vs(ticketA, ticketB)) +
-      cardHome('Cancelamento', pct(atual.nFullPct) + '%', vs(atual.nFullPct, antes.nFullPct) + ' · meta ' +
+      cardHome('Pedidos no iFood', atual.totalPedidos, vs(atual.totalPedidos, antes.totalPedidos)) +
+      cardHome('Bruto no iFood', 'R$ ' + fmt(atual.bruto), vs(atual.bruto, antes.bruto)) +
+      cardHome('Ticket médio no iFood', 'R$ ' + fmt(ticketA), vs(ticketA, ticketB)) +
+      cardHome('Cancelamento no iFood', pct(atual.nFullPct) + '%', vs(atual.nFullPct, antes.nFullPct) + ' · meta ' +
         (metaDe('taxa_cancelamento') ? fmtKpi('pct', Number(metaDe('taxa_cancelamento').meta)) : '—'),
         corMeta('taxa_cancelamento', atual.nFullPct)) +
-      cardHome('Marketing / pedido', 'R$ ' + fmt(atual.custoMktPorPedido), vs(atual.custoMktPorPedido, antes.custoMktPorPedido),
+      cardHome('Marketing por pedido no iFood', 'R$ ' + fmt(atual.custoMktPorPedido), vs(atual.custoMktPorPedido, antes.custoMktPorPedido),
         corMeta('mkt_por_pedido', atual.custoMktPorPedido)) +
       '</div>' +
       '<div class="caption-label" style="text-align:center;">Fonte: pedidos importados toda manhã (dados até ontem). ' +
@@ -13200,10 +13161,12 @@ const PLC_TILES = [
   { id: 'pess',  rot: 'Pessoas',                un: 'R$', meta: 'PESSOAL',     v: a => a.grupos.PESSOAL,
     telas: [['despesas', 'Análise de despesas'], ['forafolha', 'Pagamento fora da folha'], ['rh', 'Descontos em folha']] },
   { id: 'mc',    rot: 'Margem de contribuição', un: 'R$', meta: 'LUCRO_BRUTO', v: a => a.mc,
+    def: 'Margem de contribuição = receita líquida − mercadoria. ',
     telas: [['dre', 'DRE'], ['rateio', 'Preço alvo por produto']] },
   { id: 'res',   rot: 'Resultado',              un: 'R$', meta: 'RESULTADO',   v: a => a.resultado,
     telas: [['fechamento', 'Fechamento do mês'], ['dre', 'DRE'], ['lucrouni', 'Lucro por unidade']] },
   { id: 'caixa', rot: 'Caixa',                  un: 'R$', meta: null,          v: a => a.caixa,
+    def: 'Caixa = quanto subiu ou caiu na conta, pela ponte que fecha contra o banco. ',
     // lucrouni entra aqui tambem porque ele e' o caixa POR LOJA — a revisao pediu a
     // quebra por loja de Resultado E de Caixa, e e' a unica tela que mostra as duas juntas.
     telas: [['fluxo', 'Fluxo de caixa'], ['lucrouni', 'Caixa por loja'], ['projecao', 'Fluxo projetado'], ['concbanco', 'Conciliação bancária']] },
@@ -13455,7 +13418,7 @@ function renderPlacar() {
     const rots = serie.filter(s => valorDe(t, s.ag) !== null).map(s => s.rot);
     const sp = vals.length > 2 ? fxSpark(vals, rots, x => t.un === 'n' ? fxInt(x) : fxMil(x)) : '';
     const sel = PLC_ABERTO === t.id;
-    return `<div class="fx-tile${sel ? ' aberto' : ''}" onclick="plcAbrir('${t.id}')" style="cursor:pointer;${sel ? 'border-color:var(--brand);' : ''}" title="${sel ? 'clique para fechar a quebra' : 'clique para abrir a quebra deste número'}">
+    return `<div class="fx-tile${sel ? ' aberto' : ''}" onclick="plcAbrir('${t.id}')" style="cursor:pointer;${sel ? 'border-color:var(--brand);' : ''}" title="${t.def ? t.def : ''}${sel ? 'clique para fechar a quebra' : 'clique para abrir a quebra deste número'}">
       <div class="fx-rotulo">${t.rot}${sel ? ' ✕' : ''}</div>
       <div class="fx-valor${v !== null && v < 0 ? ' neg' : ''}">${fmtDe(t, v)}</div>
       <div class="fx-var">${vb !== null && vb !== undefined ? fxVar(v, vb, rotAnt) : '<span style="opacity:.6;">sem período anterior</span>'}</div>
@@ -13523,7 +13486,7 @@ function renderPlacar() {
       ${tabPer}
       ${tabComp}
       ${(t.telas || []).length ? `<div class="section-label">Onde ver por dentro</div>
-        <div class="caption-label" style="text-align:center;">As telas que já existem e detalham este número. Elas abrem <b>no mesmo período e na mesma loja</b> que você está vendo aqui, e dizem isso no topo. O Placar é a porta; o detalhe continua com o dono dele.</div>
+        <div class="caption-label" style="text-align:center;" title="As telas que já existem e detalham este número; elas dizem no topo de qual período e de qual loja vieram.">Abrem no mesmo período e na mesma loja.</div>
         <div class="periodo-presets" style="margin-top:8px;">${t.telas.map(([m, rot]) =>
           `<button class="preset-btn" onclick="plcAbrirTela('${m}','${t.id}')">${rot} →</button>`).join('')}</div>` : ''}`;
   }
@@ -13547,10 +13510,8 @@ function renderPlacar() {
     ${A.temFato ? '' : `<div class="contexto" style="border-color:var(--amber-2);">Custo dos canais neste período é vendido − recebido, não cobrança a cobrança.</div>`}
     <div class="fx-tiles">${cartoes}</div>
     ${quebra}
-    <div class="caption-label">
-      Só meses fechados — o último é ${fxMesLongo(plcMesesFechados()[plcMesesFechados().length - 1])}.
-      Mesma conta do Fechamento do mês. <b>Margem de contribuição</b> = receita líquida − mercadoria.
-      <b>Caixa</b> = quanto subiu ou caiu na conta, pela ponte que fecha contra o banco. Sem comparação com 2025: a venda começa em 02/01/2026.
+    <div class="caption-label" title="Sem comparação com 2025: a venda começa em 02/01/2026.">
+      Só meses fechados — o último é ${fxMesLongo(plcMesesFechados()[plcMesesFechados().length - 1])}, na mesma conta do Fechamento do mês.
     </div>`;
 }
 
@@ -13686,16 +13647,7 @@ function renderFechamento() {
         <ul class="fx-lista">${linhas.map(l => `<li><span>${l.linha}<small>${l.fonte_a} ${fxMil(l.valor_a)} × ${l.fonte_b} ${fxMil(l.valor_b)} · tolerância ${fxPct1(fxN(l.tolerancia_pct))}</small></span><b>${pal(l)}</b></li>`).join('')}</ul></div>`;
     }
   }
-  // 5. frases
-  const piores = Object.entries(FX_GRUPOS).map(([k]) => ({ k, v: cem(a.grupos[k]), meta: M[k] ? M[k].meta : null })).filter(x => x.meta !== null).map(x => ({ ...x, dist: x.v - x.meta })).sort((x, y) => y.dist - x.dist);
-  const nomeG = { CUSTO: 'mercadoria', PESSOAL: 'pessoas', VENDA: 'entrega, comercial e marketing', ADMIN: 'a casa' };
-  const pior = piores[0];
-  h += `<div class="fx-secao"><h3>5. O mês em três frases</h3><span>só o fato — a interpretação é de quem lê</span></div><div class="fx-frases">`;
-  h += `<p>${fxMesLongo(mes)[0].toUpperCase() + fxMesLongo(mes).slice(1)} vendeu <b>${fxMil(a.recBruta)}</b>${j ? ` — ${Math.abs((a.recBruta - j.recBruta) / j.recBruta * 100) < 0.5 ? `o mesmo que ${fxMesLongo(ant)}` : `${a.recBruta > j.recBruta ? 'mais' : 'menos'} ${fxPct1(Math.abs((a.recBruta - j.recBruta) / j.recBruta * 100))} que ${fxMesLongo(ant)}`}` : ''}${maior.mes !== mes ? `, ${fxPct1(Math.abs((a.recBruta - maior.recBruta) / maior.recBruta * 100))} abaixo do maior mês (${fxMesRot(maior.mes)})` : ', o maior mês do ano'}. Foram <b>${fxInt(a.pedidos)} pedidos</b>, com valor médio de <b>R$ ${a.ticket.toFixed(0)}</b>.</p>`;
-  if (pior) h += `<p>De cada R$ 100, <b>${nomeG[pior.k]}</b> levou <b>R$ ${Math.round(pior.v)}</b> — ${pior.dist <= 0 ? 'dentro da meta' : pior.dist <= pior.meta * 0.1 ? 'no limite da meta' : 'acima da meta'} de R$ ${pior.meta}. ${piores.slice(1).filter(x => x.dist > 0.5).length ? `Também acima da meta: ${piores.slice(1).filter(x => x.dist > 0.5).map(x => `${nomeG[x.k]} (R$ ${Math.round(x.v)} de ${x.meta})`).join(', ')}.` : 'As outras fatias estão dentro da meta ou no limite.'}</p>`;
-  h += `<p>Sobraram <b>R$ ${Math.round(cem(a.resultado))}</b> de cada R$ 100 (${fxMil(a.resultado)}); a meta é R$ ${M.RESULTADO ? M.RESULTADO.meta : '—'}.${a.benef > 0.5 ? ` Sem o benefício do iFood seriam <b>R$ ${Math.round(cem(a.resultado - a.benef))}</b>.` : ''}</p>`;
-  if (p) h += `<p>No caixa do dia a dia, o mês ${p.v >= 0 ? 'deixou' : 'consumiu'} <b>${fxMil(Math.abs(p.v))}</b>${Math.abs(p.comp) > 1000 ? ` — ${p.comp < 0 ? 'pagou' : 'adiou'} ${fxMil(Math.abs(p.comp))} de contas fora do mês` : ''}${Math.abs(p.xp) > 1000 ? `, e ${fxMil(Math.abs(p.xp))} ${p.xp < 0 ? 'foram para a XP' : 'vieram da XP'}` : ''}.</p>`;
-  h += `</div><div class="fx-rodape">Caixa das lojas (Saipos) e as contas do mês por competência, pelas mesmas views da DRE. Na Rede, a mercadoria que a Água Verde vende às filiais entra de um lado e sai do outro e se anula no "sobrou".</div>`;
+  h += `<div class="fx-rodape">Caixa das lojas (Saipos) e as contas do mês por competência, pelas mesmas views da DRE. Na Rede, a mercadoria que a Água Verde vende às filiais entra de um lado e sai do outro e se anula no "sobrou".</div>`;
   alvo.innerHTML = h;
 }
 
@@ -13843,13 +13795,6 @@ function renderSemana() {
   h += `<div class="fx-secao"><h3>6. Onde o dinheiro foi</h3><span>as maiores despesas pagas na semana, contra o normal das 4 anteriores</span></div><div class="fx-tabela"><table><tr><th>Categoria</th><th>Esta semana</th><th>Normal (média 4 sem.)</th><th class="esq">Leitura</th></tr>`
     + Object.entries(cat).sort((x, y) => y[1] - x[1]).slice(0, 8).map(([c, v]) => `<tr><td>${c}</td><td>${fxMil(v)}</td><td>${fxMil((catA[c] || 0) / nA)}</td><td class="esq">${leitura(v, (catA[c] || 0) / nA)}</td></tr>`).join('')
     + `<tr class="tot"><td>Total pago na semana</td><td>${fxMil(totA)}</td><td>${fxMil(totN)}</td><td class="esq">${leitura(totA, totN)}</td></tr></table></div>`;
-  // 7 frases
-  h += `<div class="fx-secao"><h3>7. A semana em frases</h3><span>só o fato</span></div><div class="fx-frases">`;
-  h += `<p>A semana vendeu <b>${fxMil(a.fat)}</b>${j ? ` — ${Math.abs((a.fat - j.fat) / j.fat * 100) < 0.5 ? 'o mesmo que a anterior' : `${a.fat > j.fat ? 'mais' : 'menos'} ${fxPct1(Math.abs((a.fat - j.fat) / j.fat * 100))} que a anterior`}` : ''}, em ${fxInt(a.ped)} pedidos de R$ ${a.ticket.toFixed(0)} em média.</p>`;
-  h += `<p>O iFood ficou com <b>R$ ${Math.round(cemIf)}</b> de cada R$ 100 vendidos lá (${fxMil(a.custoIfood)}): ${fxMil(a.promoLoja)} de promoção paga por nós, ${fxMil(a.taxas)} de comissão e taxas, ${fxMil(a.anuncios)} de anúncios.</p>`;
-  h += `<p>Mercadoria levou <b>R$ ${Math.round(p)}</b> de cada R$ 100 nesta semana; na média de 4 semanas, <b>R$ ${Math.round(p4)}</b> — ${p4 <= META_CMV ? 'dentro' : p4 <= META_CMV * 1.1 ? 'no limite' : 'acima'} da meta de R$ ${metaTxt} para ${fxMesLongo(mesDaSemana)}.</p>`;
-  h += `<p>Fechou <b>${fxMil(a.margem)}</b> de margem (R$ ${Math.round(cemM)} de cada 100)${j ? ` — ${fxVar(a.margem, j.margem, ra)}` : ''}.</p>`;
-  h += `<p>Caixa desta semana: ${cxs.map(c => `${LOJAS_FIN.find(l => l[0] === c.u)[1]} ${c.sobra >= 0 ? 'deve sobrar' : 'deve faltar'} <b>${fxMil(Math.abs(c.sobra))}</b>`).join('; ')}.</p></div>`;
   h += `<div class="fx-rodape">Caixa das lojas (Saipos), semanas de segunda a domingo. O Boqueirão fica fora; a mercadoria do atacado ainda está dentro das compras da Água Verde.</div>`;
   alvo.innerHTML = h;
 }
@@ -14175,9 +14120,9 @@ function renderModuloDFC() {
   const nSemClass = Math.abs(total(semClass));
   alvo.innerHTML = plcCabecalhoQuebra('fluxo') + seletorLojaFin() + `
   <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Fluxo de Caixa — ${nomeLojaFin()}</div>
-  <div class="caption-label" style="text-align:center;">
-    DFC realizado, mês a mês, da empresa inteira (todos os canais) — <b>não segue os filtros de período/loja do topo</b>,
-    que valem só para o canal iFood. Clique nas linhas com ▶ para abrir o detalhe.
+  <div class="caption-label" style="text-align:center;" title="Clique nas linhas com ▶ para abrir o detalhe.">
+    Caixa realizado mês a mês, todos os canais da loja escolhida no botão acima — os filtros de período e
+    loja do topo <b>não valem aqui</b>, eles são só do iFood.
   </div>
   <div class="cards">
     <div class="card blue"><div class="card-lbl">Receitas no ano</div><div class="card-val">R$ ${fmt(receitasTot)}</div></div>
@@ -14210,13 +14155,7 @@ function renderModuloDFC() {
       <div style="height:${Math.max(200, saidasPorTipo.length * 30)}px;">
         <canvas id="chartDestinoSaidas"></canvas></div></div>
   </div>
-  <div class="caption-label">Nas linhas de fluxo, o percentual cinza é a fatia da receita do mês.
-  Aplicado é dinheiro da empresa, mas não está disponível para o dia a dia. A XP entra no Saipos pela saída do Itaú
-  e pelo rendimento de cada mês (decisão de 03/09/2026). Em SALDO FINAL, cada conta mostra se o saldo bate com o
-  extrato do banco (✓), difere (≠ e o valor) ou não tem extrato para conferir (·) — a XP confere pelo saldo informado
-  da tela da corretora; cofres e cartões ainda não têm saldo informado.
-  Histórico de jan a jul/2026 importado da planilha de fluxo realizado (validado linha a linha contra ela).
-  A partir de agosto a base passa a ser alimentada pelo Saipos. Saldos por conta: clique em SALDO INICIAL/FINAL.
+  <div class="caption-label" title="Aplicado é dinheiro da empresa, mas não está disponível para o dia a dia. A XP entra no Saipos pela saída do Itaú e pelo rendimento de cada mês (decisão de 03/09/2026). Jan a jul/2026 vieram da planilha de fluxo realizado, validados linha a linha; de agosto em diante a base vem do Saipos. Clique em SALDO INICIAL/FINAL para ver conta a conta.">Nas linhas de fluxo, o percentual cinza é a fatia da receita do mês.
   Nos saldos, a coluna Total mostra o saldo na ponta do período (não a soma dos meses).</div>`;
 
   // ---- graficos (proposta do chat financeiro, 13/08/2026) ----
@@ -15556,8 +15495,8 @@ function renderModuloProjecao() {
           <td><b>R$ ${fmt(mediaSemana)}</b></td></tr>
       </table>
       <div style="font-size:12px; color:#a5a49a; margin-top:6px;">
-        Contas a receber já lançadas no Saipos entram por cima disso, na data do vencimento
-        (hoje: quase nada — R$ 6,5 mil no total).
+        Contas a receber já lançadas no Saipos entram por cima disso, na data do vencimento —
+        R$ ${fmt(dias.reduce((s, d) => s + (receberDia[d] || 0), 0))} nos próximos ${HORIZONTE} dias.
       </div>
     </details>`;
 
@@ -15594,7 +15533,7 @@ function renderModuloProjecao() {
         ? `saldo do BANCO (extrato de ${dataExtrato ? dataExtrato.slice(8,10) + '/' + dataExtrato.slice(5,7) : '—'})${Math.abs(atrasoSaipos) > 0.005 ? ` — o Saipos está R$ ${fmt(Math.abs(atrasoSaipos))} ${atrasoSaipos > 0 ? 'atrás' : 'à frente'}` : ' — Saipos em dia'}`
         : 'bancos e cofre — é este que paga as contas'}</div></div>
     <div class="card ${vencidas > 0.005 ? 'neg' : ''}"><div class="card-lbl">A pagar (30 dias)</div><div class="card-val">R$ ${fmt(pagar30)}</div>
-      ${vencidas > 0.005 ? `<div class="card-pct" style="color:#ff6b6b;">R$ ${fmt(vencidas)} vencidas de verdade!</div>` : '<div class="card-pct">inclui estimativa de fatura</div>'}</div>
+      ${vencidas > 0.005 ? `<div class="card-pct" style="color:#ff6b6b;">R$ ${fmt(vencidas)} vencidas de verdade!</div>` : '<div class="card-pct">faturas de cartão entram na data de cada uma</div>'}</div>
     <div class="card"><div class="card-lbl">Receita projetada / semana</div><div class="card-val">R$ ${fmt(mediaSemana)}</div>
       <div class="card-pct">média das últimas 4 semanas</div></div>
     <div class="card" style="border-color:${corMenor};"><div class="card-lbl">Menor saldo projetado</div>
@@ -15635,7 +15574,7 @@ function renderModuloProjecao() {
     : 'bancos + cofre'}; XP/Participações e cartões fora).
   Vencidas de verdade entram como pagáveis hoje; as que já saíram do banco ficam fora da projeção.
   O casamento com o extrato é por valor exato e data próxima — aproximação honesta, não conciliação contábil.
-  A fatura de cartão é estimada pelo saldo devedor atual. A base atualiza na importação diária — lançou no Saipos, aparece aqui no dia seguinte.</div>`;
+  A base atualiza na importação diária — lançou no Saipos, aparece aqui no dia seguinte.</div>`;
 
   destroyChart('chartProjecao');
   chartInstances['chartProjecao'] = new Chart(document.getElementById('chartProjecao').getContext('2d'), {
@@ -16458,7 +16397,7 @@ function renderModuloConciliacao() {
   }
 
   alvo.innerHTML = `
-  <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Conferência da base — Água Verde</div>
+  <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Conferência da base — Água Verde, Ahú e São Braz</div>
   <div class="caption-label" style="text-align:center;">
     Checagem diária da base: <b>se algo não bater, aparece aqui.</b> A conciliação com o extrato do banco é feita
     fora do painel (Saipos/OFX) — aqui conferimos a consistência interna e apontamos o que provavelmente falta lançar lá.
@@ -16486,11 +16425,8 @@ function renderModuloConciliacao() {
       <td>R$ ${fmt(CONF_SALDOS.reduce((s, c) => s + Number(c.saldo || 0), 0))}</td>
       <td></td><td>${CONF_SALDOS.reduce((s, c) => s + Number(c.lancamentos || 0), 0).toLocaleString('pt-BR')}</td></tr>
   </table></div>
-  <div class="caption-label">Saldo = saldo inicial de 01/01 + todos os lançamentos de caixa (planilha até jul, Saipos depois).
-  Cartões aparecem com saldo negativo enquanto a fatura não é paga — é o normal.
-  <b>O que o painel NÃO vê:</b> o extrato do banco. Se um recebimento nunca foi lançado no Saipos, aqui ele só aparece
-  indiretamente (saldo negativo ou conta parada) — a confirmação vem da conciliação bancária.
-  O campo de conciliado da API do Saipos não é usado: ele vem sempre "não" mesmo em meses já conciliados.</div>`;
+  <div class="caption-label" title="O painel não vê o extrato do banco: se um recebimento nunca foi lançado no Saipos, aqui ele só aparece indiretamente (saldo negativo ou conta parada) — a confirmação vem da conciliação bancária.">Saldo = saldo inicial de 01/01 + todos os lançamentos de caixa (planilha até jul, Saipos depois).
+  Cartões aparecem com saldo negativo enquanto a fatura não é paga — é o normal.</div>`;
 }
 
 // Agrupamento automatico pelo tamanho do periodo filtrado — evita colocar mais um controle na
