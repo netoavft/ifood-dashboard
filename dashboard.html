@@ -865,7 +865,12 @@
       <button class="sidebar-btn" id="navBtnRateio" onclick="mostrarModulo('rateio')"><span class="mico">🎯</span>Preço alvo por produto</button>
       <!-- Link, nao modulo: mini DRE interativa gerada por script (dados embutidos),
            pedida pelo dono 25/08/2026 para o Fabio ler facil. -->
-      <button class="sidebar-btn" onclick="window.open('dre-turno.html','_blank')"><span class="mico">⏰</span>Mini DRE por turno ↗</button>
+      <!-- Mini DRE por turno SAIU DO MENU em 12/09/2026 (revisao dos modulos). A pagina
+           dre-turno.html esta parada em julho/2026 e nao e regenerada desde 25/08, mas
+           ficava no menu como se fosse viva. Nota do dono ao decidir: "interessante
+           pensarmos em um modulo que mostra resumidamente o lucro por turno e canal de
+           determinado periodo, mas que esteja conectado com a base viva" — e por isso que
+           o link saiu em vez de a pagina ser regerada. -->
       <button class="sidebar-btn" id="navBtnLucrouni" onclick="mostrarModulo('lucrouni')"><span class="mico">🏦</span>Lucro por unidade</button>
       <button class="sidebar-btn" id="navBtnEngcard" onclick="mostrarModulo('engcard')"><span class="mico">🍔</span>Engenharia de cardápio</button>
       <button class="sidebar-btn" id="navBtnFichas" onclick="mostrarModulo('fichas')"><span class="mico">📋</span>Fichas técnicas</button>
@@ -907,7 +912,11 @@
       <button class="sidebar-btn" id="navBtnCaixa" onclick="mostrarModulo('caixa')"><span class="mico">🗃️</span>Fechamento de Caixas</button>
       <button class="sidebar-btn" id="navBtnRede" onclick="mostrarModulo('rede')"><span class="mico">🏧</span>Taxas da maquininha</button>
       <button class="sidebar-btn" id="navBtnDespesas" onclick="mostrarModulo('despesas')"><span class="mico">🧾</span>Análise de despesas</button>
-      <button class="sidebar-btn" id="navBtnReembolsos" onclick="mostrarModulo('reembolsos')"><span class="mico">💸</span>Reembolsos</button>
+      <!-- Reembolsos SAIU DO MENU em 12/09/2026 (revisao dos modulos, "de acordo" do dono).
+           O lancamento esta pausado desde 21/08 — rmb_gastos so tem regra de leitura, ninguem
+           consegue registrar. A regra da casa (21/08) e que "em breve" nao fica no menu.
+           O modulo continua inteiro: mostrarModulo('reembolsos') funciona por codigo e a tela
+           abre com a fila e o historico. Volta ao menu quando o lancamento voltar. -->
       <button class="sidebar-btn" id="navBtnRh" onclick="mostrarModulo('rh')"><span class="mico">💳</span>Descontos em folha</button>
       <button class="sidebar-btn" id="navBtnForafolha" onclick="mostrarModulo('forafolha')"><span class="mico">🧮</span>Pagamento fora da folha</button>
     </div>
@@ -1089,9 +1098,6 @@
       <div id="view-relatorios"></div>
     </div>
 
-    <div id="modulo-vendas" class="modulo" style="display:none;">
-      <div id="view-vendas"></div>
-    </div>
 
     <div id="modulo-cardapio" class="modulo" style="display:none;">
       <div id="view-cardapio"></div>
@@ -1772,10 +1778,6 @@ function mostrarModulo(nome) {
     avaliacoes: ['modulo-avaliacoes', 'navBtnAvaliacoes'],
     relatorios: ['modulo-relatorios', 'navBtnRelatorios'],
     contestacoes: ['modulo-contestacoes', 'navBtnContestacoes'],
-    // 'vendas' aposentado DUAS vezes: 12/08 (relatorio da rede parado) e de novo
-    // em 17/08, minutos depois de voltar — o dono confirmou que ficou redundante
-    // com o Resumo. O modulo-vendas segue no HTML e mostrarModulo('vendas')
-    // funciona por codigo; so nao tem botao. Nao recolocar sem pedido explicito.
     cardapio: ['modulo-cardapio', 'navBtnCardapio'],
     clientes: ['modulo-clientes', 'navBtnClientes'],
     site: ['modulo-site', 'navBtnSite'],
@@ -1831,7 +1833,6 @@ function mostrarModulo(nome) {
     if (ant) renderChartWaterfall(computeMetrics(), computeMetrics(ant.ini, ant.fim), ant);
     renderChartTendencia();
   }
-  if (nome === 'vendas') entrarVendas();
   if (nome === 'cardapio') entrarCardapio();
   if (nome === 'clientes') entrarClientes();
   if (nome === 'site') entrarSite();
@@ -1904,7 +1905,6 @@ function moduloAtivo() {
   if (document.getElementById('modulo-negociacoes').style.display !== 'none') return 'negociacoes';
   if (document.getElementById('modulo-avaliacoes').style.display !== 'none') return 'avaliacoes';
   if (document.getElementById('modulo-relatorios').style.display !== 'none') return 'relatorios';
-  if (document.getElementById('modulo-vendas').style.display !== 'none') return 'vendas';
   if (document.getElementById('modulo-cardapio').style.display !== 'none') return 'cardapio';
   if (document.getElementById('modulo-clientes').style.display !== 'none') return 'clientes';
   if (document.getElementById('modulo-fluxo').style.display !== 'none') return 'fluxo';
@@ -3878,94 +3878,15 @@ function renderChartTendencia() {
 // Estes tres modulos usam RETRATOS exportados do Portal de Redes (janelas/meses fixos),
 // entao NAO seguem o filtro de datas global — cada um tem seu seletor de periodo.
 // O recorte de unidades/marcas se aplica normalmente.
-let VENDAS_REDE = null;
 let CARDAPIO = null;
 let CLIENTES_REDE = null;
 
-async function entrarVendas() {
-  const alvo = document.getElementById('view-vendas');
-  if (VENDAS_REDE === null) {
-    alvo.innerHTML = '<div class="contexto">Carregando vendas...</div>';
-    const rows = await consultarTudo(
-      "vw_vendas_rede?select=nome_loja,periodo_ini,periodo_fim,servico,logistica,pedidos,valor_vendas,taxa_entrega,ticket_medio,novos_clientes&order=periodo_ini.desc,nome_loja"
-    );
-    VENDAS_REDE = rows.map(r => [
-      LOJAS.indexOf(r.nome_loja), r.periodo_ini, r.periodo_fim, r.servico, r.logistica,
-      r.pedidos, Number(r.valor_vendas || 0), Number(r.novos_clientes || 0),
-    ]);
-  }
-  renderModuloVendas();
-}
-
-function renderModuloVendas(periodoSel) {
-  const alvo = document.getElementById('view-vendas');
-  const periodos = [...new Map(VENDAS_REDE.map(r => [r[1] + '|' + r[2], [r[1], r[2]]])).values()];
-  if (!periodos.length) {
-    alvo.innerHTML = `<div class="contexto" style="border-color:#c8102e;">Sem dados de vendas da rede ainda.</div>`;
-    return;
-  }
-  const chave = periodoSel || periodos[0][0] + '|' + periodos[0][1];
-  const [pIni, pFim] = chave.split('|');
-  const activeL = activeLojas();
-  const linhas = VENDAS_REDE.filter(r => activeL.has(r[0]) && r[1] === pIni && r[2] === pFim);
-
-  const tot = { ped: 0, vendas: 0, novos: 0 };
-  linhas.forEach(r => { tot.ped += r[5]; tot.vendas += r[6]; tot.novos += r[7]; });
-
-  const porCanal = new Map();
-  linhas.forEach(r => {
-    const k = `${r[3]} · ${r[4]}`;
-    if (!porCanal.has(k)) porCanal.set(k, { ped: 0, vendas: 0, novos: 0 });
-    const o = porCanal.get(k); o.ped += r[5]; o.vendas += r[6]; o.novos += r[7];
-  });
-
-  const porLoja = new Map();
-  linhas.forEach(r => {
-    if (!porLoja.has(r[0])) porLoja.set(r[0], { ped: 0, vendas: 0, novos: 0 });
-    const o = porLoja.get(r[0]); o.ped += r[5]; o.vendas += r[6]; o.novos += r[7];
-  });
-  const lojas = [...porLoja.entries()].map(([i, o]) => ({ nome: LOJAS[i], ...o }))
-    .sort((a, b) => b.vendas - a.vendas);
-
-  alvo.innerHTML = `
-  <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Vendas — canal iFood</div>
-  <div class="caption-label" style="text-align:center;">
-    Retrato do relatório de vendas do Portal de Redes. Este módulo usa o período do retrato
-    (seletor abaixo), não o filtro de datas do topo. O destaque exclusivo daqui: <b>novos clientes por loja</b>.
-  </div>
-  <div class="periodo-presets">
-    ${periodos.map(([i, f]) => `<button class="preset-btn ${i === pIni && f === pFim ? 'active' : ''}"
-      onclick="renderModuloVendas('${i}|${f}')">${formatarDataCurta(i)} – ${formatarDataCurta(f)}</button>`).join('')}
-  </div>
-  <div class="cards">
-    <div class="card neutral"><div class="card-lbl">Pedidos</div><div class="card-val">${tot.ped.toLocaleString('pt-BR')}</div></div>
-    <div class="card neutral"><div class="card-lbl">Vendas</div><div class="card-val">R$ ${fmt(tot.vendas)}</div></div>
-    <div class="card pos"><div class="card-lbl">Novos clientes</div><div class="card-val">${tot.novos.toLocaleString('pt-BR')}</div><div class="card-pct">${pct(tot.ped ? tot.novos / tot.ped * 100 : 0)}% dos pedidos</div></div>
-    <div class="card neutral"><div class="card-lbl">Ticket médio</div><div class="card-val">R$ ${fmt(tot.ped ? tot.vendas / tot.ped : 0)}</div></div>
-  </div>
-
-  <div class="section-label">Por serviço e logística</div>
-  <div id="tabelaVendasCanal">
-    <table>
-      <tr><th>Serviço · Logística</th><th>Pedidos</th><th>Vendas</th><th>Novos clientes</th></tr>
-      ${[...porCanal.entries()].sort((a, b) => b[1].vendas - a[1].vendas).map(([k, o]) =>
-        `<tr><td>${k}</td><td>${o.ped.toLocaleString('pt-BR')}</td><td>R$ ${fmt(o.vendas)}</td><td>${o.novos}</td></tr>`).join('')}
-      <tr class="liq"><td>TOTAL</td><td>${tot.ped.toLocaleString('pt-BR')}</td><td>R$ ${fmt(tot.vendas)}</td><td>${tot.novos.toLocaleString('pt-BR')}</td></tr>
-    </table>
-  </div>
-
-  <div class="section-label">Por loja</div>
-  <div id="tabelaVendasLojas">
-    <table>
-      <tr><th>Loja</th><th>Pedidos</th><th>Vendas</th><th>Novos clientes</th><th>% de novos</th></tr>
-      ${lojas.map(x => `<tr><td>${x.nome}</td><td>${x.ped.toLocaleString('pt-BR')}</td>
-        <td>R$ ${fmt(x.vendas)}</td><td>${x.novos}</td><td>${pct(x.ped ? x.novos / x.ped * 100 : 0)}%</td></tr>`).join('')}
-      <tr class="liq"><td>TOTAL</td><td>${tot.ped.toLocaleString('pt-BR')}</td>
-        <td>R$ ${fmt(tot.vendas)}</td><td>${tot.novos.toLocaleString('pt-BR')}</td><td>${pct(tot.ped ? tot.novos / tot.ped * 100 : 0)}%</td></tr>
-    </table>
-  </div>
-  <div class="caption-label">% de novos alta pode indicar loja em crescimento — ou loja que não segura os clientes que conquista. Cruze com o módulo Clientes.</div>`;
-}
+// MODULO "VENDAS" REMOVIDO em 12/09/2026 (revisao dos modulos, decisao do dono).
+// Ficou sem botao no menu em 17/08 — "redundante com o Resumo" — e o codigo
+// continuou vivo por quase um mes num arquivo de 1 MB que varios chats editam.
+// Era `entrarVendas` + `renderModuloVendas` lendo vw_vendas_rede (retrato do
+// Portal de Redes). A view continua no banco; se um dia voltar, o historico do
+// git tem o codigo. Nada mais aponta para ele.
 
 async function entrarCardapio() {
   const alvo = document.getElementById('view-cardapio');
@@ -15473,7 +15394,6 @@ function renderAll() {
   if (ativo === 'rh' && RH !== null) renderModuloRh();
   if (ativo === 'negociacoes' && NEGOCIACOES !== null) renderModuloNegociacoes();
   if (ativo === 'avaliacoes' && AVALIACOES !== null) renderModuloAvaliacoes();
-  if (ativo === 'vendas' && VENDAS_REDE !== null) renderModuloVendas();
   if (ativo === 'cardapio' && CARDAPIO !== null) renderModuloCardapio();
   if (ativo === 'clientes' && CLIENTES_REDE !== null) renderModuloClientes();
   if (ativo === 'site' && SITE !== null) renderModuloSite();
