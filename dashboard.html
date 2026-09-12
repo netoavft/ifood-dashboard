@@ -1608,7 +1608,7 @@ function renderJanelas() {
   el.innerHTML =
     '<span style="font-size:12px; color:#a5a49a; margin-right:4px;">Período:</span>' +
     JANELAS.map(j =>
-      `<button class="preset-btn ${JANELA_ATUAL === j.id ? 'active' : ''}" onclick="aplicarJanela('${j.id}')">${j.rotulo}</button>`
+      `<button class="preset-btn ${JANELA_ATUAL === j.id ? 'active' : ''}" onclick="plcSoltaEAplica('${j.id}')">${j.rotulo}</button>`
     ).join('') +
     `<span style="font-size:11.5px; color:#8a897e; margin-left:6px;">${ddmm(fDataIni.value)} a ${ddmm(fDataFim.value)}</span>`;
 }
@@ -1845,8 +1845,37 @@ function mostrarModulo(nome) {
   });
   // Periodo pertence ao modulo: entrar num modulo REINICIA a janela dele
   // para o padrao (fim do filtro pegajoso). Modulo sem janela esconde a barra.
+  // VINDO DO PLACAR, a janela do modulo e' a do recorte, nao o padrao dele.
+  // CUIDADO REGISTRADO: NAO soltar o contexto dentro de aplicarJanela. MODULO_ATUAL ja
+  // vale `nome` aqui, entao um plcCtxSolta la apagaria o contexto ANTES de a tela ler —
+  // o caminho nunca funcionaria e o defeito seria invisivel. Quem solta e' o clique da
+  // pessoa num preset (renderJanelas) e o seletor de loja.
   const janPadrao = JANELA_DO_MODULO[nome];
-  if (janPadrao) { aplicarJanela(janPadrao); } else { renderJanelas(); }
+  const ctxJan = plcCtx(nome);
+  if (ctxJan && ctxJan.meses && ctxJan.meses.length) {
+    // o mes do Placar vem 'AAAA-MM-DD'; o slice(0,7) serve nos dois formatos
+    const mIni = String(ctxJan.meses[0]).slice(0, 7);
+    const mFim = String(ctxJan.meses[ctxJan.meses.length - 1]).slice(0, 7);
+    const ud = new Date(Number(mFim.slice(0, 4)), Number(mFim.slice(5, 7)), 0);
+    const ini = mIni + '-01';
+    const fim = `${ud.getFullYear()}-${String(ud.getMonth() + 1).padStart(2, '0')}-${String(ud.getDate()).padStart(2, '0')}`;
+    const iniOk = ini < DATAS[0] ? DATAS[0] : ini;
+    const fimOk = fim > ULTIMO_DIA() ? ULTIMO_DIA() : fim;
+    if (fimOk < iniOk) { plcCtxSolta(nome); if (janPadrao) aplicarJanela(janPadrao); else renderJanelas(); }
+    else {
+      fDataIni.value = iniOk; fDataFim.value = fimOk;
+      JANELA_ATUAL = null;
+      // A loja: filtra pela lista REAL de unidades, nunca pela grafia de uma constante.
+      // Se a grafia divergir, a tela zeraria em silencio — entao cai para o padrao.
+      if (!PLC_UNID_ANTES) PLC_UNID_ANTES = new Set(activeUnidades);
+      const alvo = ctxJan.loja === 'REDE' ? UNIDADES.filter(u => FX_TODAS.includes(u))
+                                          : UNIDADES.filter(u => u === ctxJan.loja);
+      activeUnidades = alvo.length ? new Set(alvo) : new Set(unidadesVisiveis());
+      renderTopNav(); rebuildLojaOptions();   // sem rebuild, activeLojas() le checkbox velho
+      renderJanelas(); renderAll();
+    }
+  }
+  else if (janPadrao) { aplicarJanela(janPadrao); } else { renderJanelas(); }
 
   // Os graficos Chart.js ficam com tamanho zerado se forem desenhados enquanto o container
   // esta com display:none — por isso redesenhamos ao entrar no modulo.
@@ -12446,9 +12475,9 @@ function renderModuloConsolidada() {
       <div class="card-pct">${share.toFixed(1).replace('.', ',')}% do total · ${a.vendas.toLocaleString('pt-BR')} vendas · ${varTxt(a.total, ant && ant.total)}</div></div>`;
   }).join('');
 
-  alvo.innerHTML = `
+  alvo.innerHTML = plcCabecalhoQuebra('consolidada') + `
   <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Visão consolidada — todos os canais, ${ddmm(ini)} a ${ddmm(fim)}</div>
-  <div class="contexto"><b>Mostrando ${unsTexto}.</b> A fonte é o caixa das lojas (Saipos), que cobre as três unidades próprias; o Boqueirão é de outra gestão e não entra aqui. O filtro de unidade lá em cima vale nesta tela; o de marca não, porque a fonte tem canal e não marca.${fim > maxData ? ` <b>Dados até ${ddmm(maxData)}</b> — o período escolhido vai além.` : ''}</div>
+  <div class="caption-label" style="text-align:center;">${unsTexto}, pelo caixa do Saipos. O Boqueirão não entra.${fim > maxData ? ` <b>Dados até ${ddmm(maxData)}.</b>` : ''}</div>
 
   <div class="cards">
     <div class="card"><div class="card-lbl">Faturamento total (todos os canais)</div>
@@ -13187,6 +13216,10 @@ function plcAbrir(id) { PLC_ABERTO = (PLC_ABERTO === id) ? null : id; renderPlac
 // o recorte e' escolha de quem esta olhando, nao heranca do Placar.
 let PLC_CTX = {};        // modulo -> { tile, rotTile, meses, rotPeriodo, loja }
 let PLC_VISTA = null;    // o recorte que o Placar esta mostrando agora (preenchido no render)
+// O filtro de unidade de ANTES do Placar. activeUnidades e' global e e' lido por telas
+// que nem mostram o filtro (Evolucao, Frete, Consolidada): sem devolver, a pessoa sai do
+// Placar e fica com todas elas presas numa loja, sem ver onde desfazer.
+let PLC_UNID_ANTES = null;
 
 function plcAbrirTela(modulo, tileId) {
   const t = PLC_TILES.find(x => x.id === tileId);
@@ -13197,8 +13230,19 @@ function plcAbrirTela(modulo, tileId) {
   mostrarModulo(modulo);
 }
 const plcCtx = (modulo) => PLC_CTX[modulo] || null;
-const plcCtxSolta = (modulo) => { delete PLC_CTX[modulo]; };
+const plcCtxSolta = (modulo) => {
+  delete PLC_CTX[modulo];
+  // quando o ultimo recorte cai, o filtro de unidade volta ao que a pessoa tinha
+  if (PLC_UNID_ANTES && !Object.keys(PLC_CTX).length) {
+    activeUnidades = PLC_UNID_ANTES; PLC_UNID_ANTES = null;
+    renderTopNav(); rebuildLojaOptions();
+  }
+};
 function plcVoltar() { mostrarModulo('placar'); }
+// Clicar num preset de periodo SOLTA o recorte — e' escolha da pessoa a partir dali.
+// Fica aqui, e nao dentro de aplicarJanela: mostrarModulo tambem chama aplicarJanela,
+// e soltar la apagaria o contexto antes de a tela ter chance de ler.
+function plcSoltaEAplica(id) { plcCtxSolta(MODULO_ATUAL); aplicarJanela(id); }
 function plcCtxLimpar(modulo) { plcCtxSolta(modulo); mostrarModulo(modulo); }
 
 // Quais numeros do Placar esta tela abre por dentro — sai do proprio PLC_TILES, ao
@@ -16573,7 +16617,7 @@ function renderAll() {
 
   // Ordem de leitura de dono: quanto sobrou → por que mudou → pulso da operacao →
   // quem fez/quem vazou → para onde foi o dinheiro → sinais e detalhes.
-  let html = contexto;
+  let html = plcCabecalhoQuebra('resumo') + contexto;
   html += blocoAbertura(m, a, ant);
   html += kpisRapidos(m, a);
   html += tabelaLiquidoPorLoja(ant);
