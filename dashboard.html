@@ -7710,7 +7710,7 @@ async function entrarEvolucao() {
   if (!alvo) return;
   if (EVOL === null) {
     alvo.innerHTML = '<div class="contexto">Carregando a evolução das vendas...</div>';
-    EVOL = await consultarTudo('vw_venda_evolucao?select=data,unidade,canal,faixa,pedidos,total&order=data');
+    EVOL = await consultarTudo('vw_venda_evolucao?select=data,unidade,canal,faixa,pedidos,total,canceladas,total_cancelado&order=data');
   }
   renderModuloEvolucao();
 }
@@ -7810,6 +7810,12 @@ function renderModuloEvolucao() {
 
   const soma = (rows, campo) => rows.reduce((s, r) => s + Number(r[campo] || 0), 0);
   const tot = soma(atualF, 'total'), ped = soma(atualF, 'pedidos');
+  // CANCELADOS (12/09/2026): era a unica coisa que a Visao consolidada tinha e esta tela
+  // nao. No modo item nao existe — a base do item so tem o que foi vendido.
+  const canc = ITEM ? 0 : soma(atualF, 'total_cancelado'), cancN = ITEM ? 0 : soma(atualF, 'canceladas');
+  const cancPorCanal = {};
+  if (!ITEM) atualF.forEach(r => { cancPorCanal[r.canal] = (cancPorCanal[r.canal] || 0) + Number(r.total_cancelado || 0); });
+  const piorCanc = Object.entries(cancPorCanal).sort((a, b) => b[1] - a[1])[0];
   const totA = soma(anteriorF, 'total'), pedA = soma(anteriorF, 'pedidos');
   const tk = ped ? tot / ped : 0, tkA = pedA ? totA / pedA : 0;
   const nDias = new Set(atualF.map(r => r.data)).size || 1;
@@ -8089,6 +8095,9 @@ function renderModuloEvolucao() {
         <div class="card-val">R$ ${fmt(tk)}</div><div class="card-pct">${varTxt(tk, tkA)}</div></div>
       <div class="card neutral"><div class="card-lbl">${ITEM ? 'Receita por semana' : 'Venda por dia'}</div>
         <div class="card-val">R$ ${fmt(tot / nDias)}</div><div class="card-pct">média de ${nDias} ${ITEM ? 'semana(s)' : 'dia(s)'} com venda</div></div>
+      ${ITEM ? '' : `<div class="card ${tot && canc / tot * 100 > 1.2 ? 'neg' : 'neutral'}"><div class="card-lbl">Cancelados</div>
+        <div class="card-val">R$ ${fmt(canc)}</div>
+        <div class="card-pct">${pct(tot ? canc / tot * 100 : 0)}% da venda · ${cancN.toLocaleString('pt-BR')} pedidos${piorCanc && piorCanc[1] > 0 ? ' · maior parte em ' + piorCanc[0] : ''}</div></div>`}
     </div>
 
     <div class="section-label">Como ${ITEM ? 'este item' : 'a venda'} evoluiu</div>
