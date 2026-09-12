@@ -12251,7 +12251,7 @@ async function entrarFechamento() {
       consultarTudo('vw_fin_ponte_mensal?select=*'),
       consultarTudo('fin_metas_dre?select=chave,sentido,pct_meta'),
       // prova dos nove (04/09/2026): a venda do PDV conferida contra iFood, Rede e vales
-      consultarTudo('vw_fechamento_prova_nove?select=mes,unidade,ordem,linha,fonte_a,fonte_b,valor_a,valor_b,diferenca,pct,tolerancia_pct,situacao&order=mes,ordem').catch(() => []),
+      consultarTudo('vw_fechamento_prova_nove?select=mes,unidade,ordem,linha,fonte_a,fonte_b,valor_a,valor_b,diferenca,pct,tolerancia_pct,situacao,piso_ruido&order=mes,ordem').catch(() => []),
     ]);
     const metasMap = {}; metas.forEach(m => { metasMap[m.chave] = { sentido: m.sentido, meta: fxN(m.pct_meta) }; });
     FX_M = { dre, vendas, canal, benef, ponte, metas: metasMap, prova: prova || [] };
@@ -12397,12 +12397,29 @@ function renderFechamento() {
     const L = fxLojas();
     const pr = (FX_M.prova || []).filter(r => r.mes.slice(0, 7) === mes.slice(0, 7) && L.includes(r.unidade));
     if (pr.length) {
+      // Por que a regra e refeita aqui em vez de ler `situacao` da view: na visao
+      // Rede cada linha SOMA as tres lojas, e o veredito tem de ser do somado.
+      // A regra e a mesma da view, e o piso vem de la (piso_ruido) — ate 12/09/2026
+      // este trecho tinha R$ 1.000 chapado e, depois de a view passar ao piso
+      // proporcional, painel e banco discordavam: cartoes do Ahu em agosto eram
+      // "conferir" na view e "bate" na tela.
       const agr = {};
-      pr.forEach(r => { const g = agr[r.ordem] || (agr[r.ordem] = { ...r, valor_a: 0, valor_b: 0 }); g.valor_a += fxN(r.valor_a); g.valor_b += fxN(r.valor_b); });
+      pr.forEach(r => {
+        const g = agr[r.ordem] || (agr[r.ordem] = { ...r, valor_a: 0, valor_b: 0, piso: 0 });
+        g.valor_a += fxN(r.valor_a); g.valor_b += fxN(r.valor_b);
+        g.piso += fxN(r.piso_ruido);   // somando lojas, soma-se o piso de cada uma
+      });
       const linhas = Object.values(agr).sort((x, y) => x.ordem - y.ordem).map(g => {
         const pct = g.valor_b ? (g.valor_a - g.valor_b) / g.valor_b * 100 : null, tol = fxN(g.tolerancia_pct);
-        // mesma regra da view: piso de R$ 1.000 (base pequena grita por centavos), depois a tolerancia em %
-        const sit = pct === null ? 'SEM FONTE' : (Math.abs(g.valor_a - g.valor_b) <= 1000 || Math.abs(pct) <= tol) ? 'BATE' : Math.abs(pct) <= 2 * tol ? 'ATENÇÃO' : 'CONFERIR';
+        const dif = Math.abs(g.valor_a - g.valor_b);
+        const piso = Math.max(100, g.piso);   // socorro se a view nao trouxer a coluna
+        // Mesma regra da view: passa pela tolerancia em %, ou e diferenca pequena
+        // para o tamanho da loja E ainda perto da tolerancia (ate 3x). O limite de
+        // 3x existe para o piso nao engolir sinal grande na Agua Verde.
+        const sit = pct === null ? 'SEM FONTE'
+          : Math.abs(pct) <= tol ? 'BATE'
+          : (dif <= piso && Math.abs(pct) <= 3 * tol) ? 'BATE'
+          : Math.abs(pct) <= 2 * tol ? 'ATENÇÃO' : 'CONFERIR';
         return { ...g, pct, sit };
       });
       const ruins = linhas.filter(l => l.sit === 'CONFERIR'), aten = linhas.filter(l => l.sit === 'ATENÇÃO');
