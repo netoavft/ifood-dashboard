@@ -861,6 +861,7 @@
     <button class="sidebar-secao" onclick="toggleGrupo('gResultado')">Resultado <span class="seta">▶</span></button>
     <div class="sidebar-grupo" id="gResultado">
       <button class="sidebar-btn" id="navBtnConsolidada" onclick="mostrarModulo('consolidada')"><span class="mico">📊</span>Visão consolidada</button>
+      <button class="sidebar-btn" id="navBtnEvolucao" onclick="mostrarModulo('evolucao')"><span class="mico">📈</span>Evolução de vendas</button>
       <button class="sidebar-btn" id="navBtnDre" onclick="mostrarModulo('dre')"><span class="mico">📑</span>DRE</button>
       <button class="sidebar-btn" id="navBtnRateio" onclick="mostrarModulo('rateio')"><span class="mico">🎯</span>Preço alvo por produto</button>
       <!-- Link, nao modulo: mini DRE interativa gerada por script (dados embutidos),
@@ -1035,6 +1036,10 @@
 
     <div id="modulo-consolidada" class="modulo" style="display:none;">
       <div id="view-consolidada"></div>
+    </div>
+
+    <div id="modulo-evolucao" class="modulo" style="display:none;">
+      <div id="view-evolucao"></div>
     </div>
 
     <div id="modulo-atrasos" class="modulo" style="display:none;">
@@ -1793,6 +1798,7 @@ function mostrarModulo(nome) {
     telas: ['modulo-telas', 'navBtnTelas'],
     qualidade: ['modulo-qualidade', 'navBtnQualidade'],
     consolidada: ['modulo-consolidada', 'navBtnConsolidada'],
+    evolucao: ['modulo-evolucao', 'navBtnEvolucao'],
     atrasos: ['modulo-atrasos', 'navBtnAtrasos'],
     logfin: ['modulo-logfin', 'navBtnLogfin'],
     frete: ['modulo-frete', 'navBtnFrete'],
@@ -1847,6 +1853,7 @@ function mostrarModulo(nome) {
   if (nome === 'estasemana') entrarEstaSemana();
   if (nome === 'qualidade') entrarQualidade();
   if (nome === 'consolidada') entrarConsolidada();
+  if (nome === 'evolucao') entrarEvolucao();
   if (nome === 'atrasos') entrarAtrasos();
   if (nome === 'logfin') entrarLogfin();
   if (nome === 'frete') entrarFrete();
@@ -1886,6 +1893,8 @@ function moduloAtivo() {
   if (qual && qual.style.display !== 'none') return 'qualidade';
   const cons = document.getElementById('modulo-consolidada');
   if (cons && cons.style.display !== 'none') return 'consolidada';
+  const evo = document.getElementById('modulo-evolucao');
+  if (evo && evo.style.display !== 'none') return 'evolucao';
   const atr = document.getElementById('modulo-atrasos');
   if (atr && atr.style.display !== 'none') return 'atrasos';
   for (const [idm, nomem] of [['modulo-site','site'],
@@ -7557,6 +7566,245 @@ function renderModuloFrete(linhas) {
       o número existe, mas oscila demais para decidir em cima dele. Ahú e São Braz saíram do Foody em 26 e 29/08,
       então janelas recentes mostram só a Água Verde.
     </div>`;
+}
+
+// ------------------------------------------------------------------
+// MODULO EVOLUCAO DE VENDAS (12/09/2026)
+//
+// Nasceu das duas notas que o dono deixou ao decidir a revisao dos modulos:
+//   "um modulo que mostra resumidamente o lucro por turno e canal de determinado
+//    periodo, mas que esteja conectado com a base viva"
+//   "sinto falta de uma dash com indicadores de evolucao de venda e sua quebras
+//    por loja periodo canal e itens"
+// As duas paginas que ele aposentou no mesmo dia (dre-turno.html e
+// lucratividade-filiais.html) eram tentativas disso, congeladas em julho.
+//
+// Fonte: vw_venda_evolucao (dia x loja x canal x faixa de horario), do PDV do
+// Saipos. A FAIXA vem de `hora_venda` — decisao de 20/08/2026, porque no salao a
+// coluna `turno` do Saipos nao bate com a hora. Nunca usar `hora_origem`: a
+// Goomer entrega ao Saipos 6h atrasada.
+//
+// O filtro de unidade do topo vale aqui. O de marca nao: a fonte tem canal, nao
+// marca. A janela e propria do modulo, porque evolucao pede periodo longo e as
+// janelas do cabecalho vao no maximo a 4 semanas.
+// ------------------------------------------------------------------
+let EVOL = null;
+// [dias, grao, rotulo] — dias 0 = tudo o que existe
+const EVOL_JANELAS = [[56, 'semana', '8 semanas'], [182, 'mes', '6 meses'], [0, 'mes', 'Ano todo']];
+let EVOL_JANELA = 0;
+let EVOL_MEDIDA = 'total';   // 'total' | 'pedidos' | 'ticket'
+
+async function entrarEvolucao() {
+  const alvo = document.getElementById('view-evolucao');
+  if (!alvo) return;
+  if (EVOL === null) {
+    alvo.innerHTML = '<div class="contexto">Carregando a evolução das vendas...</div>';
+    EVOL = await consultarTudo('vw_venda_evolucao?select=data,unidade,canal,faixa,pedidos,total&order=data');
+  }
+  renderModuloEvolucao();
+}
+function evolJanela(i) { EVOL_JANELA = i; renderModuloEvolucao(); }
+function evolMedida(m) { EVOL_MEDIDA = m; renderModuloEvolucao(); }
+
+// Rotulo do periodo do grao: a semana vira "seg 31/08", o mes vira "ago/26".
+function evolChave(data, grao) {
+  if (grao === 'mes') return data.slice(0, 7);
+  const d = new Date(data + 'T12:00:00');
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));      // volta para a segunda
+  return d.toISOString().slice(0, 10);
+}
+function evolRotulo(chave, grao) {
+  if (grao === 'mes') return MESES_ABREV[Number(chave.slice(5, 7)) - 1] + '/' + chave.slice(2, 4);
+  return chave.slice(8, 10) + '/' + chave.slice(5, 7);
+}
+
+function renderModuloEvolucao() {
+  const alvo = document.getElementById('view-evolucao');
+  if (!alvo || EVOL === null) return;
+  if (!EVOL.length) { alvo.innerHTML = '<div class="contexto">Sem venda importada ainda.</div>'; return; }
+
+  const [dias, grao, rotJanela] = EVOL_JANELAS[EVOL_JANELA];
+  const datas = EVOL.map(r => r.data).sort();
+  const maxData = datas[datas.length - 1], minData = datas[0];
+  const recuar = (d, n) => { const x = new Date(d + 'T12:00:00'); x.setDate(x.getDate() - n); return x.toISOString().slice(0, 10); };
+  const ini = dias ? recuar(maxData, dias - 1) : minData;
+  // periodo anterior do MESMO tamanho, colado — a mesma regra do resto do painel
+  const antFim = recuar(ini, 1), antIni = dias ? recuar(antFim, dias - 1) : null;
+  const temBase = antIni !== null && antIni >= minData;
+
+  const naJanela = (r, a, b) => r.data >= a && r.data <= b && (!activeUnidades.size || activeUnidades.has(r.unidade));
+  const atual = EVOL.filter(r => naJanela(r, ini, maxData));
+  const anterior = temBase ? EVOL.filter(r => naJanela(r, antIni, antFim)) : [];
+
+  const soma = (rows, campo) => rows.reduce((s, r) => s + Number(r[campo] || 0), 0);
+  const tot = soma(atual, 'total'), ped = soma(atual, 'pedidos');
+  const totA = soma(anterior, 'total'), pedA = soma(anterior, 'pedidos');
+  const tk = ped ? tot / ped : 0, tkA = pedA ? totA / pedA : 0;
+  const nDias = new Set(atual.map(r => r.data)).size || 1;
+
+  // palavra do fato separada do juizo — regra da casa
+  const varTxt = (a, b, casas = 1) => {
+    if (!temBase || !b) return '<span style="color:var(--tx-6);">sem base para comparar</span>';
+    const v = (a - b) / Math.abs(b) * 100;
+    const p = Math.abs(v).toFixed(casas).replace('.', ',');
+    return Math.abs(v) < 0.05 ? 'ficou igual' : `${v > 0 ? 'subiu' : 'caiu'} ${p}%`;
+  };
+
+  const ddmm = (v) => v ? v.slice(8, 10) + '/' + v.slice(5, 7) : '—';
+  const UN_ROT = { 'AGUA VERDE': 'Água Verde', 'AHU': 'Ahú', 'SÃO BRAZ': 'São Braz', 'BOQUEIRAO': 'Boqueirão' };
+  const unsComDado = [...new Set(atual.map(r => r.unidade))].sort();
+
+  // ---------- serie do grafico ----------
+  const serie = {};
+  atual.forEach(r => {
+    const k = evolChave(r.data, grao);
+    const o = serie[k] || (serie[k] = { total: 0, pedidos: 0 });
+    o.total += Number(r.total || 0); o.pedidos += Number(r.pedidos || 0);
+  });
+  const chaves = Object.keys(serie).sort();
+  const medidaDe = (o) => EVOL_MEDIDA === 'total' ? o.total : EVOL_MEDIDA === 'pedidos' ? o.pedidos : (o.pedidos ? o.total / o.pedidos : 0);
+  const valores = chaves.map(k => medidaDe(serie[k]));
+  // O ULTIMO periodo do grao quase sempre esta pela metade (a semana ou o mes em
+  // curso). Mostrar sem avisar faz parecer queda — entao ele fica marcado.
+  const fimDoGrao = grao === 'mes'
+    ? (() => { const d = new Date(maxData + 'T12:00:00'); return d.getDate() >= new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate(); })()
+    : new Date(maxData + 'T12:00:00').getDay() === 0;
+  const ultimoParcial = !fimDoGrao;
+
+  // ---------- quebra generica ----------
+  const quebra = (campo, rows, rowsAnt) => {
+    const m = {}, mA = {};
+    rows.forEach(r => { const o = m[r[campo]] || (m[r[campo]] = { total: 0, pedidos: 0 }); o.total += Number(r.total || 0); o.pedidos += Number(r.pedidos || 0); });
+    rowsAnt.forEach(r => { const o = mA[r[campo]] || (mA[r[campo]] = { total: 0, pedidos: 0 }); o.total += Number(r.total || 0); o.pedidos += Number(r.pedidos || 0); });
+    return Object.entries(m).map(([k, o]) => ({ k, ...o, ant: mA[k] || null }))
+      .sort((a, b) => b.total - a.total);
+  };
+  const linhaQuebra = (x, totalGeral) => {
+    const share = totalGeral ? x.total / totalGeral * 100 : 0;
+    const tkx = x.pedidos ? x.total / x.pedidos : 0;
+    return `<tr><td>${x.rot || x.k}</td>
+      <td>R$ ${fmt(x.total)}<span class="dre-av">${pct(share)}%</span></td>
+      <td>${x.pedidos.toLocaleString('pt-BR')}</td>
+      <td>R$ ${fmt(tkx)}</td>
+      <td>${varTxt(x.total, x.ant && x.ant.total)}</td></tr>`;
+  };
+  const tabela = (titulo, sub, id, itens) => `
+    <div class="section-label">${titulo}</div>
+    <div class="caption-label" style="text-align:center;">${sub}</div>
+    <div id="${id}"><table>
+      <tr><th>${titulo.split('—')[0].trim()}</th><th>Venda · % do total</th><th>Pedidos</th><th>Valor médio</th><th>vs período anterior</th></tr>
+      ${itens.map(x => linhaQuebra(x, tot)).join('')}
+      <tr class="liq"><td>TOTAL</td><td>R$ ${fmt(tot)}</td><td>${ped.toLocaleString('pt-BR')}</td><td>R$ ${fmt(tk)}</td><td>${varTxt(tot, totA)}</td></tr>
+    </table></div>`;
+
+  const FAIXA_ROT = { '1 MADRUGADA': 'Madrugada (0h–4h)', '2 MANHÃ': 'Manhã (5h–10h)', '3 ALMOÇO': 'Almoço (11h–14h)', '4 TARDE': 'Tarde (15h–17h)', '5 NOITE': 'Noite (18h–23h)' };
+  const porCanal = quebra('canal', atual, anterior);
+  const porFaixa = quebra('faixa', atual, anterior).sort((a, b) => a.k < b.k ? -1 : 1).map(x => ({ ...x, rot: FAIXA_ROT[x.k] || x.k }));
+  const porLoja = quebra('unidade', atual, anterior).map(x => ({ ...x, rot: UN_ROT[x.k] || x.k }));
+
+  // ---------- matriz canal x faixa: a pergunta do dono ----------
+  const canais = porCanal.map(x => x.k);
+  const faixas = Object.keys(FAIXA_ROT);
+  const cel = {};
+  atual.forEach(r => { const k = r.canal + '|' + r.faixa; cel[k] = (cel[k] || 0) + Number(r.total || 0); });
+  const celAnt = {};
+  anterior.forEach(r => { const k = r.canal + '|' + r.faixa; celAnt[k] = (celAnt[k] || 0) + Number(r.total || 0); });
+  const matriz = `
+    <div class="section-label">Onde a venda acontece — canal por faixa de horário</div>
+    <div class="caption-label" style="text-align:center;">Cada célula é a venda do período, com a variação contra o período anterior embaixo.
+      É esta tabela que responde se o almoço está crescendo em um canal e caindo em outro.</div>
+    <div id="tabelaEvolMatriz"><table>
+      <tr><th>Faixa</th>${canais.map(c => `<th>${c}</th>`).join('')}<th>Total</th></tr>
+      ${faixas.filter(f => canais.some(c => cel[c + '|' + f])).map(f => {
+        const linhaTot = canais.reduce((s, c) => s + (cel[c + '|' + f] || 0), 0);
+        const linhaAnt = canais.reduce((s, c) => s + (celAnt[c + '|' + f] || 0), 0);
+        return `<tr><td>${FAIXA_ROT[f]}</td>${canais.map(c => {
+          const v = cel[c + '|' + f] || 0, a = celAnt[c + '|' + f];
+          return `<td>${v ? 'R$ ' + fmt(v) : '—'}${v ? `<span class="dre-av">${varTxt(v, a)}</span>` : ''}</td>`;
+        }).join('')}<td><b>R$ ${fmt(linhaTot)}</b><span class="dre-av">${varTxt(linhaTot, linhaAnt)}</span></td></tr>`;
+      }).join('')}
+      <tr class="liq"><td>TOTAL</td>${canais.map(c => {
+        const v = porCanal.find(x => x.k === c);
+        return `<td>R$ ${fmt(v.total)}</td>`;
+      }).join('')}<td>R$ ${fmt(tot)}</td></tr>
+    </table></div>`;
+
+  const seletor = (arr, atualIdx, fn, rot) => `<div class="periodo-presets" style="margin-top:10px;">`
+    + arr.map((x, i) => `<button class="preset-btn ${atualIdx === (rot ? x[0] : i) ? 'active' : ''}" onclick="${fn}(${rot ? `'${x[0]}'` : i})">${rot ? x[1] : x[2]}</button>`).join('')
+    + '</div>';
+
+  alvo.innerHTML = `
+    <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Evolução de vendas — ${ddmm(ini)} a ${ddmm(maxData)}</div>
+    <div class="caption-label" style="text-align:center;">
+      A venda registrada no caixa das lojas (Saipos), por canal e por faixa de horário.
+      ${unsComDado.length ? `<b>${unsComDado.map(u => UN_ROT[u] || u).join(', ')}</b>.` : ''}
+      ${temBase ? `Comparando com ${ddmm(antIni)} a ${ddmm(antFim)}, do mesmo tamanho.` : 'Não há período anterior do mesmo tamanho na base para comparar.'}
+    </div>
+    ${seletor(EVOL_JANELAS, EVOL_JANELA, 'evolJanela')}
+
+    <div class="cards">
+      <div class="card blue"><div class="card-lbl">Venda no período</div>
+        <div class="card-val">R$ ${fmt(tot)}</div><div class="card-pct">${varTxt(tot, totA)}</div></div>
+      <div class="card neutral"><div class="card-lbl">Pedidos</div>
+        <div class="card-val">${ped.toLocaleString('pt-BR')}</div><div class="card-pct">${varTxt(ped, pedA)}</div></div>
+      <div class="card neutral"><div class="card-lbl">Valor médio por pedido</div>
+        <div class="card-val">R$ ${fmt(tk)}</div><div class="card-pct">${varTxt(tk, tkA)}</div></div>
+      <div class="card neutral"><div class="card-lbl">Venda por dia</div>
+        <div class="card-val">R$ ${fmt(tot / nDias)}</div><div class="card-pct">média de ${nDias} dia(s) com venda</div></div>
+    </div>
+
+    <div class="section-label">Como a venda evoluiu</div>
+    <div class="caption-label" style="text-align:center;">Por ${grao === 'mes' ? 'mês' : 'semana (segunda a domingo)'}.
+      ${ultimoParcial ? `A última barra é ${grao === 'mes' ? 'o mês' : 'a semana'} em curso e está pela metade — não leia como queda.` : ''}</div>
+    ${seletor([['total', 'Venda'], ['pedidos', 'Pedidos'], ['ticket', 'Valor médio']], EVOL_MEDIDA, 'evolMedida', true)}
+    <div class="chart-box" style="height:260px;"><canvas id="chartEvolucao"></canvas></div>
+
+    ${tabela('Por canal', 'Onde a venda entra.', 'tabelaEvolCanal', porCanal)}
+    ${tabela('Por faixa de horário', 'A faixa sai da hora da venda registrada no Saipos, não do turno do cadastro.', 'tabelaEvolFaixa', porFaixa)}
+    ${matriz}
+    ${unsComDado.length > 1 ? tabela('Por loja', 'Use o filtro de unidade lá em cima para isolar uma delas.', 'tabelaEvolLoja', porLoja) : ''}
+
+    <div class="caption-label">
+      Fonte: <b>vw_venda_evolucao</b>, sobre a venda do caixa do Saipos, sem canceladas — cobre Água Verde, Ahú e São Braz.
+      O Boqueirão é de outra gestão e não entra. O valor é o do PDV e não se compara direto com o bruto do portal do iFood,
+      que conta promoção e cancelamento de outro jeito.
+      A faixa de horário vem da <b>hora da venda</b>: no salão é a abertura da comanda, no delivery é a criação do pedido.
+      <b>Uma ressalva aberta desde 20/08:</b> o salão da Água Verde registra comandas antes das 11h com ticket alto.
+      Se a operação disser que isso não acontece, a hora da comanda está deslocada e só a faixa do salão precisa de outro caminho —
+      as faixas do delivery não mudam. Está pendente de conferir com quem está na loja.
+    </div>`;
+
+  // Uma medida so, uma cor so: a identidade vem do rotulo do eixo, nao da cor.
+  // O periodo em curso fica com a barra apagada para nao virar leitura de queda.
+  destroyChart('chartEvolucao');
+  const ctx = document.getElementById('chartEvolucao');
+  if (ctx && chaves.length) {
+    const cheia = corTokenA('--info', 0.85), parcial = corTokenA('--info', 0.30);
+    chartInstances['chartEvolucao'] = new Chart(ctx.getContext('2d'), {
+      type: 'bar',
+      data: {
+        labels: chaves.map(k => evolRotulo(k, grao)),
+        datasets: [{
+          label: EVOL_MEDIDA === 'total' ? 'Venda' : EVOL_MEDIDA === 'pedidos' ? 'Pedidos' : 'Valor médio',
+          data: valores,
+          backgroundColor: chaves.map((_, i) => (ultimoParcial && i === chaves.length - 1) ? parcial : cheia),
+          borderRadius: 3,
+        }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: (c) => (EVOL_MEDIDA === 'pedidos' ? c.parsed.y.toLocaleString('pt-BR') + ' pedidos' : 'R$ ' + fmt(c.parsed.y))
+            + ((ultimoParcial && c.dataIndex === chaves.length - 1) ? ' (em curso)' : '') } },
+        },
+        scales: {
+          x: { ticks: { maxRotation: 60, autoSkip: true } },
+          y: { beginAtZero: true, ticks: { callback: (v) => EVOL_MEDIDA === 'pedidos' ? v.toLocaleString('pt-BR') : 'R$ ' + (v >= 1000 ? (v / 1000).toFixed(0) + ' mil' : v) } },
+        },
+      },
+    });
+  }
 }
 
 // ------------------------------------------------------------------
@@ -15432,6 +15680,7 @@ function renderAll() {
       && NEGOCIACOES !== null && AVALIACOES !== null) renderEstaSemana();
   if (ativo === 'qualidade' && QUALIDADE !== null) renderModuloQualidade();
   if (ativo === 'consolidada' && CONSOLIDADO !== null) renderModuloConsolidada();
+  if (ativo === 'evolucao' && EVOL !== null) renderModuloEvolucao();
   if (ativo === 'atrasos' && ATRASOS !== null) renderModuloAtrasos();
   if (ativo === 'logfin' && LOGFIN !== null) renderModuloLogfin();
   if (ativo === 'frete' && FRETE !== null) renderModuloFrete(FRETE);
