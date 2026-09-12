@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Teste de leveza — Painel CDM</title>
+<style>
+  :root {
+    --bg:#111110; --surface:#1e1e1c; --surface-2:#2a2a27; --zebra:#171716;
+    --line:#34332f; --line-2:#45443f;
+    --tx-1:#fff; --tx-2:#c3c2b7; --tx-3:#a5a49a; --tx-4:#9c9b90; --tx-5:#82817a;
+    --brand:#c8102e; --farol-ok:#3fb950; --farol-perto:#f5a623; --farol-fora:#ff6b6b;
+    --marca-amarelo:#f6c63e; --marca-laranja:#ee8a3c; --marca-laranja-q:#e2622b;
+  }
+  * { box-sizing:border-box; }
+  body { background:var(--bg); color:var(--tx-1); margin:0; padding:0 0 60px;
+         font-family:'Segoe UI', system-ui, -apple-system, sans-serif; }
+  body::before { content:''; position:fixed; top:0; left:0; right:0; height:3px;
+    background:linear-gradient(90deg,var(--marca-amarelo),var(--marca-laranja),var(--marca-laranja-q)); z-index:10; }
+  .wrap { max-width:1100px; margin:0 auto; padding:34px 22px 0; }
+  h1 { font-size:20px; font-weight:700; margin:0 0 6px; }
+  .intro { color:var(--tx-2); font-size:13.5px; line-height:1.65; max-width:760px; margin:0 0 8px; }
+  .intro b { color:var(--tx-1); }
+  .opcao { border:1px solid var(--line); border-radius:14px; padding:0 0 18px; margin:26px 0 0; overflow:hidden; }
+  .opcao > h2 { font-size:12px; text-transform:uppercase; letter-spacing:.7px; margin:0;
+    padding:12px 18px; background:var(--surface); border-bottom:1px solid var(--line); color:var(--tx-1); }
+  .opcao > p { color:var(--tx-3); font-size:12.5px; line-height:1.6; margin:12px 18px 0; }
+  .demo { display:flex; gap:0; margin:16px 18px 0; border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+  .side { width:190px; flex:0 0 190px; background:var(--surface); border-right:1px solid var(--line); padding:12px 10px; }
+  .secao { color:var(--tx-4); font-size:10.5px; font-weight:800; text-transform:uppercase; letter-spacing:.6px;
+           display:flex; align-items:center; gap:7px; margin:10px 4px 6px; }
+  .secao::before { content:''; width:14px; height:3px; border-radius:2px;
+           background:linear-gradient(90deg,var(--marca-amarelo),var(--marca-laranja)); opacity:.85; }
+  .item { display:block; width:100%; text-align:left; background:none; border:none; color:var(--tx-2);
+          font-size:12.5px; padding:8px 12px; border-radius:10px; cursor:default; margin-bottom:2px; font-family:inherit; }
+  .corpo { flex:1; padding:14px 16px; background:var(--bg); }
+  .filtros { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:14px; }
+  .btn { background:var(--surface-2); border:1px solid var(--line); color:var(--tx-2); font-size:12px; font-weight:700;
+         padding:7px 13px; border-radius:8px; cursor:default; font-family:inherit; }
+  .cards { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+  .card { background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:14px 16px; text-align:center; }
+  .card.pos { border-color:var(--farol-ok); box-shadow:inset 0 0 0 1px var(--farol-ok); }
+  .card.neg { border-color:var(--farol-fora); box-shadow:inset 0 0 0 1px var(--farol-fora); }
+  .lbl { color:var(--tx-4); font-size:10.5px; text-transform:uppercase; letter-spacing:.5px; margin-bottom:7px; }
+  .val { color:var(--tx-1); font-size:19px; font-weight:800; }
+  .pct { color:var(--tx-3); font-size:13px; font-weight:600; margin-top:2px; }
+
+  /* ---------- HOJE: gradiente amarelo cheio ---------- */
+  .v-hoje .item.on { background:linear-gradient(135deg,var(--marca-amarelo),var(--marca-laranja)); color:var(--bg); font-weight:800; }
+  .v-hoje .btn.on  { background:linear-gradient(135deg,var(--marca-amarelo),var(--marca-laranja)); color:var(--bg); border-color:transparent; font-weight:800; }
+
+  /* ---------- A: contorno (mesma solução que o vermelho recebeu em agosto) ---------- */
+  .v-a .item.on { background:var(--surface-2); color:var(--tx-1); font-weight:700;
+                  box-shadow:inset 3px 0 0 var(--marca-amarelo); }
+  .v-a .btn.on  { background:var(--surface-2); color:var(--tx-1); border-color:var(--marca-amarelo); font-weight:700; }
+
+  /* ---------- B: tinta suave (o amarelo fica, translúcido) ---------- */
+  .v-b .item.on { background:rgba(246,198,62,.12); color:#f7d98a; font-weight:700;
+                  box-shadow:inset 3px 0 0 var(--marca-amarelo); }
+  .v-b .btn.on  { background:rgba(246,198,62,.12); color:#f7d98a; border-color:rgba(246,198,62,.45); font-weight:700; }
+
+  /* ---------- C: sem amarelo no miolo (fachada só no topo e no menu) ---------- */
+  .v-c .item.on { background:var(--surface-2); color:var(--tx-1); font-weight:700;
+                  box-shadow:inset 3px 0 0 var(--marca-amarelo); }
+  .v-c .btn.on  { background:var(--surface-2); color:var(--tx-1); border-color:var(--tx-3); font-weight:700; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Teste de leveza — onde o amarelo pesa</h1>
+  <p class="intro">O amarelo da fachada aparece hoje em <b>dois lugares que se repetem em toda tela</b>: o item de menu
+  aberto e os botões de filtro. Nos dois ele entra como <b>preenchimento cheio</b>, do lado do número que você foi ler.
+  A faixa do topo, a logo e o login não mudam em nenhuma das opções — a fachada continua.</p>
+  <p class="intro">As três alternativas abaixo mexem só no <b>estado “ligado”</b>. É a mesma solução que o vermelho
+  recebeu em 16/08, quando você disse que ele pesava a leitura: parou de preencher e virou contorno.</p>
+
+  <div class="opcao v-hoje">
+    <h2>Hoje</h2>
+    <p>Preenchimento amarelo→laranja, texto escuro, peso 800.</p>
+    <div class="demo">
+      <div class="side">
+        <div class="secao">Operação</div>
+        <button class="item on">Esta semana</button>
+        <button class="item">Visão geral</button>
+        <button class="item">Cancelamentos</button>
+      </div>
+      <div class="corpo">
+        <div class="filtros"><button class="btn on">7 dias</button><button class="btn">30 dias</button><button class="btn">Mês</button></div>
+        <div class="cards">
+          <div class="card"><div class="lbl">Pedidos</div><div class="val">1.592</div><div class="pct">na semana</div></div>
+          <div class="card pos"><div class="lbl">Ticket médio</div><div class="val">R$ 78,40</div><div class="pct">subiu 3,1%</div></div>
+          <div class="card neg"><div class="lbl">Custo iFood</div><div class="val">R$ 9.114</div><div class="pct">11,2% do bruto</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="opcao v-a">
+    <h2>A — contorno</h2>
+    <p>O ativo vira fundo elevado com um filete amarelo à esquerda no menu, e contorno amarelo no botão. O amarelo
+    continua marcando onde você está, sem virar bloco de cor ao lado do número.</p>
+    <div class="demo">
+      <div class="side">
+        <div class="secao">Operação</div>
+        <button class="item on">Esta semana</button>
+        <button class="item">Visão geral</button>
+        <button class="item">Cancelamentos</button>
+      </div>
+      <div class="corpo">
+        <div class="filtros"><button class="btn on">7 dias</button><button class="btn">30 dias</button><button class="btn">Mês</button></div>
+        <div class="cards">
+          <div class="card"><div class="lbl">Pedidos</div><div class="val">1.592</div><div class="pct">na semana</div></div>
+          <div class="card pos"><div class="lbl">Ticket médio</div><div class="val">R$ 78,40</div><div class="pct">subiu 3,1%</div></div>
+          <div class="card neg"><div class="lbl">Custo iFood</div><div class="val">R$ 9.114</div><div class="pct">11,2% do bruto</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="opcao v-b">
+    <h2>B — tinta suave</h2>
+    <p>O amarelo continua preenchendo, mas translúcido (12%), com a letra em amarelo claro. Mantém mais da cara da
+    fachada que a opção A, e ainda assim para de brigar com os números.</p>
+    <div class="demo">
+      <div class="side">
+        <div class="secao">Operação</div>
+        <button class="item on">Esta semana</button>
+        <button class="item">Visão geral</button>
+        <button class="item">Cancelamentos</button>
+      </div>
+      <div class="corpo">
+        <div class="filtros"><button class="btn on">7 dias</button><button class="btn">30 dias</button><button class="btn">Mês</button></div>
+        <div class="cards">
+          <div class="card"><div class="lbl">Pedidos</div><div class="val">1.592</div><div class="pct">na semana</div></div>
+          <div class="card pos"><div class="lbl">Ticket médio</div><div class="val">R$ 78,40</div><div class="pct">subiu 3,1%</div></div>
+          <div class="card neg"><div class="lbl">Custo iFood</div><div class="val">R$ 9.114</div><div class="pct">11,2% do bruto</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="opcao v-c">
+    <h2>C — amarelo só no menu</h2>
+    <p>Igual à A no menu, mas o botão de filtro perde o amarelo de vez e fica em cinza claro. O amarelo passa a viver
+    só na faixa do topo, na logo e no menu — o miolo da tela fica neutro.</p>
+    <div class="demo">
+      <div class="side">
+        <div class="secao">Operação</div>
+        <button class="item on">Esta semana</button>
+        <button class="item">Visão geral</button>
+        <button class="item">Cancelamentos</button>
+      </div>
+      <div class="corpo">
+        <div class="filtros"><button class="btn on">7 dias</button><button class="btn">30 dias</button><button class="btn">Mês</button></div>
+        <div class="cards">
+          <div class="card"><div class="lbl">Pedidos</div><div class="val">1.592</div><div class="pct">na semana</div></div>
+          <div class="card pos"><div class="lbl">Ticket médio</div><div class="val">R$ 78,40</div><div class="pct">subiu 3,1%</div></div>
+          <div class="card neg"><div class="lbl">Custo iFood</div><div class="val">R$ 9.114</div><div class="pct">11,2% do bruto</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p class="intro" style="margin-top:26px;">Os cards, os rótulos e o farol já estão com os valores novos que entraram
+  hoje — então o que muda de uma caixa para outra acima é <b>só o estado “ligado”</b>.</p>
+</div>
+</body>
+</html>
