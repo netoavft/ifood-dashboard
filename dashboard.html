@@ -18,16 +18,16 @@
   * { box-sizing: border-box; }
   /* faixa fina da fachada no topo de tudo — assinatura discreta da marca */
   body::before { content:''; position:fixed; top:0; left:0; right:0; height:3px;
-    background:linear-gradient(90deg,#f6c63e,#ee8a3c,#e2622b); z-index:1002; }
+    background:linear-gradient(90deg,var(--marca-amarelo),var(--marca-laranja),var(--marca-laranja-q)); z-index:1002; }
   body {
     margin: 0; padding: 0;
-    background: #111110; color: #ffffff;
+    background: var(--bg); color: var(--tx-1);
     font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
     min-height: 100vh;
   }
   .app-layout { display:flex; min-height:100vh; align-items:stretch; }
   .sidebar {
-    width:250px; flex:0 0 250px; background:#1a1a19; border-right:1px solid #34332f;
+    width:250px; flex:0 0 250px; background:var(--surface); border-right:1px solid var(--line);
     padding:16px 12px; display:flex; flex-direction:column; gap:2px;
     position:sticky; top:0; align-self:flex-start; max-height:100vh; overflow-y:auto;
   }
@@ -45,9 +45,9 @@
      como o letreiro da loja. Amarelo/laranja SO em area de marca (login, topo da
      sidebar, faixa do topo) — nunca em dado, para nao brigar com o ambar do farol. */
   .sidebar-marca { display:flex; align-items:center; gap:10px; padding:12px 14px; margin:0 12px 14px;
-                   background:linear-gradient(135deg,#f6c63e,#ee8a3c 70%,#e2622b); border-radius:12px; }
+                   background:linear-gradient(135deg,var(--marca-amarelo),var(--marca-laranja) 70%,var(--marca-laranja-q)); border-radius:12px; }
   .sidebar-logo { height:38px; width:38px; border-radius:9px; object-fit:cover; flex-shrink:0; }
-  .sidebar-marca-nome { color:#111110; font-size:14px; font-weight:800; letter-spacing:.3px;
+  .sidebar-marca-nome { color:var(--bg); font-size:14px; font-weight:800; letter-spacing:.3px;
                         flex:1; text-align:center; }
 
   /* Tipografia da sidebar harmonizada (16/08/2026): os titulos de grupo em 9,5px
@@ -59,45 +59,45 @@
   .sidebar-secao { color:#8a897e; font-size:11px; font-weight:800; text-transform:uppercase;
                    letter-spacing:.8px; padding:14px 12px 6px; cursor:pointer; user-select:none;
                    display:flex; align-items:center; gap:8px;
-                   background:none; border:none; border-top:1px solid #232321; margin-top:8px;
+                   background:none; border:none; border-top:1px solid var(--surface-2); margin-top:8px;
                    width:100%; font-family:inherit; text-align:left; }
   .sidebar-marca + .sidebar-secao { border-top:none; margin-top:0; }
   .sidebar-secao::before { content:''; width:14px; height:3px; border-radius:2px; flex-shrink:0;
-                           background:linear-gradient(90deg,#f6c63e,#ee8a3c); opacity:.85; }
-  .sidebar-secao:hover { color:#ffffff; }
+                           background:linear-gradient(90deg,var(--marca-amarelo),var(--marca-laranja)); opacity:.85; }
+  .sidebar-secao:hover { color:var(--tx-1); }
   .sidebar-secao .seta { font-size:8px; transition:transform .15s; margin-left:auto; }
   .sidebar-secao.aberto .seta { transform:rotate(90deg); }
   .sidebar-grupo { display:none; flex-direction:column; gap:2px; }
   .sidebar-grupo.aberto { display:flex; }
-  .sidebar-btn.breve { color:#57564e; cursor:default; font-weight:normal; }
-  .sidebar-btn.breve:hover { color:#57564e; background:none; }
-  .sidebar-btn.breve::after { content:' · em breve'; font-size:9px; color:#45443f; }
+  .sidebar-btn.breve { color:var(--tx-6); cursor:default; font-weight:normal; }
+  .sidebar-btn.breve:hover { color:var(--tx-6); background:none; }
+  .sidebar-btn.breve::after { content:' · em breve'; font-size:9px; color:var(--line-2); }
 
-  .sidebar-btn:hover { background:#232321; }
+  .sidebar-btn:hover { background:var(--surface-2); }
   /* Modulo ativo = letreiro aceso (16/08/2026): o mesmo gradiente da marca com
      texto preto. Amarelo permitido aqui: sidebar e area de navegacao/marca,
      o farol nunca aparece nela. */
-  .sidebar-btn.active { background:linear-gradient(135deg,#f6c63e,#ee8a3c); color:#111110; font-weight:800; }
+  .sidebar-btn.active { background:linear-gradient(135deg,var(--marca-amarelo),var(--marca-laranja)); color:var(--bg); font-weight:800; }
   .main-content { flex:1; min-width:0; }
 
   .wrap { max-width: 1100px; margin: 0 auto; padding: 28px 32px 60px; }
   .header-row { display:flex; align-items:center; justify-content:center; gap:14px; margin:0 0 6px 0; }
   .header-logo { height:64px; width:64px; border-radius:14px; object-fit:cover; flex-shrink:0; }
-  h1 { color:#ffffff; font-size:28px; font-weight:800; margin:0; }
+  h1 { color:var(--tx-1); font-size:28px; font-weight:800; margin:0; }
   .subtitle { color:#a5a49a; font-size:13px; margin-bottom:22px; }
 
   .filters { display:flex; gap:12px; flex-wrap:wrap; justify-content:center; align-items:center; margin-bottom:12px; }
   .filters label { font-size:12px; color:#a5a49a; display:flex; gap:6px; align-items:center; }
   .filters input[type=date], .filters select {
-    background:#232321; border:1px solid #34332f; color:#ffffff; border-radius:8px; padding:6px 8px; font-size:12.5px;
+    background:var(--surface-2); border:1px solid var(--line); color:var(--tx-1); border-radius:8px; padding:6px 8px; font-size:12.5px;
   }
   .filters button {
-    background:#232321; border:1px solid #34332f; color:#c3c2b7; font-size:12px; font-weight:700;
+    background:var(--surface-2); border:1px solid var(--line); color:#c3c2b7; font-size:12px; font-weight:700;
     padding:7px 12px; border-radius:8px; cursor:pointer;
   }
-  .filters button:hover { border-color:#c8102e; color:#fff; }
+  .filters button:hover { border-color:var(--brand); color:var(--tx-1); }
 
-  details.lojadrop { margin-bottom:20px; border:1px solid #34332f; border-radius:10px; padding:8px 12px; max-width:360px; background:#1a1a19; }
+  details.lojadrop { margin-bottom:20px; border:1px solid var(--line); border-radius:10px; padding:8px 12px; max-width:360px; background:var(--surface); }
   details.lojadrop summary { cursor:pointer; font-size:12.5px; color:#c3c2b7; }
   .loja-options { margin-top:10px; display:flex; flex-direction:column; gap:6px; max-height:200px; overflow-y:auto; }
   .loja-options label { font-size:12.5px; color:#c3c2b7; display:flex; align-items:center; gap:6px; cursor:pointer; }
@@ -107,64 +107,64 @@
 
   .topnav { display:flex; flex-wrap:wrap; justify-content:center; gap:8px; margin-bottom:20px; }
   .navbtn {
-    background:#232321; border:1px solid #34332f; color:#c3c2b7; font-size:12.5px; font-weight:700;
+    background:var(--surface-2); border:1px solid var(--line); color:#c3c2b7; font-size:12.5px; font-weight:700;
     padding:8px 14px; border-radius:8px; cursor:pointer; transition: all .15s ease;
   }
-  .navbtn:hover { border-color:#ee8a3c; color:#fff; }
-  .navbtn.active { background:linear-gradient(135deg,#f6c63e,#ee8a3c); color:#111110; border-color:transparent; font-weight:800; }
+  .navbtn:hover { border-color:var(--marca-laranja); color:var(--tx-1); }
+  .navbtn.active { background:linear-gradient(135deg,var(--marca-amarelo),var(--marca-laranja)); color:var(--bg); border-color:transparent; font-weight:800; }
 
   /* Titulos em BRANCO desde 16/08/2026 (pedido do dono: o vermelho pesava a
      leitura). O vermelho segue como acento em botoes ativos e no farol. */
-  .section-label { color:#ffffff; font-size:17px; font-weight:700; margin-top:24px; margin-bottom:12px; padding-top:20px; border-top:1px solid #34332f; text-align:center; text-transform:uppercase; letter-spacing:.8px; }
+  .section-label { color:var(--tx-1); font-size:17px; font-weight:700; margin-top:24px; margin-bottom:12px; padding-top:20px; border-top:1px solid var(--line); text-align:center; text-transform:uppercase; letter-spacing:.8px; }
   .caption-label { color:#a5a49a; font-size:11px; margin:14px 0 12px 0; }
 
   .cards { display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:14px; margin-bottom:8px; }
   /* 6 cards em 2 linhas de 3 (fechamento da DRE): sem card orfao sozinho na 2a linha */
   .cards-3 { grid-template-columns:repeat(3, 1fr); }
   @media (max-width: 700px) { .cards-3 { grid-template-columns:1fr; } }
-  .card { background:#1a1a19; border:1px solid #34332f; border-radius:14px; padding:16px 18px; text-align:center; }
+  .card { background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:16px 18px; text-align:center; }
   .card-lbl { color:#8a897e; font-size:10.5px; text-transform:uppercase; letter-spacing:.5px; margin-bottom:8px; }
-  .card-val { color:#ffffff; font-size:21px; font-weight:800; }
+  .card-val { color:var(--tx-1); font-size:21px; font-weight:800; }
   .card-pct { color:#a5a49a; font-size:15px; font-weight:600; margin-top:2px; }
   .card-delta { font-size:10.5px; font-weight:600; margin-top:6px; letter-spacing:.2px; }
 
   .periodo-presets { display:flex; flex-wrap:wrap; justify-content:center; gap:6px; margin-bottom:10px; }
-  .preset-btn { background:#232321; border:1px solid #34332f; color:#c3c2b7; font-size:12px; font-weight:700;
+  .preset-btn { background:var(--surface-2); border:1px solid var(--line); color:#c3c2b7; font-size:12px; font-weight:700;
                 padding:7px 12px; border-radius:8px; cursor:pointer; font-family:inherit; }
-  .preset-btn:hover { border-color:#ee8a3c; color:#fff; }
-  .preset-btn.active { background:linear-gradient(135deg,#f6c63e,#ee8a3c); color:#111110; border-color:transparent; }
+  .preset-btn:hover { border-color:var(--marca-laranja); color:var(--tx-1); }
+  .preset-btn.active { background:linear-gradient(135deg,var(--marca-amarelo),var(--marca-laranja)); color:var(--bg); border-color:transparent; }
 
-  .contexto { background:#171716; border:1px solid #34332f; border-radius:10px; padding:10px 16px;
+  .contexto { background:var(--zebra); border:1px solid var(--line); border-radius:10px; padding:10px 16px;
               margin:16px 0 4px; text-align:center; color:#a5a49a; font-size:12.5px; line-height:1.7; }
-  .contexto b { color:#ffffff; }
+  .contexto b { color:var(--tx-1); }
 
-  .hero { background:#1a1a19; border:1px solid #3fb950; border-radius:16px;
+  .hero { background:var(--surface); border:1px solid #3fb950; border-radius:16px;
           padding:22px 26px; margin-bottom:16px; }
   .hero-lbl { color:#8a897e; font-size:11px; text-transform:uppercase; letter-spacing:.6px; }
-  .hero-val { color:#ffffff; font-size:46px; font-weight:bold; line-height:1.1; margin:6px 0 4px; }
+  .hero-val { color:var(--tx-1); font-size:46px; font-weight:bold; line-height:1.1; margin:6px 0 4px; }
   .hero-delta { font-size:14px; font-weight:bold; }
   .hero-frase { color:#a5a49a; font-size:13px; line-height:1.6; margin-top:12px;
-                border-top:1px solid #34332f; padding-top:12px; }
+                border-top:1px solid var(--line); padding-top:12px; }
   @media (max-width: 640px) { .hero-val { font-size:34px; } }
   /* Borda COMPLETA de 1px, igual ao cardFarol — a borda so de um lado era da
      primeira versao e sobrou nestas classes (achado do dono em 16/08/2026). */
-  .card.neutral { border:1px solid #34332f; }
+  .card.neutral { border:1px solid var(--line); }
   .card.neg { border:1px solid #ff6b6b; }
   .card.pos { border:1px solid #3fb950; }
-  .card.blue { border:1px solid #58a6ff; }
-  .card.highlight { border:1px solid #c8102e; }
+  .card.blue { border:1px solid var(--info); }
+  .card.highlight { border:1px solid var(--brand); }
 
   .equation-row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:14px; }
   .equation-row .card { flex:1 1 180px; margin-bottom:0; }
   .eq-symbol { flex:0 0 auto; font-size:22px; font-weight:bold; color:#8a897e; padding-top:14px; }
 
-  .footer { margin-top:30px; color:#6f6e64; font-size:9.5px; line-height:1.6; border-top:1px solid #232321; padding-top:16px; }
+  .footer { margin-top:30px; color:var(--tx-5); font-size:9.5px; line-height:1.6; border-top:1px solid var(--surface-2); padding-top:16px; }
 
   #loadingMsg { color:#a5a49a; font-size:13px; padding:20px 0; }
   #erroMsg { color:#ff6b6b; font-size:13px; padding:20px 0; }
 
   .chart-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(420px, 1fr)); gap:16px; margin-bottom:8px; }
-  .chart-box { position:relative; background:#1a1a19; border:1px solid #34332f; border-radius:14px; padding:14px 16px; height:280px; display:flex; flex-direction:column; }
+  .chart-box { position:relative; background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:14px 16px; height:280px; display:flex; flex-direction:column; }
   .chart-title { color:#a5a49a; font-size:11px; text-transform:uppercase; letter-spacing:.5px; margin-bottom:8px; }
   .chart-box .chart-canvas-wrap { position:relative; flex:1; }
 
@@ -174,10 +174,10 @@
      Despesas...) continuam mandando mais que estas. */
   div[id^="tabela"] { overflow-x:auto; max-width:100%; }
   div[id^="tabela"] table { border-collapse:collapse; width:100%; font-size:12.5px; }
-  div[id^="tabela"] th, div[id^="tabela"] td { border:1px solid #34332f; padding:6px 10px; text-align:right; white-space:nowrap; }
+  div[id^="tabela"] th, div[id^="tabela"] td { border:1px solid var(--line); padding:6px 10px; text-align:right; white-space:nowrap; }
   div[id^="tabela"] th:first-child, div[id^="tabela"] td:first-child { text-align:left; white-space:normal; }
-  div[id^="tabela"] th { background:#232321; color:#a5a49a; font-weight:bold; font-size:11px; text-transform:uppercase; }
-  div[id^="tabela"] tr:nth-child(even) { background:#171716; }
+  div[id^="tabela"] th { background:var(--surface-2); color:#a5a49a; font-weight:bold; font-size:11px; text-transform:uppercase; }
+  div[id^="tabela"] tr:nth-child(even) { background:var(--zebra); }
   /* quadro de pagar contas: linha baixa porque sao 15 contas e a Hellen
      precisa ver todas sem rolar antes de decidir o que pagar */
   #tabelaCaixaDia th, #tabelaCaixaDia td { padding:3px 10px; }
@@ -187,50 +187,50 @@
   /* ===== Fechamento do mes / A semana (02/09/2026): em portugues, para leigo ===== */
   .fx-rotulo { font-size:11px; font-weight:700; letter-spacing:.09em; text-transform:uppercase; color:#a5a49a; }
   .fx-cab-topo { display:flex; justify-content:space-between; align-items:flex-end; gap:14px; flex-wrap:wrap; margin:14px 0 6px; }
-  .fx-h1 { font-size:26px; font-weight:800; letter-spacing:-.02em; margin:2px 0 0; color:#fff; }
+  .fx-h1 { font-size:26px; font-weight:800; letter-spacing:-.02em; margin:2px 0 0; color:var(--tx-1); }
   .fx-sub { color:#a5a49a; font-size:14px; max-width:64ch; margin-top:4px; }
-  .fx-seg { display:inline-flex; flex-wrap:wrap; gap:2px; background:#1a1a19; border:1px solid #2e2d2a; border-radius:8px; padding:3px; }
+  .fx-seg { display:inline-flex; flex-wrap:wrap; gap:2px; background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:3px; }
   .fx-seg button { border:0; background:transparent; color:#a5a49a; font-weight:600; padding:6px 11px; border-radius:6px; cursor:pointer; font-size:12px; }
-  .fx-seg button.ativo { background:#2b2a27; color:#fff; box-shadow:0 1px 2px rgba(0,0,0,.4); }
-  .fx-secao { display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; border-bottom:2px solid #c8102e; padding-bottom:5px; margin:30px 0 10px; }
-  .fx-secao h3 { font-size:18px; margin:0; color:#fff; } .fx-secao span { font-size:12.5px; color:#a5a49a; }
+  .fx-seg button.ativo { background:var(--surface-2); color:var(--tx-1); box-shadow:0 1px 2px rgba(0,0,0,.4); }
+  .fx-secao { display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; border-bottom:2px solid var(--brand); padding-bottom:5px; margin:30px 0 10px; }
+  .fx-secao h3 { font-size:18px; margin:0; color:var(--tx-1); } .fx-secao span { font-size:12.5px; color:#a5a49a; }
   .fx-tiles { display:grid; grid-template-columns:repeat(auto-fit, minmax(230px, 1fr)); gap:10px; }
-  .fx-tile, .fx-caixa, .fx-destaque, .fx-cem, .fx-frases, .fx-tabela { background:#1a1a19; border:1px solid #2e2d2a; border-radius:10px; padding:14px 16px; }
-  .fx-valor { font-size:28px; font-weight:800; letter-spacing:-.02em; font-variant-numeric:tabular-nums; margin-top:2px; line-height:1.1; color:#fff; }
+  .fx-tile, .fx-caixa, .fx-destaque, .fx-cem, .fx-frases, .fx-tabela { background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:14px 16px; }
+  .fx-valor { font-size:28px; font-weight:800; letter-spacing:-.02em; font-variant-numeric:tabular-nums; margin-top:2px; line-height:1.1; color:var(--tx-1); }
   .fx-valor.neg, .fx-valor-g.neg { color:#ff6b6b; }
-  .fx-valor-g { font-size:36px; font-weight:800; letter-spacing:-.02em; font-variant-numeric:tabular-nums; line-height:1.05; color:#fff; }
-  .fx-var { font-size:14px; margin-top:6px; color:#e8e6dc; } .fx-var b { font-weight:700; }
+  .fx-valor-g { font-size:36px; font-weight:800; letter-spacing:-.02em; font-variant-numeric:tabular-nums; line-height:1.05; color:var(--tx-1); }
+  .fx-var { font-size:14px; margin-top:6px; color:var(--tx-creme); } .fx-var b { font-weight:700; }
   .fx-extra { font-size:12.5px; color:#a5a49a; margin-top:2px; }
   .fx-lista { margin:8px 0 0; padding:0; list-style:none; font-size:13px; color:#a5a49a; }
-  .fx-lista li { display:flex; justify-content:space-between; gap:8px; border-top:1px dashed #2e2d2a; padding:3px 0; }
+  .fx-lista li { display:flex; justify-content:space-between; gap:8px; border-top:1px dashed var(--line); padding:3px 0; }
   .fx-spark { margin-top:10px; } .fx-spark svg { display:block; width:100%; height:52px; overflow:visible; }
   .fx-eixo { display:flex; justify-content:space-between; font-size:10.5px; color:#a5a49a; letter-spacing:.04em; margin-top:2px; }
   .fx-pill { display:inline-block; font-size:11px; font-weight:700; letter-spacing:.05em; padding:2px 9px; border-radius:99px; text-transform:uppercase; }
-  .fx-pill.ok { background:#1f3a22; color:#3fb950; } .fx-pill.atencao { background:#3a2f16; color:#f5a623; } .fx-pill.fora { background:#42221f; color:#ff6b6b; } .fx-pill.neutro { background:#2b2a27; color:#a5a49a; }
-  .fx-destaque { border-left:6px solid #c8102e; } .fx-destaque p { margin:8px 0 0; max-width:52ch; color:#e8e6dc; }
+  .fx-pill.ok { background:#1f3a22; color:#3fb950; } .fx-pill.atencao { background:#3a2f16; color:#f5a623; } .fx-pill.fora { background:#42221f; color:#ff6b6b; } .fx-pill.neutro { background:var(--surface-2); color:#a5a49a; }
+  .fx-destaque { border-left:6px solid var(--brand); } .fx-destaque p { margin:8px 0 0; max-width:52ch; color:var(--tx-creme); }
   .fx-duas { display:grid; grid-template-columns:1fr; gap:10px; } @media (min-width:900px) { .fx-duas { grid-template-columns:1.1fr 1fr; } }
-  .fx-cem .fx-linha { display:grid; grid-template-columns:minmax(150px,1.2fr) 64px 3fr 150px; gap:10px; align-items:center; padding:7px 0; border-bottom:1px dashed #2e2d2a; }
+  .fx-cem .fx-linha { display:grid; grid-template-columns:minmax(150px,1.2fr) 64px 3fr 150px; gap:10px; align-items:center; padding:7px 0; border-bottom:1px dashed var(--line); }
   .fx-cem .fx-linha:last-child { border-bottom:0; }
-  .fx-nome { font-weight:600; color:#fff; } .fx-nome small { display:block; font-weight:400; color:#a5a49a; font-size:12px; }
-  .fx-num { font-weight:800; font-size:20px; text-align:right; font-variant-numeric:tabular-nums; color:#fff; }
-  .fx-barra { height:12px; background:#2b2a27; border-radius:4px; overflow:hidden; } .fx-barra i { display:block; height:100%; background:#c8102e; opacity:.85; border-radius:4px; }
+  .fx-nome { font-weight:600; color:var(--tx-1); } .fx-nome small { display:block; font-weight:400; color:#a5a49a; font-size:12px; }
+  .fx-num { font-weight:800; font-size:20px; text-align:right; font-variant-numeric:tabular-nums; color:var(--tx-1); }
+  .fx-barra { height:12px; background:var(--surface-2); border-radius:4px; overflow:hidden; } .fx-barra i { display:block; height:100%; background:var(--brand); opacity:.85; border-radius:4px; }
   .fx-linha.sobrou .fx-barra i { background:#3fb950; } .fx-linha.sobrou.atencao .fx-barra i { background:#f5a623; } .fx-linha.sobrou.fora .fx-barra i { background:#ff6b6b; }
   .fx-jul { font-size:12px; color:#a5a49a; text-align:right; white-space:nowrap; }
   @media (max-width:640px) { .fx-cem .fx-linha { grid-template-columns:1fr 56px; } .fx-barra, .fx-jul { grid-column:1 / -1; } .fx-jul { text-align:left; } }
-  .fx-caixa h4 { margin:0 0 6px; font-size:15px; color:#fff; } .fx-caixa ul { margin:6px 0 0; padding:0; list-style:none; }
-  .fx-caixa li { display:flex; justify-content:space-between; gap:10px; padding:5px 0; border-bottom:1px dashed #2e2d2a; font-size:13.5px; color:#e8e6dc; }
+  .fx-caixa h4 { margin:0 0 6px; font-size:15px; color:var(--tx-1); } .fx-caixa ul { margin:6px 0 0; padding:0; list-style:none; }
+  .fx-caixa li { display:flex; justify-content:space-between; gap:10px; padding:5px 0; border-bottom:1px dashed var(--line); font-size:13.5px; color:var(--tx-creme); }
   .fx-caixa li b { font-variant-numeric:tabular-nums; white-space:nowrap; } .fx-caixa li span small { display:block; color:#a5a49a; font-size:11.5px; }
   .fx-caixa li.res { border-bottom:0; font-weight:800; font-size:16px; padding-top:8px; } .fx-caixa li.res.neg b { color:#ff6b6b; } .fx-caixa li.res.pos b { color:#3fb950; }
-  .fx-mandar { margin-top:10px; padding:8px 10px; border-radius:6px; background:#2b2a27; font-size:13.5px; color:#e8e6dc; }
-  .fx-frases { padding:4px 16px; } .fx-frases p { margin:0; padding:10px 0; border-bottom:1px dashed #2e2d2a; font-size:15.5px; max-width:72ch; color:#e8e6dc; } .fx-frases p:last-child { border-bottom:0; }
+  .fx-mandar { margin-top:10px; padding:8px 10px; border-radius:6px; background:var(--surface-2); font-size:13.5px; color:var(--tx-creme); }
+  .fx-frases { padding:4px 16px; } .fx-frases p { margin:0; padding:10px 0; border-bottom:1px dashed var(--line); font-size:15.5px; max-width:72ch; color:var(--tx-creme); } .fx-frases p:last-child { border-bottom:0; }
   .fx-tabela { overflow-x:auto; padding:6px 10px; } .fx-tabela table { width:100%; border-collapse:collapse; font-size:13.5px; }
-  .fx-tabela th { font-size:11px; letter-spacing:.07em; text-transform:uppercase; color:#a5a49a; text-align:right; padding:7px 9px; border-bottom:1px solid #2e2d2a; }
+  .fx-tabela th { font-size:11px; letter-spacing:.07em; text-transform:uppercase; color:#a5a49a; text-align:right; padding:7px 9px; border-bottom:1px solid var(--line); }
   .fx-tabela th:first-child, .fx-tabela th.esq { text-align:left; }
-  .fx-tabela td { padding:6px 9px; border-bottom:1px solid #2e2d2a; text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; color:#e8e6dc; }
-  .fx-tabela td:first-child { text-align:left; } .fx-tabela td.esq { text-align:left; white-space:normal; color:#a5a49a; } .fx-tabela tr.tot td { font-weight:700; border-top:2px solid #45443f; }
+  .fx-tabela td { padding:6px 9px; border-bottom:1px solid var(--line); text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; color:var(--tx-creme); }
+  .fx-tabela td:first-child { text-align:left; } .fx-tabela td.esq { text-align:left; white-space:normal; color:#a5a49a; } .fx-tabela tr.tot td { font-weight:700; border-top:2px solid var(--line-2); }
   .fx-nota { font-size:12.5px; color:#a5a49a; margin-top:8px; max-width:80ch; }
-  .fx-rodape { margin-top:26px; font-size:12px; color:#8a897e; border-top:1px solid #2e2d2a; padding-top:10px; max-width:85ch; }
-  #tabelaDFC tr, #tabelaDRE tr, #tabelaDespesas tr { background:transparent; --linha-fundo:var(--fundo-tabela, #111110); }
+  .fx-rodape { margin-top:26px; font-size:12px; color:#8a897e; border-top:1px solid var(--line); padding-top:10px; max-width:85ch; }
+  #tabelaDFC tr, #tabelaDRE tr, #tabelaDespesas tr { background:transparent; --linha-fundo:var(--fundo-tabela, var(--bg)); }
 
   /* COLUNA FIXA EM TODA TABELA LARGA (padrao nascido no DFC/DRE, 16/08/2026).
      O fundo da celula fixa vem de --linha-fundo, definida POR LINHA: zebra,
@@ -239,24 +239,24 @@
      --fundo-tabela e' medido em JS (encaixarTabela) porque algumas tabelas
      vivem dentro de card e o fundo atras delas muda. A sombra na costura so
      aparece quando a tabela de fato rola (classe .rolavel, posta pelo JS). */
-  div[id^="tabela"] tr, #extratoFin tr { --linha-fundo:var(--fundo-tabela, #111110); }
+  div[id^="tabela"] tr, #extratoFin tr { --linha-fundo:var(--fundo-tabela, var(--bg)); }
   div[id^="tabela"] tr:nth-child(even) { --linha-fundo:#171716; }
   div[id^="tabela"] tr.sub, #extratoFin tr.sub { --linha-fundo:#232321; }
   div[id^="tabela"] tr.liq, #extratoFin tr.liq { --linha-fundo:#111110; }
-  div[id^="tabela"] td:first-child, #extratoFin td:first-child { position:sticky; left:0; z-index:2; background:var(--linha-fundo, #111110); }
-  div[id^="tabela"] th:first-child, #extratoFin th:first-child { position:sticky; left:0; z-index:3; background:#232321; }
+  div[id^="tabela"] td:first-child, #extratoFin td:first-child { position:sticky; left:0; z-index:2; background:var(--linha-fundo, var(--bg)); }
+  div[id^="tabela"] th:first-child, #extratoFin th:first-child { position:sticky; left:0; z-index:3; background:var(--surface-2); }
   div[id^="tabela"].rolavel td:first-child, #extratoFin.rolavel td:first-child,
   div[id^="tabela"].rolavel th:first-child, #extratoFin.rolavel th:first-child { box-shadow:6px 0 8px -6px rgba(0,0,0,.55); }
   div[id^="tabela"], #extratoFin { scroll-snap-type:x proximity; }
   div[id^="tabela"] tr:first-child th, #extratoFin tr:first-child th { scroll-snap-align:start; }
 
   /* linhas de fechamento (mesmo padrao do extrato financeiro) */
-  div[id^="tabela"] tr.sub td { background:#232321; border-top:2px solid #45443f; }
+  div[id^="tabela"] tr.sub td { background:var(--surface-2); border-top:2px solid var(--line-2); }
   /* linha de fechamento PADRAO do painel (16/08 a noite): contorno dourado,
      fundo escuro — a mesma moldura das somas de DFC/DRE, para toda tabela */
-  div[id^="tabela"] tr.liq td { background:#111110; color:#fff; font-weight:bold; border-top:2px solid #f6c63e; border-bottom:2px solid #ee8a3c; }
-  div[id^="tabela"] tr.liq td:first-child { color:#fff; border-left:2px solid #f6c63e; }
-  div[id^="tabela"] tr.liq td:last-child { border-right:2px solid #ee8a3c; }
+  div[id^="tabela"] tr.liq td { background:var(--bg); color:var(--tx-1); font-weight:bold; border-top:2px solid var(--marca-amarelo); border-bottom:2px solid var(--marca-laranja); }
+  div[id^="tabela"] tr.liq td:first-child { color:var(--tx-1); border-left:2px solid var(--marca-amarelo); }
+  div[id^="tabela"] tr.liq td:last-child { border-right:2px solid var(--marca-laranja); }
 
   /* modulo Plano (20/08/2026; hierarquia e selo de estado em 22/08/2026 —
      o Neto preferia a leitura da fotografia exportada, entao o que a fazia ler
@@ -264,12 +264,12 @@
      leitura no detalhe e cabecalho de fase com "quando" em cima. A tipografia
      NAO mudou de proposito: o painel nao usa fonte externa e trocar isso
      mexeria na identidade do painel inteiro, que nao era o pedido. */
-  .plano-item { border:1px solid #34332f; border-left:4px solid #45443f; border-radius:8px;
-    padding:13px 15px; margin:10px 0; background:#141413; }
+  .plano-item { border:1px solid var(--line); border-left:4px solid var(--line-2); border-radius:8px;
+    padding:13px 15px; margin:10px 0; background:var(--zebra); }
   .plano-topo { display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; }
   .plano-nome { font-size:15px; font-weight:600; color:#f2f0e9; letter-spacing:-.15px;
     margin-right:auto; }
-  .plano-quem { font-size:11px; color:#111110; background:#8a8a80; border-radius:4px;
+  .plano-quem { font-size:11px; color:var(--bg); background:#8a897e; border-radius:4px;
     padding:1px 7px; white-space:nowrap; }
   /* selo do estado: bate o olho e sabe, sem precisar ler a borda da esquerda */
   .plano-selo { font-size:10px; font-weight:700; letter-spacing:.7px; text-transform:uppercase;
@@ -281,10 +281,10 @@
     max-width:78ch; }
   .plano-txt { display:block; white-space:pre-wrap; }
   .plano-tab { border-collapse:collapse; width:100%; margin:9px 0; font-size:12px; }
-  .plano-tab th { text-align:left; padding:5px 9px; color:#8a8a80; font-weight:700;
+  .plano-tab th { text-align:left; padding:5px 9px; color:#8a897e; font-weight:700;
     font-size:10.5px; letter-spacing:.6px; text-transform:uppercase;
-    border-bottom:1px solid #45443f; background:#1a1a18; }
-  .plano-tab td { padding:6px 9px; border-bottom:1px solid #2a2a27; vertical-align:top; }
+    border-bottom:1px solid var(--line-2); background:#1a1a18; }
+  .plano-tab td { padding:6px 9px; border-bottom:1px solid var(--line); vertical-align:top; }
   .plano-tab tr:last-child td { border-bottom:none; }
   .plano-tab td:first-child { color:#f2f0e9; font-weight:600; white-space:nowrap; }
   /* aprovacao linha a linha: quem le a distribuicao aprova ali mesmo, e quando
@@ -302,48 +302,48 @@
   .plano-tab-rolo .plano-tab { margin:0; min-width:760px; }
   .plano-apr-bts { display:flex; gap:5px; }
   .plano-apr-bt { font-size:11px; padding:2px 9px; border-radius:999px; cursor:pointer;
-    background:transparent; color:#8a8a80; border:1px solid #45443f; white-space:nowrap; }
-  .plano-apr-bt:hover { border-color:#8a8a80; }
+    background:transparent; color:#8a897e; border:1px solid var(--line-2); white-space:nowrap; }
+  .plano-apr-bt:hover { border-color:#8a897e; }
   .plano-apr-bt.ok  { color:#3fb950; border-color:#3fb950; font-weight:700; }
   .plano-apr-bt.mud { color:#f5a623; border-color:#f5a623; font-weight:700; }
   .plano-apr textarea { width:100%; min-width:150px; box-sizing:border-box; resize:vertical;
-    background:#0f0f0e; color:#e8e6df; border:1px solid #45443f; border-radius:6px;
+    background:var(--bg); color:var(--tx-creme); border:1px solid var(--line-2); border-radius:6px;
     padding:5px 7px; font:inherit; font-size:11.5px; line-height:1.45; }
   .plano-apr textarea:focus { outline:none; border-color:#f5a623; }
-  .plano-apr-carimbo { font-size:10.5px; color:#6f6e68; margin-top:3px; }
-  .plano-apr-vazio { font-size:11px; color:#6f6e68; }
+  .plano-apr-carimbo { font-size:10.5px; color:var(--tx-5); margin-top:3px; }
+  .plano-apr-vazio { font-size:11px; color:var(--tx-5); }
   .plano-apr-solta { display:flex; align-items:flex-start; gap:10px; flex-wrap:wrap;
-    padding:7px 0; border-bottom:1px solid #2a2a27; }
+    padding:7px 0; border-bottom:1px solid var(--line); }
   .plano-apr-solta > b { font-size:12px; color:#f2f0e9; min-width:150px; }
   .plano-apr-solta > div { flex:1; min-width:190px; }
   /* Telas do painel: mesma familia visual do Plano, so mais denso — sao 35 linhas
      e a leitura e' de varredura, nao de leitura corrida. */
   .telas-tab { border-collapse:collapse; width:100%; font-size:12px; margin:0; }
-  .telas-tab th { text-align:left; padding:6px 8px; color:#8a8a80; font-weight:700;
+  .telas-tab th { text-align:left; padding:6px 8px; color:#8a897e; font-weight:700;
     font-size:10px; letter-spacing:.6px; text-transform:uppercase;
-    border-bottom:1px solid #45443f; background:#1a1a18; }
-  .telas-tab td { padding:5px 8px; border-bottom:1px solid #2a2a27; vertical-align:top; }
+    border-bottom:1px solid var(--line-2); background:#1a1a18; }
+  .telas-tab td { padding:5px 8px; border-bottom:1px solid var(--line); vertical-align:top; }
   .telas-tab td:first-child { color:#f2f0e9; font-weight:600; white-space:nowrap; }
-  .telas-grupo td { background:#171716; color:#8a8a80; font-size:10px; font-weight:700;
+  .telas-grupo td { background:var(--zebra); color:#8a897e; font-size:10px; font-weight:700;
     letter-spacing:.8px; text-transform:uppercase; padding:7px 8px; }
-  .telas-campo { width:100%; box-sizing:border-box; background:transparent; color:#c9c7bd;
+  .telas-campo { width:100%; box-sizing:border-box; background:transparent; color:#c3c2b7;
     border:1px solid transparent; border-radius:5px; padding:3px 5px; font:inherit;
     font-size:11.5px; line-height:1.4; resize:vertical; }
-  .telas-campo:hover { border-color:#34332f; }
-  .telas-campo:focus { outline:none; border-color:#e8b04b; background:#0f0f0e; color:#f2f0e9; }
+  .telas-campo:hover { border-color:var(--line); }
+  .telas-campo:focus { outline:none; border-color:var(--amber-2); background:var(--bg); color:#f2f0e9; }
   .telas-dest { display:flex; gap:4px; flex-wrap:wrap; }
   .telas-dest button { font-size:10.5px; padding:2px 7px; border-radius:999px; cursor:pointer;
-    background:transparent; color:#6f6e68; border:1px solid #34332f; white-space:nowrap; }
-  .telas-dest button:hover { border-color:#8a8a80; color:#8a8a80; }
+    background:transparent; color:var(--tx-5); border:1px solid var(--line); white-space:nowrap; }
+  .telas-dest button:hover { border-color:#8a897e; color:#8a897e; }
   .telas-dest button.sel { font-weight:700; }
-  .telas-rolo { overflow-x:auto; border:1px solid #34332f; border-radius:8px; }
+  .telas-rolo { overflow-x:auto; border:1px solid var(--line); border-radius:8px; }
   .telas-rolo .telas-tab { min-width:900px; }
   .plano-dep { font-size:11.5px; color:#f5a623; margin-top:5px; }
   /* cabecalho de fase: o "quando" vira sobrancelha e o titulo cresce */
-  .plano-fase { margin:26px 0 12px; padding-top:18px; border-top:1px solid #34332f; }
+  .plano-fase { margin:26px 0 12px; padding-top:18px; border-top:1px solid var(--line); }
   .plano-fase-quando { display:block; font-size:10.5px; font-weight:700; letter-spacing:1.2px;
-    text-transform:uppercase; color:#f6c63e; margin-bottom:3px; }
-  .plano-fase-titulo { display:block; font-size:19px; font-weight:700; color:#ffffff;
+    text-transform:uppercase; color:var(--marca-amarelo); margin-bottom:3px; }
+  .plano-fase-titulo { display:block; font-size:19px; font-weight:700; color:var(--tx-1);
     letter-spacing:-.2px; }
   /* a conta do canal na ordem da DRE: tipo em destaque, subtipo recuado,
      linha de soma com regua em cima — a mesma leitura do modulo DRE */
@@ -352,16 +352,16 @@
   .dre-canal .dre-tipo td { color:#f2f0e9; font-weight:600; padding-top:10px; }
   .dre-canal .dre-item td { color:#a5a49a; font-size:12.5px; padding-top:2px; padding-bottom:2px; }
   .dre-canal .dre-item td:first-child { padding-left:22px; }
-  .dre-canal .dre-soma td { color:#ffffff; font-weight:700; border-top:1px solid #34332f; }
-  .dre-canal .dre-forte td { color:#ffffff; font-weight:700; border-top:1px solid #6f6e68;
-    border-bottom:1px solid #6f6e68; background:#1c1c1a; }
+  .dre-canal .dre-soma td { color:var(--tx-1); font-weight:700; border-top:1px solid var(--line); }
+  .dre-canal .dre-forte td { color:var(--tx-1); font-weight:700; border-top:1px solid var(--tx-5);
+    border-bottom:1px solid var(--tx-5); background:var(--surface); }
   /* o que ja foi resolvido fica recolhido no topo, para o que esta andando aparecer */
-  .plano-feitos { margin:14px 0 4px; border:1px solid #2a2a27; border-radius:10px;
-    background:#1c1c1a; padding:10px 14px; }
-  .plano-feitos > summary { cursor:pointer; font-size:13px; color:#8a8a80; list-style:none;
+  .plano-feitos { margin:14px 0 4px; border:1px solid var(--line); border-radius:10px;
+    background:var(--surface); padding:10px 14px; }
+  .plano-feitos > summary { cursor:pointer; font-size:13px; color:#8a897e; list-style:none;
     display:flex; align-items:center; gap:8px; }
   .plano-feitos > summary::-webkit-details-marker { display:none; }
-  .plano-feitos > summary::before { content:'▸'; color:#6f6e68; font-size:11px; }
+  .plano-feitos > summary::before { content:'▸'; color:var(--tx-5); font-size:11px; }
   .plano-feitos[open] > summary::before { content:'▾'; }
   .plano-feitos > summary b { color:#3fb950; }
   .plano-feitos > summary:hover { color:#f2f0e9; }
@@ -369,14 +369,14 @@
   .plano-feitos .plano-fase:first-child { margin-top:6px; padding-top:0; border-top:none; }
   .plano-acoes { display:flex; gap:6px; align-items:center; margin-top:9px; flex-wrap:wrap; }
   .plano-bt { font-size:11.5px; padding:3px 10px; border-radius:999px; cursor:pointer;
-    background:transparent; color:#8a8a80; border:1px solid #45443f; }
-  .plano-bt:hover { border-color:#8a8a80; }
+    background:transparent; color:#8a897e; border:1px solid var(--line-2); }
+  .plano-bt:hover { border-color:#8a897e; }
   .plano-bt.sel { font-weight:700; }
-  .plano-carimbo { font-size:11px; color:#6f6e68; margin-left:auto; }
+  .plano-carimbo { font-size:11px; color:var(--tx-5); margin-left:auto; }
   .plano-barra { display:flex; align-items:center; gap:12px; margin:12px 0; }
   .plano-contagem { font-size:13px; color:#f2f0e9; white-space:nowrap; }
-  .plano-trilho { flex:1; height:8px; background:#232321; border-radius:999px; overflow:hidden; }
-  .plano-preenche { height:100%; background:linear-gradient(90deg,#f6c63e,#3fb950); }
+  .plano-trilho { flex:1; height:8px; background:var(--surface-2); border-radius:999px; overflow:hidden; }
+  .plano-preenche { height:100%; background:linear-gradient(90deg,var(--marca-amarelo),#3fb950); }
 
   /* modulo Engenharia de cardapio (19/08/2026) */
   #tabelaEngcard, #tabelaEngcardCombo, #tabelaEngcardAdic,
@@ -385,98 +385,98 @@
   #tabelaEngcardDup table, #tabelaEngcardAlc table { border-collapse:collapse; width:100%; font-size:12.5px; }
   #tabelaEngcardCombo th, #tabelaEngcardCombo td, #tabelaEngcardAdic th, #tabelaEngcardAdic td,
   #tabelaEngcardDup th, #tabelaEngcardDup td, #tabelaEngcardAlc th, #tabelaEngcardAlc td {
-    border:1px solid #34332f; padding:6px 10px; text-align:right; white-space:nowrap; }
+    border:1px solid var(--line); padding:6px 10px; text-align:right; white-space:nowrap; }
   #tabelaEngcardCombo th:first-child, #tabelaEngcardCombo td:first-child,
   #tabelaEngcardAdic th:first-child, #tabelaEngcardAdic td:first-child,
   #tabelaEngcardDup th:first-child, #tabelaEngcardDup td:first-child,
   #tabelaEngcardDup th:nth-child(2), #tabelaEngcardDup td:nth-child(2),
   #tabelaEngcardAlc th:first-child, #tabelaEngcardAlc td:first-child { text-align:left; white-space:normal; }
   #tabelaEngcard table { border-collapse:collapse; width:100%; font-size:12.5px; }
-  #tabelaEngcard th, #tabelaEngcard td { border:1px solid #34332f; padding:6px 10px; text-align:right; white-space:nowrap; }
+  #tabelaEngcard th, #tabelaEngcard td { border:1px solid var(--line); padding:6px 10px; text-align:right; white-space:nowrap; }
   #tabelaEngcard th:first-child, #tabelaEngcard td:first-child { text-align:left; white-space:normal; }
 
   /* modulo Fichas tecnicas (19/08/2026) */
   #tabelaFichaNova { overflow-x:auto; max-width:100%; }
   #tabelaFichaNova table { border-collapse:collapse; width:100%; font-size:12.5px; }
-  #tabelaFichaNova th, #tabelaFichaNova td { border:1px solid #34332f; padding:5px 8px; text-align:right; white-space:nowrap; }
+  #tabelaFichaNova th, #tabelaFichaNova td { border:1px solid var(--line); padding:5px 8px; text-align:right; white-space:nowrap; }
   #tabelaFichaNova th:first-child, #tabelaFichaNova td:first-child { text-align:left; }
-  .ficha-inp { width:100%; padding:5px 8px; font-size:12.5px; background:#171716; color:#f2f0e9;
-    border:1px solid #45443f; border-radius:6px; }
-  .ficha-inp:focus { outline:none; border-color:#f6c63e; }
+  .ficha-inp { width:100%; padding:5px 8px; font-size:12.5px; background:var(--zebra); color:#f2f0e9;
+    border:1px solid var(--line-2); border-radius:6px; }
+  .ficha-inp:focus { outline:none; border-color:var(--marca-amarelo); }
   #tabelaFichas, #tabelaFichaGrade { overflow-x:auto; max-width:100%; }
   #tabelaFichas table, #tabelaFichaGrade table { border-collapse:collapse; width:100%; font-size:12.5px; }
   #tabelaFichas th, #tabelaFichas td, #tabelaFichaGrade th, #tabelaFichaGrade td {
-    border:1px solid #34332f; padding:6px 10px; text-align:right; white-space:nowrap; }
+    border:1px solid var(--line); padding:6px 10px; text-align:right; white-space:nowrap; }
   #tabelaFichas th:first-child, #tabelaFichas td:first-child,
   #tabelaFichaGrade th:first-child, #tabelaFichaGrade td:first-child { text-align:left; white-space:normal; }
   #tabelaFichas { max-height:420px; overflow-y:auto; }
-  #tabelaFichas thead th { position:sticky; top:0; z-index:4; background:#232321; }
+  #tabelaFichas thead th { position:sticky; top:0; z-index:4; background:var(--surface-2); }
   #tabelaRateio table, #tabelaRateioPreco table { border-collapse:collapse; width:100%; font-size:12.5px; }
   #tabelaRateio th, #tabelaRateio td, #tabelaRateioPreco th, #tabelaRateioPreco td {
-    border:1px solid #34332f; padding:6px 10px; text-align:right; white-space:nowrap; }
+    border:1px solid var(--line); padding:6px 10px; text-align:right; white-space:nowrap; }
   #tabelaRateio th:first-child, #tabelaRateio td:first-child,
   #tabelaRateioPreco th:first-child, #tabelaRateioPreco td:first-child { text-align:left; white-space:normal; }
   #tabelaRateioPreco { max-height:460px; overflow-y:auto; }
-  #tabelaRateioPreco thead th { position:sticky; top:0; z-index:4; background:#232321; }
+  #tabelaRateioPreco thead th { position:sticky; top:0; z-index:4; background:var(--surface-2); }
   .rateio-card { cursor:pointer; }
-  .rateio-card.ativo { border-color:#c8102e; }
+  .rateio-card.ativo { border-color:var(--brand); }
   tr.ficha-linha { cursor:pointer; }
-  tr.ficha-linha:hover td { background:#232321; }
-  .ficha-tag { font-size:10.5px; color:#111110; background:#8a8a80; border-radius:4px; padding:1px 5px; }
+  tr.ficha-linha:hover td { background:var(--surface-2); }
+  .ficha-tag { font-size:10.5px; color:var(--bg); background:#8a897e; border-radius:4px; padding:1px 5px; }
   .ficha-busca-linha { display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin:10px 0; }
   .ficha-busca-linha input[type="search"] { flex:1; min-width:220px; padding:8px 12px; font-size:14px;
-    background:#171716; color:#f2f0e9; border:1px solid #45443f; border-radius:8px; }
-  .ficha-busca-linha input[type="search"]:focus { outline:none; border-color:#f6c63e; }
+    background:var(--zebra); color:#f2f0e9; border:1px solid var(--line-2); border-radius:8px; }
+  .ficha-busca-linha input[type="search"]:focus { outline:none; border-color:var(--marca-amarelo); }
   .ficha-check { font-size:12.5px; color:#b9b7ae; cursor:pointer; user-select:none; }
-  #fichaSelect { flex:1; min-width:260px; padding:9px 12px; font-size:14px; background:#171716;
-    color:#f2f0e9; border:1px solid #45443f; border-radius:8px; }
-  #fichaSelect:focus { outline:none; border-color:#f6c63e; }
+  #fichaSelect { flex:1; min-width:260px; padding:9px 12px; font-size:14px; background:var(--zebra);
+    color:#f2f0e9; border:1px solid var(--line-2); border-radius:8px; }
+  #fichaSelect:focus { outline:none; border-color:var(--marca-amarelo); }
 
   /* tabelas dos modulos Vendas/Cardapio/Clientes (mesmo visual das demais) */
   #tabelaVendasCanal, #tabelaVendasLojas, #tabelaFunil, #tabelaItens, #tabelaCompl, #tabelaClientesLojas { overflow-x:auto; max-width:100%; }
   #tabelaVendasCanal table, #tabelaVendasLojas table, #tabelaFunil table, #tabelaItens table, #tabelaCompl table, #tabelaClientesLojas table { border-collapse:collapse; width:100%; font-size:12.5px; }
   #tabelaVendasCanal th, #tabelaVendasCanal td, #tabelaVendasLojas th, #tabelaVendasLojas td,
   #tabelaFunil th, #tabelaFunil td, #tabelaItens th, #tabelaItens td,
-  #tabelaCompl th, #tabelaCompl td, #tabelaClientesLojas th, #tabelaClientesLojas td { border:1px solid #34332f; padding:6px 10px; text-align:right; white-space:nowrap; }
+  #tabelaCompl th, #tabelaCompl td, #tabelaClientesLojas th, #tabelaClientesLojas td { border:1px solid var(--line); padding:6px 10px; text-align:right; white-space:nowrap; }
   #tabelaVendasCanal th:first-child, #tabelaVendasCanal td:first-child, #tabelaVendasLojas th:first-child, #tabelaVendasLojas td:first-child,
   #tabelaFunil th:first-child, #tabelaFunil td:first-child, #tabelaItens th:first-child, #tabelaItens td:first-child,
   #tabelaCompl th:first-child, #tabelaCompl td:first-child, #tabelaClientesLojas th:first-child, #tabelaClientesLojas td:first-child { text-align:left; white-space:normal; }
-  #tabelaVendasCanal th, #tabelaVendasLojas th, #tabelaFunil th, #tabelaItens th, #tabelaCompl th, #tabelaClientesLojas th { background:#232321; color:#a5a49a; font-weight:bold; font-size:11px; text-transform:uppercase; }
+  #tabelaVendasCanal th, #tabelaVendasLojas th, #tabelaFunil th, #tabelaItens th, #tabelaCompl th, #tabelaClientesLojas th { background:var(--surface-2); color:#a5a49a; font-weight:bold; font-size:11px; text-transform:uppercase; }
   #tabelaVendasCanal tr:nth-child(even), #tabelaVendasLojas tr:nth-child(even), #tabelaFunil tr:nth-child(even),
-  #tabelaItens tr:nth-child(even), #tabelaCompl tr:nth-child(even), #tabelaClientesLojas tr:nth-child(even) { background:#171716; }
+  #tabelaItens tr:nth-child(even), #tabelaCompl tr:nth-child(even), #tabelaClientesLojas tr:nth-child(even) { background:var(--zebra); }
 
   #extratoFin { overflow-x:auto; max-width:100%; }
   #extratoFin table { border-collapse:collapse; width:100%; font-size:13px; }
-  #extratoFin th, #extratoFin td { border:1px solid #34332f; padding:7px 12px; text-align:right; white-space:nowrap; }
+  #extratoFin th, #extratoFin td { border:1px solid var(--line); padding:7px 12px; text-align:right; white-space:nowrap; }
   #extratoFin th:first-child, #extratoFin td:first-child { text-align:left; white-space:normal; }
-  #extratoFin th { background:#232321; color:#a5a49a; font-weight:bold; font-size:11px; text-transform:uppercase; }
-  #extratoFin tr.sub td { background:#232321; border-top:2px solid #45443f; }
+  #extratoFin th { background:var(--surface-2); color:#a5a49a; font-weight:bold; font-size:11px; text-transform:uppercase; }
+  #extratoFin tr.sub td { background:var(--surface-2); border-top:2px solid var(--line-2); }
   /* linha final no contorno dourado, mesmo padrao de DFC/DRE (16/08 a noite) */
   #extratoFin tr.liq { --linha-fundo:#111110; }
-  #extratoFin tr.liq td { background:#111110; color:#fff; font-weight:bold; border-top:2px solid #f6c63e; border-bottom:2px solid #ee8a3c; font-size:14.5px; }
-  #extratoFin tr.liq td:first-child { color:#fff; border-left:2px solid #f6c63e; }
-  #extratoFin tr.liq td:last-child { border-right:2px solid #ee8a3c; }
+  #extratoFin tr.liq td { background:var(--bg); color:var(--tx-1); font-weight:bold; border-top:2px solid var(--marca-amarelo); border-bottom:2px solid var(--marca-laranja); font-size:14.5px; }
+  #extratoFin tr.liq td:first-child { color:var(--tx-1); border-left:2px solid var(--marca-amarelo); }
+  #extratoFin tr.liq td:last-child { border-right:2px solid var(--marca-laranja); }
 
-  details.detalhes-extra { margin-top:22px; border:1px solid #34332f; border-radius:10px; padding:14px 18px; background:#171716; }
+  details.detalhes-extra { margin-top:22px; border:1px solid var(--line); border-radius:10px; padding:14px 18px; background:var(--zebra); }
   details.detalhes-extra summary { cursor:pointer; color:#a5a49a; font-size:12.5px; font-weight:bold; }
-  details.detalhes-extra summary:hover { color:#c8102e; }
+  details.detalhes-extra summary:hover { color:var(--brand); }
 
   #tabelaLojasResumo { overflow-x:auto; max-width:100%; }
   #tabelaLojasResumo table { border-collapse:collapse; width:100%; font-size:12.5px; }
-  #tabelaLojasResumo th, #tabelaLojasResumo td { border:1px solid #34332f; padding:6px 10px; text-align:right; white-space:nowrap; }
+  #tabelaLojasResumo th, #tabelaLojasResumo td { border:1px solid var(--line); padding:6px 10px; text-align:right; white-space:nowrap; }
   #tabelaLojasResumo th:first-child, #tabelaLojasResumo td:first-child { text-align:left; white-space:normal; }
-  #tabelaLojasResumo th { background:#232321; color:#a5a49a; font-weight:bold; font-size:11px; text-transform:uppercase; }
-  #tabelaLojasResumo tr:nth-child(even) { background:#171716; }
+  #tabelaLojasResumo th { background:var(--surface-2); color:#a5a49a; font-weight:bold; font-size:11px; text-transform:uppercase; }
+  #tabelaLojasResumo tr:nth-child(even) { background:var(--zebra); }
 
   /* modulo Fluxo de Caixa (DFC) — tabela com blocos expansiveis */
   #tabelaDFC { overflow-x:auto; max-width:100%; }
   #tabelaBeneficio table { border-collapse:collapse; width:100%; font-size:12.5px; }
-  #tabelaBeneficio th, #tabelaBeneficio td { border:1px solid #34332f; padding:6px 10px; white-space:nowrap; text-align:left; }
+  #tabelaBeneficio th, #tabelaBeneficio td { border:1px solid var(--line); padding:6px 10px; white-space:nowrap; text-align:left; }
   #tabelaDFC table { border-collapse:collapse; width:100%; font-size:12.5px; }
   #tabelaDFC table td { vertical-align:top; }
-  #tabelaDFC th, #tabelaDFC td { border:1px solid #34332f; padding:5px 10px; text-align:right; white-space:nowrap; }
+  #tabelaDFC th, #tabelaDFC td { border:1px solid var(--line); padding:5px 10px; text-align:right; white-space:nowrap; }
   #tabelaDFC th:first-child, #tabelaDFC td:first-child { text-align:left; }
-  #tabelaDFC th { background:#232321; color:#a5a49a; font-weight:bold; font-size:11px; text-transform:uppercase; }
+  #tabelaDFC th { background:var(--surface-2); color:#a5a49a; font-weight:bold; font-size:11px; text-transform:uppercase; }
   /* 1ª coluna FIXA: o nome da linha acompanha a rolagem horizontal (DFC e DRE).
      O fundo precisa ser opaco para o numero nao passar por baixo; linhas que
      pintam o proprio fundo (bloco/grupo/resultado/saldo) vencem por
@@ -491,58 +491,58 @@
   #tabelaDFC td.negativo, #tabelaDFC .negativo, #tabelaDRE td.negativo, #tabelaDRE .negativo { color:inherit; }
   /* negativo em soma tambem fica branco (pedido do dono, 16/08 a noite):
      o sinal de menos ja informa — cor nenhuma no DFC/DRE e' semaforo */
-  #tabelaDFC tr.dfc-bloco td { background:#232321; font-weight:bold; border-top:2px solid #45443f; color:#ffffff; }
-  #tabelaDFC tr.dfc-grupo td { background:#1a1a19; font-weight:bold; color:#c3c2b7; }
+  #tabelaDFC tr.dfc-bloco td { background:var(--surface-2); font-weight:bold; border-top:2px solid var(--line-2); color:var(--tx-1); }
+  #tabelaDFC tr.dfc-grupo td { background:var(--surface); font-weight:bold; color:#c3c2b7; }
   #tabelaDFC tr.dfc-grupo td:first-child { padding-left:22px; }
   #tabelaDFC tr.dfc-linha td { color:#a5a49a; }
   #tabelaDFC tr.dfc-linha td:first-child { padding-left:40px; }
   /* somas do DFC no mesmo contorno dourado da DRE (16/08 a noite) */
-  #tabelaDFC tr.dfc-resultado td { background:#111110; color:#fff; font-weight:bold; border-top:2px solid #f6c63e; border-bottom:2px solid #ee8a3c; }
-  #tabelaDFC tr.dfc-resultado td:first-child { color:#fff; border-left:2px solid #f6c63e; }
-  #tabelaDFC tr.dfc-resultado td:last-child { border-right:2px solid #ee8a3c; }
-  #tabelaDFC tr.dfc-saldo td { background:#0f1a2b; font-weight:bold; border-top:2px solid #58a6ff; }
-  #tabelaDFC tr.dfc-saldo td:first-child { color:#58a6ff; }
+  #tabelaDFC tr.dfc-resultado td { background:var(--bg); color:var(--tx-1); font-weight:bold; border-top:2px solid var(--marca-amarelo); border-bottom:2px solid var(--marca-laranja); }
+  #tabelaDFC tr.dfc-resultado td:first-child { color:var(--tx-1); border-left:2px solid var(--marca-amarelo); }
+  #tabelaDFC tr.dfc-resultado td:last-child { border-right:2px solid var(--marca-laranja); }
+  #tabelaDFC tr.dfc-saldo td { background:#0f1a2b; font-weight:bold; border-top:2px solid var(--info); }
+  #tabelaDFC tr.dfc-saldo td:first-child { color:var(--info); }
   #tabelaDFC tr.dfc-conta td { color:#a5a49a; }
   #tabelaDFC tr.dfc-conta td:first-child { padding-left:40px; }
   /* conferência de saldo com o extrato (03/09/2026) */
   #tabelaDFC .dfc-conf { font-size:11px; margin-left:6px; white-space:nowrap; }
   #tabelaDFC .dfc-conf.ok { color:#3fb950; }
   #tabelaDFC .dfc-conf.dif { color:#ff7b72; font-weight:bold; }
-  #tabelaDFC .dfc-conf.sem { color:#6e6d66; }
-  #tabelaDFC tr.dfc-confer td { font-size:11px; border-top:1px dashed #58a6ff; }
+  #tabelaDFC .dfc-conf.sem { color:var(--tx-5); }
+  #tabelaDFC tr.dfc-confer td { font-size:11px; border-top:1px dashed var(--info); }
   #tabelaDFC tr.dfc-confer .dfc-conf { margin-left:0; }
   #tabelaDFC tr.clicavel { cursor:pointer; }
-  #tabelaDFC tr.clicavel:hover td:first-child { color:#c8102e; }
+  #tabelaDFC tr.clicavel:hover td:first-child { color:var(--brand); }
 
   /* DRE: mesma familia visual do DFC, com linhas de separacao e a sub-linha AV/AH */
-  #tabelaDRE table td { border-bottom:1px solid #232321; vertical-align:top; }
-  #tabelaDRE tr.dfc-bloco td { background:#232321; font-weight:bold; border-top:2px solid #45443f; color:#ffffff; }
-  #tabelaDRE tr.dfc-grupo td { background:#1a1a19; font-weight:bold; color:#c3c2b7; }
+  #tabelaDRE table td { border-bottom:1px solid var(--surface-2); vertical-align:top; }
+  #tabelaDRE tr.dfc-bloco td { background:var(--surface-2); font-weight:bold; border-top:2px solid var(--line-2); color:var(--tx-1); }
+  #tabelaDRE tr.dfc-grupo td { background:var(--surface); font-weight:bold; color:#c3c2b7; }
   #tabelaDRE tr.dfc-grupo td:first-child { padding-left:22px; }
   #tabelaDRE tr.dfc-linha td { color:#a5a49a; }
   #tabelaDRE tr.dfc-linha td:first-child { padding-left:40px; }
   /* linhas de SOMA "(=)": CONTORNO na cor do letreiro (teste do dono, 16/08 a
      noite — a versao preenchida pesava). Fundo escuro, texto claro, moldura
      amarelo->laranja fechando a faixa. */
-  #tabelaDRE tr.dfc-resultado td { background:#111110; color:#fff; font-weight:bold; border-top:2px solid #f6c63e; border-bottom:2px solid #ee8a3c; }
-  #tabelaDRE tr.dfc-resultado td:first-child { color:#fff; border-left:2px solid #f6c63e; }
-  #tabelaDRE tr.dfc-resultado td:last-child { border-right:2px solid #ee8a3c; }
+  #tabelaDRE tr.dfc-resultado td { background:var(--bg); color:var(--tx-1); font-weight:bold; border-top:2px solid var(--marca-amarelo); border-bottom:2px solid var(--marca-laranja); }
+  #tabelaDRE tr.dfc-resultado td:first-child { color:var(--tx-1); border-left:2px solid var(--marca-amarelo); }
+  #tabelaDRE tr.dfc-resultado td:last-child { border-right:2px solid var(--marca-laranja); }
   /* % da receita mora ao lado do numero; verde = dentro da meta (pedido 16/08) */
   .dre-av { font-size:10px; font-weight:normal; color:#8a897e; margin-left:6px; white-space:nowrap; }
   /* categorias sempre em MAIUSCULO (so o rotulo; meta e subs ficam como estao) */
   #tabelaDRE td:first-child { text-transform:uppercase; }
   #tabelaDRE td:first-child .dre-sub, #tabelaDRE td:first-child .meta-pill { text-transform:none; }
   /* linha COM meta ganha um selo visivel — sem ele, meta passava despercebida */
-  .meta-pill { display:inline-block; font-size:10px; font-weight:600; color:#c3c2b7; background:#111110;
-               border:1px solid #57564e; border-radius:20px; padding:1px 8px; margin-top:4px; white-space:nowrap; }
-  #tabelaDRE tr.dfc-saldo td { background:#0f1a2b; font-weight:bold; border-top:2px solid #58a6ff; }
-  #tabelaDRE tr.dfc-saldo td:first-child { color:#58a6ff; }
+  .meta-pill { display:inline-block; font-size:10px; font-weight:600; color:#c3c2b7; background:var(--bg);
+               border:1px solid var(--tx-6); border-radius:20px; padding:1px 8px; margin-top:4px; white-space:nowrap; }
+  #tabelaDRE tr.dfc-saldo td { background:#0f1a2b; font-weight:bold; border-top:2px solid var(--info); }
+  #tabelaDRE tr.dfc-saldo td:first-child { color:var(--info); }
   #tabelaDRE tr.clicavel { cursor:pointer; }
-  #tabelaDRE tr.clicavel:hover td:first-child { color:#c8102e; }
+  #tabelaDRE tr.clicavel:hover td:first-child { color:var(--brand); }
   .dre-sub { font-size:10px; color:#8a897e; white-space:nowrap; margin-top:2px; font-weight:normal; }
   /* selo do mes corrente no cabecalho (DFC/DRE): numeros ainda em formacao */
   .th-emcurso { font-size:9px; color:#8a897e; font-weight:normal; text-transform:none; letter-spacing:0; }
-  .preset-sel { background:#232321; color:#c3c2b7; border:1px solid #34332f; border-radius:8px;
+  .preset-sel { background:var(--surface-2); color:#c3c2b7; border:1px solid var(--line); border-radius:8px;
                 padding:6px 8px; font-family:inherit; font-size:12.5px; cursor:pointer; }
   .dre-sub b { font-weight:600; }
   .dre-farol { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:3px; vertical-align:middle; }
@@ -554,9 +554,29 @@
      lateral; vermelho so para alerta; linha de soma em tinta preta fina, nao
      em moldura amarela. As cores do farol e dos cinzas viram tokens — o JS
      dos dois modulos usa var(--farol-*) e var(--tx-*) em vez de hex. ===== */
-  :root { --farol-ok:#3fb950; --farol-perto:#f5a623; --farol-fora:#ff6b6b; --tx-2:#c3c2b7; --tx-3:#a5a49a; --tx-4:#8a897e; }
+  /* ===== TOKENS DO PAINEL (paleta unica — ver contexto/project_identidade_visual.md)
+     Cor nova no painel entra AQUI e so aqui. Hex solto no CSS volta a virar deriva:
+     em 12/09/2026 havia 103 cores diferentes, com quatro cinzas quase iguais
+     (#8a897e, #8a8a80, #8a887e, #8b877c) fazendo o mesmo papel.
+     O tema claro .papel logo abaixo redefine os tokens que muda — nao duplique regra. ===== */
+  :root {
+    /* fundos */
+    --bg:#111110; --surface:#1a1a19; --surface-2:#232321; --zebra:#171716;
+    /* linhas */
+    --line:#34332f; --line-2:#45443f;
+    /* texto, do mais claro ao mais apagado */
+    --tx-1:#fff; --tx-2:#c3c2b7; --tx-3:#a5a49a; --tx-4:#8a897e; --tx-5:#6f6e64; --tx-6:#5a5850;
+    --tx-creme:#e8e6dc;
+    /* marca */
+    --brand:#c8102e; --brand-dark:#a80d26; --brand-wine:#250f13;
+    /* farol de metas e dados */
+    --farol-ok:#3fb950; --farol-perto:#f5a623; --farol-fora:#ff6b6b;
+    --info:#58a6ff; --amber-2:#e8b04b;
+    /* fachada da loja — SO em area de marca (login, topo da sidebar, filete do topo) */
+    --marca-amarelo:#f6c63e; --marca-laranja:#ee8a3c; --marca-laranja-q:#e2622b; --marca-creme:#f7edd8;
+  }
   .papel { --farol-ok:#1f6d3f; --farol-perto:#b26a00; --farol-fora:#b3261e; --tx-2:#4d545b; --tx-3:#5f666d; --tx-4:#7d858c;
-    --p-bg:#f6f5f1; --p-paper:#ffffff; --p-ink:#1e2226; --p-line:#dcdad3; --p-line2:#ebe9e3; --p-head:#efede6; --p-zebra:#f1f0eb;
+    --p-bg:#f6f5f1; --p-paper:#fff; --p-ink:#1e2226; --p-line:#dcdad3; --p-line2:#ebe9e3; --p-head:#efede6; --p-zebra:#f1f0eb;
     background:var(--p-bg); color:var(--p-ink); margin:-28px -32px -60px; padding:28px 32px 60px; }
   @media (max-width:700px) { .papel { margin:-28px -16px -60px; padding:28px 16px 60px; } }
   .papel .section-label { color:var(--p-ink); border-top-color:var(--p-line); }
@@ -568,7 +588,7 @@
   .papel .card-lbl { color:var(--tx-4); } .papel .card-val { color:var(--p-ink); } .papel .card-pct { color:var(--tx-2); }
   .papel .preset-btn, .papel .preset-sel { background:var(--p-paper); border-color:var(--p-line); color:var(--tx-2); }
   .papel .preset-btn:hover { border-color:var(--p-ink); color:var(--p-ink); }
-  .papel .preset-btn.active { background:var(--p-ink); color:#fff; border-color:var(--p-ink); }
+  .papel .preset-btn.active { background:var(--p-ink); color:var(--tx-1); border-color:var(--p-ink); }
   .papel .loja-fin { background:var(--p-paper); color:var(--p-ink); font-family:inherit; }
   .papel details.detalhes-extra { background:var(--p-paper); border-color:var(--p-line); }
   .papel details.detalhes-extra summary { color:var(--tx-2); }
@@ -625,29 +645,29 @@
   td.negativo, .negativo { color:#ff6b6b; }
 
   /* Analise de despesas e Conferencia da base (a grade vem do bloco padrao acima) */
-  #tabelaDespesas tr.dfc-bloco td { background:#232321; font-weight:bold; border-top:2px solid #45443f; color:#ffffff; }
-  #tabelaDespesas tr.dfc-grupo td { background:#1a1a19; font-weight:bold; color:#c3c2b7; }
+  #tabelaDespesas tr.dfc-bloco td { background:var(--surface-2); font-weight:bold; border-top:2px solid var(--line-2); color:var(--tx-1); }
+  #tabelaDespesas tr.dfc-grupo td { background:var(--surface); font-weight:bold; color:#c3c2b7; }
   #tabelaDespesas tr.dfc-grupo td:first-child { padding-left:22px; }
   #tabelaDespesas tr.dfc-linha td { color:#a5a49a; }
   #tabelaDespesas tr.dfc-linha td:first-child { padding-left:40px; }
   /* mesmo padrao de DFC/DRE (16/08 a noite): soma com contorno dourado */
-  #tabelaDespesas tr.dfc-resultado td { background:#111110; color:#fff; font-weight:bold; border-top:2px solid #f6c63e; border-bottom:2px solid #ee8a3c; }
-  #tabelaDespesas tr.dfc-resultado td:first-child { color:#fff; border-left:2px solid #f6c63e; }
-  #tabelaDespesas tr.dfc-resultado td:last-child { border-right:2px solid #ee8a3c; }
+  #tabelaDespesas tr.dfc-resultado td { background:var(--bg); color:var(--tx-1); font-weight:bold; border-top:2px solid var(--marca-amarelo); border-bottom:2px solid var(--marca-laranja); }
+  #tabelaDespesas tr.dfc-resultado td:first-child { color:var(--tx-1); border-left:2px solid var(--marca-amarelo); }
+  #tabelaDespesas tr.dfc-resultado td:last-child { border-right:2px solid var(--marca-laranja); }
   #tabelaDespesas td:first-child, #tabelaConsolidada td:first-child,
   #tabelaAtrasosTurno td:first-child, #tabelaAtrasosDow td:first-child, #tabelaAtrasosEntregador td:first-child { text-transform:uppercase; }
   #tabelaDespesas tr.clicavel { cursor:pointer; }
-  #tabelaDespesas tr.clicavel:hover td:first-child { color:#ee8a3c; }
-  #tabelaSaldos tr.dfc-linha td { color:#6e6d64; }
+  #tabelaDespesas tr.clicavel:hover td:first-child { color:var(--marca-laranja); }
+  #tabelaSaldos tr.dfc-linha td { color:var(--tx-5); }
 
-  .relatorio-corpo { background:#1a1a19; border:1px solid #34332f; border-radius:14px; padding:24px 28px; line-height:1.7; font-size:13.5px; }
-  .relatorio-corpo h2 { color:#c8102e; font-size:18px; margin:18px 0 10px; }
-  .relatorio-corpo h3 { color:#ffffff; font-size:15px; margin:16px 0 8px; }
+  .relatorio-corpo { background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:24px 28px; line-height:1.7; font-size:13.5px; }
+  .relatorio-corpo h2 { color:var(--brand); font-size:18px; margin:18px 0 10px; }
+  .relatorio-corpo h3 { color:var(--tx-1); font-size:15px; margin:16px 0 8px; }
   .relatorio-corpo table { border-collapse:collapse; margin:10px 0; font-size:12.5px; }
-  .relatorio-corpo th, .relatorio-corpo td { border:1px solid #34332f; padding:5px 10px; }
-  .relatorio-corpo th { background:#232321; color:#a5a49a; }
+  .relatorio-corpo th, .relatorio-corpo td { border:1px solid var(--line); padding:5px 10px; }
+  .relatorio-corpo th { background:var(--surface-2); color:#a5a49a; }
   .relatorio-corpo ul { padding-left:22px; }
-  .relatorio-corpo b { color:#ffffff; }
+  .relatorio-corpo b { color:var(--tx-1); }
 
   /* Login no estilo da fachada: fundo amarelo/laranja do grafite, caixa creme
      com traco preto e a logo preta transparente (logo-preta.png; cai para
@@ -656,21 +676,21 @@
      kraft), ele aparece sob o gradiente como textura da fachada; sem o arquivo,
      fica so o gradiente. */
   .login-gate { position:fixed; inset:0;
-    background:linear-gradient(135deg,rgba(246,198,62,.93) 0%,rgba(238,138,60,.93) 55%,rgba(226,98,43,.93) 100%), url('ikoma.png') center/cover no-repeat #ee8a3c;
+    background:linear-gradient(135deg,rgba(246,198,62,.93) 0%,rgba(238,138,60,.93) 55%,rgba(226,98,43,.93) 100%), url('ikoma.png') center/cover no-repeat var(--marca-laranja);
     display:flex; align-items:center; justify-content:center; z-index:1000; padding:20px; }
-  .login-box { background:#f7edd8; border:2px solid #111110; border-radius:16px; padding:34px 28px; text-align:center; max-width:340px; width:100%; box-shadow:6px 6px 0 rgba(17,17,16,.35); }
+  .login-box { background:var(--marca-creme); border:2px solid var(--bg); border-radius:16px; padding:34px 28px; text-align:center; max-width:340px; width:100%; box-shadow:6px 6px 0 rgba(17,17,16,.35); }
   .login-box img { height:96px; width:auto; margin-bottom:10px; }
-  .login-box h2 { color:#111110; font-size:18px; font-weight:800; margin:0 0 6px 0; }
-  .login-box p { color:#5a5850; font-size:12.5px; margin:0 0 18px 0; }
-  .login-box input { width:100%; background:#ffffff; border:1px solid #111110; color:#111110; border-radius:10px; padding:12px 14px; font-size:14px; margin-bottom:12px; outline:none; text-align:center; }
-  .login-box button { width:100%; background:#111110; border:none; color:#f6c63e; font-size:14px; font-weight:800; padding:12px; border-radius:10px; cursor:pointer; }
-  .login-box button:hover { background:#000000; }
+  .login-box h2 { color:var(--bg); font-size:18px; font-weight:800; margin:0 0 6px 0; }
+  .login-box p { color:var(--tx-6); font-size:12.5px; margin:0 0 18px 0; }
+  .login-box input { width:100%; background:var(--tx-1); border:1px solid var(--bg); color:var(--bg); border-radius:10px; padding:12px 14px; font-size:14px; margin-bottom:12px; outline:none; text-align:center; }
+  .login-box button { width:100%; background:var(--bg); border:none; color:var(--marca-amarelo); font-size:14px; font-weight:800; padding:12px; border-radius:10px; cursor:pointer; }
+  .login-box button:hover { background:#000; }
   .login-erro { color:#ff6b6b; font-size:12px; margin-top:10px; }
 
   @media (max-width: 640px) {
     .wrap { padding: 20px 16px 40px; }
     .app-layout { flex-direction: column; }
-    .sidebar { width:100%; flex:0 0 auto; flex-direction:row; overflow-x:auto; border-right:none; border-bottom:1px solid #34332f; padding:8px; }
+    .sidebar { width:100%; flex:0 0 auto; flex-direction:row; overflow-x:auto; border-right:none; border-bottom:1px solid var(--line); padding:8px; }
     .sidebar-btn { padding:9px 14px; white-space:nowrap; }
     /* no menu horizontal do celular a sanfona atrapalha: tudo fica visivel */
     .sidebar-rodape { flex-direction:column; align-items:stretch; }
@@ -689,20 +709,20 @@
      e a "papel" da pagina dos Pesos: creme + tinta + vermelho da identidade.
      .trc-in tem o visual ESCURO por padrao (serve as outras telas do modulo)
      e vira claro dentro da ilha. */
-  .trc-in { background:#232321; border:1px solid #34332f; border-radius:6px; color:#fff; padding:4px 6px; }
+  .trc-in { background:var(--surface-2); border:1px solid var(--line); border-radius:6px; color:var(--tx-1); padding:4px 6px; }
   .tr-ilha { background:#faf6ef; color:#2b2620; border-radius:14px; padding:16px 16px 20px; margin-top:8px; }
   .tr-ilha .caption-label { color:#6f675c; font-size:12.5px; }
   .tr-ilha .caption-label b, .tr-ilha .contexto b { color:#2b2620; }
   .tr-ilha .section-label { color:#2b2620; border-top-color:#e5ddd0; }
-  .tr-ilha .tr-secao { color:#c8102e; font-size:12px; font-weight:800; letter-spacing:1px;
+  .tr-ilha .tr-secao { color:var(--brand); font-size:12px; font-weight:800; letter-spacing:1px;
     text-transform:uppercase; border-bottom:2px solid #2b2620; padding:0 0 5px; margin:18px 0 8px; }
-  .tr-ilha .preset-btn.active { background:#c8102e; border-color:#c8102e; color:#fff; }
-  .tr-ilha .contexto { background:#ffffff; border:1px solid #e5ddd0; color:#2b2620; }
-  .tr-ilha .preset-btn { background:#ffffff; border:1px solid #e5ddd0; color:#2b2620; }
-  .tr-ilha .preset-btn:hover { border-color:#c8102e; color:#c8102e; }
-  .tr-ilha .tr-btn-cheio, .tr-ilha .tr-btn-cheio:hover { background:#c8102e; border-color:#c8102e; color:#fff; }
+  .tr-ilha .preset-btn.active { background:var(--brand); border-color:var(--brand); color:var(--tx-1); }
+  .tr-ilha .contexto { background:var(--tx-1); border:1px solid #e5ddd0; color:#2b2620; }
+  .tr-ilha .preset-btn { background:var(--tx-1); border:1px solid #e5ddd0; color:#2b2620; }
+  .tr-ilha .preset-btn:hover { border-color:var(--brand); color:var(--brand); }
+  .tr-ilha .tr-btn-cheio, .tr-ilha .tr-btn-cheio:hover { background:var(--brand); border-color:var(--brand); color:var(--tx-1); }
   .tr-ilha .trc-in { background:#fdfbf7; border:1px solid #d5cbbb; color:#2b2620; }
-  .tr-ilha .trc-in:focus { outline:2px solid #c8102e; outline-offset:1px; }
+  .tr-ilha .trc-in:focus { outline:2px solid var(--brand); outline-offset:1px; }
   .tr-ilha .trc-in.tem { border-color:#2e7d4f; background:#f2f8f2; font-weight:700; }
   .tr-ilha .tr-linha { border-bottom:1px solid #e5ddd0; color:#2b2620; }
   .tr-ilha .tr-det { color:#6f675c; }
@@ -752,48 +772,48 @@
 
 <style>
   /* rodape da barra lateral: quem esta logado + sair (21/08/2026) */
-  .sidebar-rodape { margin-top:14px; padding:10px 12px; border-top:1px solid #34332f;
-    display:flex; align-items:center; gap:8px; font-size:11px; color:#8b877c; }
+  .sidebar-rodape { margin-top:14px; padding:10px 12px; border-top:1px solid var(--line);
+    display:flex; align-items:center; gap:8px; font-size:11px; color:#8a897e; }
   .sidebar-rodape span { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .sidebar-rodape button { background:none; border:1px solid #45443f; color:#c9c5b8;
+  .sidebar-rodape button { background:none; border:1px solid var(--line-2); color:#c3c2b7;
     border-radius:6px; padding:4px 10px; font-size:11px; cursor:pointer; }
-  .sidebar-rodape button:hover { border-color:#c8102e; color:#fff; }
+  .sidebar-rodape button:hover { border-color:var(--brand); color:var(--tx-1); }
   #loginEmail { margin-bottom:8px; }
 
   /* recados nos itens do Plano (21/08/2026) */
   .plano-recados-linha { margin-top:8px; }
-  .plano-recado-bt { background:none; border:none; color:#8b877c; font-size:12px;
+  .plano-recado-bt { background:none; border:none; color:#8a897e; font-size:12px;
     cursor:pointer; padding:2px 0; }
   .plano-recado-bt:hover { color:#f2f0e9; }
-  .plano-recado-bt.tem-novo { color:#e8b04b; font-weight:600; }
-  .plano-recados { margin-top:8px; border-left:2px solid #34332f; padding-left:10px; }
+  .plano-recado-bt.tem-novo { color:var(--amber-2); font-weight:600; }
+  .plano-recados { margin-top:8px; border-left:2px solid var(--line); padding-left:10px; }
   .plano-recado { margin-bottom:8px; }
   .plano-recado.lido { opacity:.6; }
-  .plano-recado-cab { display:flex; align-items:center; gap:8px; font-size:11px; color:#8b877c; }
-  .plano-recado-cab b { color:#c9c5b8; }
+  .plano-recado-cab { display:flex; align-items:center; gap:8px; font-size:11px; color:#8a897e; }
+  .plano-recado-cab b { color:#c3c2b7; }
   .plano-recado-lido { color:#3fb950; }
-  .plano-recado-visto { background:none; border:1px solid #45443f; color:#c9c5b8;
+  .plano-recado-visto { background:none; border:1px solid var(--line-2); color:#c3c2b7;
     border-radius:5px; font-size:10px; padding:1px 7px; cursor:pointer; }
   .plano-recado-visto:hover { border-color:#3fb950; color:#3fb950; }
   .plano-recado-txt { font-size:13px; color:#f2f0e9; white-space:pre-wrap; margin-top:2px; }
   .plano-recado-vazio { font-size:12px; color:#7d7a70; margin-bottom:8px; }
-  #planoRecadoTexto { width:100%; background:#171716; color:#f2f0e9; border:1px solid #45443f;
+  #planoRecadoTexto { width:100%; background:var(--zebra); color:#f2f0e9; border:1px solid var(--line-2);
     border-radius:6px; padding:7px 9px; font-size:13px; font-family:inherit; resize:vertical; }
   .plano-recado-envio { margin-top:6px; display:flex; align-items:center; gap:10px; }
-  .plano-recado-envio span { font-size:12px; color:#8b877c; }
-  .plano-vez { margin-left:8px; font-size:11px; color:#8b877c; border:1px solid #45443f;
+  .plano-recado-envio span { font-size:12px; color:#8a897e; }
+  .plano-vez { margin-left:8px; font-size:11px; color:#8a897e; border:1px solid var(--line-2);
     border-radius:10px; padding:1px 8px; }
-  .plano-vez.minha { color:#e8b04b; border-color:#e8b04b; }
-  .plano-editor { border-left-color:#e8b04b; }
-  .plano-editor-tit { font-size:12px; color:#e8b04b; margin-bottom:8px; }
-  .plano-editor label { display:block; font-size:11px; color:#8b877c; margin-bottom:8px; }
-  .plano-editor input, .plano-editor textarea { width:100%; background:#171716; color:#f2f0e9;
-    border:1px solid #45443f; border-radius:6px; padding:7px 9px; font-size:13px;
+  .plano-vez.minha { color:var(--amber-2); border-color:var(--amber-2); }
+  .plano-editor { border-left-color:var(--amber-2); }
+  .plano-editor-tit { font-size:12px; color:var(--amber-2); margin-bottom:8px; }
+  .plano-editor label { display:block; font-size:11px; color:#8a897e; margin-bottom:8px; }
+  .plano-editor input, .plano-editor textarea { width:100%; background:var(--zebra); color:#f2f0e9;
+    border:1px solid var(--line-2); border-radius:6px; padding:7px 9px; font-size:13px;
     font-family:inherit; margin-top:3px; }
   .plano-editor-linha { display:flex; gap:10px; }
   .plano-editor-linha label { flex:1; }
   .plano-aviso-recados { max-width:620px; margin:12px auto; padding:9px 14px; font-size:13px;
-    background:rgba(232,176,75,.13); border:1px solid #e8b04b; border-radius:8px; text-align:center; }
+    background:rgba(232,176,75,.13); border:1px solid var(--amber-2); border-radius:8px; text-align:center; }
 </style>
 
 <div id="loginGate" class="login-gate">
@@ -3320,9 +3340,9 @@ function renderModuloRelatorios(idSelecionado, abaIdx = 0) {
     continuam vindo do resumo automático de segunda-feira.)</span>
     <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-top:10px;">
       <label style="font-size:12px; color:#a5a49a;">De <input type="date" id="relIni" value="${isoD(segPassada)}"
-        style="background:#111110; border:1px solid #34332f; color:#ffffff; border-radius:6px; padding:5px 8px;"></label>
+        style="background:#111110; border:1px solid #34332f; color:#fff; border-radius:6px; padding:5px 8px;"></label>
       <label style="font-size:12px; color:#a5a49a;">Até <input type="date" id="relFim" value="${isoD(domPassado)}"
-        style="background:#111110; border:1px solid #34332f; color:#ffffff; border-radius:6px; padding:5px 8px;"></label>
+        style="background:#111110; border:1px solid #34332f; color:#fff; border-radius:6px; padding:5px 8px;"></label>
       <button class="preset-btn" onclick="gerarRelatorioAdHoc()">Gerar relatório</button>
     </div>
   </div>
@@ -3891,7 +3911,7 @@ function renderModuloCardapio(periodoSel, lojaSel) {
     <div style="display:flex; justify-content:center; align-items:center; gap:8px; margin:10px 0 4px;">
       <span class="caption-label" style="margin:0;">Itens e complementos de:</span>
       <select onchange="renderModuloCardapio('${chave}', this.value)"
-        style="background:#1a1a19; color:#ffffff; border:1px solid #34332f; border-radius:6px; padding:6px 10px; font-family:inherit; font-size:12.5px;">
+        style="background:#1a1a19; color:#fff; border:1px solid #34332f; border-radius:6px; padding:6px 10px; font-family:inherit; font-size:12.5px;">
         ${escopos.map(e => `<option value="${e}" ${e === escopo ? 'selected' : ''}>${e === 'REDE' ? 'Rede inteira (agregado)' : e}</option>`).join('')}
       </select>
     </div>` : '';
@@ -4712,7 +4732,7 @@ function renderDiaConcartao(unidade, dia, trs, pix, cobr, forma, descs, onl) {
   // info por blocos; o bloco dos caixas como tabela").
   const tdC = 'padding:4px 10px; text-align:right; white-space:nowrap; border-right:1px solid rgba(154,164,175,.25);';
   const thC = 'padding:3px 10px; font-weight:normal; color:#a5a49a; font-size:11px; text-transform:uppercase; text-align:right; border-right:1px solid rgba(154,164,175,.25); border-bottom:1px solid rgba(154,164,175,.25);';
-  const celC = v => +v > 0 ? reaisCc(v) : '<span style="color:#5f5e54;">—</span>';
+  const celC = v => +v > 0 ? reaisCc(v) : '<span style="color:#5a5850;">—</span>';
   const turnoHtml = !turnos.length ? '' : `<div style="font-size:11px; color:#a5a49a; text-transform:uppercase; margin:8px 0 2px;">Caixas do Saipos — turno de ${dia.split('-').reverse().slice(0, 2).join('/')}</div>
     <div style="overflow-x:auto;"><table style="border-collapse:collapse; font-size:12px; border:1px solid rgba(154,164,175,.25);">
       <tr><th style="${thC} text-align:left;">caixa</th><th style="${thC} text-align:left;">estado</th><th style="${thC}">dinheiro</th><th style="${thC}">cartão</th><th style="${thC}">vale</th><th style="${thC}">PIX</th><th style="${thC}">online</th><th style="${thC}">outros</th><th style="${thC} border-right:0;">total</th></tr>
@@ -4755,7 +4775,7 @@ function renderDiaConcartao(unidade, dia, trs, pix, cobr, forma, descs, onl) {
   const tabelaCss = 'border-collapse:collapse; font-size:12px; width:100%; text-align:left; border:1px solid rgba(154,164,175,.25);';
   const caixa = (titulo, cor, corpo, destaque, extra) => `<div style="border:1px solid rgba(154,164,175,.25); border-radius:6px; padding:8px 10px; margin-top:12px;">
     <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px 14px; margin-bottom:6px;">
-      <div style="font-size:13px; text-transform:uppercase; font-weight:700; ${destaque ? 'background:#f2efe6; color:#111; padding:4px 12px; border-radius:4px;' : 'color:' + cor + ';'}">${titulo}</div>${extra || ''}</div>${corpo}</div>`;
+      <div style="font-size:13px; text-transform:uppercase; font-weight:700; ${destaque ? 'background:#f2efe6; color:#111110; padding:4px 12px; border-radius:4px;' : 'color:' + cor + ';'}">${titulo}</div>${extra || ''}</div>${corpo}</div>`;
   const btnCx = (ativo, cx, rot) => `<button class="navbtn ${ativo ? 'active' : ''}" onclick="caixaDrillFiltro('${cx}')">${rot}</button>`;
   const filtroCx = `<span style="font-size:12px; color:#a5a49a;">caixa:</span>${btnCx(!CAIXA_DRILL_CX, '', 'Todos')}${btnCx(CAIXA_DRILL_CX === 'SALÃO', 'SALÃO', 'Salão')}${btnCx(CAIXA_DRILL_CX === 'DELIVERY', 'DELIVERY', 'Delivery')}`;
   const vendaCel = q => `${q.venda || '—'}${q.deDia ? `<div style="font-size:11px; color:#f5a623;" title="a venda é de outro dia; o pagamento foi lançado neste">venda ${q.deDia}</div>` : ''}${q.moto ? `<div style="font-size:11px;">🛵 ${q.moto}</div>` : (q.entrega ? '<div style="font-size:11px;">entrega</div>' : '')}`;
@@ -4837,7 +4857,7 @@ function renderDiaConcartao(unidade, dia, trs, pix, cobr, forma, descs, onl) {
   const tdF = 'padding:5px 10px; text-align:right; white-space:nowrap; border-right:1px solid rgba(154,164,175,.25); vertical-align:top;';
   const tdS = 'padding:3px 10px 5px 22px; font-size:12px; border-right:1px solid rgba(154,164,175,.25); vertical-align:top;';
   // cabecalho em fundo claro e letra preta (dono, 11/09/2026: "se confunde com o restante")
-  const thW = 'padding:5px 10px; font-weight:700; background:#f2efe6; color:#111; font-size:11px; text-transform:uppercase; text-align:right; border-right:1px solid rgba(0,0,0,.15); white-space:nowrap;';
+  const thW = 'padding:5px 10px; font-weight:700; background:#f2efe6; color:#111110; font-size:11px; text-transform:uppercase; text-align:right; border-right:1px solid rgba(0,0,0,.15); white-space:nowrap;';
   // pendencia por venda (para o detalhe venda a venda): forma|referencia -> pendencia
   const pendPorRef = {};
   pend.forEach(x => { const pz = String(x.chave).split(':'); if (pz[0] !== 'rede') pendPorRef[(x.forma || '') + '|' + pz[1]] = x; });
@@ -4969,7 +4989,7 @@ function renderDiaConcartao(unidade, dia, trs, pix, cobr, forma, descs, onl) {
       const nDet = sub.length;
       return `<tr style="border-top:1px solid rgba(154,164,175,.18); ${nDet ? 'cursor:pointer;' : ''}" ${nDet ? `onclick="caixaToggleForma('${fid}')" title="clique para ${abertoDet ? 'recolher' : 'ver venda a venda'}"` : ''}>
         <td style="${tdF} text-align:left;"><span id="seta-${fid}" style="display:inline-block; width:12px; color:#9aa4af;">${nDet ? (abertoDet ? '▾' : '▸') : ''}</span><b>${l.forma}</b>${l.nS && l.forma !== 'Dinheiro' ? ` <span style="color:#6f6e64; font-size:11px;" title="pagamentos registrados no Saipos nesta forma">${l.nS}×</span>` : ''}</td>
-        <td style="${tdF}">${l.saipos >= 0.005 || l.nS ? reaisCc(l.saipos) : '<span style="color:#5f5e54;">—</span>'}</td>
+        <td style="${tdF}">${l.saipos >= 0.005 || l.nS ? reaisCc(l.saipos) : '<span style="color:#5a5850;">—</span>'}</td>
         <td style="${tdF}">${realTxt}</td>
         <td style="${tdF}">${difTxt}</td>
         <td style="${tdF} text-align:left; border-right:0; white-space:normal;">${resumo || (ok ? '' : leitura ? `<span style="color:${corDif};">${leitura}</span>` : '')}${resumo && leitura ? ` <span style="color:#8a897e;">· ${leitura}</span>` : ''}</td></tr>${sub.join('')}`;
@@ -4984,7 +5004,7 @@ function renderDiaConcartao(unidade, dia, trs, pix, cobr, forma, descs, onl) {
     const abertoLinha = t && t.fechado === false ? `<tr style="background:rgba(245,166,35,.05);"><td style="${tdS}" colspan="5"><span style="color:#f5a623; font-weight:700;">1º</span> <b>fechar este caixa no Saipos</b> — aberto desde ${hhmmTs(t.aberto_em)}; enquanto estiver aberto, vendas novas ainda entram aqui</td></tr>` : '';
     return `<div style="border:1px solid rgba(154,164,175,.25); border-radius:6px; padding:8px 10px; margin-top:12px;">
       <div style="display:flex; flex-wrap:wrap; align-items:center; gap:6px 16px; margin-bottom:6px; font-size:12px;">
-        <div style="font-size:13px; text-transform:uppercase; font-weight:700; background:#f2efe6; color:#111; padding:4px 12px; border-radius:4px;">${rot}</div>
+        <div style="font-size:13px; text-transform:uppercase; font-weight:700; background:#f2efe6; color:#111110; padding:4px 12px; border-radius:4px;">${rot}</div>
         ${estado ? `<span>${estado}</span>` : ''}
         <span>${nA ? `<b style="color:#f5a623;">1º ajustar no Saipos: ${nA}</b>` : '<span style="color:#7bc47f;">1º nada a ajustar no Saipos</span>'} · ${nC ? `<b style="color:#ff6b6b;">2º conferir: ${nC}</b>` : '<span style="color:#7bc47f;">2º nada a conferir</span>'}${nE ? ` · <span style="color:#9aa4af;">aguardando: ${nE}</span>` : ''}</span>
         <span style="margin-left:auto;">${carimboCx(cx)}</span>
@@ -5053,7 +5073,7 @@ function caixaModalExplicar(x, d) {
     const ddmm = v => String(v || '').split('-').reverse().slice(0, 2).join('/');
     const ov = document.createElement('div');
     ov.style.cssText = 'position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:9999; display:flex; align-items:center; justify-content:center; padding:16px;';
-    ov.innerHTML = `<div style="background:#1c1c1a; color:#e8e6dc; border:1px solid rgba(154,164,175,.35); border-radius:8px; max-width:640px; width:100%; padding:16px 18px; font-size:13px; max-height:92vh; overflow:auto;">
+    ov.innerHTML = `<div style="background:#1a1a19; color:#e8e6dc; border:1px solid rgba(154,164,175,.35); border-radius:8px; max-width:640px; width:100%; padding:16px 18px; font-size:13px; max-height:92vh; overflow:auto;">
       <div style="font-size:14px; font-weight:700; margin-bottom:4px;">Explicar a diferença</div>
       <div style="color:#a5a49a; font-size:12px; margin-bottom:10px;">${x.hora} · ${String(x.saipos || '').replace(/<[^>]+>/g, '')} × ${x.real} — <b style="color:#e8e6dc;">R$ ${fmt(Math.abs(x.valor))}</b></div>
       <div style="display:grid; gap:4px; margin-bottom:10px;">
@@ -5809,7 +5829,7 @@ async function concbFormEnsinar(d) {
     '<div style="margin-bottom:10px"><label style="display:block;font-size:11px;'
     + 'opacity:.8;margin-bottom:3px">' + rotulo + '</label>'
     + '<input id="' + id + '" placeholder="' + dica + '" style="width:100%;padding:6px 8px;'
-    + 'font-size:13px;border:1px solid #8a887e;border-radius:4px;background:transparent;'
+    + 'font-size:13px;border:1px solid #8a897e;border-radius:4px;background:transparent;'
     + 'color:inherit;box-sizing:border-box"></div>';
   // Lista fechada de proposito: digitar a categoria na mao foi o que trouxe esta
   // proposta — a Hellen digitou uma em 21/08, e categoria errada joga o
@@ -5825,7 +5845,7 @@ async function concbFormEnsinar(d) {
     '<div style="margin-bottom:10px"><label style="display:block;font-size:11px;'
     + 'opacity:.8;margin-bottom:3px">' + rotulo + '</label>'
     + '<select id="' + id + '" style="width:100%;padding:6px 8px;font-size:13px;'
-    + 'border:1px solid #8a887e;border-radius:4px;background:#1c1b19;color:inherit;'
+    + 'border:1px solid #8a897e;border-radius:4px;background:#1a1a19;color:inherit;'
     + 'box-sizing:border-box"><option value="">\u2014 escolha \u2014</option>'
     + itens.map(v => '<option>' + seguro(v) + '</option>').join('')
     + (aberta ? '<option value="__OUTRA__">n\u00e3o est\u00e1 na lista\u2026</option>' : '')
@@ -5845,8 +5865,8 @@ async function concbFormEnsinar(d) {
   cx.id = 'concbFormEnsinar';
   cx.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;'
     + 'display:flex;align-items:center;justify-content:center';
-  cx.innerHTML = '<div style="background:#1c1b19;color:#e8e6e1;padding:18px 20px;'
-    + 'border-radius:8px;max-width:460px;width:92%;border:1px solid #8a887e">'
+  cx.innerHTML = '<div style="background:#1a1a19;color:#e8e6dc;padding:18px 20px;'
+    + 'border-radius:8px;max-width:460px;width:92%;border:1px solid #8a897e">'
     + '<div style="font-weight:700;margin-bottom:4px">Ensinar esta linha</div>'
     + '<div style="font-size:12px;opacity:.8;margin-bottom:14px">No banco: <b>'
     + seguro(d.nome || d.memo || '') + '</b>'
@@ -5879,7 +5899,7 @@ async function concbFormEnsinar(d) {
     + '</div>'
     + '<div style="text-align:right;margin-top:14px">'
     + '<button id="ensCancela" style="font-size:12px;padding:5px 12px;margin-right:6px;'
-    + 'cursor:pointer;border:1px solid #8a887e;background:transparent;color:inherit;'
+    + 'cursor:pointer;border:1px solid #8a897e;background:transparent;color:inherit;'
     + 'border-radius:4px">cancelar</button>'
     + '<button id="ensSalva" style="font-size:12px;padding:5px 14px;cursor:pointer;'
     + 'border:1px solid #c8102e;background:transparent;color:#c8102e;border-radius:4px">'
@@ -6726,7 +6746,7 @@ function renderConcbanco() {
           + diasNavega.map(d =>
               '<button class="concb-dia" data-dia="' + d + '" style="font-size:11px;'
               + 'padding:2px 8px;margin-right:3px;cursor:pointer;border-radius:4px;'
-              + 'border:1px solid ' + (d === diaAlvo ? '#c8102e' : '#8a887e') + ';'
+              + 'border:1px solid ' + (d === diaAlvo ? '#c8102e' : '#8a897e') + ';'
               + 'background:transparent;color:' + (d === diaAlvo ? '#c8102e' : 'inherit')
               + '">' + ddmm(d) + '</button>').join('')
           + (diasNavega.length > 1
@@ -6737,17 +6757,17 @@ function renderConcbanco() {
       // isso e a rotina das 08:44. Serve para tirar da tela o que ja foi
       // conciliado e ver o que sobrou, sem recarregar a pagina inteira.
       '<button id="concbAtualizar" style="font-size:11px;padding:3px 10px;cursor:pointer;' +
-      'border:1px solid #8a887e;background:transparent;color:inherit;border-radius:4px;' +
+      'border:1px solid #8a897e;background:transparent;color:inherit;border-radius:4px;' +
       'font-weight:normal">atualizar</button>' +
       '<button id="concbRecado" style="font-size:11px;padding:3px 10px;cursor:pointer;' +
-      'border:1px solid #8a887e;background:transparent;color:inherit;border-radius:4px;' +
+      'border:1px solid #8a897e;background:transparent;color:inherit;border-radius:4px;' +
       'font-weight:normal">mandar uma regra</button>' +
       // Enviar o OFX pela tela. O painel nao grava em disco: ele manda o TEXTO do
       // arquivo para o banco e a rotina daqui o escreve na pasta do Drive, no
       // mesmo lugar em que ela salvaria a mao. Um so caminho de importacao.
       '<input type="file" id="concbArquivo" accept=".ofx" multiple style="display:none">' +
       '<button id="concbEnviarOfx" style="font-size:11px;padding:3px 10px;cursor:pointer;' +
-      'border:1px solid #8a887e;background:transparent;color:inherit;border-radius:4px;' +
+      'border:1px solid #8a897e;background:transparent;color:inherit;border-radius:4px;' +
       'font-weight:normal">enviar extrato (OFX)</button></div>' +
     bannerAviso +
     '<div class="contexto">' + resumo + '</div>' + blocoDuvidas +
@@ -7646,7 +7666,7 @@ function renderRateioPreco() {
     const resultado = contrib - fixos;
     const pl = P * plPct;
     const lucro = resultado - pl;
-    return `<table style="font-size:12.5px; background:#161615; margin:4px 0 8px 22px; max-width:440px;">
+    return `<table style="font-size:12.5px; background:#171716; margin:4px 0 8px 22px; max-width:440px;">
       <tbody>
         ${li(`Preço ${r.preco_atual != null ? 'de hoje' : 'alvo (sem venda no canal)'}`, P, true)}
         ${li('(−) ingrediente (ficha)', Number(r.custo_ficha))}
@@ -8199,7 +8219,7 @@ let PLANO_EDITANDO = null;      // item cujo texto esta aberto para ajuste
 const PLANO_ESTADOS = [
   ['andando', 'andando',      '#f6c63e'],
   ['feito',   'feito',        '#3fb950'],
-  ['na',      'não se aplica','#8a8a80'],
+  ['na',      'não se aplica','#8a897e'],
 ];
 
 async function entrarPlano() {
@@ -8462,7 +8482,7 @@ let TELAS_FILTRO = null;
 const TELAS_DESTINOS = [
   ['equipe',      'passa',       '#3fb950'],
   ['consultoria', 'consultoria', '#58a6ff'],
-  ['morre',       'morre',       '#8a8a80'],
+  ['morre',       'morre',       '#8a897e'],
   ['a definir',   'a definir',   ''],
 ];
 
@@ -8553,7 +8573,7 @@ function renderModuloTelas() {
       + 'style="' + (t.destino === v && cor ? 'color:' + cor + ';border-color:' + cor + ';' : '') + '" '
       + 'onclick="telasDestino(&#39;' + esc(t.chave) + '&#39;,&#39;' + v + '&#39;)">' + rot + '</button>').join('');
     const carimbo = t.atualizado_em
-      ? '<div style="font-size:10px;color:#6f6e68;margin-top:3px;">'
+      ? '<div style="font-size:10px;color:#6f6e64;margin-top:3px;">'
         + esc((t.atualizado_por || '').split('@')[0]) + ' · '
         + new Date(t.atualizado_em).toLocaleDateString('pt-BR') + '</div>'
       : '';
@@ -9850,7 +9870,7 @@ function renderModuloListasFin() {
         <td><b>R$ ${fmt(nu(r.total_devido))}</b></td></tr>
         <tr id="trFinFil_${ix}" hidden><td colspan="6" style="text-align:left; white-space:normal; padding:8px 14px;">
           ${doMes.length ? doMes.map(l => `
-            <div onclick="trFinVerLista(${l.id}); event.stopPropagation();" style="cursor:pointer; padding:5px 0; border-bottom:1px solid #2e2d2a;" title="clique para ver os itens">
+            <div onclick="trFinVerLista(${l.id}); event.stopPropagation();" style="cursor:pointer; padding:5px 0; border-bottom:1px solid #34332f;" title="clique para ver os itens">
               ▸ Lista <b>#${l.id}</b> · ${l.data_pedido ? l.data_pedido.slice(8,10)+'/'+l.data_pedido.slice(5,7) : '—'}
               · ${l.status} · ${l.itens} itens · <b>R$ ${fmt(nu(l.total_lista))}</b>
               ${nu(l.itens_divergentes) ? `<span class="tr-tag">· ${l.itens_divergentes} diferença(s)</span>` : ''}
@@ -10569,11 +10589,11 @@ async function trImprimirSeparacao(id) {
   w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Lista #${id} — ${lista.unidade || ''}</title><style>
     body { font-family:Arial, sans-serif; color:#000; margin:24px; }
     h1 { font-size:19px; margin:0 0 2px; }
-    .sub { font-size:12px; color:#444; margin-bottom:14px; }
+    .sub { font-size:12px; color:#45443f; margin-bottom:14px; }
     h2 { font-size:12px; text-transform:uppercase; border-bottom:1.5px solid #000; padding-bottom:2px; margin:16px 0 4px; }
     table { width:100%; border-collapse:collapse; }
     td, th { border-bottom:1px solid #bbb; padding:6px; font-size:13px; text-align:left; }
-    th { font-size:10.5px; text-transform:uppercase; color:#444; }
+    th { font-size:10.5px; text-transform:uppercase; color:#45443f; }
     .q { text-align:right; white-space:nowrap; }
     .risco { width:110px; }
     .risco span { display:inline-block; width:100%; border-bottom:1px solid #000; height:14px; }
@@ -10585,7 +10605,7 @@ async function trImprimirSeparacao(id) {
     <div class="sub">pedida em ${ddmm(lista.data_pedido)} · ${itens.length} itens · impressa em ${ddmm(trHoje())} · marque ☑ ao separar e anote a quantidade separada</div>
     ${Object.keys(porGrupo).sort().map(g => `<h2>${g}</h2><table>
       <tr><th class="cx"></th><th>Item</th><th>Un</th><th class="q">Solicitado</th><th class="risco">Separado</th></tr>
-      ${porGrupo[g].map(i => `<tr><td class="cx">☐</td><td>${i.item}${i.editado ? ' ✏️' : ''}${(window._trEmbMapaSep || {})[i.item] ? ` <span style="font-size:10.5px; color:#444;">(${window._trEmbMapaSep[i.item]})</span>` : ''}${i.observacao ? `<br><span style="font-size:10.5px; color:#444;">${i.observacao}</span>` : ''}</td><td>${i.un_medida || ''}</td>
+      ${porGrupo[g].map(i => `<tr><td class="cx">☐</td><td>${i.item}${i.editado ? ' ✏️' : ''}${(window._trEmbMapaSep || {})[i.item] ? ` <span style="font-size:10.5px; color:#45443f;">(${window._trEmbMapaSep[i.item]})</span>` : ''}${i.observacao ? `<br><span style="font-size:10.5px; color:#45443f;">${i.observacao}</span>` : ''}</td><td>${i.un_medida || ''}</td>
         <td class="q"><b>${Number(i.qtd_solicitada || 0)}</b></td><td class="risco"><span></span></td></tr>`).join('')}
     </table>`).join('')}
   </body></html>`);
@@ -12220,22 +12240,25 @@ function renderFechamento() {
   const p = fxPonte(mes);
   h += `<div class="fx-secao"><h3>4. E no caixa?</h3><span>o dinheiro de verdade nas contas e cofres do dia a dia</span></div>`;
   if (p) {
-    // 12/09/2026 (auditoria): este rotulo dizia "o resultado da secao 3" e mostrava
-    // OUTRO numero. Em ago/AV a secao 3 diz R$ 96,6 mil e a ponte, R$ 60,4 mil.
-    // Nao e erro de conta: a secao 3 passou a descontar o custo dos canais POR FATO
-    // (vw_canal_custo_mes, migracao de 12/09) e a ponte ainda parte das DEDUCOES
-    // LANCADAS (vw_fin_dre_beneficio). Enquanto a ponte nao migrar, o rotulo diz
-    // qual base e qual, em vez de apontar para uma secao que mostra outra coisa.
+    // 12/09/2026: este rotulo dizia "o resultado da secao 3" e mostrava OUTRO numero
+    // (ago/AV: 96,6 mil na secao 3 contra 60,4 mil aqui), porque a secao 3 migrou
+    // para o custo dos canais POR FATO e a ponte tinha ficado nas deducoes lancadas.
+    // A ponte foi migrada no mesmo dia (vw_fin_resultado_fato), entao os dois numeros
+    // voltaram a ser o mesmo. O guarda continua: se um dia divergirem de novo, a tela
+    // diz qual base e qual em vez de apontar para uma secao que mostra outra coisa.
     const difPonte = a.resultado - p.res;
-    const itens = [['Resultado pelas deduções lançadas', p.res, Math.abs(difPonte) > 500 ? 'base diferente da seção 3 — veja a nota abaixo' : ''], ['Contas de outros meses pagas no mês, ou do mês ainda por pagar', p.comp, 'negativo = o mês pagou mais do que gerou de conta'],
+    const bateSecao3 = Math.abs(difPonte) <= 500;
+    const itens = [[bateSecao3 ? 'Sobrou no papel (o resultado da seção 3)' : 'Resultado por outra base',
+      p.res, bateSecao3 ? '' : 'base diferente da seção 3 — veja a nota abaixo'], ['Contas de outros meses pagas no mês, ou do mês ainda por pagar', p.comp, 'negativo = o mês pagou mais do que gerou de conta'],
       ['Investimentos (obras, máquinas, tecnologia)', p.inv, 'vira patrimônio, não some'], ['Retiradas dos sócios', p.ret, ''], ['Dinheiro entre as lojas (lucro e bônus repassados, aportes)', p.apo, ''],
       ['Foi para a XP', p.xp, 'inclui o benefício do iFood enviado à XP'], ['Empréstimos', p.emp, ''], ['Rendimentos', p.rend, ''], ['Sem classificação', p.sem, 'lançamento sem conta — deveria ser zero']].filter(([, x]) => Math.abs(x) > 0.5);
     h += `<div class="fx-caixa"><div class="fx-rotulo">O caixa do dia a dia em ${fxMesLongo(mes)}</div><div class="fx-valor${p.v < 0 ? ' neg' : ''}">${p.v >= 0 ? 'cresceu' : 'encolheu'} ${fxMil(Math.abs(p.v))}</div><ul>${itens.map(([n, x, s2]) => `<li><span>${n}${s2 ? `<small>${s2}</small>` : ''}</span><b>${x >= 0 ? '+ ' : '− '}${fxMil(Math.abs(x))}</b></li>`).join('')}<li class="res"><span><b>= caixa do dia a dia</b><small>bancos e cofres; XP, Participações e cartões ficam de fora</small></span><b>${p.v >= 0 ? '+ ' : '− '}${fxMil(Math.abs(p.v))}</b></li></ul></div>`;
-    if (Math.abs(difPonte) > 500) h += `<div class="fx-nota"><b>Por que a primeira linha não é o número da seção 3.</b>
+    if (!bateSecao3) h += `<div class="fx-nota"><b>Por que a primeira linha não é o número da seção 3.</b>
       A seção 3 diz que sobraram <b>${fxMil(a.resultado)}</b> e esta conta começa em <b>${fxMil(p.res)}</b>.
-      São duas formas de descontar o que os canais cobraram: a seção 3 usa cada cobrança do iFood e da Rede pelo nome,
-      e esta ponte ainda usa as deduções lançadas no financeiro. A ponte fecha contra o movimento real das contas,
-      então o caixa do fim está certo; o que falta é ela passar para a mesma base da seção 3.</div>`;
+      As duas contas descontam o que os canais cobraram de formas diferentes. A ponte fecha contra o movimento
+      real das contas, então o caixa do fim está certo — mas as duas bases precisam voltar a ser a mesma.</div>`;
+    else h += `<div class="fx-nota">Esta conta parte do mesmo resultado da seção 3 e termina na variação real das
+      contas e cofres, sem sobra. Cada degrau é o que separa o que a operação gerou do dinheiro que de fato ficou.</div>`;
   } else h += '<div class="fx-nota">Sem ponte de caixa para esta loja neste mês (o caixa das filiais entrou no Saipos em 01/08).</div>';
   // As contas batem com o banco? (03/09/2026) — o mês só está fechado de verdade
   // se o saldo de cada conta no Saipos bate com o saldo declarado pelo banco no
@@ -13789,7 +13812,7 @@ function projListaContas() {
       const cor = r.situacao === 'VENCIDA' ? '#f85149' : (r.situacao === 'VENCE HOJE' ? '#e8b04b' : '#a5a49a');
       const rotulo = r.situacao === 'VENCIDA' ? `VENCIDA há ${r.dias_vencida} dia(s)`
                    : (r.situacao === 'VENCE HOJE' ? 'VENCE HOJE' : 'a vencer');
-      cabecalho = `<tr style="background:#1c1b19"><td colspan="4" style="border-left:3px solid ${cor}">
+      cabecalho = `<tr style="background:#1a1a19"><td colspan="4" style="border-left:3px solid ${cor}">
         <b style="color:${cor}">${ddmm(dataAtual)} — ${rotulo}</b>
         <span style="opacity:.7">· ${doDia.length} conta(s) · ${reais(somaDia)}</span></td></tr>`;
     }
@@ -14403,7 +14426,7 @@ function renderModuloDespesas() {
   <div class="section-label">O que saiu do padrão</div>
   <div class="contexto" style="text-align:left;">
     ${variacoes.map(([s, v, m, d]) => `
-      <div style="display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid #21262d;">
+      <div style="display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid #34332f;">
         <span><b>${s}</b> <span style="color:#7d8590;">R$ ${fmt(v)} (média R$ ${fmt(m)})</span></span>
         <span style="color:${d > 0 ? '#ff6b6b' : '#3fb950'};">${d > 0 ? '+' : '−'} R$ ${fmt(Math.abs(d))}</span>
       </div>`).join('')}
