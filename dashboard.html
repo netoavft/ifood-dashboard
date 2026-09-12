@@ -9643,7 +9643,13 @@ function renderLucroUni() {
   alvo.innerHTML = `
     <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">
       Lucro por unidade · ${mesTxt(fechados[0])} a ${mesTxt(fechados[fechados.length - 1])}</div>
-    <div class="contexto">Esta tela é o <b>dinheiro real lançado</b>: lucro contábil, caixa conta a conta e a ponte do lucro até o caixa (retiradas, investimentos, repasses entre as casas). A <b>Mini DRE por turno</b> é o modelo por canal, turno e dia (ficha + rateio) — quando os dois batem, o modelo está confiável; quando divergem, tem o que investigar.</div>
+    <div class="contexto">Esta tela é o <b>dinheiro real lançado</b>: a receita como entrou no financeiro, já líquida do que o iFood reteve, menos as despesas lançadas. Mais o caixa conta a conta e o que sai do lucro (retiradas, investimentos, repasses entre as casas).</div>
+    <div class="contexto" style="border-color:#f5a623;"><b>O número daqui não é o mesmo da DRE, e os dois estão certos.</b>
+      A <a href="javascript:void(0)" onclick="mostrarModulo('dre')" style="color:#a5a49a;">DRE</a> e o
+      <a href="javascript:void(0)" onclick="mostrarModulo('fechamento')" style="color:#a5a49a;">Fechamento do mês</a> partem da <b>venda bruta</b> e descontam cada
+      cobrança do iFood e da Rede pelo nome. Aqui a venda já chega descontada, porque é o valor que caiu na conta.
+      Em agosto na Água Verde isso dá R$ 156 mil aqui e R$ 97 mil lá. Use esta tela para comparar lojas entre si
+      e para ver quanto do lucro é benefício do iFood; use a DRE para a conta linha a linha.</div>
 
     <div class="hero" style="border-color:${pctBenef >= 30 ? '#e8b04b' : '#3fb950'};">
       <div class="hero-lbl">De cada real de lucro da rede, quanto veio do benefício do iFood</div>
@@ -10973,6 +10979,29 @@ async function entrarAtrasos() {
   renderModuloAtrasos();
 }
 
+// DE QUAIS LOJAS E ESTE NUMERO (12/09/2026, auditoria).
+// Ahu e Sao Braz sairam do Foody quando migraram de sistema de logistica —
+// ultima entrega em 29/08 e 26/08. As telas continuavam dizendo "Visao Minha
+// gestao" e mostrando so a Agua Verde: na semana de 31/08 a 06/09 as "1.381
+// entregas" eram 100% AV, enquanto Ahu e Sao Braz entregaram 494 pedidos do
+// iFood, invisiveis aqui. Agora a tela diz quais lojas o numero cobre.
+function foodyCobertura(rows) {
+  const esperadas = UNIDADES.filter(u => PERIMETRO === 'rede' || UNIDADES_PROPRIAS.has(u));
+  const comDado = new Set(rows.map(r => r.unidade));
+  const faltando = esperadas.filter(u => !comDado.has(u));
+  const presentes = esperadas.filter(u => comDado.has(u));
+  if (!faltando.length || !presentes.length) return '';
+  const UN = { 'AGUA VERDE': 'Água Verde', 'AHU': 'Ahú', 'SÃO BRAZ': 'São Braz', 'BOQUEIRAO': 'Boqueirão' };
+  const nome = u => UN[u] || u;
+  return `<div class="contexto" style="border-color:#ff6b6b;">
+    <b>Este número é só de ${presentes.map(nome).join(' e ')}.</b>
+    Sem entrega registrada no período: ${faltando.map(nome).join(', ')}.
+    ${faltando.includes('AHU') || faltando.includes('SÃO BRAZ')
+      ? 'Ahú e São Braz migraram para outro sistema de logística, que ainda não tem API — a última entrega delas no Foody foi em 29/08 e 26/08. Não é falha de importação, e não há o que consertar até o novo sistema abrir os dados.'
+      : 'Pode ser loja fechada no período ou fonte parada — confira em Sistema › Rotinas.'}
+  </div>`;
+}
+
 // Media simples DE PROPOSITO (pedido do dono, 13/08/2026): o publico e o
 // operador de delivery, que entende "media" e nao "mediana". O preco disso
 // (um caso absurdo puxa a media) foi avisado e aceito.
@@ -11075,6 +11104,7 @@ function renderModuloAtrasos() {
   alvo.innerHTML = `
   <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Atrasos e turnos — entregas próprias${ATRASOS_UNIDADE !== 'TODAS' ? ' · ' + ATRASOS_UNIDADE : ''}, ${ddmm(ATRASOS.ini)} a ${ddmm(ATRASOS.fim)}</div>
   ${chips}
+  ${foodyCobertura(ATRASOS.rows)}
   <div class="contexto" style="border-color:#f5a623;">Fonte: Foody Delivery (logística própria). ${PERIMETRO === 'rede' ? 'Visão Rede completa — <b>inclui Boqueirão, que é gestão separada</b> e tem tabela de corrida e fretes próprios.' : 'Visão Minha gestão — <b>Boqueirão (gestão separada) fica fora</b>; para vê-lo, troque para Rede completa lá em cima.'} O prazo usado aqui é <b>o horário prometido ao cliente no iFood</b>, não o prazo padrão de 60 min do Foody. E os tempos são apontados por pessoas — veja a caixa no fim da tela antes de tirar conclusão fina.</div>
 
   <div class="cards">
@@ -11336,6 +11366,7 @@ function renderModuloLogfin() {
   alvo.innerHTML = `
   <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Financeiro da logística — entregas próprias${LOGFIN_UNIDADE !== 'TODAS' ? ' · ' + LOGFIN_UNIDADE : ''}, ${ddmm(LOGFIN.ini)} a ${ddmm(LOGFIN.fim)}</div>
   ${chips}
+  ${foodyCobertura(LOGFIN.rows)}
   <div class="contexto" style="border-color:#f5a623;">Fonte: Foody Delivery (logística própria). ${PERIMETRO === 'rede' ? 'Visão Rede completa — <b>inclui Boqueirão, que é gestão separada</b>, com tabela de corrida mais cara (7,50/9,00) e fretes próprios no iFood (quase sem abate).' : 'Visão Minha gestão — <b>Boqueirão (gestão separada) fica fora</b> dos totais e do simulador; para vê-lo, troque para Rede completa lá em cima.'} A regra usada aqui é a combinada: o motoboy recebe <b>o maior entre as corridas e R$ ${LOGFIN_PISO_HORA} por hora</b>, turno a turno — a tarde parada entre almoço e jantar não conta como trabalhada. A hora é <b>estimada da primeira à última entrega do turno</b>, não é ponto batido; o complemento é a estimativa do painel para vigiar a conta, não substitui o acerto real.</div>
 
   <div class="cards">
@@ -12189,10 +12220,22 @@ function renderFechamento() {
   const p = fxPonte(mes);
   h += `<div class="fx-secao"><h3>4. E no caixa?</h3><span>o dinheiro de verdade nas contas e cofres do dia a dia</span></div>`;
   if (p) {
-    const itens = [['Sobrou no papel (o resultado da seção 3)', p.res, ''], ['Contas de outros meses pagas no mês, ou do mês ainda por pagar', p.comp, 'negativo = o mês pagou mais do que gerou de conta'],
+    // 12/09/2026 (auditoria): este rotulo dizia "o resultado da secao 3" e mostrava
+    // OUTRO numero. Em ago/AV a secao 3 diz R$ 96,6 mil e a ponte, R$ 60,4 mil.
+    // Nao e erro de conta: a secao 3 passou a descontar o custo dos canais POR FATO
+    // (vw_canal_custo_mes, migracao de 12/09) e a ponte ainda parte das DEDUCOES
+    // LANCADAS (vw_fin_dre_beneficio). Enquanto a ponte nao migrar, o rotulo diz
+    // qual base e qual, em vez de apontar para uma secao que mostra outra coisa.
+    const difPonte = a.resultado - p.res;
+    const itens = [['Resultado pelas deduções lançadas', p.res, Math.abs(difPonte) > 500 ? 'base diferente da seção 3 — veja a nota abaixo' : ''], ['Contas de outros meses pagas no mês, ou do mês ainda por pagar', p.comp, 'negativo = o mês pagou mais do que gerou de conta'],
       ['Investimentos (obras, máquinas, tecnologia)', p.inv, 'vira patrimônio, não some'], ['Retiradas dos sócios', p.ret, ''], ['Dinheiro entre as lojas (lucro e bônus repassados, aportes)', p.apo, ''],
       ['Foi para a XP', p.xp, 'inclui o benefício do iFood enviado à XP'], ['Empréstimos', p.emp, ''], ['Rendimentos', p.rend, ''], ['Sem classificação', p.sem, 'lançamento sem conta — deveria ser zero']].filter(([, x]) => Math.abs(x) > 0.5);
     h += `<div class="fx-caixa"><div class="fx-rotulo">O caixa do dia a dia em ${fxMesLongo(mes)}</div><div class="fx-valor${p.v < 0 ? ' neg' : ''}">${p.v >= 0 ? 'cresceu' : 'encolheu'} ${fxMil(Math.abs(p.v))}</div><ul>${itens.map(([n, x, s2]) => `<li><span>${n}${s2 ? `<small>${s2}</small>` : ''}</span><b>${x >= 0 ? '+ ' : '− '}${fxMil(Math.abs(x))}</b></li>`).join('')}<li class="res"><span><b>= caixa do dia a dia</b><small>bancos e cofres; XP, Participações e cartões ficam de fora</small></span><b>${p.v >= 0 ? '+ ' : '− '}${fxMil(Math.abs(p.v))}</b></li></ul></div>`;
+    if (Math.abs(difPonte) > 500) h += `<div class="fx-nota"><b>Por que a primeira linha não é o número da seção 3.</b>
+      A seção 3 diz que sobraram <b>${fxMil(a.resultado)}</b> e esta conta começa em <b>${fxMil(p.res)}</b>.
+      São duas formas de descontar o que os canais cobraram: a seção 3 usa cada cobrança do iFood e da Rede pelo nome,
+      e esta ponte ainda usa as deduções lançadas no financeiro. A ponte fecha contra o movimento real das contas,
+      então o caixa do fim está certo; o que falta é ela passar para a mesma base da seção 3.</div>`;
   } else h += '<div class="fx-nota">Sem ponte de caixa para esta loja neste mês (o caixa das filiais entrou no Saipos em 01/08).</div>';
   // As contas batem com o banco? (03/09/2026) — o mês só está fechado de verdade
   // se o saldo de cada conta no Saipos bate com o saldo declarado pelo banco no
@@ -12263,7 +12306,16 @@ async function entrarSemana() {
       consultarTudo(`vw_fin_contas_pagar?select=unidade,sentido,situacao,vencimento,credito,debito&ativa=eq.true&vencimento=lt.${fxSomaDias(segAtual, 14)}`),
       consultarTudo('vw_mes_cmv_parcial?select=*'),
     ]);
-    FX_S = { hoje, segAtual, vendas, itens, ifood, anuncios, funil, compras, listas, despesas, recebido, caixa, contas, parcial };
+    // Meta de mercadoria: DADO, nao constante. Ate 12/09/2026 esta tela tinha
+    // META_CMV = 35 escrito no codigo enquanto fin_metas_dre ja dizia 34,5 e
+    // fin_metas_dre_mes desce meio ponto por mes ate 32 em fev/27 (decisao do
+    // dono em 02/09). O farol da semana pintava com a regua velha.
+    const [metasGerais, metasMes] = await Promise.all([
+      consultarTudo('fin_metas_dre?select=chave,sentido,pct_meta'),
+      consultarTudo('fin_metas_dre_mes?select=chave,mes,pct_meta').catch(() => []),
+    ]);
+    FX_S = { hoje, segAtual, vendas, itens, ifood, anuncios, funil, compras, listas, despesas, recebido, caixa, contas, parcial,
+             metasGerais, metasMes: metasMes || [] };
     const fechadas = [...new Set(vendas.map(r => r.semana))].sort().filter(s => s < segAtual);
     FX_SEM_SEL = fechadas[fechadas.length - 1];
   }
@@ -12310,7 +12362,14 @@ function renderSemana() {
   const ra = 'vs semana anterior';
   const cmvPct = w => S[w].fat ? S[w].compras / S[w].fat * 100 : 0;
   const cmv4 = w => { const i = SEM.indexOf(w); const ws = SEM.slice(Math.max(0, i - 3), i + 1); const f = ws.reduce((s, x) => s + S[x].fat, 0), c = ws.reduce((s, x) => s + S[x].compras, 0); return f ? c / f * 100 : 0; };
-  const META_CMV = 35;
+  // A meta vale para o MES em que a semana escolhida termina; fin_metas_dre_mes
+  // sobrepoe a geral quando tem linha para aquele mes (descida do CMV).
+  const mesDaSemana = fxSomaDias(W, 6).slice(0, 8) + '01';
+  const metaMesRow = (FX_S.metasMes || []).filter(m => m.chave === 'CUSTO' && m.mes <= mesDaSemana)
+    .sort((a, b) => a.mes < b.mes ? -1 : 1).pop();
+  const metaGeralRow = (FX_S.metasGerais || []).find(m => m.chave === 'CUSTO');
+  const META_CMV = fxN(metaMesRow ? metaMesRow.pct_meta : (metaGeralRow ? metaGeralRow.pct_meta : 35));
+  const metaTxt = META_CMV.toLocaleString('pt-BR', { maximumFractionDigits: 1 });
   let h = seletorLojaFin();
   h += `<div class="fx-cab-topo"><div><div class="fx-rotulo">A semana · ${nomeLojaFin()}</div><h2 class="fx-h1">Semana de ${fxSemRot(W)}</h2>
     <div class="fx-sub">O que vendeu, o que o iFood custou, quanto foi de mercadoria, a margem que fechou — e o caixa desta semana.</div></div>
@@ -12339,7 +12398,7 @@ function renderSemana() {
   h += `<div class="fx-secao"><h3>3. Mercadoria (CMV de compras)</h3><span>notas de mercadoria emitidas na semana ÷ vendas da semana</span></div><div class="fx-tiles">`
     + fxTile('Mercadoria da semana', a.compras, j ? fxVar(a.compras, j.compras, ra) : '', `notas: insumos ${fxMil(a.compMP)} · uso e consumo ${fxMil(a.compUC)}${a.enviadas ? ` · − ${fxMil(a.enviadas)} mandados às filiais e Boqueirão` : ''}${a.recebidas ? ` · + ${fxMil(a.recebidas)} recebidos da Água Verde` : ''}`, fxSpark(SEM.map(w => S[w].compras), rots, fxMil))
     + fxTile('De cada R$ 100 vendidos, mercadoria levou', 'R$ ' + Math.round(p), pj !== null ? `semana anterior: R$ ${Math.round(pj)}` : '', 'compras oscilam de semana para semana — olhe a média ao lado', fxSpark(SEM.map(w => cmvPct(w)), rots, v => 'R$ ' + v.toFixed(0)))
-    + fxTile('Média das últimas 4 semanas', 'R$ ' + Math.round(p4), fxPill(fC) + ` · até R$ ${META_CMV}`, 'é este número que diz se a mercadoria está no lugar', fxSpark(SEM.map(w => cmv4(w)), rots, v => 'R$ ' + v.toFixed(0)))
+    + fxTile('Média das últimas 4 semanas', 'R$ ' + Math.round(p4), fxPill(fC) + ` · até R$ ${metaTxt}`, 'é este número que diz se a mercadoria está no lugar', fxSpark(SEM.map(w => cmv4(w)), rots, v => 'R$ ' + v.toFixed(0)))
     + (pv > 0.5 ? fxTile(`CMV parcial do mês (até ${fxDM(parcial[0].vendas_ate)})`, pc > 0 ? 'R$ ' + Math.round(pc / pv * 100) : '—', pc > 0 ? `compras ${fxMil(pc)} ÷ vendas ${fxMil(pv)}` : '', pc > 0 ? 'de cada R$ 100 vendidos no mês até agora; muda todo dia conforme as notas entram' : 'ainda sem nota de mercadoria lançada neste mês') : '')
     + '</div><div class="fx-nota">Mercadoria aqui é o que foi comprado (notas emitidas, lançadas no Saipos), não o que foi consumido — uma compra grande pesa na semana em que a nota entra; por isso a média de 4 semanas é a régua. A mercadoria mandada às filiais sai da Água Verde e entra na filial que recebeu. O CMV pela ficha técnica fica fora até ser auditado.</div>';
   // 4
@@ -12378,7 +12437,7 @@ function renderSemana() {
   h += `<div class="fx-secao"><h3>7. A semana em frases</h3><span>só o fato</span></div><div class="fx-frases">`;
   h += `<p>A semana vendeu <b>${fxMil(a.fat)}</b>${j ? ` — ${Math.abs((a.fat - j.fat) / j.fat * 100) < 0.5 ? 'o mesmo que a anterior' : `${a.fat > j.fat ? 'mais' : 'menos'} ${fxPct1(Math.abs((a.fat - j.fat) / j.fat * 100))} que a anterior`}` : ''}, em ${fxInt(a.ped)} pedidos de R$ ${a.ticket.toFixed(0)} em média.</p>`;
   h += `<p>O iFood ficou com <b>R$ ${Math.round(cemIf)}</b> de cada R$ 100 vendidos lá (${fxMil(a.custoIfood)}): ${fxMil(a.promoLoja)} de promoção paga por nós, ${fxMil(a.taxas)} de comissão e taxas, ${fxMil(a.anuncios)} de anúncios.</p>`;
-  h += `<p>Mercadoria levou <b>R$ ${Math.round(p)}</b> de cada R$ 100 nesta semana; na média de 4 semanas, <b>R$ ${Math.round(p4)}</b> — ${p4 <= META_CMV ? 'dentro' : p4 <= META_CMV * 1.1 ? 'no limite' : 'acima'} da meta de R$ ${META_CMV}.</p>`;
+  h += `<p>Mercadoria levou <b>R$ ${Math.round(p)}</b> de cada R$ 100 nesta semana; na média de 4 semanas, <b>R$ ${Math.round(p4)}</b> — ${p4 <= META_CMV ? 'dentro' : p4 <= META_CMV * 1.1 ? 'no limite' : 'acima'} da meta de R$ ${metaTxt} para ${fxMesLongo(mesDaSemana)}.</p>`;
   h += `<p>Fechou <b>${fxMil(a.margem)}</b> de margem (R$ ${Math.round(cemM)} de cada 100)${j ? ` — ${fxVar(a.margem, j.margem, ra)}` : ''}.</p>`;
   h += `<p>Caixa desta semana: ${cxs.map(c => `${LOJAS_FIN.find(l => l[0] === c.u)[1]} ${c.sobra >= 0 ? 'deve sobrar' : 'deve faltar'} <b>${fxMil(Math.abs(c.sobra))}</b>`).join('; ')}.</p></div>`;
   h += `<div class="fx-rodape">Vendas, pedidos e itens: caixa das lojas (Saipos), semanas de segunda a domingo. Custo iFood: export de pedidos do iFood (promoções pagas pela loja, comissões e taxas) + anúncios do extrato oficial. Mercadoria: notas lançadas no Saipos pela data de emissão. Caixa: saldos do banco de hoje e contas a pagar/receber lançadas no Saipos. O Boqueirão fica fora; a mercadoria do atacado ainda está dentro das compras da Água Verde.</div>`;
@@ -14229,11 +14288,17 @@ function renderModuloDespesas() {
     return;
   }
   const meses = [...new Set(DESP_DET.map(r => r.mes))].sort();
-  // abre no mes corrente (nao no ultimo da base, que so tem contas a pagar futuras)
+  const mesCorrente = new Date().toISOString().slice(0, 8) + '01';
+  // 12/09/2026 (auditoria): abria no MES CORRENTE e comparava com a media dos
+  // meses cheios. No dia 12, "Carnes R$ 34 mil contra media de R$ 146 mil" lia
+  // como economia de R$ 112 mil e era so mes pela metade. Agora abre no ultimo
+  // mes FECHADO; o corrente continua no seletor, com aviso de que esta em curso.
   if (despMes === null) {
-    const atual = new Date().toISOString().slice(0, 8) + '01';
-    despMes = meses.includes(atual) ? atual : meses[meses.length - 1];
+    const fechados = meses.filter(m => m < mesCorrente);
+    despMes = fechados.length ? fechados[fechados.length - 1]
+            : (meses.includes(mesCorrente) ? mesCorrente : meses[meses.length - 1]);
   }
+  const mesEmCurso = despMes === mesCorrente;
   const rotuloMes = (m) => { const [a, mm] = m.split('-'); return `${MESES_ABREV[Number(mm) - 1]}/${a.slice(2)}`; };
 
   // periodo selecionado x base de comparacao (meses anteriores a ele)
@@ -14317,9 +14382,12 @@ function renderModuloDespesas() {
     Cada linha compara com a <b>média dos meses anteriores</b> — vermelho = gastou mais que o normal.
   </div>
   <div class="periodo-presets" style="margin-top:10px;">
-    ${meses.map(m => `<button class="preset-btn ${despMes === m ? 'active' : ''}" onclick="despMesSet('${m}')">${rotuloMes(m)}</button>`).join('')}
+    ${meses.map(m => `<button class="preset-btn ${despMes === m ? 'active' : ''}" onclick="despMesSet('${m}')">${rotuloMes(m)}${m === mesCorrente ? ' ·' : ''}</button>`).join('')}
     <button class="preset-btn ${despMes === 'ano' ? 'active' : ''}" onclick="despMesSet('ano')">Ano todo</button>
   </div>
+  ${mesEmCurso ? `<div class="contexto" style="border-color:#f5a623;"><b>${rotuloMes(despMes)} está em curso.</b>
+    A comparação com a média é de mês inteiro contra mês pela metade — toda categoria vai aparecer como "gastou menos".
+    Para ler economia de verdade, escolha o último mês fechado.</div>` : ''}
   <div class="cards">
     <div class="card blue"><div class="card-lbl">Total ${despMes === 'ano' ? 'no ano' : 'em ' + rotuloMes(despMes)}</div>
       <div class="card-val">R$ ${fmt(totalPeriodo)}</div>
