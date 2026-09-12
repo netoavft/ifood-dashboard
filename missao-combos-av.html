@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Missão Combos · Burger AV</title>
+<meta name="robots" content="noindex">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body style="margin:0">
+<meta charset="utf-8">
+<title>Missão Combos · Burger AV</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<style>
+:root{
+  --bg:#f6f1e8; --surface:#fffdf8; --surface2:#f0e9db; --ink:#2b2118; --ink2:#5c5245;
+  --muted:#8a7c6b; --line:#e3d8c6; --accent:#c8102e; --accent-soft:#fbe9ec;
+  --good:#1c7c44; --good-soft:#e3f2e8; --warn:#a3630b; --warn-soft:#f8eeda;
+  --bad:#b3261e; --bad-soft:#f9e7e5; --chip:#efe6d6;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#211b13; --surface:#2b241a; --surface2:#352c20; --ink:#f1e9dc; --ink2:#cfc3b0;
+    --muted:#a2937e; --line:#443a2b; --accent:#f0596f; --accent-soft:#48222a;
+    --good:#59c98a; --good-soft:#22382c; --warn:#e0a33e; --warn-soft:#3d311f;
+    --bad:#ef6b61; --bad-soft:#42241f; --chip:#3a3123;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#211b13; --surface:#2b241a; --surface2:#352c20; --ink:#f1e9dc; --ink2:#cfc3b0;
+  --muted:#a2937e; --line:#443a2b; --accent:#f0596f; --accent-soft:#48222a;
+  --good:#59c98a; --good-soft:#22382c; --warn:#e0a33e; --warn-soft:#3d311f;
+  --bad:#ef6b61; --bad-soft:#42241f; --chip:#3a3123;
+}
+*{box-sizing:border-box}
+body{background:var(--bg); color:var(--ink); margin:0;
+  font-family:'Instrument Sans',system-ui,sans-serif; font-size:16px; line-height:1.55; padding-bottom:48px;}
+.wrap{max-width:1000px; margin:0 auto; padding:0 20px;}
+h1,h2,h3{font-family:'Archivo',system-ui,sans-serif; line-height:1.15; text-wrap:balance; margin:0;}
+h1{font-size:clamp(28px,5vw,40px); font-weight:800;}
+h2{font-size:clamp(19px,3vw,25px); font-weight:700; margin-bottom:4px;}
+h3{font-size:16px; font-weight:700; margin:14px 0 4px;}
+p{margin:.5em 0; max-width:78ch;}
+.eyebrow{font-size:12px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:var(--accent); margin-bottom:8px;}
+header.hero{padding:40px 0 6px;}
+.sub{color:var(--ink2); margin-top:10px; max-width:78ch;}
+.tiles{display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; margin:22px 0 6px;}
+.tile{background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:13px 16px;}
+.tile .v{font-family:'Archivo'; font-weight:800; font-size:22px; font-variant-numeric:tabular-nums;}
+.tile .l{font-size:12.5px; color:var(--muted); margin-top:2px;}
+section{margin:36px 0;}
+.secnum{display:inline-block; background:var(--accent); color:#fff; font-family:'Archivo'; font-weight:700;
+  font-size:13px; border-radius:6px; padding:2px 9px; margin-bottom:8px;}
+:root[data-theme="dark"] .secnum{color:#211b13;}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .secnum{color:#211b13;} }
+.box{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:15px 18px; margin:14px 0;}
+.box.note{background:var(--surface2); border-style:dashed;}
+.small{font-size:13.5px; color:var(--ink2);}
+.tablewrap{overflow-x:auto; margin:12px 0; border:1px solid var(--line); border-radius:10px; background:var(--surface);}
+table{border-collapse:collapse; width:100%; min-width:620px; font-size:14px;}
+th{font-size:11.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted);
+  text-align:left; padding:9px 12px; border-bottom:1px solid var(--line); font-weight:600;}
+td{padding:8px 12px; border-bottom:1px solid var(--line); vertical-align:top;}
+tr:last-child td{border-bottom:none;}
+td.num,th.num{text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap;}
+.chip{display:inline-block; background:var(--chip); border-radius:20px; padding:1px 10px; font-size:12px; font-weight:600; white-space:nowrap;}
+.chip.good{background:var(--good-soft); color:var(--good);}
+.chip.warn{background:var(--warn-soft); color:var(--warn);}
+.chip.bad{background:var(--bad-soft); color:var(--bad);}
+ul.lst{padding-left:20px; margin:.4em 0;} ul.lst li{margin:6px 0; max-width:78ch;}
+@media (prefers-reduced-motion: reduce){ *{transition:none !important;} }
+</style>
+
+<div class="wrap">
+<header class="hero">
+  <div class="eyebrow">Engenharia de cardápio · Burger AV · combos &amp; seleção · 12/09/2026</div>
+  <h1>Missão Combos — o motor da loja, medido</h1>
+  <p class="sub">Vendas de 60 dias (até 09/09), fichas reais, pares que saem no mesmo pedido e o rastro
+  do Código PDV. A descoberta que muda a conversa: <strong>os combos e containers já são 36% da receita
+  da loja</strong> — e quase todos com margem verde. O trabalho aqui é de lapidação: 2 preços a
+  consertar, 1 container morto, 3 combos novos de itens FIXOS (que resolvem o problema do PDV), uma
+  cauda de ~10 posições e upsells parados nos complementos.</p>
+  <div class="tiles">
+    <div class="tile"><div class="v">36%</div><div class="l">da receita já vem de combos + containers (R$ 233 mil/60d)</div></div>
+    <div class="tile"><div class="v">61%</div><div class="l">MC dos 2 combos-carro-chefe — verde, sem mexer</div></div>
+    <div class="tile"><div class="v">R$ 1,6 mil/mês</div><div class="l">de vendas caindo SEM amarração PDV (escolhas dos combos)</div></div>
+    <div class="tile"><div class="v">3 combos</div><div class="l">novos propostos, todos de itens fixos (PDV limpo)</div></div>
+  </div>
+</header>
+
+<section>
+  <div class="secnum">1</div>
+  <h2>Os combos de hoje — margem real (ficha + componentes)</h2>
+  <div class="tablewrap"><table>
+    <tr><th>Combo</th><th class="num">Vendas 60d</th><th class="num">Preço médio</th><th class="num">MC%</th><th class="num">MC/mês</th><th>Veredicto</th></tr>
+    <tr><td>Combo Burger Clássico + batata + bebida</td><td class="num">486</td><td class="num">48,75</td><td class="num">61,2%</td><td class="num">R$ 7.252</td><td><span class="chip good">manter</span></td></tr>
+    <tr><td>Combo Burger Especial + batata + bebida</td><td class="num">390</td><td class="num">54,31</td><td class="num">60,7%</td><td class="num">R$ 6.428</td><td><span class="chip good">manter</span></td></tr>
+    <tr><td>Combo Marmita + bebida</td><td class="num">171</td><td class="num">41,08</td><td class="num">63,6%</td><td class="num">R$ 2.234</td><td><span class="chip good">manter</span></td></tr>
+    <tr><td>Combo Marmita + brownie + bebida</td><td class="num">94</td><td class="num">48,32</td><td class="num">54,7%</td><td class="num">R$ 1.241</td><td><span class="chip warn">reprecificar</span> o brownie subiu p/ 15,99 e o combo ficou parado: 44,99 → <strong>46,99</strong></td></tr>
+    <tr><td>Combo Costelinha grande + arroz + batata</td><td class="num">36</td><td class="num">133,43</td><td class="num">47,5%</td><td class="num">R$ 1.141</td><td><span class="chip bad">reprecificar</span> âncora premium: subir p/ <strong>139,99</strong> (riscado 149,99). Em % nunca chega a 57 — julgar pelo R$/venda, que vai de ~63 p/ ~68</td></tr>
+    <tr><td>Combo 1/2 Costelinha + arroz + batata</td><td class="num">15</td><td class="num">87,99</td><td class="num">51,3%</td><td class="num">R$ 339</td><td><span class="chip warn">92,99</span> mesmo raciocínio (R$/venda ~44 → ~48)</td></tr>
+    <tr><td>Burger Kids + acompanhamento + bebida</td><td class="num">33</td><td class="num">44,59</td><td class="num">69,7%</td><td class="num">R$ 513</td><td><span class="chip good">manter</span> — a joia do estudo continua joia</td></tr>
+  </table></div>
+  <p class="small">Regra que sai daqui: <strong>combo âncora acima de R$ 100 se julga pelo R$ de sobra
+  por venda, não pela régua de 57%</strong> (o custo do insumo premium não deixa a % chegar lá — e R$ 60+
+  por venda é ótimo negócio).</p>
+</section>
+
+<section>
+  <div class="secnum">2</div>
+  <h2>Seleção Cidadão do Mundo — veredicto: é a espinha da loja</h2>
+  <div class="tablewrap"><table>
+    <tr><th>Container</th><th class="num">Vendas 60d</th><th class="num">Tíquete médio</th><th class="num">Receita 60d</th><th>Veredicto</th></tr>
+    <tr><td>2 Burgers com desconto (47,99)</td><td class="num">2.168</td><td class="num">60,06</td><td class="num">R$ 132 mil</td><td><span class="chip good">O MAIOR ITEM DA LOJA</span> 20% da receita; no Hits R$ 8</td></tr>
+    <tr><td>2 Marmitas com desconto (49,99)</td><td class="num">750</td><td class="num">56,77</td><td class="num">R$ 43 mil</td><td><span class="chip good">manter</span></td></tr>
+    <tr><td>Escolha seu burger clássico (39,99)</td><td class="num">557</td><td class="num">47,15</td><td class="num">R$ 28 mil</td><td><span class="chip good">manter</span> (posição do Hits)</td></tr>
+    <tr><td>Caldos imperdíveis (25,99)</td><td class="num">249</td><td class="num">32,58</td><td class="num">R$ 8,5 mil</td><td><span class="chip good">manter</span> — e sazonal forte</td></tr>
+    <tr><td>Lanches especiais (34,99)</td><td class="num">165</td><td class="num">44,25</td><td class="num">R$ 7,5 mil</td><td><span class="chip good">manter</span></td></tr>
+    <tr><td>Pratos executivos (42,99)</td><td class="num">141</td><td class="num">43,65</td><td class="num">R$ 6,4 mil</td><td><span class="chip good">manter</span> (Hits R$ 10)</td></tr>
+    <tr><td>Porções p/ compartilhar (29,99)</td><td class="num">95</td><td class="num">40,63</td><td class="num">R$ 3,9 mil</td><td><span class="chip good">manter</span></td></tr>
+    <tr><td>Seleção vegana (31,99)</td><td class="num">72</td><td class="num">44,01</td><td class="num">R$ 3,3 mil</td><td><span class="chip good">manter</span></td></tr>
+    <tr><td>Almoço Especial (64,99)</td><td class="num">5</td><td class="num">100,79</td><td class="num">R$ 504</td><td><span class="chip bad">MATAR</span> — 5 vendas em 60 dias; T-Bone e Alcatra já têm categoria própria</td></tr>
+  </table></div>
+  <p class="small">O tíquete médio ACIMA do preço-base em todos mostra que os acréscimos das perguntas
+  funcionam (2 Burgers: base 47,99, tíquete 60,06 — R$ 12 de upsell por venda!). Melhoria de forma, não
+  de fundo: os títulos das perguntas internas já foram limpos na revisão fina; a única ação aqui é
+  <strong>excluir o "Almoço Especial"</strong>.</p>
+</section>
+
+<section>
+  <div class="secnum">3</div>
+  <h2>Combos novos — nascidos dos pares que já saem juntos, com ITENS FIXOS</h2>
+  <div class="box note"><p class="small"><strong>Por que fixos:</strong> combo com escolha gera venda-
+  componente sem Código PDV (a dor que você apontou — medida na seção 4). Combo de itens fixos = 1 produto,
+  1 PDV, margem rastreável. E os pares abaixo não são chute: são contagem de pedidos reais de 60 dias.</p></div>
+
+  <div class="tablewrap"><table>
+    <tr><th>Proposta</th><th>Base (par real)</th><th class="num">Separado</th><th class="num">Preço combo</th><th class="num">Sobra/venda</th><th class="num">MC%</th></tr>
+    <tr><td><strong>Combo Compartilha</strong><br><span class="small">2x Burgers Clássicos + London + Guaraná 2L</span></td><td>2 Burgers + London = <strong>75 pedidos</strong>/60d; 2 Burgers + 2L = 20</td><td class="num">97,97</td><td class="num"><strong>84,99</strong><br><s>97,99</s></td><td class="num">R$ 45,42</td><td class="num">53,4% <span class="chip warn">R$ alto</span></td></tr>
+    <tr><td><strong>Combo Família FDS</strong><br><span class="small">2x Burgers Clássicos + Kentucky + Pepsi 2L</span><br><span class="small">(ligar só sex–dom se quiser o apelo de fim de semana)</span></td><td>2 Burgers + Kentucky = <strong>15 pedidos</strong>; 2 Burgers + Pepsi 2L = 15</td><td class="num">103,97</td><td class="num"><strong>92,99</strong><br><s>103,99</s></td><td class="num">R$ 48,60</td><td class="num">52,3% <span class="chip warn">R$ alto</span></td></tr>
+    <tr><td><strong>Casadinho Ayrton</strong><br><span class="small">Ayrton Senna + London + lata</span></td><td>Ayrton + London = <strong>48 pedidos</strong>/60d</td><td class="num">75,38</td><td class="num"><strong>64,99</strong><br><s>75,99</s></td><td class="num">R$ 39,14</td><td class="num">60,2% <span class="chip good">verde</span></td></tr>
+  </table></div>
+  <p class="small">Sobras calculadas com ficha real (2 burgers ~12,80 · London 3,66 · Kentucky ~7 ·
+  2L ~5,50 · lata ~2,50) e 20,54% de embalagem+taxas. Os dois grandes ficam âmbar em % mas entregam
+  R$ 45–49 por venda — mesma regra das âncoras. Criação: produto combo com componentes fixos, foto real,
+  <strong>Código PDV próprio cadastrado no Saipos ANTES</strong> (nasce amarrado). Ficam FORA de campanha.</p>
+</section>
+
+<section>
+  <div class="secnum">4</div>
+  <h2>O problema do PDV nos combos — medido e com dois consertos</h2>
+  <div class="box">
+    <p><strong>Tamanho real: R$ 3.286 em 60 dias (≈ R$ 1,6 mil/mês), em 379 linhas de venda</strong> que
+    caem no Saipos com o nome de exibição do iFood, sem código — são as ESCOLHAS de dentro dos combos e
+    containers (Silvio a 9,61 de acréscimo, Jesse a 10,91, brownie a 5,05...). Não é dinheiro perdido:
+    é <strong>margem cega</strong> — essas vendas não amarram na ficha e sujam qualquer análise por produto.</p>
+    <ul class="lst">
+      <li><strong>Conserto imediato (meu, na nossa base):</strong> criar os ~30 de/paras desses nomes
+      (nome do iFood → produto Saipos) — a base é a fonte da verdade e tem a estrutura pronta para isso.
+      Te trago a lista para bater o martelo e aplico; a cegueira analítica acaba nesta semana.</li>
+      <li><strong>Conserto estrutural (gradual):</strong> combos novos sempre de itens fixos (seção 3);
+      nos existentes, avaliar caso a caso se a personalização paga o custo — os dois carro-chefe pagam
+      (R$ 12 de upsell por venda), então ficam como estão, com o de/para cobrindo o rastro.</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <div class="secnum">5</div>
+  <h2>Cauda — o que pode sair para enxugar (125 → ~114 posições)</h2>
+  <div class="tablewrap"><table>
+    <tr><th>Item</th><th class="num">Vendas 60d</th><th>Proposta</th></tr>
+    <tr><td>Almoço Especial (container da Seleção)</td><td class="num">5</td><td><span class="chip bad">excluir</span></td></tr>
+    <tr><td>Chopp — 6 sabores × 2 tamanhos = 12 posições</td><td class="num">~40 no total</td><td><span class="chip warn">cortar para 3 sabores × 2</span> (Pilsen, Brahma + 1 especial que gire; −6 posições). Growler é logística cara para 0,7 venda/dia</td></tr>
+    <tr><td>Pedro Pedreiro (Bife grelhado)</td><td class="num">9</td><td><span class="chip warn">avaliar excluir</span> — o Silvio (bife) cobre o papel; ficam as versões frango</td></tr>
+    <tr><td>1/2 peça costelinha (peça avulsa)</td><td class="num">7</td><td><span class="chip warn">avaliar excluir</span> — manter peça inteira + os 2 combos</td></tr>
+    <tr><td>Prato kids + bebida</td><td class="num">6</td><td><span class="chip good">manter e esperar</span> — reposicionado há pouco; reavaliar em 4 semanas</td></tr>
+    <tr><td>Quentão (2 posições)</td><td class="num">—</td><td><span class="chip good">manter</span> — sazonal, sai sozinho no fim do inverno junto com os caldos</td></tr>
+  </table></div>
+</section>
+
+<section>
+  <div class="secnum">6</div>
+  <h2>Complementos — cadastro e o que dá para vender a mais</h2>
+  <ul class="lst">
+    <li><strong>Preços defasados dentro dos grupos (corrigir já — vaza margem):</strong> no "Vai encerrar
+    sem final feliz?" o Brownie está a <code>11,99</code> (item subiu p/ 15,99) e no grupo vegano o
+    Brownie Vegano idem (→ 14,99). Cada sobremesa vendida pelo grupo sai R$ 3–4 abaixo do cardápio.</li>
+    <li><strong>2 litros no grupo de bebidas:</strong> o "Vai comer no seco?" só tem lata e água — adicionar
+    os três 2L a 19,99. É o upsell de família que os pares já mostram (2L aparece 35× junto com o 2 Burgers).</li>
+    <li><strong>Kit sachê desigual:</strong> R$ 4 no grupo normal, R$ 2 no vegano — igualar em 4.</li>
+    <li><strong>Upsell de maior margem no "turbinar":</strong> conferir se os grupos de lanche têm
+    "dobro de burger" e "bacon extra" — são os dois campeões clássicos de margem; se não tiverem, criar
+    (ficha simples: blend 160g / bacon 30g, eu calculo o preço na hora).</li>
+    <li>O resto do cadastro passou na revisão de ontem: nomes limpos, min/max coerentes, e a ordem-funil
+    entra com o U4/reordenação quando você quiser.</li>
+  </ul>
+</section>
+
+<section>
+  <div class="secnum">✓</div>
+  <h2>Resumo executivo — em ordem de dinheiro</h2>
+  <ul class="lst">
+    <li>1. Corrigir os 2 preços de sobremesa DENTRO dos grupos (minutos, estanca vazamento em toda venda).</li>
+    <li>2. Reprecificar: Marmita+brownie 46,99 · Costelinha grande 139,99 · 1/2 costelinha 92,99.</li>
+    <li>3. Adicionar os 2L no grupo de bebidas.</li>
+    <li>4. Me dar o OK dos de/paras do PDV (eu aplico na base — fim da margem cega de R$ 1,6 mil/mês).</li>
+    <li>5. Criar o <strong>Casadinho Ayrton 64,99</strong> (verde, simples) e, se topar os âmbar-de-R$-alto,
+    o Compartilha 84,99 e o Família FDS 92,99.</li>
+    <li>6. Excluir Almoço Especial + enxugar chopps; decidir Pedro-bife e meia-peça.</li>
+  </ul>
+</section>
+</div>
+
+</body>
+</html>
