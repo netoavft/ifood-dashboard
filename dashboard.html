@@ -1369,6 +1369,13 @@ async function carregar() {
   // MESMA fonte do placar — card e placar nunca podem discordar.
   METAS_KPI = await consultarTudo('metas_kpi?select=chave,nome,bloco,sentido,meta,meta2,unidade,descricao,ordem&ativo=eq.true&order=ordem');
 
+  // Verba DIARIA de promocao por loja (12/09/2026): dado, nao constante. Tabela
+  // pequena, carregada no boot para nao depender da ordem de entrada nos modulos.
+  try {
+    const vb = await consultarTudo('vw_verbas_promo?select=nome_loja,verba_total');
+    VERBAS_PROMO = {}; vb.forEach(r => { VERBAS_PROMO[r.nome_loja] = Number(r.verba_total); });
+  } catch (e) { VERBAS_PROMO = null; }   // cai na constante antiga
+
   // Cancelamentos (totais e parciais) classificados por categoria de motivo. Tem as mesmas
   // dimensoes de ROWS, entao respeita todos os filtros normalmente.
   // Promocoes: vem por PERIODO (o relatorio do iFood aceita mes ou recorte de dias).
@@ -2810,6 +2817,17 @@ function blocoMecanicas() {
 // Frete grátis até R$9,99 em todas as lojas, anúncios desligados.
 // Verbas SEMANAIS configuradas no portal (fonte de verdade: tabela verbas_promo).
 // Acompanhamento diário via incentivos por pedido (quem bancou: loja/rede vs iFood).
+// VERBA DO TESTE DE PROMOCOES — decisao do dono em 12/09/2026: a verba do portal
+// e DIARIA, nao semanal. O painel dividia por 7 e mostrava 911,7% no Burger Agua
+// Verde. Medido no dia, gasto por dia contra a verba cadastrada: Burger AV 107%,
+// Ahu 99%, Sao Braz 93% — nenhuma das 13 lojas passa de 107%. Lido como semanal,
+// 11 das 13 estouram e uma chega a 751%. Bate com o corte que o dono fez em 13/08
+// ("verba do Hits do Sao Braz por dia para 100,00").
+//
+// A lista abaixo era uma CONSTANTE duplicando a tabela verbas_promo. Agora o valor
+// vem do banco (vw_verbas_promo, carregada no boot) e a constante ficou so como
+// ultimo recurso, para o painel nao mostrar traco se a view falhar.
+let VERBAS_PROMO = null;   // nome_loja -> verba diaria total (hits + campanha inteligente)
 const VERBAS_TESTE = [
   ['A Famosa Marmita', 300], ['Baixa Gastronomia', 300], ['Burger - Água Verde', 1000],
   ['Burger - Ahú', 200], ['Burger - São Braz', 200], ['Comida Brasileira - Ahú', 200],
@@ -2817,7 +2835,11 @@ const VERBAS_TESTE = [
   ['Vegan Burger Agua Verde', 200], ['Vegan - São Braz', 200], ['Ufo Burger', 200],
   ['Veganete - Agua Verde', 200],
 ];
-const verbaDaLoja = (nome) => { const v = VERBAS_TESTE.find(([t]) => nome.includes(t)); return v ? v[1] : null; };
+const verbaDaLoja = (nome) => {
+  if (VERBAS_PROMO && VERBAS_PROMO[nome] !== undefined) return VERBAS_PROMO[nome];
+  const v = VERBAS_TESTE.find(([t]) => nome.includes(t));
+  return v ? v[1] : null;
+};
 
 // Agrega investimento promocional por loja no intervalo: nosso (loja+rede) x iFood.
 function promoTesteResumo(ini, fim) {
@@ -2850,7 +2872,9 @@ function blocoTestePromos() {
   const linhas = atual.lojas.map(o => {
     const nome = LOJAS[o.loja];
     const verba = verbaDaLoja(nome);
-    const verbaPeriodo = (dentroDoTeste && verba !== null) ? verba * dias / 7 : null;
+    // verba DIARIA x dias do periodo (era `* dias / 7`, lendo como semanal — ver a
+    // nota em VERBAS_PROMO. Decisao do dono em 12/09/2026).
+    const verbaPeriodo = (dentroDoTeste && verba !== null) ? verba * dias : null;
     const usoPct = verbaPeriodo ? o.nosso / verbaPeriodo * 100 : null;
     const prev = antR && antR.lojas.find(x => x.loja === o.loja);
     return `<tr>
@@ -2879,14 +2903,15 @@ function blocoTestePromos() {
   </div>
   <div id="tabelaTestePromo">
     <table>
-      <tr><th>Loja</th><th>Pedidos</th><th>Nós (R$)</th><th>iFood (R$)</th><th>Alavanc.</th><th>Nosso R$/pedido</th><th>% da verba semanal</th><th>Nosso invest. vs anterior</th></tr>
+      <tr><th>Loja</th><th>Pedidos</th><th>Nós (R$)</th><th>iFood (R$)</th><th>Alavanc.</th><th>Nosso R$/pedido</th><th>% da verba do dia</th><th>Nosso invest. vs anterior</th></tr>
       ${linhas}
     </table>
   </div>
   <div class="caption-label" style="text-align:center;">
-    "% da verba semanal" compara o que gastamos com o teto configurado no portal (Hits + Campanha Inteligente,
-    proporcional aos dias do período) e só é calculado para períodos a partir de <b>10/08/2026</b>, quando as verbas
-    do teste entraram em vigor. Acima de 100% em vermelho = verba estourou. Lojas do Boqueirão não têm verba cadastrada (coluna —).
+    "% da verba do dia" compara o que gastamos com o teto <b>diário</b> configurado no portal (Hits + Campanha
+    Inteligente somados, multiplicado pelos dias do período). A verba vem da tabela <b>verbas_promo</b>, não do código.
+    Só é calculado a partir de <b>10/08/2026</b>, quando as verbas do teste entraram em vigor. Acima de 100% em vermelho
+    quer dizer que o Hits passou a racionar a exibição. Lojas do Boqueirão não têm verba cadastrada (coluna —).
   </div>`;
 }
 
@@ -7345,66 +7370,119 @@ async function entrarFrete() {
   if (!alvo) return;
   if (FRETE === null) {
     alvo.innerHTML = '<div class="contexto">Carregando o frete por distância...</div>';
-    FRETE = await consultarTudo('vw_frete_faixa_canal?select=*&order=canal,faixa');
+    // A view passou a devolver uma linha por canal x faixa x DIA, com SOMAS
+    // (12/09/2026). Media de media nao e media — com soma e contagem, qualquer
+    // janela fecha certo no navegador.
+    FRETE = await consultarTudo('vw_frete_faixa_canal?select=*&order=canal,faixa,data');
   }
   renderModuloFrete(FRETE);
 }
+
+// Janela do modulo de frete. Era a UNICA tela de dado do painel sem periodo:
+// somava tudo desde fevereiro e nao reagia a mudanca na tabela de frete.
+// Decisao do dono em 12/09/2026: abrir nas ultimas 4 semanas, com seletor.
+// Medido antes: a escolha muda pouco o numero (acima de 3 km a sobra por entrega
+// vai de R$ 2,58 somando tudo a R$ 2,38 em 30 dias) — o que muda e o tempo de
+// reacao a uma mudanca de tabela.
+const FRETE_JANELAS = [[28, 'Últimas 4 semanas'], [90, '90 dias'], [180, '6 meses'], [0, 'Tudo']];
+let FRETE_JANELA = 28;
+function freteJanela(n) { FRETE_JANELA = n; renderModuloFrete(FRETE); }
 
 function renderModuloFrete(linhas) {
   const alvo = document.getElementById('view-frete');
   if (!alvo || !linhas) return;
   const reais = (v) => 'R$ ' + Number(v).toLocaleString('pt-BR', { minimumFractionDigits:2, maximumFractionDigits:2 });
-  const canais = [...new Set(linhas.map(l => l.canal))].sort();
+  const ddmm = (v) => v ? v.slice(8, 10) + '/' + v.slice(5, 7) : '—';
 
-  // padrao das tabelas do painel (16/08 a noite): id tabela* (grade, zebra e
-  // coluna fixa de graca), cabecalho th e TOTAL com o contorno dourado
+  const todasDatas = linhas.map(l => l.data).filter(Boolean).sort();
+  const maxData = todasDatas[todasDatas.length - 1] || null;
+  let corte = null;
+  if (FRETE_JANELA > 0 && maxData) {
+    const d = new Date(maxData + 'T12:00:00'); d.setDate(d.getDate() - (FRETE_JANELA - 1));
+    corte = d.toISOString().slice(0, 10);
+  }
+  // O filtro de unidade do topo vale aqui: a view traz as tres lojas.
+  const dentro = linhas.filter(l => (!corte || l.data >= corte)
+    && (!activeUnidades.size || activeUnidades.has(l.unidade)));
+  const unsComDado = [...new Set(dentro.map(l => l.unidade))].sort();
+  const UN_ROT = { 'AGUA VERDE': 'Água Verde', 'AHU': 'Ahú', 'SÃO BRAZ': 'São Braz', 'BOQUEIRAO': 'Boqueirão' };
+
+  // Agrega por canal x faixa somando; a media sai da divisao no fim.
+  const por = {};
+  dentro.forEach(l => {
+    const k = l.canal + '|' + l.faixa;
+    const o = por[k] || (por[k] = { canal: l.canal, faixa: l.faixa, entregas: 0, custo: 0, frete: 0, ticket: 0, res: 0 });
+    o.entregas += Number(l.entregas) || 0;
+    o.custo += Number(l.soma_custo) || 0;
+    o.frete += Number(l.soma_frete) || 0;
+    o.ticket += Number(l.soma_ticket) || 0;
+    o.res += Number(l.resultado_total) || 0;
+  });
+  const agregado = Object.values(por);
+  const canais = [...new Set(agregado.map(l => l.canal))].sort();
+
+  const seletor = '<div class="periodo-presets" style="margin-top:10px;">'
+    + FRETE_JANELAS.map(([n, rot]) => `<button class="preset-btn ${FRETE_JANELA === n ? 'active' : ''}" onclick="freteJanela(${n})">${rot}</button>`).join('')
+    + '</div>';
+
   const tabela = (canal, idx) => {
-    const ls = linhas.filter(l => l.canal === canal);
-    const totalEntregas = ls.reduce((a, l) => a + Number(l.entregas), 0);
-    const resultado = ls.reduce((a, l) => a + Number(l.resultado_total), 0);
-    const pond = (campo) => totalEntregas ? ls.reduce((a, l) => a + Number(l[campo]) * Number(l.entregas), 0) / totalEntregas : 0;
+    const ls = agregado.filter(l => l.canal === canal)
+      .sort((a, b) => a.faixa < b.faixa ? -1 : 1);
+    const totalEntregas = ls.reduce((a, l) => a + l.entregas, 0);
+    const resultado = ls.reduce((a, l) => a + l.res, 0);
+    const md = (o, c) => o.entregas ? o[c] / o.entregas : 0;
     const corpo = ls.map(l => {
-      const r = Number(l.resultado_entrega);
+      const r = l.entregas ? l.res / l.entregas : 0;
       // a cor diz se a loja banca (vermelho) ou o frete se paga (verde) —
       // fato separado da interpretacao, regra da casa
       const cor = r < 0 ? '#ff6b6b' : '#3fb950';
+      // faixa com pouca entrega oscila muito: avisa em vez de deixar o leitor concluir
+      const poucas = l.entregas < 30;
       return `<tr>
-        <td>${l.faixa}</td>
-        <td>${l.entregas}</td>
-        <td>${reais(l.custo_entregador)}</td>
-        <td>${reais(l.frete_cobrado)}</td>
-        <td><b>${reais(l.ticket)}</b></td>
-        <td style="color:${cor}; font-weight:600;">${reais(r)}</td>
+        <td>${l.faixa}${poucas ? '<span class="dre-av">poucas entregas</span>' : ''}</td>
+        <td>${l.entregas.toLocaleString('pt-BR')}</td>
+        <td>${reais(md(l, 'custo'))}</td>
+        <td>${reais(md(l, 'frete'))}</td>
+        <td><b>${reais(md(l, 'ticket'))}</b></td>
+        <td style="color:${poucas ? '#8a897e' : cor}; font-weight:600;">${reais(r)}</td>
       </tr>`;
     }).join('');
+    const pond = (c) => totalEntregas ? ls.reduce((a, l) => a + l[c], 0) / totalEntregas : 0;
     return `
       <div class="section-label">${canal}</div>
       <div class="caption-label" style="text-align:center;">
-        ${totalEntregas} entregas · a loja ${resultado < 0 ? 'banca' : 'ganha'}
+        ${totalEntregas.toLocaleString('pt-BR')} entregas · a loja ${resultado < 0 ? 'banca' : 'ganha'}
         <b>${reais(Math.abs(resultado))}</b> de frete no período.
       </div>
       <div id="tabelaFreteCanal${idx}"><table>
         <tr><th>Distância</th><th>Entregas</th><th>Custo do entregador</th><th>Frete cobrado</th><th>Ticket</th><th>Sobra / falta por entrega</th></tr>
         ${corpo}
         <tr class="liq"><td>TOTAL</td><td>${totalEntregas.toLocaleString('pt-BR')}</td>
-          <td>${reais(pond('custo_entregador'))}</td><td>${reais(pond('frete_cobrado'))}</td>
+          <td>${reais(pond('custo'))}</td><td>${reais(pond('frete'))}</td>
           <td>${reais(pond('ticket'))}</td>
           <td style="color:${resultado < 0 ? '#ff6b6b' : '#3fb950'}; font-weight:700;">${reais(resultado)}<span class="dre-av">no período</span></td></tr>
       </table></div>`;
   };
 
+  const rotJanela = FRETE_JANELA === 0
+    ? (todasDatas.length ? `tudo, de ${ddmm(todasDatas[0])} a ${ddmm(maxData)}` : 'tudo')
+    : `${ddmm(corte)} a ${ddmm(maxData)}`;
+
   alvo.innerHTML = `
-    <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Frete por distância</div>
+    <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Frete por distância — ${rotJanela}</div>
     <div class="caption-label" style="text-align:center;">
       Quanto cada entrega custa de verdade, quanto foi cobrado do cliente e qual o ticket daquela faixa.
       <b>Vermelho = a loja está bancando; verde = o frete se paga.</b>
-      <span style="font-size:11.5px; color:#f5a623; border:1px solid #f5a623; border-radius:12px; padding:3px 10px; margin-left:6px;">só Água Verde</span>
+      ${unsComDado.length ? `<span style="font-size:11.5px; color:#a5a49a; border:1px solid #34332f; border-radius:12px; padding:3px 10px; margin-left:6px;">${unsComDado.map(u => UN_ROT[u] || u).join(', ')}</span>` : ''}
     </div>
-    ${canais.map((c, i) => tabela(c, i)).join('')}
+    ${seletor}
+    ${agregado.length ? canais.map((c, i) => tabela(c, i)).join('')
+      : '<div class="contexto" style="border-color:#f5a623;">Sem entrega nesta janela e nestas unidades.</div>'}
     <div class="caption-label">
-      A coluna do ticket é a que decide: no site, quem está acima de 3 km gasta de R$ 104 a R$ 135,
-      contra R$ 72 a R$ 78 de quem está perto. Quem mora longe já paga o frete e leva o carrinho maior —
-      o subsídio está indo para quem gasta menos.
+      A coluna do ticket é a que decide: quem está acima de 3 km costuma levar o carrinho maior e já paga o frete,
+      enquanto o subsídio vai para quem está perto e gasta menos. Faixa com menos de 30 entregas fica em cinza:
+      o número existe, mas oscila demais para decidir em cima dele. Ahú e São Braz saíram do Foody em 26 e 29/08,
+      então janelas recentes mostram só a Água Verde.
     </div>`;
 }
 
@@ -11181,8 +11259,27 @@ function renderModuloAtrasos() {
 // em 14/08/2026: a tarde parada entre almoco e jantar NAO conta como
 // trabalhada. O complemento do piso e portanto uma ESTIMATIVA do painel
 // para vigiar a conta, nao o acerto real com o motoboy.
-const LOGFIN_PISO_HORA = 20;  // R$ por hora trabalhada (minimo garantido)
+// REGRA DE PAGAMENTO DO MOTOBOY — dado, nao constante (12/09/2026).
+// Palavras do dono ao decidir: "o frete e pago por corrida e tem um garantido de
+// 20 a hora de segunda a sexta e de 25 no fim de semana; se o motoboy nao atingir
+// o valor do garantido em corridas, pagamos o garantido".
+// O painel tinha R$ 20 chapado e NAO conhecia o fim de semana: nas 4 semanas ate
+// 06/09 na Agua Verde isso subestimava o garantido em R$ 177 (R$ 811 contra
+// R$ 988 de verdade) e escondia 19 turnos que entram no piso so no fim de semana.
+// Os valores agora vem de log_regras_pagamento; as constantes ficam de socorro.
+let LOGFIN_REGRA = null;      // {piso_hora_semana, piso_hora_fds, teto_horas}
+const LOGFIN_PISO_HORA = 20;  // socorro: R$/hora de segunda a sexta
+const LOGFIN_PISO_FDS  = 25;  // socorro: R$/hora no sabado e no domingo
 const LOGFIN_HORAS_MAX = 12;  // turno acima disso e apontamento sem sentido
+const logfinPisoSemana = () => LOGFIN_REGRA ? Number(LOGFIN_REGRA.piso_hora_semana) : LOGFIN_PISO_HORA;
+const logfinPisoFds    = () => LOGFIN_REGRA ? Number(LOGFIN_REGRA.piso_hora_fds) : LOGFIN_PISO_FDS;
+const logfinTeto       = () => LOGFIN_REGRA ? Number(LOGFIN_REGRA.teto_horas) : LOGFIN_HORAS_MAX;
+// Sabado e domingo pagam o garantido maior. A data vem como 'AAAA-MM-DD' e e lida
+// ao meio-dia para o fuso nao empurrar o dia.
+const logfinPisoDoDia = (data) => {
+  const d = new Date(data + 'T12:00:00').getDay();   // 0 domingo, 6 sabado
+  return (d === 0 || d === 6) ? logfinPisoFds() : logfinPisoSemana();
+};
 let LOGFIN = null; // { ini, fim, rows } — cache da janela buscada
 let LOGFIN_UNIDADE = 'TODAS'; // filtro proprio (Foody cobre as 4 unidades desde 15/08)
 function logfinUnidade(u) { LOGFIN_UNIDADE = u; renderModuloLogfin(); }
@@ -11214,6 +11311,13 @@ async function entrarLogfin() {
   if (!LOGFIN || LOGFIN.ini !== ini || LOGFIN.fim !== fim) {
     alvo.innerHTML = '<div class="contexto">Carregando as entregas do período...</div>';
     const rows = await consultarTudo(`vw_foody_financeiro_min?select=unidade,data_local,turno,entregador,entregador_tipo,inicio_corrida,entrega,custo_entregador,taxa_entrega,dist_km&data_local=gte.${ini}&data_local=lte.${fim}&order=data_local`);
+    if (LOGFIN_REGRA === null) {
+      // regra vigente hoje; a tabela guarda historico por data de vigencia
+      try {
+        const rg = await consultarTudo('log_regras_pagamento?select=*&order=vigente_desde.desc&limit=1');
+        if (rg && rg.length) LOGFIN_REGRA = rg[0];
+      } catch (e) { LOGFIN_REGRA = null; }   // cai nas constantes de socorro
+    }
     LOGFIN = { ini, fim, rows };
   }
   renderModuloLogfin();
@@ -11264,9 +11368,11 @@ function renderModuloLogfin() {
   lista.forEach(g => {
     g.horas = (g.ini !== null && g.fim !== null) ? (g.fim - g.ini) / 36e5 : null;
     if (g.horas === null) turnosSemHora += 1;
-    else if (g.horas < 0 || g.horas > LOGFIN_HORAS_MAX) { turnosSemSentido += 1; g.horas = null; }
-    // A regra do pagamento, turno a turno: o maior entre corridas e piso.
-    g.complemento = g.horas === null ? 0 : Math.max(0, LOGFIN_PISO_HORA * g.horas - g.ganho);
+    else if (g.horas < 0 || g.horas > logfinTeto()) { turnosSemSentido += 1; g.horas = null; }
+    // A regra do pagamento, turno a turno: o maior entre as corridas e o garantido
+    // da hora — R$ 20 de segunda a sexta, R$ 25 no sabado e no domingo.
+    g.piso = logfinPisoDoDia(g.data);
+    g.complemento = g.horas === null ? 0 : Math.max(0, g.piso * g.horas - g.ganho);
     g.pago = g.ganho + g.complemento;
   });
 
@@ -11387,15 +11493,15 @@ function renderModuloLogfin() {
   <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Financeiro da logística — entregas próprias${LOGFIN_UNIDADE !== 'TODAS' ? ' · ' + LOGFIN_UNIDADE : ''}, ${ddmm(LOGFIN.ini)} a ${ddmm(LOGFIN.fim)}</div>
   ${chips}
   ${foodyCobertura(LOGFIN.rows)}
-  <div class="contexto" style="border-color:#f5a623;">Fonte: Foody Delivery (logística própria). ${PERIMETRO === 'rede' ? 'Visão Rede completa — <b>inclui Boqueirão, que é gestão separada</b>, com tabela de corrida mais cara (7,50/9,00) e fretes próprios no iFood (quase sem abate).' : 'Visão Minha gestão — <b>Boqueirão (gestão separada) fica fora</b> dos totais e do simulador; para vê-lo, troque para Rede completa lá em cima.'} A regra usada aqui é a combinada: o motoboy recebe <b>o maior entre as corridas e R$ ${LOGFIN_PISO_HORA} por hora</b>, turno a turno — a tarde parada entre almoço e jantar não conta como trabalhada. A hora é <b>estimada da primeira à última entrega do turno</b>, não é ponto batido; o complemento é a estimativa do painel para vigiar a conta, não substitui o acerto real.</div>
+  <div class="contexto" style="border-color:#f5a623;">Fonte: Foody Delivery (logística própria). ${PERIMETRO === 'rede' ? 'Visão Rede completa — <b>inclui Boqueirão, que é gestão separada</b>, com tabela de corrida mais cara (7,50/9,00) e fretes próprios no iFood (quase sem abate).' : 'Visão Minha gestão — <b>Boqueirão (gestão separada) fica fora</b> dos totais e do simulador; para vê-lo, troque para Rede completa lá em cima.'} A regra usada aqui é a combinada: o motoboy recebe <b>o maior entre as corridas e o garantido por hora</b>, turno a turno — <b>R$ ${fmt(logfinPisoSemana())} de segunda a sexta e R$ ${fmt(logfinPisoFds())} no sábado e no domingo</b> — a tarde parada entre almoço e jantar não conta como trabalhada. A hora é <b>estimada da primeira à última entrega do turno</b>, não é ponto batido; o complemento é a estimativa do painel para vigiar a conta, não substitui o acerto real.</div>
 
   <div class="cards">
     <div class="card"><div class="card-lbl">Entregas no período</div><div class="card-val">${entregas.toLocaleString('pt-BR')}</div><div class="card-pct">média de ${n1(dias ? entregas / dias : null)} por dia, em ${dias} dia(s) com entrega</div></div>
     <div class="card neutral"><div class="card-lbl">Pago em corridas</div><div class="card-val">R$ ${fmt(corridas)}</div><div class="card-pct">média de R$ ${fmt(entregas ? corridas / entregas : 0)} por entrega</div></div>
-    <div class="card ${complemento > corridas * 0.05 ? 'neg' : 'neutral'}"><div class="card-lbl">Custo total estimado</div><div class="card-val">R$ ${fmt(custoTotal)}</div><div class="card-pct">corridas + R$ ${fmt(complemento)} de complemento do piso de R$ ${LOGFIN_PISO_HORA}/h</div></div>
+    <div class="card ${complemento > corridas * 0.05 ? 'neg' : 'neutral'}"><div class="card-lbl">Custo total estimado</div><div class="card-val">R$ ${fmt(custoTotal)}</div><div class="card-pct">corridas + R$ ${fmt(complemento)} de complemento do garantido</div></div>
     <div class="card pos"><div class="card-lbl">Custo líquido do frete</div><div class="card-val">R$ ${fmt(custoLiquido)}</div><div class="card-pct">o frete cobrado do cliente acima de 3 km (R$ ${fmt(abate)} em ${acima3.length.toLocaleString('pt-BR')} corridas) abate o custo</div></div>
   </div>
-  <div class="caption-label" style="text-align:center;">Corridas = soma do valor pago por entrega registrado no Foody. Complemento = quanto o piso de R$ ${LOGFIN_PISO_HORA}/hora paga além das corridas, calculado turno a turno. Até 3 km o frete do cliente é subsidiado na promoção (verba contada no módulo de promoções), por isso só o frete acima de 3 km abate aqui.</div>
+  <div class="caption-label" style="text-align:center;">Corridas = soma do valor pago por entrega registrado no Foody. Complemento = quanto o garantido por hora paga além das corridas, calculado turno a turno, com R$ ${fmt(logfinPisoFds())} no fim de semana e R$ ${fmt(logfinPisoSemana())} nos outros dias. Os valores vêm da tabela <b>log_regras_pagamento</b>, não do código. Até 3 km o frete do cliente é subsidiado na promoção (verba contada no módulo de promoções), por isso só o frete acima de 3 km abate aqui.</div>
 
   <div class="section-label">Por turno (janelas do iFood: almoço 10h–14h · café 15h–16h · jantar 17h–23h · madrugada 0h–1h)</div>
   <div id="tabelaLogfinTurno"><table>
@@ -11421,7 +11527,7 @@ function renderModuloLogfin() {
         <td>${t.horas ? n1(t.horas) : '—'}</td><td>${t.horas ? n1(t.n / t.horas) : '—'}</td>
         <td>${t.horas ? 'R$ ' + fmt((t.ganho + t.comp) / t.horas) : '—'}</td></tr>`; })()}
   </table></div>
-  <div class="caption-label" style="text-align:center;">R$/h perto de R$ ${fmt(LOGFIN_PISO_HORA)} = o piso é quem está pagando essa pessoa. Horas, entregas/h e R$/h contam só os turnos com horário confiável.</div>
+  <div class="caption-label" style="text-align:center;">R$/h perto do garantido (R$ ${fmt(logfinPisoSemana())} na semana, R$ ${fmt(logfinPisoFds())} no fim de semana) = é o garantido que está pagando essa pessoa. Horas, entregas/h e R$/h contam só os turnos com horário confiável.</div>
 
   <div class="section-label">Semana a semana (seg–dom)</div>
   <div id="tabelaLogfinSemana"><table>
@@ -11456,12 +11562,12 @@ function renderModuloLogfin() {
     <div class="card neutral"><div class="card-lbl">Turno médio do motoboy</div><div class="card-val">R$ ${fmt(turnoNovo)}</div><div class="card-pct">hoje o turno médio paga R$ ${fmt(turnoHoje)} (diária + corridas do turno)</div></div>
     <div class="card neutral"><div class="card-lbl">Mês cheio 6x1</div><div class="card-val">R$ ${fmt(turnoNovo * 26)}</div><div class="card-pct">26 turnos no ritmo médio · hoje seria R$ ${fmt(turnoHoje * 26)}</div></div>
   </div>
-  <div class="caption-label" style="text-align:center;">A diária substitui o piso de R$ ${LOGFIN_PISO_HORA}/h — manter os dois seria pagar a garantia duas vezes. O "turno médio" reparte todo o custo simulado pelos ${turnosReais} turnos do período; turno forte paga mais, fraco paga menos.</div>
+  <div class="caption-label" style="text-align:center;">A diária substitui o garantido por hora — manter os dois seria pagar a garantia duas vezes. O "turno médio" reparte todo o custo simulado pelos ${turnosReais} turnos do período; turno forte paga mais, fraco paga menos.</div>
 
   <div class="section-label">Qualidade do apontamento — o quanto dá pra confiar nessa conta</div>
   <div class="contexto">Entregas sem entregador apontado: <b>${pctTxt(semEntregador, entregas)}</b> (${semEntregador}) — o valor das corridas delas entra no total, mas ficam fora da conta por pessoa.
   ${semCusto ? ` · Entregas sem valor de corrida registrado: <b>${semCusto}</b>.` : ''}
-  · Turnos sem horário confiável: <b>${turnosSemHora + turnosSemSentido}</b> de ${lista.length} (${turnosSemHora} sem horário, ${turnosSemSentido} com hora sem sentido — mais de ${LOGFIN_HORAS_MAX}h no turno) — ficam fora das horas e do complemento.
+  · Turnos sem horário confiável: <b>${turnosSemHora + turnosSemSentido}</b> de ${lista.length} (${turnosSemHora} sem horário, ${turnosSemSentido} com hora sem sentido — mais de ${fmt(logfinTeto())}h no turno) — ficam fora das horas e do complemento.
   <br>Turno com uma entrega só tem "hora" do tamanho daquela corrida — o piso quase não aparece nele. É o limite conhecido da régua primeira→última entrega; ponto batido de verdade resolveria.</div>`;
 }
 
