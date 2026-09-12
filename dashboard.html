@@ -4331,7 +4331,7 @@ function renderChartTendencia() {
   const dados = computeEvolucaoCompleta(granularidadeAutomatica());
   renderLineChart('chartTendencia', dados.map(d => d.label), [
     { label: 'Bruto', data: dados.map(d => d.bruto), borderColor: corToken('--info'), backgroundColor: corToken('--info') },
-    { label: 'Líquido', data: dados.map(d => d.liquido), borderColor: corToken('--farol-ok'), backgroundColor: corToken('--farol-ok') },
+    { label: 'Líquido', data: dados.map(d => d.liquido), borderColor: corToken('--info'), backgroundColor: corToken('--info') },
   ], 'R$');
 }
 
@@ -18077,13 +18077,13 @@ function renderChartsCancelEvolucao() {
   const labels = dados.map(d => d.label);
 
   renderLineChart('chartCancelTaxa', labels, [
-    { label: '% dos pedidos cancelados', data: dados.map(d=>d.taxa), borderColor: corToken('--farol-fora'), backgroundColor: corToken('--farol-fora') },
+    { label: '% dos pedidos cancelados', data: dados.map(d=>d.taxa), borderColor: corToken('--info'), backgroundColor: corToken('--info') },
   ], '%');
 
   destroyChart('chartCancelValor');
   chartInstances['chartCancelValor'] = new Chart(document.getElementById('chartCancelValor').getContext('2d'), {
     type: 'bar',
-    data: { labels, datasets: [{ data: dados.map(d=>d.valor), backgroundColor: corToken('--farol-fora'), borderRadius: 4 }] },
+    data: { labels, datasets: [{ data: dados.map(d=>d.valor), backgroundColor: corToken('--info'), borderRadius: 4 }] },
     options: {
       responsive: true, maintainAspectRatio: false,
       plugins: {
