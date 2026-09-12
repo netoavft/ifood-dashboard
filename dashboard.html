@@ -574,6 +574,14 @@
     --info:#58a6ff; --amber-2:#e8b04b;
     /* fachada da loja — SO em area de marca (login, topo da sidebar, filete do topo) */
     --marca-amarelo:#f6c63e; --marca-laranja:#ee8a3c; --marca-laranja-q:#e2622b; --marca-creme:#f7edd8;
+    /* SERIE DE GRAFICO — ordem FIXA, nunca ciclada. 1=AGUA VERDE 2=AHU 3=BOQUEIRAO 4=SAO BRAZ.
+       So use quando series se SOBREPOEM (linha por loja). Em barra por loja a identidade vem
+       do rotulo do eixo: uma cor so. 5+ series: nao invente a 5a — vire pequenos multiplos.
+       Validada (12/09/2026) nos dois temas pelo validador da skill dataviz: passa faixa de
+       claridade, croma, daltonismo (pior par adjacente 15,8), visao normal (18,2) e contraste.
+       Sao as 4 cores possiveis: verde/ambar/vermelho sao do FAROL e amarelo/laranja da MARCA,
+       e no escuro sobra so a faixa azul-roxo-rosa (verde-agua ja fica a 13 do verde do farol). */
+    --serie-1:#1e69d2; --serie-2:#25a1ad; --serie-3:#813be3; --serie-4:#b6689c;
   }
   .papel { --farol-ok:#1f6d3f; --farol-perto:#b26a00; --farol-fora:#b3261e; --tx-2:#4d545b; --tx-3:#5f666d; --tx-4:#7d858c;
     --p-bg:#f6f5f1; --p-paper:#fff; --p-ink:#1e2226; --p-line:#dcdad3; --p-line2:#ebe9e3; --p-head:#efede6; --p-zebra:#f1f0eb;
