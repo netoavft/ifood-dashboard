@@ -9427,13 +9427,25 @@ function renderModuloFichas() {
     }
     const esperado = nu(o.preco_un_uso_esperado);
     const usado = nu(o.preco_un_uso);
-    const bate = !esperado || Math.abs(esperado - usado) < 0.01;
+    // Desde 12/09/2026 o custo vigente vem da ÚLTIMA NOTA FISCAL do Saipos
+    // (ft_compras_nf → ft_aplicar_custo_compra). Quando é a nota que manda,
+    // a "compra" da planilha é só o cadastro antigo — não vale cobrar conversão.
+    const daNota = o.custo_fonte === 'NF';
+    const bate = daNota || !esperado || Math.abs(esperado - usado) < 0.01;
+    const dataNf = o.custo_data ? o.custo_data.split('-').reverse().join('/') : '';
     return `<div class="contexto" style="text-align:left; ${bate ? '' : 'border-color:#ff6b6b;'}">
       <b>${esc(item)}</b> é insumo comprado.
-      <b>Compra:</b> ${nu(o.qtd_un_compra).toFixed(3)} ${esc(o.un_compra)} por
+      ${daNota ? `<b>Última compra:</b> R$ ${fmt(usado)} por ${esc(o.un_uso)} em ${dataNf}${
+          o.custo_nf ? ' (' + esc(o.custo_nf) + ')' : ''}${
+          o.custo_nome_saipos ? ', item <b>' + esc(o.custo_nome_saipos) + '</b> no Saipos' : ''}.
+        É este o custo que a ficha usa — a nota manda sobre a planilha.` : ''}
+      ${o.custo_fonte === 'AJUSTE' ? `<b>Custo corrigido pelo Neto:</b> R$ ${fmt(usado)} por ${esc(o.un_uso)}
+        (a planilha trazia outro valor; sem nota fiscal recente para conferir).` : ''}
+      ${nu(o.qtd_un_compra) ? `<br><b>${daNota ? 'Cadastro da planilha' : 'Compra'}:</b> ${nu(o.qtd_un_compra).toFixed(3)} ${esc(o.un_compra)} por
       R$ ${fmt(nu(o.preco_un_compra))}${o.fornecedor ? ' — fornecedor <b>' + esc(o.fornecedor) + '</b>' : ''}${
-        (o.marca && o.marca !== o.fornecedor) ? ' (marca ' + esc(o.marca) + ')' : ''}.
-      <b>Uso na ficha:</b> R$ ${fmt(usado)} por ${esc(o.un_uso)}.
+        (o.marca && o.marca !== o.fornecedor) ? ' (marca ' + esc(o.marca) + ')' : ''}.` : ''}
+      ${daNota || o.custo_fonte === 'AJUSTE' ? '' : `<b>Uso na ficha:</b> R$ ${fmt(usado)} por ${esc(o.un_uso)}
+        (custo da planilha — sem nota fiscal nos últimos 90 dias).`}
       ${bate ? '' : `<br><b style="color:#ff6b6b;">A conversão não fecha:</b> pelo preço de compra
         deveria ser R$ ${fmt(esperado)} por ${esc(o.un_uso)}, e a planilha usa R$ ${fmt(usado)}.
         Corrigir na planilha — o importador reclama a cada carga até lá.`}</div>`;
