@@ -12870,7 +12870,9 @@ async function entrarAtrasos() {
   const ini = fDataIni.value, fim = fDataFim.value;
   if (!ATRASOS || ATRASOS.ini !== ini || ATRASOS.fim !== fim) {
     alvo.innerHTML = '<div class="contexto">Carregando as entregas do período...</div>';
-    const rows = await consultarTudo(`vw_foody_entregas_min?select=unidade,data_local,turno,dia_semana,entregador,entregador_tipo,atraso_min,preparo_min,bancada_min,rua_min,sem_pronto,pronto_com_despacho,sem_promessa,dist_km&data_local=gte.${ini}&data_local=lte.${fim}&order=data_local`);
+    // numero e localizador_ifood entraram na view em 12/09/2026: sem identificador a
+    // tela sabia dizer que sexta a noite atrasa e nao sabia dizer QUAL pedido
+    const rows = await consultarTudo(`vw_foody_entregas_min?select=unidade,data_local,turno,dia_semana,entregador,entregador_tipo,atraso_min,preparo_min,bancada_min,rua_min,sem_pronto,pronto_com_despacho,sem_promessa,dist_km,numero,localizador_ifood&data_local=gte.${ini}&data_local=lte.${fim}&order=data_local`);
     ATRASOS = { ini, fim, rows };
   }
   renderModuloAtrasos();
@@ -13001,6 +13003,13 @@ function renderModuloAtrasos() {
 
   // cartoes e caixa de qualidade leem o RECORTE (rowsF): fixar sexta a noite tem de
   // mudar o numero de cima, senao o clique mente sobre o que a tela esta mostrando
+  // OS 10 QUE MAIS ATRASARAM no recorte (12/09/2026). A tela dizia que sexta a noite
+  // atrasa e nao dizia QUAL pedido — numero sem caso concreto atras dele nao vira
+  // conversa com o motoboy nem consulta no portal. Segue o mesmo recorte do resto da
+  // tela (rowsF), entao fixar um turno muda a lista. So entra entrega com atraso
+  // MEDIDO e positivo: sem promessa nao da para dizer que atrasou.
+  const piores10 = rowsF.filter(r => r.atraso_min !== null && r.atraso_min !== undefined && Number(r.atraso_min) > 0)
+    .slice().sort((a, b) => Number(b.atraso_min) - Number(a.atraso_min)).slice(0, 10);
   const geral = resumo(rowsF);
   const semPronto = rowsF.filter(r => r.sem_pronto).length;
   const prontoJunto = rowsF.filter(r => r.pronto_com_despacho).length;
@@ -13152,6 +13161,19 @@ function renderModuloAtrasos() {
       <td>${n1(mediaDe(rowsEnt.map(r => r.dist_km)))} km</td></tr>
   </table></div>
   ${foraRanking ? `<div class="caption-label" style="text-align:center;">${foraRanking} entregador(es) com menos de 10 entregas no período ficaram fora do ranking.</div>` : ''}
+
+  ${piores10.length ? `<div class="section-label">Os 10 que mais atrasaram${ATRASOS_F.turno || ATRASOS_F.dow || ATRASOS_F.entregador ? ' — neste recorte' : ''}</div>
+  <div class="caption-label" style="text-align:center;">O código do iFood é o que se procura no portal; quando não tem, a entrega não veio de lá e aparece o número do Foody.</div>
+  <div id="tabelaAtrasosPiores"><table>
+    <tr><th>Dia</th><th>Turno</th><th>Entregador</th><th>Atrasou</th><th>Na rua</th><th>Distância</th><th>Código</th></tr>
+    ${piores10.map(r => `<tr>
+      <td>${ddmm(r.data_local)}</td><td>${r.turno || '—'}</td>
+      <td>${r.entregador || '(sem apontamento)'}</td>
+      <td style="color:var(--farol-fora); font-weight:600;">${n1(r.atraso_min)} min</td>
+      <td>${r.rua_min === null || r.rua_min === undefined ? '—' : n1(r.rua_min) + ' min'}</td>
+      <td>${r.dist_km === null || r.dist_km === undefined ? '—' : n1(r.dist_km) + ' km'}</td>
+      <td>${r.localizador_ifood ? r.localizador_ifood : (r.numero ? 'Foody ' + r.numero : '—')}</td></tr>`).join('')}
+  </table></div>` : ''}
 
   <div class="section-label" title="Sem o pronto marcado, preparo e bancada daquelas entregas não existem. Pronto marcado junto do despacho, a menos de 1 min, é cheiro de correção atrasada: o pedido esperou na estufa e alguém marcou tudo de uma vez. Sem horário prometido nas observações, a entrega fica fora da conta de prazo. Quanto maiores esses números, menos dá pra confiar no preparo e na bancada; o prazo continua confiável, porque a entrega é apontada pelo motoboy na porta do cliente.">Qualidade do apontamento — o quanto dá pra confiar nos tempos</div>
   <div class="contexto">${semSentido ? `Tempos sem sentido, fora das contas: <b>${pctTxt(semSentido, geral.n)}</b> (${semSentido}) — ex.: entrega apontada 1h30 antes do horário prometido ou mais de 2h de rua; provável erro de apontamento.
