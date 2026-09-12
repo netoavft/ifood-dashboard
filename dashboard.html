@@ -8112,15 +8112,8 @@ function renderModuloEvolucao() {
     ${unsComDado.length > 1 ? tabela('Por loja', 'Para isolar uma loja, use o filtro de unidade lá em cima — é o mesmo controle do resto do painel.', 'tabelaEvolLoja', porLoja) : ''}
     ${blocoItens}
 
-    <div class="caption-label">
-      Fonte: <b>${ITEM ? 'vw_venda_item_semana' : 'vw_venda_evolucao'}</b>, sobre a venda do caixa do Saipos, sem canceladas — cobre Água Verde, Ahú e São Braz.
-      ${ITEM ? 'Com um item fixado a tela lê a base do item, que é semanal e traz a receita bruta; sem item, lê a base do pedido, que é diária e já vem com desconto e taxa de serviço.' : ''}
-      O Boqueirão é de outra gestão e não entra. O valor é o do PDV e não se compara direto com o bruto do portal do iFood,
-      que conta promoção e cancelamento de outro jeito.
-      A faixa de horário vem da <b>hora da venda</b>: no salão é a abertura da comanda, no delivery é a criação do pedido.
-      <b>Uma ressalva aberta desde 20/08:</b> o salão da Água Verde registra comandas antes das 11h com ticket alto.
-      Se a operação disser que isso não acontece, a hora da comanda está deslocada e só a faixa do salão precisa de outro caminho —
-      as faixas do delivery não mudam. Está pendente de conferir com quem está na loja.
+    <div class="caption-label" title="A faixa vem da hora da venda: no salão é a abertura da comanda, no delivery é a criação do pedido. O valor é o do PDV e não se compara direto com o bruto do portal do iFood. Ressalva aberta desde 20/08: o salão da Água Verde registra comandas antes das 11h com ticket alto — pendente de conferir na loja.">
+      Caixa do Saipos (${ITEM ? 'vw_venda_item_semana' : 'vw_venda_evolucao'}), Água Verde, Ahú e São Braz. O Boqueirão não entra.
     </div>`;
 
   // Uma medida so, uma cor so: a identidade vem do rotulo do eixo, nao da cor.
@@ -13695,7 +13688,7 @@ function renderFechamento() {
   if (pior) h += `<p>De cada R$ 100, <b>${nomeG[pior.k]}</b> levou <b>R$ ${Math.round(pior.v)}</b> — ${pior.dist <= 0 ? 'dentro da meta' : pior.dist <= pior.meta * 0.1 ? 'no limite da meta' : 'acima da meta'} de R$ ${pior.meta}. ${piores.slice(1).filter(x => x.dist > 0.5).length ? `Também acima da meta: ${piores.slice(1).filter(x => x.dist > 0.5).map(x => `${nomeG[x.k]} (R$ ${Math.round(x.v)} de ${x.meta})`).join(', ')}.` : 'As outras fatias estão dentro da meta ou no limite.'}</p>`;
   h += `<p>Sobraram <b>R$ ${Math.round(cem(a.resultado))}</b> de cada R$ 100 (${fxMil(a.resultado)}); a meta é R$ ${M.RESULTADO ? M.RESULTADO.meta : '—'}.${a.benef > 0.5 ? ` Sem o benefício do iFood seriam <b>R$ ${Math.round(cem(a.resultado - a.benef))}</b>.` : ''}</p>`;
   if (p) h += `<p>No caixa do dia a dia, o mês ${p.v >= 0 ? 'deixou' : 'consumiu'} <b>${fxMil(Math.abs(p.v))}</b>${Math.abs(p.comp) > 1000 ? ` — ${p.comp < 0 ? 'pagou' : 'adiou'} ${fxMil(Math.abs(p.comp))} de contas fora do mês` : ''}${Math.abs(p.xp) > 1000 ? `, e ${fxMil(Math.abs(p.xp))} ${p.xp < 0 ? 'foram para a XP' : 'vieram da XP'}` : ''}.</p>`;
-  h += `</div><div class="fx-rodape">Vendas e pedidos: caixa das lojas (Saipos), sem cancelados. Para onde foi e quanto sobrou: as contas do mês por competência (uma conta do mês conta no mês, mesmo paga depois), pelas mesmas views da DRE. Caixa: a ponte resultado × caixa. O Boqueirão fica fora (gestão separada). Na Rede, a mercadoria que a Água Verde vende às filiais entra de um lado e sai do outro e se anula no "sobrou". A tabela completa está na DRE.</div>`;
+  h += `</div><div class="fx-rodape">Caixa das lojas (Saipos) e as contas do mês por competência, pelas mesmas views da DRE. Na Rede, a mercadoria que a Água Verde vende às filiais entra de um lado e sai do outro e se anula no "sobrou".</div>`;
   alvo.innerHTML = h;
 }
 
@@ -13850,7 +13843,7 @@ function renderSemana() {
   h += `<p>Mercadoria levou <b>R$ ${Math.round(p)}</b> de cada R$ 100 nesta semana; na média de 4 semanas, <b>R$ ${Math.round(p4)}</b> — ${p4 <= META_CMV ? 'dentro' : p4 <= META_CMV * 1.1 ? 'no limite' : 'acima'} da meta de R$ ${metaTxt} para ${fxMesLongo(mesDaSemana)}.</p>`;
   h += `<p>Fechou <b>${fxMil(a.margem)}</b> de margem (R$ ${Math.round(cemM)} de cada 100)${j ? ` — ${fxVar(a.margem, j.margem, ra)}` : ''}.</p>`;
   h += `<p>Caixa desta semana: ${cxs.map(c => `${LOJAS_FIN.find(l => l[0] === c.u)[1]} ${c.sobra >= 0 ? 'deve sobrar' : 'deve faltar'} <b>${fxMil(Math.abs(c.sobra))}</b>`).join('; ')}.</p></div>`;
-  h += `<div class="fx-rodape">Vendas, pedidos e itens: caixa das lojas (Saipos), semanas de segunda a domingo. Custo iFood: export de pedidos do iFood (promoções pagas pela loja, comissões e taxas) + anúncios do extrato oficial. Mercadoria: notas lançadas no Saipos pela data de emissão. Caixa: saldos do banco de hoje e contas a pagar/receber lançadas no Saipos. O Boqueirão fica fora; a mercadoria do atacado ainda está dentro das compras da Água Verde.</div>`;
+  h += `<div class="fx-rodape">Caixa das lojas (Saipos), semanas de segunda a domingo. O Boqueirão fica fora; a mercadoria do atacado ainda está dentro das compras da Água Verde.</div>`;
   alvo.innerHTML = h;
 }
 // seletores de mes/semana dos dois modulos (um listener so, como o da loja)
@@ -14982,20 +14975,9 @@ function renderModuloDRE() {
     </table>
   </div>
   ${ponteHtml}
-  <div class="caption-label">Base: lançamentos e vendas do Saipos desde jan/2026 (o fluxo de caixa continua conferido com a planilha/banco).
-  Canais: iFood, Salão (comandas Abrahão + mesas), Balcão (retirada, telefone e fichas) e Site próprio (Accon).
-  A linha "Taxas de canais" é estimada pela diferença entre o vendido no PDV e o efetivamente recebido —
-  como o repasse do iFood é semanal, ela oscila um pouco entre meses vizinhos (no acumulado do ano é precisa).
-  <b>Clique nela</b> para abrir o extrato oficial do iFood (comissão, taxa online, ressarcimentos,
-  por data de repasse); o que sobra é cartões/vouchers e a defasagem semanal.
-  <b>Os anúncios do iFood não são taxa</b>: desde abr/2026 (início da conciliação) eles saem desta linha e
-  entram em Despesas com vendas, junto do marketing — de jan a mar seguem embutidos na taxa estimada.
-  A DRE inclui as contas a pagar já lançadas (competência), então o <b>mês corrente parece pior do que vai fechar</b>:
-  as despesas do mês já estão quase todas lá, mas as vendas ainda estão acontecendo (por isso o selo "em curso").
-  Meses futuros com compromissos já lançados ficam fora desta tabela — o lugar deles é o Fluxo projetado.
-  Investimentos, retiradas e aportes ficam fora do resultado (são o destino do lucro).
-  Linhas com meta mostram a referência embaixo do nome ("meta: até X% da receita"); a bolinha âmbar aparece
-  a até 10% de distância da meta e a vermelha além disso — dentro da meta, nada pisca. Metas editáveis na tabela <b>fin_metas_dre</b>.</div>`;
+  <div class="caption-label" title="Investimentos, retiradas e aportes ficam fora do resultado (são o destino do lucro). Meses futuros já lançados ficam no Fluxo projetado. A bolinha âmbar aparece a até 10% da meta e a vermelha além disso; as metas são editáveis em fin_metas_dre.">
+  Lançamentos e vendas do Saipos desde jan/2026. Desde 12/09/2026 as <b>taxas de canais</b> saem cobrança a cobrança da conciliação, não mais pela diferença entre vendido e recebido.
+  O <b>mês corrente parece pior do que vai fechar</b>: as despesas já estão quase todas lançadas e as vendas ainda estão acontecendo.</div>`;
   encaixarColunaFixa('tabelaDRE');
 }
 
