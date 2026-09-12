@@ -149,8 +149,8 @@
   /* Borda COMPLETA de 1px, igual ao cardFarol — a borda so de um lado era da
      primeira versao e sobrou nestas classes (achado do dono em 16/08/2026). */
   .card.neutral { border:1px solid var(--line); }
-  .card.neg { border:1px solid #ff6b6b; }
-  .card.pos { border:1px solid #3fb950; }
+  .card.neg { border:1px solid var(--farol-fora); box-shadow:inset 0 0 0 1px var(--farol-fora); }
+  .card.pos { border:1px solid var(--farol-ok); box-shadow:inset 0 0 0 1px var(--farol-ok); }
   .card.blue { border:1px solid var(--info); }
   .card.highlight { border:1px solid var(--brand); }
 
@@ -561,11 +561,11 @@
      O tema claro .papel logo abaixo redefine os tokens que muda — nao duplique regra. ===== */
   :root {
     /* fundos */
-    --bg:#111110; --surface:#1a1a19; --surface-2:#232321; --zebra:#171716;
+    --bg:#111110; --surface:#1e1e1c; --surface-2:#2a2a27; --zebra:#171716;
     /* linhas */
     --line:#34332f; --line-2:#45443f;
     /* texto, do mais claro ao mais apagado */
-    --tx-1:#fff; --tx-2:#c3c2b7; --tx-3:#a5a49a; --tx-4:#8a897e; --tx-5:#6f6e64; --tx-6:#5a5850;
+    --tx-1:#fff; --tx-2:#c3c2b7; --tx-3:#a5a49a; --tx-4:#9c9b90; --tx-5:#82817a; --tx-6:#6b6a61;
     --tx-creme:#e8e6dc;
     /* marca */
     --brand:#c8102e; --brand-dark:#a80d26; --brand-wine:#250f13;
