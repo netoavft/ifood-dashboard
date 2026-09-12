@@ -7858,7 +7858,15 @@ function renderModuloEvolucao() {
     // unidade no periodo — informacao nenhuma. O corte e' 10 unidades vendidas, e a
     // tela diz qual e', para ninguem achar que e' o fundo do cardapio inteiro.
     const PISO_MENOS = 10;
-    const doFundo = itens.filter(x => x.qtd >= PISO_MENOS).slice().sort((a, b) => a.receita - b.receita).slice(0, 10);
+    // FORA DO RANKING: item que saiu com RECEITA ZERO. Nao e' item que vende pouco, e'
+    // item que nao foi vendido — brinde, acompanhamento que ja vem dentro do combo e
+    // refeicao de funcionario. Sem esse corte o "menos venderam" virava a lista deles
+    // (ALAIN PROST FUNCIONARIOS com 369 unidades e R$ 0, medido em 12/09/2026).
+    // Eles aparecem numa linha propria embaixo, porque o consumo existe e e' informacao.
+    const semPreco = itens.filter(x => x.receita < 0.005 && x.qtd > 0);
+    const qtdSemPreco = semPreco.reduce((t, x) => t + x.qtd, 0);
+    const doFundo = itens.filter(x => x.qtd >= PISO_MENOS && x.receita >= 0.005)
+      .slice().sort((a, b) => a.receita - b.receita).slice(0, 10);
     const abertos = EVOL_ITEM_N >= itens.length;
     const nMostra = abertos ? itens.length : Math.min(EVOL_ITEM_N, itens.length);
     blocoItens = `
@@ -7889,7 +7897,8 @@ function renderModuloEvolucao() {
           <td>R$ ${fmt(x.qtd ? x.receita / x.qtd : 0)}</td>
           <td>${varTxt(x.receita, x.ant && x.ant.receita)}</td></tr>`).join('')}
       </table></div>
-      <div class="caption-label">Entre os que venderam pelo menos <b>${PISO_MENOS} unidades</b> no período. Sem esse corte a lista seria de itens com uma ou duas unidades, que não dizem nada sobre o cardápio.</div>` : ''}
+      <div class="caption-label">Entre os que venderam pelo menos <b>${PISO_MENOS} unidades</b> e saíram com preço. Sem o corte de quantidade a lista seria de itens com uma ou duas unidades; sem o corte de preço, seria a lista de brinde e refeição de funcionário.
+        ${semPreco.length ? `Neste período <b>${semPreco.length} itens saíram com preço zero</b>, somando <b>${qtdSemPreco.toLocaleString('pt-BR', { maximumFractionDigits: 0 })} unidades</b> — é consumo, não venda, e por isso fica fora do ranking.` : ''}</div>` : ''}
       ${abertos ? `<div id="tabelaEvolItem" style="margin-top:12px;"><table>
         <tr><th>Todos os itens (${itens.length})</th><th>Quantidade</th><th>Receita · % do total</th><th>Preço médio</th><th>vs período anterior</th></tr>
         ${itens.slice(0, nMostra).map(x => `<tr>
