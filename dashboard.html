@@ -3830,6 +3830,26 @@ const SERIE_UNIDADE = {
   'SÃO BRAZ':   { token: '--serie-4', nome: 'São Braz' },
 };
 
+// 'pedidos' mostra o tamanho de cada unidade; 'crescimento' poe todas comecando em 100.
+// Os dois respondem perguntas diferentes: a Agua Verde faz ~5x o volume das filiais, entao
+// no modo tamanho as tres filiais ficam espremidas na faixa de baixo e a comparacao entre
+// elas se perde. Quem quer saber QUEM CRESCEU usa o outro modo — la o tamanho some de
+// proposito e sobra so o movimento.
+let MODO_UNIDADES = 'pedidos';
+
+function trocarModoUnidades(modo) {
+  MODO_UNIDADES = modo;
+  ['pedidos', 'crescimento'].forEach(m => {
+    const b = document.getElementById('btnUni-' + m);
+    if (b) b.classList.toggle('active', m === modo);
+  });
+  const leg = document.getElementById('legendaUnidades');
+  if (leg) leg.textContent = MODO_UNIDADES === 'pedidos'
+    ? 'Cancelamento total não conta como pedido, a mesma regra do resto do painel. Cada unidade tem cor fixa: tirar uma do filtro não troca a cor das outras.'
+    : 'Cada unidade começa em 100 na primeira semana em que teve pedido, então o que se compara é o movimento, não o tamanho. Acima de 100 cresceu desde então; abaixo, caiu.';
+  renderChartUnidades();
+}
+
 function renderChartUnidades() {
   const el = document.getElementById('chartUnidades');
   if (!el) return;
@@ -3856,9 +3876,17 @@ function renderChartUnidades() {
   const datasets = conhecidas.concat(novas).map(u => {
     const s = SERIE_UNIDADE[u];
     const cor = corToken(s ? s.token : '--tx-4');
-    return { label: s ? s.nome : u, data: porUnidade.get(u), borderColor: cor, backgroundColor: cor };
+    let serie = porUnidade.get(u);
+    if (MODO_UNIDADES === 'crescimento') {
+      // Base = primeira semana COM pedido, nao a primeira da janela: unidade que abriu no
+      // meio (ou ficou uma semana fora do ar) dividiria por zero e sumiria do grafico.
+      const base = serie.find(v => v > 0);
+      serie = base ? serie.map(v => v > 0 ? Math.round(v / base * 1000) / 10 : null) : serie.map(() => null);
+    }
+    return { label: s ? s.nome : u, data: serie, borderColor: cor, backgroundColor: cor };
   });
-  renderLineChart('chartUnidades', semanas.map(formatarSemana), datasets, 'pedidos');
+  const eixo = MODO_UNIDADES === 'pedidos' ? 'pedidos' : '100 = 1ª semana com pedido';
+  renderLineChart('chartUnidades', semanas.map(formatarSemana), datasets, eixo);
 }
 
 // Tendencia bruto x liquido no rodape da Visao geral (formula completa, com conciliacao).
@@ -15362,11 +15390,15 @@ function renderAll() {
       <div class="chart-title">Faturamento bruto x líquido no tempo</div>
       <div class="chart-canvas-wrap"><canvas id="chartTendencia"></canvas></div>
     </div>
-    <div class="chart-box" style="height:300px; margin-top:14px;">
+    <div class="chart-box" style="height:340px; margin-top:14px;">
       <div class="chart-title">Pedidos por semana, unidade a unidade</div>
+      <div style="display:flex; gap:6px; justify-content:center; margin-bottom:8px;">
+        <button class="navbtn ${MODO_UNIDADES === 'pedidos' ? 'active' : ''}" id="btnUni-pedidos" onclick="trocarModoUnidades('pedidos')">Pedidos</button>
+        <button class="navbtn ${MODO_UNIDADES === 'crescimento' ? 'active' : ''}" id="btnUni-crescimento" onclick="trocarModoUnidades('crescimento')">Quem cresceu</button>
+      </div>
       <div class="chart-canvas-wrap"><canvas id="chartUnidades"></canvas></div>
     </div>
-    <div class="caption-label" style="text-align:center;">Cancelamento total não conta como pedido, a mesma regra do resto do painel. Cada unidade tem cor fixa: tirar uma do filtro não troca a cor das outras.</div>
+    <div class="caption-label" id="legendaUnidades" style="text-align:center;">${MODO_UNIDADES === 'pedidos' ? 'Cancelamento total não conta como pedido, a mesma regra do resto do painel. Cada unidade tem cor fixa: tirar uma do filtro não troca a cor das outras.' : 'Cada unidade começa em 100 na primeira semana em que teve pedido, então o que se compara é o movimento, não o tamanho. Acima de 100 cresceu desde então; abaixo, caiu.'}</div>
     <div class="caption-label" style="text-align:center;">Agrupado por ${granularidadeAutomatica() === 'dia' ? 'dia' : granularidadeAutomatica() === 'semana' ? 'semana' : 'mês'}, conforme o tamanho do período filtrado.</div>`;
   document.getElementById('view-content').innerHTML = html;
   document.getElementById('view-cancelamentos').innerHTML = contexto + moduloCancelamentos(m, a);
