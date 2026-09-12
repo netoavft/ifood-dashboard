@@ -932,6 +932,7 @@
 
     <button class="sidebar-secao" onclick="toggleGrupo('gProducao')">Produção e estoque <span class="seta">▶</span></button>
     <div class="sidebar-grupo" id="gProducao">
+      <button class="sidebar-btn" id="navBtnContagem" onclick="mostrarModulo('contagem')"><span class="mico">📋</span>Contagem de estoque</button>
       <button class="sidebar-btn" id="navBtnListas" onclick="mostrarModulo('listas')"><span class="mico">📦</span>Listas · Pedidos</button>
       <button class="sidebar-btn" id="navBtnListasFin" onclick="mostrarModulo('listasfin')"><span class="mico">🧾</span>Listas · Financeiro</button>
     </div>
@@ -1085,6 +1086,10 @@
 
     <div id="modulo-listasfin" class="modulo" style="display:none;">
       <div id="view-listasfin"></div>
+    </div>
+
+    <div id="modulo-contagem" class="modulo" style="display:none;">
+      <div id="view-contagem"></div>
     </div>
 
     <div id="modulo-fichas" class="modulo" style="display:none;">
@@ -1820,6 +1825,7 @@ function mostrarModulo(nome) {
     frete: ['modulo-frete', 'navBtnFrete'],
     listas: ['modulo-listas', 'navBtnListas'],
     listasfin: ['modulo-listasfin', 'navBtnListasFin'],
+    contagem: ['modulo-contagem', 'navBtnContagem'],
     // rateio ficou de fora do mapa quando o modulo nasceu (22/08): entrarRateio()
     // buscava os dados e o div nunca era exibido — a tela abria vazia.
     rateio: ['modulo-rateio', 'navBtnRateio'],
@@ -1905,6 +1911,7 @@ function mostrarModulo(nome) {
   if (nome === 'frete') entrarFrete();
   if (nome === 'listas') entrarListas();
   if (nome === 'listasfin') entrarListasFin();
+  if (nome === 'contagem') entrarContagem();
   if (nome === 'fichas') entrarFichas();
   if (nome === 'engcard') entrarEngcard();
   if (nome === 'plano') entrarPlano();
@@ -17003,6 +17010,260 @@ async function entrarNoPainel() {
 function sairDoPainel() {
   localStorage.removeItem('rmbSessao');
   location.reload();
+}
+
+// ==================================================================
+//  CONTAGEM DE ESTOQUE — a quarta-feira (12/09/2026)
+//
+//  CONTAGEM CEGA E REGRA, NAO DETALHE DE TELA. Enquanto a folha esta ABERTA o
+//  painel NAO mostra o esperado. Se ele aparecer antes de a pessoa digitar, ela
+//  digita o esperado — e o painel passa a produzir um numero que confirma a si
+//  mesmo. O esperado so aparece depois de FECHAR, junto com a diferenca.
+//
+//  O esperado sai de vw_est_inventario_conferencia, que ancora na ultima
+//  contagem FECHADA e IGNORA o ajuste do Saipos (a regra de ouro do
+//  script/estoque_inventario.sql: o ajuste E o fechamento da contagem la, e se
+//  entrar na conta a nossa contagem bate sempre e mede nada).
+//
+//  Primeira contagem de um item nao tem esperado, e isso e correto: ela e o
+//  ponto de partida. Hoje 187 dos 410 itens tem saldo acumulado negativo no
+//  razao, porque ele comeca em 02/01/2026 sem saldo de abertura.
+// ==================================================================
+let CTG = null;   // { papel, unidade, folha, escopo, itens, contado, conf }
+
+function ctgHoje() {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
+}
+
+async function ctgFetch(caminho, opcoes) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${caminho}`,
+                        { headers: rmbHeaders((opcoes || {}).extra || {}), ...(opcoes || {}) });
+  if (!r.ok) throw new Error((await r.text()).slice(0, 200));
+  return r;
+}
+
+async function entrarContagem() {
+  const alvo = document.getElementById('view-contagem');
+  if (!alvo) return;
+  const sessao = rmbSessao();
+  if (!sessao) { alvo.innerHTML = `<div class="contexto">Entre no painel para contar o estoque.</div>`; return; }
+  alvo.innerHTML = `<div class="contexto">Carregando…</div>`;
+  try {
+    if (!CTG || !CTG.papel) {
+      const [rp, ru] = await Promise.all([trRpc('tr_meu_papel'), trRpc('tr_minha_unidade')]);
+      const papel = rp.ok ? await rp.json() : null;
+      if (!papel) {
+        alvo.innerHTML = `<div class="contexto">Você está logado como <b>${sessao.email}</b>, mas este login ainda
+          não tem papel na operação. Quem cadastra é o Neto, em <b>tr_usuarios</b>.</div>`;
+        return;
+      }
+      CTG = { papel, unidade: (ru.ok ? await ru.json() : null) || 'AGUA VERDE' };
+    }
+    await ctgCarregar();
+  } catch (e) {
+    alvo.innerHTML = `<div class="contexto" style="border-color:var(--farol-fora);">Não consegui abrir a contagem: ${e.message}</div>`;
+  }
+}
+
+async function ctgCarregar() {
+  const u = encodeURIComponent(CTG.unidade);
+  const folhas = await consultarTudo(`est_inventario?select=*&unidade=eq.${u}&order=data.desc&limit=12`);
+  CTG.folha = folhas.find((f) => f.status === 'ABERTA') || folhas[0] || null;
+  CTG.folhas = folhas;
+  CTG.itens = [];
+  CTG.conf = [];
+  if (CTG.folha) {
+    if (CTG.folha.status === 'ABERTA') {
+      // ABERTA le so o que foi digitado — nunca a conferencia (contagem cega)
+      CTG.itens = await consultarTudo(`est_inventario_itens?select=*&id_inventario=eq.${CTG.folha.id}`);
+    } else {
+      CTG.conf = await consultarTudo(`vw_est_inventario_conferencia?select=*&id_inventario=eq.${CTG.folha.id}&order=diferenca_reais.asc`);
+    }
+  }
+  CTG.escopo = await consultarTudo(
+    `vw_est_curva?select=nome_saipos,insumo,un,curva,custo,custo_fonte,dinheiro&unidade=eq.${u}&order=dinheiro.desc`);
+  ctgRender();
+}
+
+function ctgRender() {
+  const alvo = document.getElementById('view-contagem');
+  const f = CTG.folha;
+  const aberta = f && f.status === 'ABERTA';
+  const hoje = ctgHoje();
+  const dia = new Date(hoje + 'T12:00:00').getDay();   // 3 = quarta
+
+  let h = `<h2>Contagem de estoque</h2>
+    <div class="caption-label">O que a prateleira tem contra o que o sistema diz — a diferença é a única perda medida da casa.</div>`;
+
+  h += `<div class="contexto" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+      <b>${CTG.unidade}</b>
+      ${f ? `<span>folha de <b>${f.data.split('-').reverse().join('/')}</b> · ${f.escopo === 'CURVA_A' ? 'curva A' : f.escopo.toLowerCase()} · ${aberta ? 'aberta' : 'fechada'}</span>` : '<span>nenhuma folha ainda</span>'}
+      ${aberta ? '' : `<button class="preset-btn" onclick="ctgAbrir('CURVA_A')">Abrir contagem da curva A</button>
+                       <button class="preset-btn" onclick="ctgAbrir('GERAL')">Abrir contagem geral</button>`}
+      ${dia !== 3 && !aberta ? `<span style="color:var(--tx-4);">hoje não é quarta</span>` : ''}
+    </div>`;
+
+  if (!f) {
+    h += `<div class="contexto">A contagem é toda quarta: a curva A na semana (<b>${CTG.escopo.filter((i) => i.curva === 'A').length} itens</b>,
+      80% do dinheiro) e a geral uma vez por mês. Abra a folha e conte — o esperado só aparece depois de fechar.</div>`;
+    alvo.innerHTML = h;
+    return;
+  }
+
+  h += aberta ? ctgHtmlContar(f) : ctgHtmlConferencia(f);
+  alvo.innerHTML = h;
+}
+
+function ctgHtmlContar(f) {
+  const lista = CTG.escopo.filter((i) => f.escopo === 'GERAL' || i.curva === 'A');
+  const feito = new Map(CTG.itens.map((i) => [i.nome_saipos, i]));
+  const n = lista.filter((i) => feito.has(i.nome_saipos)).length;
+
+  let h = `<div class="cards cards-3">
+      <div class="card neutral"><div class="card-lbl">Contados</div><div class="card-val">${n} de ${lista.length}</div>
+        <div class="card-pct">${lista.length ? Math.round(n / lista.length * 100) : 0}% da folha</div></div>
+      <div class="card neutral"><div class="card-lbl">Escopo</div><div class="card-val">${f.escopo === 'CURVA_A' ? 'Curva A' : 'Geral'}</div>
+        <div class="card-pct">${f.escopo === 'CURVA_A' ? '80% do dinheiro que passa pelo estoque' : 'tudo que se moveu'}</div></div>
+      <div class="card ${n === lista.length ? 'pos' : 'neutral'}"><div class="card-lbl">Fechar</div>
+        <div class="card-val"><button class="preset-btn" onclick="ctgFechar()">Fechar e conferir</button></div>
+        <div class="card-pct">o esperado aparece depois de fechar</div></div>
+    </div>`;
+
+  h += `<div class="section-label">O que contar</div>
+    <div class="caption-label">Conte e digite — o painel não mostra o esperado enquanto a folha está aberta, de propósito.</div>
+    <div id="tabelaContagem"><table><thead><tr>
+      <th>Item</th><th>Unid.</th><th style="text-align:right;">Contado</th><th></th></tr></thead><tbody>`;
+  lista.forEach((i) => {
+    const j = feito.get(i.nome_saipos);
+    h += `<tr><td>${i.nome_saipos}${i.insumo && i.insumo !== i.nome_saipos ? ` <span style="color:var(--tx-5);">· ${i.insumo}</span>` : ''}</td>
+      <td>${i.un || ''}</td>
+      <td style="text-align:right;"><input type="number" step="0.001" inputmode="decimal"
+           id="ctg_${btoa(unescape(encodeURIComponent(i.nome_saipos))).replace(/[^A-Za-z0-9]/g, '')}"
+           value="${j ? j.qtd_contada : ''}"
+           onchange="ctgSalvar(this, ${JSON.stringify(i.nome_saipos).replace(/"/g, '&quot;')}, ${JSON.stringify(i.un || '').replace(/"/g, '&quot;')}, ${i.custo || 'null'}, ${JSON.stringify(i.custo_fonte || '').replace(/"/g, '&quot;')})"
+           style="width:110px; text-align:right; background:var(--surface-2); border:1px solid var(--line); border-radius:8px; color:var(--tx-1); padding:6px 8px;"></td>
+      <td style="color:${j ? 'var(--farol-ok)' : 'var(--tx-5)'};">${j ? '✓' : ''}</td></tr>`;
+  });
+  h += `</tbody></table></div>`;
+  return h;
+}
+
+function ctgHtmlConferencia(f) {
+  const c = CTG.conf;
+  const falta = c.filter((x) => x.situacao === 'FALTA');
+  const sobra = c.filter((x) => x.situacao === 'SOBRA');
+  const partida = c.filter((x) => x.situacao === 'PONTO DE PARTIDA');
+  const explicar = c.filter((x) => x.precisa_explicar && !Number(x.explicado_reais || 0));
+  const rs = (a) => a.reduce((s, x) => s + Number(x.diferenca_reais || 0), 0);
+
+  let h = `<div class="cards cards-3">
+      <div class="card ${falta.length ? 'neg' : 'pos'}"><div class="card-lbl">Falta na prateleira</div>
+        <div class="card-val">R$ ${fmt(Math.abs(rs(falta)))}</div><div class="card-pct">${falta.length} itens</div></div>
+      <div class="card neutral"><div class="card-lbl">Sobra</div>
+        <div class="card-val">R$ ${fmt(rs(sobra))}</div><div class="card-pct">${sobra.length} itens</div></div>
+      <div class="card ${explicar.length ? 'highlight' : 'pos'}"><div class="card-lbl">Esperando explicação</div>
+        <div class="card-val">${explicar.length}</div><div class="card-pct">diferença acima de R$ 500</div></div>
+    </div>`;
+
+  if (partida.length) {
+    h += `<div class="contexto">${partida.length} ${partida.length === 1 ? 'item está sendo contado' : 'itens estão sendo contados'}
+      pela primeira vez — ${partida.length === 1 ? 'ele é' : 'eles são'} o ponto de partida e não ${partida.length === 1 ? 'tem' : 'têm'} diferença.</div>`;
+  }
+
+  h += `<div class="section-label">Item a item</div>
+    <div class="caption-label">Diferença acima de R$ 500 precisa de motivo escrito; o resto aparece para você ver.</div>
+    <div id="tabelaConferencia"><table><thead><tr>
+      <th>Item</th><th style="text-align:right;">Contado</th><th style="text-align:right;">Esperado</th>
+      <th style="text-align:right;">Diferença</th><th style="text-align:right;">R$</th><th>Situação</th><th></th></tr></thead><tbody>`;
+  c.forEach((x) => {
+    const cor = x.situacao === 'FALTA' ? 'var(--farol-fora)'
+              : x.situacao === 'SOBRA' ? 'var(--amber-2)'
+              : x.situacao === 'BATEU' ? 'var(--farol-ok)' : 'var(--tx-5)';
+    const temNome = Number(x.explicado_reais || 0) !== 0;
+    h += `<tr><td>${x.nome_saipos}</td>
+      <td style="text-align:right;">${fmt(Number(x.qtd_contada))}</td>
+      <td style="text-align:right;">${x.esperado === null ? '—' : fmt(Number(x.esperado))}</td>
+      <td style="text-align:right; color:${cor};">${x.diferenca === null ? '—' : fmt(Number(x.diferenca))}</td>
+      <td style="text-align:right; color:${cor};">${x.diferenca_reais === null ? '—' : fmt(Number(x.diferenca_reais))}</td>
+      <td style="color:${cor};">${x.situacao}</td>
+      <td>${x.precisa_explicar && !temNome ? `<button class="preset-btn" onclick="ctgExplicar(${x.id}, ${x.diferenca}, ${x.diferenca_reais})">explicar</button>`
+            : temNome ? '<span style="color:var(--farol-ok);">explicado</span>' : ''}</td></tr>`;
+  });
+  h += `</tbody></table></div>`;
+  return h;
+}
+
+async function ctgAbrir(escopo) {
+  const s = rmbSessao();
+  try {
+    await ctgFetch('est_inventario', {
+      method: 'POST', extra: { Prefer: 'return=representation' },
+      body: JSON.stringify({ unidade: CTG.unidade, local: 'ESTOQUE', data: ctgHoje(), escopo, aberta_por: s.email }),
+    });
+    await ctgCarregar();
+  } catch (e) { alert('Não consegui abrir a folha: ' + e.message); }
+}
+
+async function ctgSalvar(campo, nome, un, custo, custoFonte) {
+  if (campo.value === '') return;
+  const s = rmbSessao();
+  campo.style.borderColor = 'var(--line)';
+  try {
+    await ctgFetch('est_inventario_itens?on_conflict=id_inventario,nome_saipos', {
+      method: 'POST', extra: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+      body: JSON.stringify({ id_inventario: CTG.folha.id, nome_saipos: nome, un: un || null,
+        qtd_contada: Number(campo.value), custo, custo_fonte: custoFonte || null, contado_por: s.email }),
+    });
+    campo.style.borderColor = 'var(--farol-ok)';
+    if (!CTG.itens.some((i) => i.nome_saipos === nome)) CTG.itens.push({ nome_saipos: nome, qtd_contada: Number(campo.value) });
+  } catch (e) {
+    campo.style.borderColor = 'var(--farol-fora)';
+    alert('Não consegui gravar ' + nome + ': ' + e.message);
+  }
+}
+
+async function ctgFechar() {
+  const lista = CTG.escopo.filter((i) => CTG.folha.escopo === 'GERAL' || i.curva === 'A');
+  const n = CTG.itens.length;
+  if (n < lista.length && !confirm(`Faltam ${lista.length - n} itens sem contar. Fechar assim mesmo?`)) return;
+  const s = rmbSessao();
+  try {
+    await ctgFetch(`est_inventario?id=eq.${CTG.folha.id}`, {
+      method: 'PATCH', extra: { Prefer: 'return=minimal' },
+      body: JSON.stringify({ status: 'FECHADA', fechada_por: s.email, fechada_em: new Date().toISOString() }),
+    });
+    await ctgCarregar();
+  } catch (e) { alert('Não consegui fechar: ' + e.message); }
+}
+
+const CTG_TIPOS = [
+  ['TRANSFERENCIA_NAO_LANCADA', 'Foi para a filial e ninguém baixou'],
+  ['PRODUCAO_NAO_APONTADA', 'Virou preparo e não foi apontado'],
+  ['ATACADO', 'Saiu para venda de atacado'],
+  ['PERDA', 'Estragou, quebrou ou venceu'],
+  ['ERRO_DE_CADASTRO', 'Unidade ou conversão errada no cadastro'],
+  ['CONTAGEM_ERRADA', 'Contamos errado'],
+  ['CONSUMO_INTERNO', 'Refeição da equipe, teste ou cortesia'],
+  ['OUTRO', 'Outro'],
+];
+
+async function ctgExplicar(idItem, dif, difRs) {
+  const s = rmbSessao();
+  const opcoes = CTG_TIPOS.map(([k, t], i) => `${i + 1}. ${t}`).join('\n');
+  const escolha = prompt(`Diferença de ${fmt(dif)} (R$ ${fmt(difRs)}).\nO que aconteceu?\n\n${opcoes}\n\nDigite o número:`);
+  if (!escolha) return;
+  const tipo = (CTG_TIPOS[Number(escolha) - 1] || [])[0];
+  if (!tipo) { alert('Número inválido.'); return; }
+  const obs = prompt('Alguma observação? (pode deixar em branco)') || null;
+  const resp = tipo === 'PERDA' || tipo === 'CONSUMO_INTERNO'
+    ? (prompt('Quem responde? (pode deixar em branco — a regra de desconto ainda não existe)') || null) : null;
+  try {
+    await ctgFetch('est_quebra', {
+      method: 'POST', extra: { Prefer: 'return=minimal' },
+      body: JSON.stringify({ id_item: idItem, tipo, qtd: dif, valor: difRs, responsavel: resp, observacao: obs, quem: s.email }),
+    });
+    await ctgCarregar();
+  } catch (e) { alert('Não consegui gravar a explicação: ' + e.message); }
 }
 
 // No boot: so abre o painel se a sessao ainda vale. Token vencido nao e motivo
