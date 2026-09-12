@@ -12031,10 +12031,11 @@ async function entrarFechamento() {
   const alvo = document.getElementById('view-fechamento');
   if (!FX_M) {
     alvo.innerHTML = '<div class="contexto">Carregando o fechamento...</div>';
-    const [dre, vendas, taxas, benef, ponte, metas, prova] = await Promise.all([
+    const [dre, vendas, canal, benef, ponte, metas, prova] = await Promise.all([
       consultarTudo('vw_fin_dre_mensal?select=unidade,mes,natureza,tipo,subtipo,credito,debito&mes=gte.2026-01-01'),
       consultarTudo('vw_mes_vendas?select=mes,unidade,canal,pedidos,faturamento&mes=gte.2026-01-01'),
-      consultarTudo('mv_conciliacao_agregado?select=data,grupo,valor&unidade=eq.AGUA%20VERDE'),
+      // custo dos canais por FATO (12/09/2026): substitui a conta por diferenca e o extrato de anuncios so da AV
+      consultarTudo('vw_canal_custo_mes?select=mes,unidade,linha,classe,custo&mes=gte.2026-01-01'),
       consultarTudo('vw_fin_dre_beneficio?select=mes,unidade,beneficio_ifood'),
       consultarTudo('vw_fin_ponte_mensal?select=*'),
       consultarTudo('fin_metas_dre?select=chave,sentido,pct_meta'),
@@ -12042,7 +12043,7 @@ async function entrarFechamento() {
       consultarTudo('vw_fechamento_prova_nove?select=mes,unidade,ordem,linha,fonte_a,fonte_b,valor_a,valor_b,diferenca,pct,tolerancia_pct,situacao&order=mes,ordem').catch(() => []),
     ]);
     const metasMap = {}; metas.forEach(m => { metasMap[m.chave] = { sentido: m.sentido, meta: fxN(m.pct_meta) }; });
-    FX_M = { dre, vendas, taxas, benef, ponte, metas: metasMap, prova: prova || [] };
+    FX_M = { dre, vendas, canal, benef, ponte, metas: metasMap, prova: prova || [] };
     const meses = [...new Set(dre.map(r => r.mes))].sort().filter(m => m.slice(0, 7) < mesCorrenteSP());
     FX_MES_SEL = meses[meses.length - 1];
   }
@@ -12058,24 +12059,32 @@ function fxMesCalc(mes) {
   const recPdv = s(r => r.natureza === 'RECEITAS' && FX_SUBT_PDV.includes(r.subtipo));
   const outras = s(r => r.natureza === 'RECEITAS' && !FX_SUBT_PDV.includes(r.subtipo));
   const outrasDet = {}; rows.forEach(r => { if (r.natureza === 'RECEITAS' && !FX_SUBT_PDV.includes(r.subtipo)) outrasDet[r.subtipo] = (outrasDet[r.subtipo] || 0) + fxN(r.credito) - fxN(r.debito); });
-  let anuncios = 0;
-  if (L.includes('AGUA VERDE')) FX_M.taxas.forEach(r => { if (r.data.slice(0, 7) === mes.slice(0, 7) && r.grupo === 'ANUNCIOS') anuncios -= fxN(r.valor); });
-  const taxasCanais = recBruta - recPdv - anuncios;
+  // custo dos canais por FATO (12/09/2026, decisao do dono): cada cobranca do
+  // iFood e da Rede com nome, nas 3 lojas. Anuncios ficam no balde "entrega,
+  // comercial e marketing"; entrega sob demanda idem; antecipacao da Rede em
+  // juros e tarifas. A conta antiga (vendido − recebido) fica so de conferencia.
+  const cf = FX_M.canal.filter(r => r.mes === mes && L.includes(r.unidade));
+  const cs = (pred) => cf.reduce((a, r) => a + (pred(r) ? fxN(r.custo) : 0), 0);
+  const anuncios = cs(r => r.linha === 'ANUNCIOS');
+  const sobDemanda = cs(r => r.classe === 'LOGISTICA'), antecip = cs(r => r.classe === 'FINANCEIRO');
+  const temFato = cf.length > 0;
+  const taxasCanais = temFato ? cs(r => r.classe === 'CANAL') - anuncios : recBruta - recPdv;
+  const defasagem = temFato ? recBruta - recPdv - taxasCanais - anuncios - sobDemanda - antecip : 0;
   const deducoes = s(r => r.natureza === 'DEDUÇOES DA RECEITA' && r.subtipo !== 'IRPJ', -1);
   const irpj = s(r => r.natureza === 'DEDUÇOES DA RECEITA' && r.subtipo === 'IRPJ', -1);
   const grupos = {};
   Object.entries(FX_GRUPOS).forEach(([k, tipos]) => { grupos[k] = s(r => r.natureza === 'DESPESAS' && r.tipo !== 'INVESTIMENTOS' && tipos.includes(r.tipo), -1); });
-  grupos.VENDA += anuncios;
+  grupos.VENDA += anuncios + sobDemanda;
   const mapeados = Object.values(FX_GRUPOS).flat().concat(['DESPESAS FINANCEIRAS']);
   const outrasDesp = s(r => r.natureza === 'DESPESAS' && r.tipo !== 'INVESTIMENTOS' && !mapeados.includes(r.tipo), -1);
   const base = recBruta + outras;
   const recLiq = base - taxasCanais - deducoes;
   const ebitda = recLiq - grupos.CUSTO - grupos.PESSOAL - grupos.VENDA - grupos.ADMIN - outrasDesp;
-  const despFin = s(r => r.tipo === 'DESPESAS FINANCEIRAS', -1), recFin = s(r => r.natureza === 'APLICAÇÕES' && r.subtipo === 'RENDIMENTOS');
+  const despFin = s(r => r.tipo === 'DESPESAS FINANCEIRAS', -1) + antecip, recFin = s(r => r.natureza === 'APLICAÇÕES' && r.subtipo === 'RENDIMENTOS');
   const semClass = s(r => r.natureza === 'SEM CLASSIFICACAO');
   const resultado = ebitda + recFin - despFin + semClass - irpj;
   const benef = FX_M.benef.filter(r => r.mes === mes && L.includes(r.unidade)).reduce((a, r) => a + fxN(r.beneficio_ifood), 0);
-  return { mes, canais, recBruta, pedidos, ticket: pedidos ? recBruta / pedidos : 0, outras, outrasDet, taxasCanais, deducoes, irpj, base, grupos, outrasDesp, ebitda, despFin, recFin, semClass, resultado, benef };
+  return { mes, canais, recBruta, pedidos, ticket: pedidos ? recBruta / pedidos : 0, outras, outrasDet, taxasCanais, defasagem, temFato, deducoes, irpj, base, grupos, outrasDesp, ebitda, despFin, recFin, semClass, resultado, benef };
 }
 function fxPonte(mes) { const L = fxLojas(); const rows = FX_M.ponte.filter(r => r.mes === mes && L.includes(r.unidade)); if (!rows.length) return null; const s = c => rows.reduce((a, r) => a + fxN(r[c]), 0); return { res: s('resultado_apurado'), comp: s('ajuste_competencia'), inv: s('investimentos'), ret: s('retiradas'), emp: s('emprestimos'), apo: s('aportes'), rend: s('aplicacoes'), xp: s('transferencias_liquidas'), sem: s('sem_classificacao'), v: s('variacao_caixa') }; }
 function renderFechamento() {
@@ -12121,7 +12130,7 @@ function renderFechamento() {
   });
   const fs = M.RESULTADO ? fxFarol(cem(a.resultado), M.RESULTADO.meta, M.RESULTADO.sentido) : ['neutro', ''];
   h += `<div class="fx-linha sobrou ${fs[0]}"><div class="fx-nome">Sobrou<small>meta: R$ ${M.RESULTADO ? M.RESULTADO.meta : '—'} ou mais de cada 100</small></div><div class="fx-num">R$ ${100 - somaArr}</div><div class="fx-barra"><i style="width:${Math.max(0, cem(a.resultado)) / maxv * 100}%"></i></div><div class="fx-jul">${j ? `${fxMesRot(ant)}: R$ ${Math.round(j.base ? j.resultado / j.base * 100 : 0)}` : ''} · ${fxPill(fs)}</div></div></div>`;
-  h += `<div class="fx-nota">Valores arredondados para o real, por isso a soma fecha em 100 no "Sobrou".${(a.taxasCanais < -0.5 || (j && j.taxasCanais < -0.5)) ? ` Quando a linha de taxas fica negativa, caiu na conta mais repasse do iFood do que a venda do próprio mês — é a defasagem semanal do repasse atravessando a virada do mês, não taxa de graça; vale olhar os dois meses juntos.` : ''}</div>`;
+  h += `<div class="fx-nota">Valores arredondados para o real, por isso a soma fecha em 100 no "Sobrou".${a.temFato ? ` As taxas dos canais são o que o iFood e a Rede cobraram de fato no mês (cada cobrança com nome), não a diferença entre vendido e recebido — por isso o mês não oscila com o atraso dos repasses.${Math.abs(a.defasagem) > 500 ? ` Conferência: caiu na conta ${fxMil(Math.abs(a.defasagem))} ${a.defasagem > 0 ? 'a menos' : 'a mais'} do que a venda do mês menos essas cobranças — é repasse atravessando a virada do mês (e a taxa dos vales, que ainda não tem fonte).` : ''}` : ''}</div>`;
   // 3. quanto sobrou
   const serieRes = serie.map(x => x.resultado);
   h += `<div class="fx-secao"><h3>3. Quanto sobrou</h3><span>o resultado do mês</span></div><div class="fx-duas">
@@ -12993,24 +13002,38 @@ function renderModuloDRE() {
   // Custo dos canais por FATO (vw_canal_custo_mes, 03/09/2026): cada cobranca do
   // iFood (promocao da loja, anuncios, taxa de transacao, comissao, retencoes,
   // ressarcimentos, repasses alem dos itens) e da Rede (MDR, antecipacao) com
-  // nome, nas 3 lojas. A linha-MAE continua sendo a NOSSA conta: vendido no PDV
-  // menos o que caiu na conta. As filhas nomeadas vem do fato, e o que sobra e'
-  // a diferenca vendido x recebido (defasagem semanal do repasse + o que ainda
-  // nao tem fonte, ex.: vouchers). Estrutura do Matheus, calculo nosso.
-  const canalLinha = {}, canalRotulo = {}, canalOrdem = [];
+  // nome, nas 3 lojas.
+  // 12/09/2026 (decisao do dono): a linha-MAE das deducoes passou a ser a SOMA
+  // DO FATO (classe CANAL), e nao mais o "plug" (vendido no PDV − recebido no
+  // financeiro). O plug misturava custo com defasagem de caixa (repasse do
+  // iFood em ~1 semana, vales em ~30 dias) e fazia o resultado do mes oscilar
+  // sem a operacao mudar (jul/26 dava taxa negativa; ago/26 escondia 32 mil).
+  // A diferenca vendido × recebido continua visivel como CONFERENCIA, fora da
+  // conta. Classe LOGISTICA (entrega sob demanda) vai para COMERCIAIS e classe
+  // FINANCEIRO (antecipacao da Rede) para DESPESAS FINANCEIRAS — sao custos
+  // reais que antes viviam dentro do plug. Mes sem fato (antes de 2026) segue
+  // no plug. Estrutura do Matheus, calculo nosso.
+  const canalLinha = {}, canalRotulo = {}, canalClasse = {}, canalOrdem = [];
   (DRE_CANAL || []).forEach(r => {
     if (LOJA_FIN !== 'REDE' && r.unidade !== LOJA_FIN) return;
     if (r.classe === 'INFO') return;   // linha informativa (vale/maquininha fora do repasse), nao e' deducao
     const i = idxMes[r.mes];
     if (i === undefined) return;
-    if (!canalLinha[r.linha]) { canalLinha[r.linha] = Array(nM).fill(0); canalRotulo[r.linha] = r.rotulo; canalOrdem.push(r.linha); }
+    if (!canalLinha[r.linha]) { canalLinha[r.linha] = Array(nM).fill(0); canalRotulo[r.linha] = r.rotulo; canalClasse[r.linha] = r.classe; canalOrdem.push(r.linha); }
     canalLinha[r.linha][i] += Number(r.custo);
   });
   const anunciosIf = canalLinha.ANUNCIOS || Array(nM).fill(0);
-  // deducoes dos canais: tudo que ficou entre a venda no PDV e o que caiu na
-  // conta — promocoes, anuncios, taxas do iFood, tarifas de cartao, defasagem.
-  const taxasCanais = menos(recBruta, recPdvFin);
-  const somaCanalFato = meses.map((_, i) => canalOrdem.reduce((s, k) => s + canalLinha[k][i], 0));
+  const somaClasse = (cl) => meses.map((_, i) => canalOrdem.filter(k => canalClasse[k] === cl).reduce((s, k) => s + canalLinha[k][i], 0));
+  const linhasCanal   = canalOrdem.filter(k => canalClasse[k] === 'CANAL');
+  const somaCanalFato = somaClasse('CANAL');        // deducoes da receita, por fato
+  const sobDemandaIf  = somaClasse('LOGISTICA');    // entrega sob demanda do iFood -> COMERCIAIS
+  const antecipRede   = somaClasse('FINANCEIRO');   // antecipacao de recebiveis da Rede -> FINANCEIRAS
+  // a conta antiga (plug): vendido no PDV − recebido no financeiro. Fica como
+  // conferencia; so entra na DRE no mes em que nao ha fato nenhum.
+  const plugCanais = menos(recBruta, recPdvFin);
+  const temFato    = meses.map((_, i) => canalOrdem.some(k => Math.abs(canalLinha[k][i]) > 0.005));
+  const taxasCanais = meses.map((_, i) => temFato[i] ? somaCanalFato[i] : plugCanais[i]);
+  const defasagem   = meses.map((_, i) => temFato[i] ? plugCanais[i] - somaCanalFato[i] - sobDemandaIf[i] - antecipRede[i] : 0);
   // comissoes de vendedores: deducao da receita na estrutura do Matheus (03/09/2026)
   const comissoesVend = somar(r => r.natureza === 'DESPESAS' && r.subtipo === 'COMISSOES', -1);
 
@@ -13030,6 +13053,8 @@ function renderModuloDRE() {
   // COMISSOES (de vendedores) saiu de COMERCIAIS: e' deducao da receita (03/09/2026)
   const predGrupo = (tipos) => (r) => r.natureza === 'DESPESAS' && !ehInvest(r) && tipos.includes(r.tipo) && r.subtipo !== 'COMISSOES';
   const gruposVals = DRE_GRUPOS.map(([chave, rotulo, tipos]) => [chave, rotulo, tipos, somar(predGrupo(tipos), -1)]);
+  // entrega sob demanda do iFood (descontada no repasse, nao e' lancamento): custo de entrega, vai em COMERCIAIS (12/09/2026)
+  gruposVals.forEach(g => { if (g[0] === 'VENDA') g[3] = g[3].map((v, i) => v + sobDemandaIf[i]); });
   // tipos de despesa que nao entraram em nenhum grupo (menos financeiras, tratadas abaixo)
   const tiposMapeados = DRE_GRUPOS.flatMap(g => g[2]).concat(['DESPESAS FINANCEIRAS']);
   const outrasDesp = somar(r => r.natureza === 'DESPESAS' && !ehInvest(r) && !tiposMapeados.includes(r.tipo), -1);
@@ -13043,7 +13068,8 @@ function renderModuloDRE() {
   // derivada de vw_tr_conta_listas_mensal dobrava o efeito por loja (na REDE os
   // dois lados se anulavam e escondiam o erro).
 
-  const despFin = somar(r => r.tipo === 'DESPESAS FINANCEIRAS', -1);
+  // antecipacao de recebiveis da Rede (desconto por receber antes) e' custo financeiro, nao do canal (dono, 02/09/2026)
+  const despFin = somar(r => r.tipo === 'DESPESAS FINANCEIRAS', -1).map((v, i) => v + antecipRede[i]);
   const recFin  = somar(r => r.natureza === 'APLICAÇÕES' && r.subtipo === 'RENDIMENTOS');
   const resFin  = menos(recFin, despFin);
   const semClass = somar(r => r.natureza === 'SEM CLASSIFICACAO');
@@ -13143,11 +13169,15 @@ function renderModuloDRE() {
   // aberta, mostra cada cobranca pelo nome (fato) e a diferenca que sobra.
   corpo += linha('dfc-bloco', '(−) DEDUÇÕES DA RECEITA (promoções, anúncios, taxas iFood, cartões, comissões, ICMS)', deducoesTot, { chave: 'DEDUC', kind: 'custo' });
   if (dreAberto.has('DEDUC')) {
-    canalOrdem.forEach(k => {
+    linhasCanal.forEach(k => {
       if (!canalLinha[k].some(v => Math.abs(v) > 0.005)) return;
       corpo += linha('dfc-linha', canalRotulo[k] || k, canalLinha[k], { kind: 'custo' });
     });
-    corpo += linha('dfc-linha', 'Diferença vendido × recebido (defasagem do repasse, vouchers e o que ainda não tem fonte)', taxasCanais.map((v, i) => v - somaCanalFato[i]), { kind: 'custo' });
+    if (temFato.some(t => !t)) corpo += linha('dfc-linha', 'Taxas por diferença (vendido − recebido) — só nos meses sem fato', meses.map((_, i) => temFato[i] ? 0 : plugCanais[i]), { kind: 'custo' });
+    // conferencia, fora da conta: o que a conta antiga (plug) daria a mais ou a
+    // menos = defasagem dos repasses + taxa de vale sem fonte. Positivo = caiu
+    // menos na conta do que o fato explica (repasse ainda por vir).
+    corpo += linha('dfc-linha', '<i>Conferência, não entra na conta: vendido − recebido no mês − linhas acima (defasagem dos repasses; taxa dos vales ainda sem fonte)</i>', defasagem, {});
     if (comissoesVend.some(v => Math.abs(v) > 0.005)) corpo += linha('dfc-linha', 'Comissões de vendedores', comissoesVend, { kind: 'custo' });
     corpo += blocoSubtipos('DEDUC', r => r.natureza === 'DEDUÇOES DA RECEITA' && r.subtipo !== 'IRPJ', -1, 'custo');
   }
@@ -13164,6 +13194,7 @@ function renderModuloDRE() {
         corpo += linha('dfc-grupo', DRE_TIPO_ROTULO[t] || t, somar(predT, -1), { chave: 'GT:' + t, kind: 'custo' });
         corpo += blocoSubtipos('GT:' + t, predT, -1, 'custo');
       });
+      if (chave === 'VENDA' && sobDemandaIf.some(v => Math.abs(v) > 0.005)) corpo += linha('dfc-grupo', 'iFood — entrega sob demanda (descontada no repasse)', sobDemandaIf, { kind: 'custo' });
     }
   };
   blocoGrupo(0);
@@ -13191,6 +13222,7 @@ function renderModuloDRE() {
   if (dreAberto.has('FIN')) {
     corpo += linha('dfc-grupo', 'RENDIMENTOS DE APLICAÇÕES', recFin, { kind: 'ganho' });
     corpo += linha('dfc-grupo', 'DESPESAS FINANCEIRAS', despFin.map(v => -v), { kind: 'ganho' });
+    if (antecipRede.some(v => Math.abs(v) > 0.005)) corpo += linha('dfc-linha', 'sendo antecipação de recebíveis da Rede (descontada no repasse)', antecipRede.map(v => -v), { kind: 'ganho' });
   }
   if (semClass.some(v => Math.abs(v) > 0.005)) {
     corpo += linha('dfc-bloco', '(±) SEM CLASSIFICAÇÃO (revisar)', semClass);
