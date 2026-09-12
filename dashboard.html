@@ -7600,17 +7600,34 @@ let EVOL = null;
 // Fonte: vw_venda_item_semana. Carrega SOB DEMANDA e SO A JANELA — por dia seriam 16 mil
 // linhas em 8 semanas e 74 mil no ano; por semana sao 5,6 mil e 24 mil, e o servidor ja
 // devolve so o recorte. Por isso este bloco tem carregamento proprio, separado do resto.
+// ESTADO DE FILTRO DA TELA (12/09/2026) — o que transforma um relatorio em dashboard:
+// clicar numa barra filtra a tela inteira, e nao so a tabela de baixo. A unidade NAO
+// mora aqui de proposito: ela ja e' o filtro do topo, e dois controles para a mesma
+// coisa e' o jeito mais rapido de ninguem confiar em nenhum dos dois.
+// Regra do cross-filter: a dimensao que voce filtrou continua mostrando TODAS as suas
+// categorias (senao nao da para trocar de escolha); as outras dimensoes sim se filtram.
+let EVOL_F = { canal: null, faixa: null };
+function evolFiltrar(tipo, valor) {
+  EVOL_F[tipo] = (EVOL_F[tipo] === valor) ? null : valor;   // clicar de novo solta
+  renderModuloEvolucao();
+}
+function evolLimparFiltros() { EVOL_F = { canal: null, faixa: null }; renderModuloEvolucao(); }
+// a matriz canal x faixa e' o mapa: clicar numa celula fixa as duas dimensoes juntas
+function evolMatriz(canal, faixa) {
+  const jaEra = EVOL_F.canal === canal && EVOL_F.faixa === faixa;
+  EVOL_F = jaEra ? { canal: null, faixa: null } : { canal, faixa };
+  renderModuloEvolucao();
+}
+
 let EVOL_ITENS = null;        // { chave, carregando, atual: [], anterior: [] }
-let EVOL_ITEM_CANAL = '';     // '' = todos os canais
 let EVOL_ITEM_N = 10;         // 10 = so os quadros do topo e do fundo; 9999 = lista inteira
-function evolItemCanal(c) { EVOL_ITEM_CANAL = c; renderModuloEvolucao(); }
 function evolItemTodos() { EVOL_ITEM_N = EVOL_ITEM_N >= 9999 ? 10 : 9999; renderModuloEvolucao(); }
 
 async function evolCarregarItens(semIni, semFim, antIni, antFim) {
   const chave = [semIni, semFim, antIni, antFim].join('|');
   if (EVOL_ITENS && EVOL_ITENS.chave === chave) return;
   EVOL_ITENS = { chave, carregando: true, atual: [], anterior: [] };
-  const campos = 'semana,unidade,canal,item,qtd,receita';
+  const campos = 'semana,unidade,canal,faixa,item,qtd,receita';
   try {
     const [a, b] = await Promise.all([
       consultarTudo(`vw_venda_item_semana?select=${campos}&semana=gte.${semIni}&semana=lte.${semFim}`),
@@ -7691,11 +7708,19 @@ function renderModuloEvolucao() {
   const atual = EVOL.filter(r => naJanela(r, ini, maxData));
   const anterior = temBase ? EVOL.filter(r => naJanela(r, antIni, antFim)) : [];
 
+  // `ignora` deixa a propria dimensao passar inteira — e o que mantem as outras
+  // categorias clicaveis depois de escolher uma.
+  const passaF = (r, ignora) => (ignora === 'canal' || !EVOL_F.canal || r.canal === EVOL_F.canal)
+                             && (ignora === 'faixa' || !EVOL_F.faixa || r.faixa === EVOL_F.faixa);
+  const atualF = atual.filter(r => passaF(r)), anteriorF = anterior.filter(r => passaF(r));
+  const atualC = atual.filter(r => passaF(r, 'canal')), antC = anterior.filter(r => passaF(r, 'canal'));
+  const atualX = atual.filter(r => passaF(r, 'faixa')), antX = anterior.filter(r => passaF(r, 'faixa'));
+
   const soma = (rows, campo) => rows.reduce((s, r) => s + Number(r[campo] || 0), 0);
-  const tot = soma(atual, 'total'), ped = soma(atual, 'pedidos');
-  const totA = soma(anterior, 'total'), pedA = soma(anterior, 'pedidos');
+  const tot = soma(atualF, 'total'), ped = soma(atualF, 'pedidos');
+  const totA = soma(anteriorF, 'total'), pedA = soma(anteriorF, 'pedidos');
   const tk = ped ? tot / ped : 0, tkA = pedA ? totA / pedA : 0;
-  const nDias = new Set(atual.map(r => r.data)).size || 1;
+  const nDias = new Set(atualF.map(r => r.data)).size || 1;
 
   // palavra do fato separada do juizo — regra da casa
   const varTxt = (a, b, casas = 1) => {
@@ -7711,7 +7736,7 @@ function renderModuloEvolucao() {
 
   // ---------- serie do grafico ----------
   const serie = {};
-  atual.forEach(r => {
+  atualF.forEach(r => {
     const k = evolChave(r.data, grao);
     const o = serie[k] || (serie[k] = { total: 0, pedidos: 0 });
     o.total += Number(r.total || 0); o.pedidos += Number(r.pedidos || 0);
@@ -7727,7 +7752,7 @@ function renderModuloEvolucao() {
   // Barras lado a lado foram descartadas (dobram o numero de marcas e o grafico de 9
   // pontos vira 18) e segundo eixo Y esta proibido no painel.
   const serieAnt = {};
-  anterior.forEach(r => {
+  anteriorF.forEach(r => {
     const k = evolChave(r.data, grao);
     const o = serieAnt[k] || (serieAnt[k] = { total: 0, pedidos: 0 });
     o.total += Number(r.total || 0); o.pedidos += Number(r.pedidos || 0);
@@ -7754,28 +7779,40 @@ function renderModuloEvolucao() {
     return Object.entries(m).map(([k, o]) => ({ k, ...o, ant: mA[k] || null }))
       .sort((a, b) => b.total - a.total);
   };
-  const linhaQuebra = (x, totalGeral) => {
+  const linhaQuebra = (x, totalGeral, tipo) => {
     const share = totalGeral ? x.total / totalGeral * 100 : 0;
     const tkx = x.pedidos ? x.total / x.pedidos : 0;
-    return `<tr><td>${x.rot || x.k}</td>
+    const sel = tipo && EVOL_F[tipo] === x.k;
+    const clic = tipo ? ` onclick="evolFiltrar('${tipo}','${String(x.k).replace(/'/g, "\'")}')" style="cursor:pointer;${sel ? 'background:var(--brand-wine);' : ''}" title="${sel ? 'clique para soltar o filtro' : 'clique para filtrar a tela por ' + (x.rot || x.k)}"` : '';
+    return `<tr${clic}><td>${sel ? '<b>' : ''}${x.rot || x.k}${sel ? '</b> ✕' : ''}</td>
       <td>R$ ${fmt(x.total)}<span class="dre-av">${pct(share)}%</span></td>
       <td>${x.pedidos.toLocaleString('pt-BR')}</td>
       <td>R$ ${fmt(tkx)}</td>
       <td>${varTxt(x.total, x.ant && x.ant.total)}</td></tr>`;
   };
-  const tabela = (titulo, sub, id, itens) => `
+  // Cada quebra vira GRAFICO DE BARRA (o controle) + tabela (os numeros). Barra por
+  // entidade usa UMA cor so: a identidade vem do rotulo do eixo, regra da skill
+  // painel-visual. A barra selecionada fica na cor da marca.
+  const tabela = (titulo, sub, id, itens, tipo, totalDim) => {
+    const totD = totalDim === undefined ? tot : totalDim;
+    const somaPed = itens.reduce((t, x) => t + x.pedidos, 0);
+    return `
     <div class="section-label">${titulo}</div>
-    <div class="caption-label" style="text-align:center;">${sub}</div>
+    <div class="caption-label" style="text-align:center;">${sub}${tipo ? ' <b>Clique na barra ou na linha para filtrar a tela inteira.</b>' : ''}</div>
+    ${tipo ? `<div class="chart-box" style="height:${Math.max(130, 34 * itens.length + 40)}px;"><canvas id="chart${id}"></canvas></div>` : ''}
     <div id="${id}"><table>
       <tr><th>${titulo.split('—')[0].trim()}</th><th>Venda · % do total</th><th>Pedidos</th><th>Valor médio</th><th>vs período anterior</th></tr>
-      ${itens.map(x => linhaQuebra(x, tot)).join('')}
-      <tr class="liq"><td>TOTAL</td><td>R$ ${fmt(tot)}</td><td>${ped.toLocaleString('pt-BR')}</td><td>R$ ${fmt(tk)}</td><td>${varTxt(tot, totA)}</td></tr>
+      ${itens.map(x => linhaQuebra(x, totD, tipo)).join('')}
+      <tr class="liq"><td>TOTAL</td><td>R$ ${fmt(totD)}</td><td>${somaPed.toLocaleString('pt-BR')}</td><td>R$ ${fmt(somaPed ? totD / somaPed : 0)}</td><td>${varTxt(totD, itens.reduce((t, x) => t + (x.ant ? x.ant.total : 0), 0))}</td></tr>
     </table></div>`;
+  };
 
   const FAIXA_ROT = { '1 MADRUGADA': 'Madrugada (0h–4h)', '2 MANHÃ': 'Manhã (5h–10h)', '3 ALMOÇO': 'Almoço (11h–14h)', '4 TARDE': 'Tarde (15h–17h)', '5 NOITE': 'Noite (18h–23h)' };
-  const porCanal = quebra('canal', atual, anterior);
-  const porFaixa = quebra('faixa', atual, anterior).sort((a, b) => a.k < b.k ? -1 : 1).map(x => ({ ...x, rot: FAIXA_ROT[x.k] || x.k }));
-  const porLoja = quebra('unidade', atual, anterior).map(x => ({ ...x, rot: UN_ROT[x.k] || x.k }));
+  const porCanal = quebra('canal', atualC, antC);
+  const porFaixa = quebra('faixa', atualX, antX).sort((a, b) => a.k < b.k ? -1 : 1).map(x => ({ ...x, rot: FAIXA_ROT[x.k] || x.k }));
+  const porLoja = quebra('unidade', atualF, anteriorF).map(x => ({ ...x, rot: UN_ROT[x.k] || x.k }));
+  const totCanal = porCanal.reduce((t, x) => t + x.total, 0);
+  const totFaixa = porFaixa.reduce((t, x) => t + x.total, 0);
 
   // ---------- matriz canal x faixa: a pergunta do dono ----------
   const canais = porCanal.map(x => x.k);
@@ -7787,7 +7824,7 @@ function renderModuloEvolucao() {
   const matriz = `
     <div class="section-label">Onde a venda acontece — canal por faixa de horário</div>
     <div class="caption-label" style="text-align:center;">Cada célula é a venda do período, com a variação contra o período anterior embaixo.
-      É esta tabela que responde se o almoço está crescendo em um canal e caindo em outro.</div>
+      É esta tabela que responde se o almoço está crescendo em um canal e caindo em outro. <b>Clique numa célula para fixar o canal e a faixa de uma vez.</b></div>
     <div id="tabelaEvolMatriz"><table>
       <tr><th>Faixa</th>${canais.map(c => `<th>${c}</th>`).join('')}<th>Total</th></tr>
       ${faixas.filter(f => canais.some(c => cel[c + '|' + f])).map(f => {
@@ -7795,7 +7832,10 @@ function renderModuloEvolucao() {
         const linhaAnt = canais.reduce((s, c) => s + (celAnt[c + '|' + f] || 0), 0);
         return `<tr><td>${FAIXA_ROT[f]}</td>${canais.map(c => {
           const v = cel[c + '|' + f] || 0, a = celAnt[c + '|' + f];
-          return `<td>${v ? 'R$ ' + fmt(v) : '—'}${v ? `<span class="dre-av">${varTxt(v, a)}</span>` : ''}</td>`;
+          // clicar na celula fixa os DOIS filtros de uma vez — e o atalho do cruzamento
+          const selC = EVOL_F.canal === c && EVOL_F.faixa === f;
+          const cl = v ? ` onclick="evolMatriz('${c}','${f}')" style="cursor:pointer;${selC ? 'background:var(--brand-wine);' : ''}" title="${selC ? 'clique para soltar' : 'clique para ver só ' + c + ' na ' + FAIXA_ROT[f]}"` : '';
+          return `<td${cl}>${v ? 'R$ ' + fmt(v) : '—'}${v ? `<span class="dre-av">${varTxt(v, a)}</span>` : ''}</td>`;
         }).join('')}<td><b>R$ ${fmt(linhaTot)}</b><span class="dre-av">${varTxt(linhaTot, linhaAnt)}</span></td></tr>`;
       }).join('')}
       <tr class="liq"><td>TOTAL</td>${canais.map(c => {
@@ -7821,8 +7861,12 @@ function renderModuloEvolucao() {
     blocoItens = `<div class="section-label">Por item</div>
       <div class="contexto" style="border-color:var(--farol-fora);">Não consegui carregar os itens: ${EVOL_ITENS.erro}</div>`;
   } else {
+    // O bloco de itens obedece o MESMO filtro da tela (canal e faixa). O seletor
+    // proprio de canal saiu: dois controles para a mesma coisa e' como a tela deixa
+    // de ser confiavel. A view de item ganhou a faixa em 12/09 justamente para isto.
     const dentroIt = (r) => (!activeUnidades.size || activeUnidades.has(r.unidade))
-      && (!EVOL_ITEM_CANAL || r.canal === EVOL_ITEM_CANAL);
+      && (!EVOL_F.canal || r.canal === EVOL_F.canal)
+      && (!EVOL_F.faixa || r.faixa === EVOL_F.faixa);
     const somaIt = (rows) => {
       const m = {};
       rows.filter(dentroIt).forEach(r => {
@@ -7836,11 +7880,6 @@ function renderModuloEvolucao() {
     const itens = Object.entries(mA).map(([item, o]) => ({ item, ...o, ant: mB[item] || null }))
       .sort((x, y) => y.receita - x.receita);
 
-    const canaisIt = [...new Set(EVOL_ITENS.atual.filter(r => !activeUnidades.size || activeUnidades.has(r.unidade)).map(r => r.canal))].sort();
-    const seletorCanal = `<div class="periodo-presets" style="margin-top:10px;">`
-      + `<button class="preset-btn ${EVOL_ITEM_CANAL === '' ? 'active' : ''}" onclick="evolItemCanal('')">Todos os canais</button>`
-      + canaisIt.map(c => `<button class="preset-btn ${EVOL_ITEM_CANAL === c ? 'active' : ''}" onclick="evolItemCanal('${c}')">${c}</button>`).join('')
-      + '</div>';
 
     // Quem mais subiu e quem mais caiu, em R$. O piso de R$ 1.000 existe para item de
     // ponta não entrar como "subiu 300%" por causa de duas unidades a mais.
@@ -7877,7 +7916,6 @@ function renderModuloEvolucao() {
         por isso o total desta tabela fica 2 a 3% distante do das quebras acima, e isso não é erro.
         ${temBase ? '' : 'Sem período anterior para comparar.'}
       </div>
-      ${seletorCanal}
       ${subiram.length || cairam.length ? `<div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:12px;">${listaMov(subiram, 'Os que mais subiram em R$')}${listaMov(cairam, 'Os que mais caíram em R$')}</div>` : ''}
       <div id="tabelaEvolItemTopo" style="margin-top:12px;"><table>
         <tr><th>Os 10 que mais venderam</th><th>Quantidade</th><th>Receita · % do total</th><th>Preço médio</th><th>vs período anterior</th></tr>
@@ -7927,6 +7965,13 @@ function renderModuloEvolucao() {
       ${temBase ? `Comparando com ${ddmm(antIni)} a ${ddmm(antFim)}, do mesmo tamanho.` : 'Não há período anterior do mesmo tamanho na base para comparar.'}
     </div>
     ${seletor(EVOL_JANELAS, EVOL_JANELA, 'evolJanela')}
+    ${(EVOL_F.canal || EVOL_F.faixa) ? `<div class="contexto" style="border-color:var(--brand);">
+      <b>Filtrando:</b>
+      ${EVOL_F.canal ? `<button class="preset-btn active" onclick="evolFiltrar('canal','${EVOL_F.canal}')">canal ${EVOL_F.canal} ✕</button>` : ''}
+      ${EVOL_F.faixa ? `<button class="preset-btn active" onclick="evolFiltrar('faixa','${EVOL_F.faixa}')">${FAIXA_ROT[EVOL_F.faixa] || EVOL_F.faixa} ✕</button>` : ''}
+      <button class="preset-btn" onclick="evolLimparFiltros()">limpar</button>
+      <div style="font-size:12px; color:var(--tx-3); margin-top:6px;">Os cards, o gráfico, a matriz e os itens estão neste recorte. As tabelas de canal e de faixa continuam mostrando todas as opções, para você poder trocar.</div>
+    </div>` : ''}
 
     <div class="cards">
       <div class="card blue"><div class="card-lbl">Venda no período</div>
@@ -7945,10 +7990,10 @@ function renderModuloEvolucao() {
     ${seletor([['total', 'Venda'], ['pedidos', 'Pedidos'], ['ticket', 'Valor médio']], EVOL_MEDIDA, 'evolMedida', true)}
     <div class="chart-box" style="height:260px;"><canvas id="chartEvolucao"></canvas></div>
 
-    ${tabela('Por canal', 'Onde a venda entra.', 'tabelaEvolCanal', porCanal)}
-    ${tabela('Por faixa de horário', 'A faixa sai da hora da venda registrada no Saipos, não do turno do cadastro.', 'tabelaEvolFaixa', porFaixa)}
+    ${tabela('Por canal', 'Onde a venda entra.', 'tabelaEvolCanal', porCanal, 'canal', totCanal)}
+    ${tabela('Por faixa de horário', 'A faixa sai da hora da venda registrada no Saipos, não do turno do cadastro.', 'tabelaEvolFaixa', porFaixa, 'faixa', totFaixa)}
     ${matriz}
-    ${unsComDado.length > 1 ? tabela('Por loja', 'Use o filtro de unidade lá em cima para isolar uma delas.', 'tabelaEvolLoja', porLoja) : ''}
+    ${unsComDado.length > 1 ? tabela('Por loja', 'Para isolar uma loja, use o filtro de unidade lá em cima — é o mesmo controle do resto do painel.', 'tabelaEvolLoja', porLoja) : ''}
     ${blocoItens}
 
     <div class="caption-label">
@@ -7963,6 +8008,50 @@ function renderModuloEvolucao() {
 
   // Uma medida so, uma cor so: a identidade vem do rotulo do eixo, nao da cor.
   // O periodo em curso fica com a barra apagada para nao virar leitura de queda.
+  // BARRAS CLICAVEIS de canal e faixa. Uma cor so (--info); a selecionada em --brand.
+  // Barra horizontal porque o rotulo e' texto ("SITE PRÓPRIO", "Almoço (11h–14h)") e em
+  // barra vertical ele deita e fica ilegivel.
+  const barra = (idCanvas, itens, tipo) => {
+    destroyChart(idCanvas);
+    const el = document.getElementById(idCanvas);
+    if (!el || !itens.length) return;
+    chartInstances[idCanvas] = new Chart(el.getContext('2d'), {
+      type: 'bar',
+      data: {
+        labels: itens.map(x => x.rot || x.k),
+        datasets: [{
+          data: itens.map(x => x.total),
+          backgroundColor: itens.map(x => EVOL_F[tipo] === x.k ? corToken('--brand') : corTokenA('--info', 0.75)),
+          borderRadius: 3,
+          barThickness: 18,
+        }],
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true, maintainAspectRatio: false,
+        onClick: (_e, els) => { if (els.length) evolFiltrar(tipo, itens[els[0].index].k); },
+        onHover: (e, els) => { e.native.target.style.cursor = els.length ? 'pointer' : 'default'; },
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: {
+            label: (c) => 'R$ ' + fmt(c.parsed.x),
+            afterLabel: (c) => {
+              const x = itens[c.dataIndex];
+              return (EVOL_F[tipo] === x.k ? 'clique para soltar' : 'clique para filtrar a tela')
+                + (x.ant ? ' · ' + varTxt(x.total, x.ant.total).replace(/<[^>]+>/g, '') : '');
+            },
+          } },
+        },
+        scales: {
+          x: { beginAtZero: true, ticks: { callback: (v) => 'R$ ' + (v >= 1000 ? (v / 1000).toFixed(0) + ' mil' : v) } },
+          y: { ticks: { autoSkip: false } },
+        },
+      },
+    });
+  };
+  barra('charttabelaEvolCanal', porCanal, 'canal');
+  barra('charttabelaEvolFaixa', porFaixa, 'faixa');
+
   // carrega os itens da janela (so a janela) e redesenha quando chegar
   evolCarregarItens(semIni, semFim, antSemIni, antSemFim);
 
