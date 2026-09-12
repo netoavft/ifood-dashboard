@@ -7627,9 +7627,21 @@ function renderModuloEvolucao() {
   const datas = EVOL.map(r => r.data).sort();
   const maxData = datas[datas.length - 1], minData = datas[0];
   const recuar = (d, n) => { const x = new Date(d + 'T12:00:00'); x.setDate(x.getDate() - n); return x.toISOString().slice(0, 10); };
-  const ini = dias ? recuar(maxData, dias - 1) : minData;
+  // A janela ENCOSTA no comeco do grao: sem isso a primeira barra tambem nasce pela
+  // metade (janela de 56 dias caindo numa quarta-feira) e o grafico mostra duas
+  // barras curtas que nao sao queda. Semana volta para a segunda; mes, para o dia 1.
+  const inicioDoGrao = (d) => {
+    if (grao === 'mes') return d.slice(0, 8) + '01';
+    const x = new Date(d + 'T12:00:00');
+    x.setDate(x.getDate() - ((x.getDay() + 6) % 7));
+    return x.toISOString().slice(0, 10);
+  };
+  const iniCru = dias ? recuar(maxData, dias - 1) : minData;
+  let ini = dias ? inicioDoGrao(iniCru) : minData;
+  if (ini < minData) ini = minData;
+  const tamanho = Math.round((new Date(maxData + 'T12:00:00') - new Date(ini + 'T12:00:00')) / 864e5) + 1;
   // periodo anterior do MESMO tamanho, colado — a mesma regra do resto do painel
-  const antFim = recuar(ini, 1), antIni = dias ? recuar(antFim, dias - 1) : null;
+  const antFim = recuar(ini, 1), antIni = dias ? recuar(antFim, tamanho - 1) : null;
   const temBase = antIni !== null && antIni >= minData;
 
   const naJanela = (r, a, b) => r.data >= a && r.data <= b && (!activeUnidades.size || activeUnidades.has(r.unidade));
