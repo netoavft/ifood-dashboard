@@ -7589,6 +7589,34 @@ function renderModuloFrete(linhas) {
 // janelas do cabecalho vao no maximo a 4 semanas.
 // ------------------------------------------------------------------
 let EVOL = null;
+
+// ---- QUEBRA POR ITEM (12/09/2026) ----
+// Segunda metade do pedido do dono ("...e sua quebras por loja periodo canal e itens").
+// Fonte: vw_venda_item_semana. Carrega SOB DEMANDA e SO A JANELA — por dia seriam 16 mil
+// linhas em 8 semanas e 74 mil no ano; por semana sao 5,6 mil e 24 mil, e o servidor ja
+// devolve so o recorte. Por isso este bloco tem carregamento proprio, separado do resto.
+let EVOL_ITENS = null;        // { chave, carregando, atual: [], anterior: [] }
+let EVOL_ITEM_CANAL = '';     // '' = todos os canais
+let EVOL_ITEM_N = 25;         // quantos itens a tabela mostra
+function evolItemCanal(c) { EVOL_ITEM_CANAL = c; renderModuloEvolucao(); }
+function evolItemMais() { EVOL_ITEM_N = EVOL_ITEM_N >= 200 ? 25 : EVOL_ITEM_N + 50; renderModuloEvolucao(); }
+
+async function evolCarregarItens(semIni, semFim, antIni, antFim) {
+  const chave = [semIni, semFim, antIni, antFim].join('|');
+  if (EVOL_ITENS && EVOL_ITENS.chave === chave) return;
+  EVOL_ITENS = { chave, carregando: true, atual: [], anterior: [] };
+  const campos = 'semana,unidade,canal,item,qtd,receita';
+  try {
+    const [a, b] = await Promise.all([
+      consultarTudo(`vw_venda_item_semana?select=${campos}&semana=gte.${semIni}&semana=lte.${semFim}`),
+      antIni ? consultarTudo(`vw_venda_item_semana?select=${campos}&semana=gte.${antIni}&semana=lte.${antFim}`) : Promise.resolve([]),
+    ]);
+    EVOL_ITENS = { chave, carregando: false, atual: a, anterior: b };
+  } catch (e) {
+    EVOL_ITENS = { chave, carregando: false, erro: String(e && e.message || e), atual: [], anterior: [] };
+  }
+  renderModuloEvolucao();
+}
 // [dias, grao, rotulo] — dias 0 = tudo o que existe
 const EVOL_JANELAS = [[56, 'semana', '8 semanas'], [182, 'mes', '6 meses'], [0, 'mes', 'Ano todo']];
 let EVOL_JANELA = 0;
@@ -7741,6 +7769,82 @@ function renderModuloEvolucao() {
       }).join('')}<td>R$ ${fmt(tot)}</td></tr>
     </table></div>`;
 
+  // ---------- quebra por ITEM ----------
+  // A tabela de itens anda em SEMANAS FECHADAS (segunda a domingo), porque a fonte é
+  // semanal. Quando a janela começa no meio de uma semana — o caso do grão mês, que
+  // começa no dia 1º — o recorte do item pode ficar alguns dias atrás do resto. Por
+  // isso este bloco mostra o PRÓPRIO período em vez de herdar o do topo.
+  const segundaDe = (d) => { const x = new Date(d + 'T12:00:00'); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x.toISOString().slice(0, 10); };
+  const semIni = segundaDe(ini), semFim = segundaDe(maxData);
+  const antSemIni = temBase ? segundaDe(antIni) : null, antSemFim = temBase ? segundaDe(antFim) : null;
+
+  let blocoItens;
+  if (!EVOL_ITENS || EVOL_ITENS.carregando) {
+    blocoItens = `<div class="section-label">Por item</div>
+      <div class="contexto">Carregando os itens do período...</div>`;
+  } else if (EVOL_ITENS.erro) {
+    blocoItens = `<div class="section-label">Por item</div>
+      <div class="contexto" style="border-color:var(--farol-fora);">Não consegui carregar os itens: ${EVOL_ITENS.erro}</div>`;
+  } else {
+    const dentroIt = (r) => (!activeUnidades.size || activeUnidades.has(r.unidade))
+      && (!EVOL_ITEM_CANAL || r.canal === EVOL_ITEM_CANAL);
+    const somaIt = (rows) => {
+      const m = {};
+      rows.filter(dentroIt).forEach(r => {
+        const o = m[r.item] || (m[r.item] = { qtd: 0, receita: 0 });
+        o.qtd += Number(r.qtd || 0); o.receita += Number(r.receita || 0);
+      });
+      return m;
+    };
+    const mA = somaIt(EVOL_ITENS.atual), mB = somaIt(EVOL_ITENS.anterior);
+    const totIt = Object.values(mA).reduce((s, o) => s + o.receita, 0);
+    const itens = Object.entries(mA).map(([item, o]) => ({ item, ...o, ant: mB[item] || null }))
+      .sort((x, y) => y.receita - x.receita);
+
+    const canaisIt = [...new Set(EVOL_ITENS.atual.filter(r => !activeUnidades.size || activeUnidades.has(r.unidade)).map(r => r.canal))].sort();
+    const seletorCanal = `<div class="periodo-presets" style="margin-top:10px;">`
+      + `<button class="preset-btn ${EVOL_ITEM_CANAL === '' ? 'active' : ''}" onclick="evolItemCanal('')">Todos os canais</button>`
+      + canaisIt.map(c => `<button class="preset-btn ${EVOL_ITEM_CANAL === c ? 'active' : ''}" onclick="evolItemCanal('${c}')">${c}</button>`).join('')
+      + '</div>';
+
+    // Quem mais subiu e quem mais caiu, em R$. O piso de R$ 1.000 existe para item de
+    // ponta não entrar como "subiu 300%" por causa de duas unidades a mais.
+    const mov = itens.filter(x => Math.max(x.receita, x.ant ? x.ant.receita : 0) >= 1000 && x.ant)
+      .map(x => ({ ...x, dif: x.receita - x.ant.receita }));
+    const subiram = mov.filter(x => x.dif > 0).sort((a, b) => b.dif - a.dif).slice(0, 5);
+    const cairam = mov.filter(x => x.dif < 0).sort((a, b) => a.dif - b.dif).slice(0, 5);
+    const listaMov = (arr, rot) => arr.length ? `<div class="fx-tile" style="flex:1; min-width:280px;">
+        <div class="fx-rotulo">${rot}</div>
+        <ul class="fx-lista">${arr.map(x => `<li><span>${x.item}</span><b>${x.dif > 0 ? '+' : '−'} R$ ${fmt(Math.abs(x.dif))}</b></li>`).join('')}</ul>
+      </div>` : '';
+
+    const nMostra = Math.min(EVOL_ITEM_N, itens.length);
+    blocoItens = `
+      <div class="section-label">Por item — ${ddmm(semIni)} a ${ddmm(maxData)}</div>
+      <div class="caption-label" style="text-align:center;">
+        O item como foi vendido: o combo conta como combo, não aberto em componentes.
+        A receita aqui é <b>quantidade × preço do item</b>, antes do desconto do pedido e sem a taxa de serviço —
+        por isso o total desta tabela fica 2 a 3% distante do das quebras acima, e isso não é erro.
+        ${temBase ? '' : 'Sem período anterior para comparar.'}
+      </div>
+      ${seletorCanal}
+      ${subiram.length || cairam.length ? `<div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:12px;">${listaMov(subiram, 'Os que mais subiram em R$')}${listaMov(cairam, 'Os que mais caíram em R$')}</div>` : ''}
+      <div id="tabelaEvolItem" style="margin-top:12px;"><table>
+        <tr><th>Item</th><th>Quantidade</th><th>Receita · % do total</th><th>Preço médio</th><th>vs período anterior</th></tr>
+        ${itens.slice(0, nMostra).map(x => `<tr>
+          <td>${x.item}</td>
+          <td>${x.qtd.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</td>
+          <td>R$ ${fmt(x.receita)}<span class="dre-av">${pct(totIt ? x.receita / totIt * 100 : 0)}%</span></td>
+          <td>R$ ${fmt(x.qtd ? x.receita / x.qtd : 0)}</td>
+          <td>${varTxt(x.receita, x.ant && x.ant.receita)}</td></tr>`).join('')}
+        <tr class="liq"><td>TOTAL${nMostra < itens.length ? ` (a tabela mostra ${nMostra} de ${itens.length})` : ''}</td>
+          <td>${Object.values(mA).reduce((s, o) => s + o.qtd, 0).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</td>
+          <td>R$ ${fmt(totIt)}</td><td>—</td>
+          <td>${varTxt(totIt, Object.values(mB).reduce((s, o) => s + o.receita, 0))}</td></tr>
+      </table></div>
+      ${itens.length > 25 ? `<div style="text-align:center; margin-top:8px;"><button class="preset-btn" onclick="evolItemMais()">${nMostra >= itens.length ? 'mostrar menos' : `mostrar mais ${Math.min(50, itens.length - nMostra)}`}</button></div>` : ''}`;
+  }
+
   const seletor = (arr, atualIdx, fn, rot) => `<div class="periodo-presets" style="margin-top:10px;">`
     + arr.map((x, i) => `<button class="preset-btn ${atualIdx === (rot ? x[0] : i) ? 'active' : ''}" onclick="${fn}(${rot ? `'${x[0]}'` : i})">${rot ? x[1] : x[2]}</button>`).join('')
     + '</div>';
@@ -7775,6 +7879,7 @@ function renderModuloEvolucao() {
     ${tabela('Por faixa de horário', 'A faixa sai da hora da venda registrada no Saipos, não do turno do cadastro.', 'tabelaEvolFaixa', porFaixa)}
     ${matriz}
     ${unsComDado.length > 1 ? tabela('Por loja', 'Use o filtro de unidade lá em cima para isolar uma delas.', 'tabelaEvolLoja', porLoja) : ''}
+    ${blocoItens}
 
     <div class="caption-label">
       Fonte: <b>vw_venda_evolucao</b>, sobre a venda do caixa do Saipos, sem canceladas — cobre Água Verde, Ahú e São Braz.
@@ -7788,6 +7893,9 @@ function renderModuloEvolucao() {
 
   // Uma medida so, uma cor so: a identidade vem do rotulo do eixo, nao da cor.
   // O periodo em curso fica com a barra apagada para nao virar leitura de queda.
+  // carrega os itens da janela (so a janela) e redesenha quando chegar
+  evolCarregarItens(semIni, semFim, antSemIni, antSemFim);
+
   destroyChart('chartEvolucao');
   const ctx = document.getElementById('chartEvolucao');
   if (ctx && chaves.length) {
