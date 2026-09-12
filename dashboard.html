@@ -13118,15 +13118,26 @@ const PLC_GRAOS = [['mes', 'Mês'], ['tri', 'Trimestre'], ['ano', 'Ano até aqui
 
 // Cada tile: o rotulo, como tirar o valor do agregado, se e gasto (gasto que
 // sobe e' ruim) e qual meta da `fin_metas_dre` mede ele.
+// `telas` e' a TERCEIRA CAMADA: de cada numero do Placar sai o caminho para as telas
+// que ja existem e detalham ele. E' assim que o painel vira arvore em vez de lista —
+// era a decisao da revisao ("clique num numero abre a quebra; a quebra abre a tela").
 const PLC_TILES = [
-  { id: 'fat',   rot: 'Faturamento',            un: 'R$', meta: null,          v: a => a.recBruta },
-  { id: 'ped',   rot: 'Pedidos',                un: 'n',  meta: null,          v: a => a.pedidos },
-  { id: 'merc',  rot: 'Mercadoria',             un: 'R$', meta: 'CUSTO',       v: a => a.grupos.CUSTO },
-  { id: 'canal', rot: 'Custo dos canais',       un: 'R$', meta: null,          v: a => a.taxas },
-  { id: 'pess',  rot: 'Pessoas',                un: 'R$', meta: 'PESSOAL',     v: a => a.grupos.PESSOAL },
-  { id: 'mc',    rot: 'Margem de contribuição', un: 'R$', meta: 'LUCRO_BRUTO', v: a => a.mc },
-  { id: 'res',   rot: 'Resultado',              un: 'R$', meta: 'RESULTADO',   v: a => a.resultado },
-  { id: 'caixa', rot: 'Caixa',                  un: 'R$', meta: null,          v: a => a.caixa },
+  { id: 'fat',   rot: 'Faturamento',            un: 'R$', meta: null,          v: a => a.recBruta,
+    telas: [['evolucao', 'Evolução de vendas'], ['consolidada', 'Visão consolidada'], ['resumo', 'Resumo do canal iFood']] },
+  { id: 'ped',   rot: 'Pedidos',                un: 'n',  meta: null,          v: a => a.pedidos,
+    telas: [['evolucao', 'Evolução de vendas'], ['cancelamentos', 'Cancelamentos']] },
+  { id: 'merc',  rot: 'Mercadoria',             un: 'R$', meta: 'CUSTO',       v: a => a.grupos.CUSTO,
+    telas: [['engcard', 'Engenharia de cardápio'], ['fichas', 'Fichas técnicas'], ['despesas', 'Análise de despesas']] },
+  { id: 'canal', rot: 'Custo dos canais',       un: 'R$', meta: null,          v: a => a.taxas,
+    telas: [['resumo', 'Resumo do canal iFood'], ['rede', 'Taxas da maquininha'], ['promocoes', 'Promoções']] },
+  { id: 'pess',  rot: 'Pessoas',                un: 'R$', meta: 'PESSOAL',     v: a => a.grupos.PESSOAL,
+    telas: [['despesas', 'Análise de despesas'], ['forafolha', 'Pagamento fora da folha'], ['rh', 'Descontos em folha']] },
+  { id: 'mc',    rot: 'Margem de contribuição', un: 'R$', meta: 'LUCRO_BRUTO', v: a => a.mc,
+    telas: [['dre', 'DRE'], ['rateio', 'Preço alvo por produto']] },
+  { id: 'res',   rot: 'Resultado',              un: 'R$', meta: 'RESULTADO',   v: a => a.resultado,
+    telas: [['fechamento', 'Fechamento do mês'], ['dre', 'DRE'], ['lucrouni', 'Lucro por unidade']] },
+  { id: 'caixa', rot: 'Caixa',                  un: 'R$', meta: null,          v: a => a.caixa,
+    telas: [['fluxo', 'Fluxo de caixa'], ['projecao', 'Fluxo projetado'], ['concbanco', 'Conciliação bancária']] },
 ];
 
 function plcGrao(g) { PLC_GRAO = g; PLC_SEL = null; renderPlacar(); }
@@ -13322,18 +13333,24 @@ function renderPlacar() {
       return { u, v, vb: agB ? valorDe(t, agB) : null, pct, meta, base: ag.base };
     });
     const somaLoja = porLoja.reduce((s, l) => s + (l.v || 0), 0);
+    // CAIXA NAO TEM "de cada R$ 100" nem parte do total: ele pode ser negativo, e
+    // "-36,8% do caixa da rede" nao quer dizer nada. Coluna vazia e' melhor que
+    // numero que o leitor tenta interpretar. Medido na tela em 12/09: o Ahu deu
+    // -R$ 5.161 e a coluna dizia -36,8%.
+    const temPct = t.un === 'R$' && t.id !== 'caixa';
+    const rotCol = temPct ? 'de cada R$ 100' : t.un === 'n' ? 'parte do total' : '';
     const tabLoja = `<div id="tabelaPlacarLoja"><table>
-      <tr><th>Loja</th><th>${t.rot}</th><th>${t.un === 'n' ? 'parte do total' : 'de cada R$ 100'}</th><th>vs ${anterior ? anterior.rot : '—'}</th><th>meta</th></tr>
+      <tr><th>Loja</th><th>${t.rot}</th><th>${rotCol || '&nbsp;'}</th><th>vs ${anterior ? anterior.rot : '—'}</th><th>meta</th></tr>
       ${porLoja.map(l => `<tr><td>${({ 'AGUA VERDE': 'Água Verde', 'AHU': 'Ahú', 'SÃO BRAZ': 'São Braz' })[l.u] || l.u}</td>
         <td>${fmtDe(t, l.v)}</td>
-        <td>${l.pct !== null ? fxPct1(l.pct) : (somaLoja ? fxPct1((l.v || 0) / somaLoja * 100) : '—')}</td>
+        <td>${temPct ? fxPct1(l.pct) : (t.un === 'n' && somaLoja > 0 ? fxPct1((l.v || 0) / somaLoja * 100) : '—')}</td>
         <td>${l.vb !== null && l.vb !== undefined ? fxVar(l.v, l.vb, '') : '—'}</td>
         <td>${l.meta && l.pct !== null ? fxPill(fxFarol(l.pct, l.meta.meta, l.meta.sentido)) : '—'}</td></tr>`).join('')}
       <tr class="liq"><td>${LOJA_FIN === 'REDE' ? 'REDE (as três)' : 'A soma das três'}</td><td>${fmtDe(t, somaLoja)}</td><td>—</td><td>—</td><td>—</td></tr>
     </table></div>`;
 
     const tabPer = `<div id="tabelaPlacarPeriodo"><table>
-      <tr><th>${PLC_GRAO === 'mes' ? 'Mês' : PLC_GRAO === 'tri' ? 'Trimestre' : 'Ano'}</th><th>${t.rot}</th><th>de cada R$ 100</th><th>vs anterior</th></tr>
+      <tr><th>${PLC_GRAO === 'mes' ? 'Mês' : PLC_GRAO === 'tri' ? 'Trimestre' : 'Ano'}</th><th>${t.rot}</th><th>${temPct ? 'de cada R$ 100' : '&nbsp;'}</th><th>vs anterior</th></tr>
       ${serie.map((s, k) => {
         const v = valorDe(t, s.ag);
         // so compara balde com balde do MESMO tamanho — senao a coluna vira mes faltando
@@ -13362,7 +13379,11 @@ function renderPlacar() {
       ${tabLoja}
       <div class="section-label">Período a período</div>
       ${tabPer}
-      ${tabComp}`;
+      ${tabComp}
+      ${(t.telas || []).length ? `<div class="section-label">Onde ver por dentro</div>
+        <div class="caption-label" style="text-align:center;">As telas que já existem e detalham este número. O Placar é a porta; o detalhe continua com o dono dele.</div>
+        <div class="periodo-presets" style="margin-top:8px;">${t.telas.map(([m, rot]) =>
+          `<button class="preset-btn" onclick="mostrarModulo('${m}')">${rot} →</button>`).join('')}</div>` : ''}`;
   }
 
   const segGrao = PLC_GRAOS.map(([g, rot]) =>
