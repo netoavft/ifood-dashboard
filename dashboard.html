@@ -13144,6 +13144,47 @@ function plcGrao(g) { PLC_GRAO = g; PLC_SEL = null; renderPlacar(); }
 function plcPeriodo(c) { PLC_SEL = c; renderPlacar(); }
 function plcAbrir(id) { PLC_ABERTO = (PLC_ABERTO === id) ? null : id; renderPlacar(); }
 
+// ---------- O PLACAR MANDA CONTEXTO PARA A CAMADA DE BAIXO (12/09/2026) ----------
+// Abrir a tela de quebra sem dizer de QUAL periodo e de QUAL loja o numero veio e' o
+// jeito mais rapido de o painel parecer errado: a pessoa clica em "Resultado de agosto"
+// e cai numa tela aberta em setembro, com outro numero na cara. Entao o Placar entrega
+// o recorte junto com o clique, a tela de baixo se posiciona nele, e um aviso diz de
+// onde ela veio — sem o aviso, tela abrindo fora do padrao dela le como defeito.
+//
+// O contexto e' POR MODULO e sobrevive enquanto a tela continuar naquele recorte. Quem
+// mexe no periodo da propria tela solta o contexto (plcCtxSolta), porque a partir dali
+// o recorte e' escolha de quem esta olhando, nao heranca do Placar.
+let PLC_CTX = {};        // modulo -> { tile, rotTile, meses, rotPeriodo, loja }
+let PLC_VISTA = null;    // o recorte que o Placar esta mostrando agora (preenchido no render)
+
+function plcAbrirTela(modulo, tileId) {
+  const t = PLC_TILES.find(x => x.id === tileId);
+  if (PLC_VISTA) PLC_CTX[modulo] = {
+    tile: tileId, rotTile: t ? t.rot : '',
+    meses: PLC_VISTA.meses.slice(), rotPeriodo: PLC_VISTA.rot, loja: LOJA_FIN,
+  };
+  mostrarModulo(modulo);
+}
+const plcCtx = (modulo) => PLC_CTX[modulo] || null;
+const plcCtxSolta = (modulo) => { delete PLC_CTX[modulo]; };
+function plcVoltar() { mostrarModulo('placar'); }
+function plcCtxLimpar(modulo) { plcCtxSolta(modulo); mostrarModulo(modulo); }
+
+// O aviso que a tela de quebra mostra no topo quando veio do Placar. Vazio quando
+// nao veio — a tela continua funcionando sozinha, como sempre funcionou.
+function plcChip(modulo) {
+  const c = plcCtx(modulo);
+  if (!c) return '';
+  const loja = c.loja === 'REDE' ? 'a rede inteira' : (({ 'AGUA VERDE': 'Água Verde', 'AHU': 'Ahú', 'SÃO BRAZ': 'São Braz' })[c.loja] || c.loja);
+  return `<div class="contexto" style="border-color:var(--brand);">
+    <b>Você veio do Placar</b>, do número <b>${c.rotTile}</b> de <b>${c.rotPeriodo}</b>, em ${loja}.
+    Esta tela abriu nesse recorte — não no padrão dela.
+    <span style="display:inline-block; margin-top:6px;">
+      <button class="preset-btn" onclick="plcVoltar()">← voltar ao Placar</button>
+      <button class="preset-btn" onclick="plcCtxLimpar('${modulo}')">ver a tela no padrão dela</button>
+    </span></div>`;
+}
+
 // Roda `fn` como se a loja escolhida fosse outra. Existe para a quebra por loja
 // usar EXATAMENTE a mesma conta do cartao — `fxMesCalc` le `LOJA_FIN` de fora.
 // E' sincrono do comeco ao fim e devolve o valor no `finally`, entao nao ha
@@ -13283,6 +13324,7 @@ function renderPlacar() {
   if (!periodos.some(p => p.chave === PLC_SEL)) PLC_SEL = periodos[periodos.length - 1].chave;
   const i = periodos.findIndex(p => p.chave === PLC_SEL);
   const atual = periodos[i], anterior = plcAnterior(atual.meses);
+  PLC_VISTA = { meses: atual.meses, rot: atual.rot };   // o recorte que vai junto com o clique
 
   const A = plcAgrega(atual.meses);
   const B = anterior ? plcAgrega(anterior.meses) : null;
@@ -13381,9 +13423,9 @@ function renderPlacar() {
       ${tabPer}
       ${tabComp}
       ${(t.telas || []).length ? `<div class="section-label">Onde ver por dentro</div>
-        <div class="caption-label" style="text-align:center;">As telas que já existem e detalham este número. O Placar é a porta; o detalhe continua com o dono dele.</div>
+        <div class="caption-label" style="text-align:center;">As telas que já existem e detalham este número. Elas abrem <b>no mesmo período e na mesma loja</b> que você está vendo aqui, e dizem isso no topo. O Placar é a porta; o detalhe continua com o dono dele.</div>
         <div class="periodo-presets" style="margin-top:8px;">${t.telas.map(([m, rot]) =>
-          `<button class="preset-btn" onclick="mostrarModulo('${m}')">${rot} →</button>`).join('')}</div>` : ''}`;
+          `<button class="preset-btn" onclick="plcAbrirTela('${m}','${t.id}')">${rot} →</button>`).join('')}</div>` : ''}`;
   }
 
   const segGrao = PLC_GRAOS.map(([g, rot]) =>
