@@ -1169,10 +1169,28 @@
 const SUPABASE_URL = "https://rtmgzsikwglsvpopbfbw.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ0bWd6c2lrd2dsc3Zwb3BiZmJ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU4NDgwMjcsImV4cCI6MjEwMTQyNDAyN30.-vwbQkcuAbbonmBVCeUWXjTg54uB5MNN94QmMlBxTA4";
 
+// Cor de grafico vem do :root, como todo o resto do painel.
+// Chart.js pinta em CANVAS, e canvas nao resolve var(): a cor tem que chegar como string
+// pronta. Por isso estas duas funcoes leem o token na hora de montar o grafico — assim
+// trocar a cor no :root passa a mudar os graficos junto, em vez de deixar copia velha
+// espalhada pelo JS (eram 21 hex copiados a mao ate 12/09/2026).
+// Regra de qual token usar em cada caso: skill painel-visual.
+function corToken(token, alternativa) {
+  const v = getComputedStyle(document.documentElement).getPropertyValue(token).trim();
+  return v || alternativa || '#8a897e';
+}
+// Mesma cor com transparencia (area sob a linha, barra translucida).
+function corTokenA(token, alpha) {
+  let h = corToken(token).replace('#', '');
+  if (h.length === 3) h = h.split('').map(c => c + c).join('');
+  const n = parseInt(h.slice(0, 6), 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+}
+
 // Tema escuro para os graficos, combinando com o resto do dashboard.
 if (window.Chart) {
-  Chart.defaults.color = '#a5a49a';
-  Chart.defaults.borderColor = '#34332f';
+  Chart.defaults.color = corToken('--tx-3');
+  Chart.defaults.borderColor = corToken('--line');
   Chart.defaults.font.family = "'Segoe UI', system-ui, -apple-system, sans-serif";
 
 }
@@ -3039,7 +3057,7 @@ function renderChartsPromocoes() {
   destroyChart('chartPromoVerba');
   chartInstances['chartPromoVerba'] = new Chart(document.getElementById('chartPromoVerba').getContext('2d'), {
     type: 'bar',
-    data: { labels: dados.map(d => d.estrategia), datasets: [{ data: dados.map(d => d.invL), backgroundColor: '#c8102e', borderRadius: 4 }] },
+    data: { labels: dados.map(d => d.estrategia), datasets: [{ data: dados.map(d => d.invL), backgroundColor: corToken('--brand'), borderRadius: 4 }] },
     plugins: [pluginRotulosBarra(i => 'R$ ' + fmt(dados[i].invL))],
     options: {
       indexAxis: 'y', responsive: true, maintainAspectRatio: false,
@@ -3063,7 +3081,7 @@ function renderChartsPromocoes() {
     type: 'bubble',
     data: { datasets: [{
       data: dados.map(d => ({ x: d.invPorPedido, y: d.ticket, r: 5 + (d.invL / maxInv) * 22, label: d.estrategia, invL: d.invL, ped: d.ped })),
-      backgroundColor: 'rgba(200,16,46,0.40)', borderColor: '#c8102e',
+      backgroundColor: corTokenA('--brand', 0.40), borderColor: corToken('--brand'),
     }] },
     options: {
       responsive: true, maintainAspectRatio: false,
@@ -3200,7 +3218,7 @@ function renderModuloNegociacoes() {
     type: 'bar',
     data: {
       labels: motivos.map(x => rotulo(x.m)),
-      datasets: [{ data: motivos.map(x => x.n), backgroundColor: '#ff6b6b', borderRadius: 4 }],
+      datasets: [{ data: motivos.map(x => x.n), backgroundColor: corToken('--farol-fora'), borderRadius: 4 }],
     },
     plugins: [pluginRotulosBarra(i => `${motivos[i].n} (R$ ${fmt(motivos[i].valor)})`)],
     options: {
@@ -3317,7 +3335,7 @@ function renderModuloAvaliacoes() {
     type: 'bar',
     data: {
       labels: ['1 ★', '2 ★', '3 ★', '4 ★', '5 ★'],
-      datasets: [{ data: dist, backgroundColor: ['#ff6b6b', '#ff6b6b', '#e3b341', '#3fb950', '#3fb950'], borderRadius: 4 }],
+      datasets: [{ data: dist, backgroundColor: [corToken('--farol-fora'), corToken('--farol-fora'), corToken('--farol-perto'), corToken('--farol-ok'), corToken('--farol-ok')], borderRadius: 4 }],
     },
     options: {
       responsive: true, maintainAspectRatio: false,
@@ -3329,7 +3347,7 @@ function renderModuloAvaliacoes() {
   destroyChart('chartTags');
   chartInstances['chartTags'] = new Chart(document.getElementById('chartTags').getContext('2d'), {
     type: 'bar',
-    data: { labels: tags.map(x => x.t), datasets: [{ data: tags.map(x => x.n), backgroundColor: '#3fb950', borderRadius: 4 }] },
+    data: { labels: tags.map(x => x.t), datasets: [{ data: tags.map(x => x.n), backgroundColor: corToken('--farol-ok'), borderRadius: 4 }] },
     plugins: [pluginRotulosBarra(i => String(tags[i].n))],
     options: {
       indexAxis: 'y', responsive: true, maintainAspectRatio: false,
@@ -3802,8 +3820,8 @@ function renderChartTendencia() {
   if (!el) return;
   const dados = computeEvolucaoCompleta(granularidadeAutomatica());
   renderLineChart('chartTendencia', dados.map(d => d.label), [
-    { label: 'Bruto', data: dados.map(d => d.bruto), borderColor: '#58a6ff', backgroundColor: '#58a6ff' },
-    { label: 'Líquido', data: dados.map(d => d.liquido), borderColor: '#3fb950', backgroundColor: '#3fb950' },
+    { label: 'Bruto', data: dados.map(d => d.bruto), borderColor: corToken('--info'), backgroundColor: corToken('--info') },
+    { label: 'Líquido', data: dados.map(d => d.liquido), borderColor: corToken('--farol-ok'), backgroundColor: corToken('--farol-ok') },
   ], 'R$');
 }
 
@@ -8179,11 +8197,11 @@ function renderModuloSite() {
       data: {
         labels: semAsc.map(s => ddmm(s.sem)),
         datasets: [
-          { type: 'bar', label: 'Pedidos', data: semAsc.map(s => s.pedidos), backgroundColor: '#58a6ff' },
-          { type: 'bar', label: 'Clientes novos', data: semAsc.map(s => s.temCliente ? s.novos : null), backgroundColor: '#3fb950' },
+          { type: 'bar', label: 'Pedidos', data: semAsc.map(s => s.pedidos), backgroundColor: corToken('--info') },
+          { type: 'bar', label: 'Clientes novos', data: semAsc.map(s => s.temCliente ? s.novos : null), backgroundColor: corToken('--farol-ok') },
           {
             type: 'line', label: 'Ticket médio', data: semAsc.map(s => s.pedidos ? s.fat / s.pedidos : 0),
-            borderColor: '#f5a623', backgroundColor: '#f5a623', yAxisID: 'y2', tension: .25, pointRadius: 2,
+            borderColor: corToken('--farol-perto'), backgroundColor: corToken('--farol-perto'), yAxisID: 'y2', tension: .25, pointRadius: 2,
           },
         ],
       },
@@ -12958,11 +12976,11 @@ function renderModuloDFC() {
       labels: meses.map(rotuloMes),
       datasets: [
         { type: 'bar', label: 'Receitas', data: receitas,
-          backgroundColor: 'rgba(63,185,80,0.75)', order: 2 },
+          backgroundColor: corTokenA('--farol-ok', 0.75), order: 2 },
         { type: 'bar', label: 'Despesas', data: despesas,
-          backgroundColor: 'rgba(200,16,46,0.75)', order: 2 },
+          backgroundColor: corTokenA('--brand', 0.75), order: 2 },
         { type: 'line', label: 'Saldo no fim do mês', data: saldoFim,
-          borderColor: '#58a6ff', backgroundColor: '#58a6ff', borderWidth: 2,
+          borderColor: corToken('--info'), backgroundColor: corToken('--info'), borderWidth: 2,
           tension: 0.25, pointRadius: 3, yAxisID: 'y2', order: 1 },
       ],
     },
@@ -12978,8 +12996,8 @@ function renderModuloDFC() {
     },
   });
 
-  [['chartOrigemEntradas', entradasPorSub, '#3fb950'],
-   ['chartDestinoSaidas', saidasPorTipo, '#c8102e']].forEach(([id, dados, cor]) => {
+  [['chartOrigemEntradas', entradasPorSub, corToken('--farol-ok')],
+   ['chartDestinoSaidas', saidasPorTipo, corToken('--brand')]].forEach(([id, dados, cor]) => {
     destroyChart(id);
     chartInstances[id] = new Chart(document.getElementById(id).getContext('2d'), {
       type: 'bar',
@@ -14155,7 +14173,7 @@ function renderModuloProjecao() {
         </div>`).join('')}
     </details>`;
   });
-  const corMenor = menorSaldo < 0 ? '#ff6b6b' : menorSaldo < mediaSemana ? '#f5a623' : '#3fb950';
+  const corMenor = menorSaldo < 0 ? corToken('--farol-fora') : menorSaldo < mediaSemana ? corToken('--farol-perto') : corToken('--farol-ok');
 
   // ---- aplicado da proposta do chat financeiro (13/08/2026), decisoes do
   // dono: XP fora do fluxo diario, frase de sobra/falta, de onde vem a
@@ -14384,11 +14402,11 @@ function renderModuloProjecao() {
       datasets: [{
         label: 'Saldo projetado',
         data: serieSaldo,
-        borderColor: '#58a6ff',
-        backgroundColor: 'rgba(88,166,255,0.12)',
+        borderColor: corToken('--info'),
+        backgroundColor: corTokenA('--info', 0.12),
         fill: true, tension: 0.25,
         pointRadius: dias.map(d => d === menorDia ? 5 : 2),
-        pointBackgroundColor: dias.map(d => d === menorDia ? corMenor : '#58a6ff'),
+        pointBackgroundColor: dias.map(d => d === menorDia ? corMenor : corToken('--info')),
       }],
     },
     options: {
@@ -14581,7 +14599,7 @@ function renderModuloDespesas() {
     type: 'bar',
     data: {
       labels: topForn.map(f => f[0].length > 34 ? f[0].slice(0, 32) + '…' : f[0]),
-      datasets: [{ data: topForn.map(f => f[1]), backgroundColor: '#58a6ff', borderRadius: 4 }],
+      datasets: [{ data: topForn.map(f => f[1]), backgroundColor: corToken('--info'), borderRadius: 4 }],
     },
     options: {
       indexAxis: 'y', responsive: true, maintainAspectRatio: false,
@@ -15239,13 +15257,13 @@ function renderChartsCancelEvolucao() {
   const labels = dados.map(d => d.label);
 
   renderLineChart('chartCancelTaxa', labels, [
-    { label: '% dos pedidos cancelados', data: dados.map(d=>d.taxa), borderColor: '#ff6b6b', backgroundColor: '#ff6b6b' },
+    { label: '% dos pedidos cancelados', data: dados.map(d=>d.taxa), borderColor: corToken('--farol-fora'), backgroundColor: corToken('--farol-fora') },
   ], '%');
 
   destroyChart('chartCancelValor');
   chartInstances['chartCancelValor'] = new Chart(document.getElementById('chartCancelValor').getContext('2d'), {
     type: 'bar',
-    data: { labels, datasets: [{ data: dados.map(d=>d.valor), backgroundColor: '#ff6b6b', borderRadius: 4 }] },
+    data: { labels, datasets: [{ data: dados.map(d=>d.valor), backgroundColor: corToken('--farol-fora'), borderRadius: 4 }] },
     options: {
       responsive: true, maintainAspectRatio: false,
       plugins: {
@@ -15303,11 +15321,11 @@ function renderChartMotivos() {
     });
   }
 
-  barras('chartMotivosValor', 'valor', '#ff6b6b', 'R$ perdidos',
+  barras('chartMotivosValor', 'valor', corToken('--farol-fora'), 'R$ perdidos',
     d => `R$ ${fmt(d.valor)} em ${d.n} pedidos (R$ ${fmt(d.n ? d.valor/d.n : 0)} por cancelamento)`,
     d => 'R$ ' + fmt(d.valor));
 
-  barras('chartMotivosQtd', 'n', '#58a6ff', 'pedidos cancelados',
+  barras('chartMotivosQtd', 'n', corToken('--info'), 'pedidos cancelados',
     d => `${d.n} pedidos (${pct(d.pct)}% dos cancelamentos) — R$ ${fmt(d.valor)}`,
     d => `${d.n} (${pct(d.pct)}%)`);
 
@@ -15526,7 +15544,7 @@ function renderChartWaterfall(m, a, ant) {
     });
   barras.push({ label: ['Período', 'atual'], from: 0, to: acumulado, tipo: 'total' });
 
-  const cores = { total: '#58a6ff', pos: '#3fb950', neg: '#ff6b6b' };
+  const cores = { total: corToken('--info'), pos: corToken('--farol-ok'), neg: corToken('--farol-fora') };
 
   chartInstances['chartWaterfall'] = new Chart(ctx, {
     type: 'bar',
