@@ -791,6 +791,8 @@
   .sidebar-rodape button { background:none; border:1px solid var(--line-2); color:#c3c2b7;
     border-radius:6px; padding:4px 10px; font-size:11px; cursor:pointer; }
   .sidebar-rodape button:hover { border-color:var(--brand); color:var(--tx-1); }
+  /* atalho para a tela que saiu do menu e mora dentro desta (12/09/2026) */
+  .tela-atalhos { display:flex; flex-wrap:wrap; gap:8px; justify-content:flex-end; margin:0 0 8px; }
   #loginEmail { margin-bottom:8px; }
 
   /* recados nos itens do Plano (21/08/2026) */
@@ -848,104 +850,84 @@
       <span class="sidebar-marca-nome">Cidadão do Mundo</span>
     </div>
 
-    <!-- Ordem = a pergunta que a pessoa quer responder (21/08/2026):
-         1 por onde comeco -> 2 como esta o negocio -> 3 o canal que paga as
-         contas -> 4 a entrega -> 5 o caixa -> 6 producao -> 7 sistema.
-         Regra: "em breve" NAO fica no menu; vira item do modulo Plano. -->
-    <button class="sidebar-secao" onclick="toggleGrupo('gComecar')">Começar por aqui <span class="seta">▶</span></button>
-    <div class="sidebar-grupo" id="gComecar">
-      <button class="sidebar-btn" id="navBtnPlano" onclick="mostrarModulo('plano')"><span class="mico">🗺️</span>Plano</button>
-      <button class="sidebar-btn active" id="navBtnEstaSemana" onclick="mostrarModulo('estasemana')"><span class="mico">🏠</span>Esta semana</button>
-      <!-- O Placar (12/09/2026): entra ao lado das tres telas que ele substitui, nao
-           no lugar delas. So sai do "ao lado" quando os numeros estiverem conferidos. -->
-      <button class="sidebar-btn" id="navBtnPlacar" onclick="mostrarModulo('placar')"><span class="mico">🧮</span>O Placar</button>
-      <button class="sidebar-btn" id="navBtnIndicadores" onclick="mostrarModulo('indicadores')"><span class="mico">🎯</span>Indicadores e metas</button>
-      <!-- Em portugues, para a Jane e o Fabio (02/09/2026): a semana fechada e o mes fechado
-           em uma pagina cada — quanto vendeu, para onde foi cada R$ 100, quanto sobrou, o caixa. -->
+    <!-- MENU REORGANIZADO em 12/09/2026, a pedido do dono: "os modulos e menus estao
+         baguncados (...) muito poluido, muita informacao e dificuldade de saber onde
+         encontrar cada coisa" — e "o importante e deixar ele pratico e funcional", sem
+         custo de troca de nome (ele avisa a equipe).
+         REGRAS DO MENU:
+         1. O painel abre no Placar: ele e a porta da leitura do negocio.
+         2. Cada grupo e uma AREA DE TRABALHO com nome de operador. Dentro dela, primeiro
+            o que diz como a area esta, depois o que se opera.
+         3. Tela que so EXPLICA um numero (Resumo do canal, DRE, Lucro por unidade,
+            Despesas, Fluxo de caixa, Resumos semanais, Telas do painel, Calendario de
+            promos) sai do menu e abre de dentro da tela a que pertence — clicando no
+            numero do Placar ou num botao. Toda tela que saiu tem caminho.
+         4. Os ids dos botoes (navBtn*) NAO mudaram: o mapa de mostrarModulo depende deles.
+         5. "Em breve" nao fica no menu (regra de 21/08): vira item do Plano.
+         O grupo de cada modulo NAO e mais escrito a mao: abrirGrupoDoModulo le do menu. -->
+    <button class="sidebar-secao" onclick="toggleGrupo('gInicio')">Início <span class="seta">▶</span></button>
+    <div class="sidebar-grupo" id="gInicio">
+      <button class="sidebar-btn active" id="navBtnPlacar" onclick="mostrarModulo('placar')"><span class="mico">🧮</span>Placar</button>
+      <!-- Estas tres ficam aqui SO ate o Placar ganhar a semana e a pagina do mes
+           (passo 2 aprovado pelo dono em 12/09/2026). Depois saem. -->
+      <button class="sidebar-btn" id="navBtnEstaSemana" onclick="mostrarModulo('estasemana')"><span class="mico">🏠</span>Esta semana</button>
       <button class="sidebar-btn" id="navBtnSemana" onclick="mostrarModulo('semana')"><span class="mico">📅</span>A semana</button>
       <button class="sidebar-btn" id="navBtnFechamento" onclick="mostrarModulo('fechamento')"><span class="mico">📖</span>Fechamento do mês</button>
     </div>
 
-    <button class="sidebar-secao" onclick="toggleGrupo('gResultado')">Resultado <span class="seta">▶</span></button>
-    <div class="sidebar-grupo" id="gResultado">
-      <button class="sidebar-btn" id="navBtnEvolucao" onclick="mostrarModulo('evolucao')"><span class="mico">📈</span>Evolução de vendas</button>
-      <button class="sidebar-btn" id="navBtnDre" onclick="mostrarModulo('dre')"><span class="mico">📑</span>DRE</button>
-      <button class="sidebar-btn" id="navBtnRateio" onclick="mostrarModulo('rateio')"><span class="mico">🎯</span>Preço alvo por produto</button>
-      <!-- Link, nao modulo: mini DRE interativa gerada por script (dados embutidos),
-           pedida pelo dono 25/08/2026 para o Fabio ler facil. -->
-      <!-- Mini DRE por turno SAIU DO MENU em 12/09/2026 (revisao dos modulos). A pagina
-           dre-turno.html esta parada em julho/2026 e nao e regenerada desde 25/08, mas
-           ficava no menu como se fosse viva. Nota do dono ao decidir: "interessante
-           pensarmos em um modulo que mostra resumidamente o lucro por turno e canal de
-           determinado periodo, mas que esteja conectado com a base viva" — e por isso que
-           o link saiu em vez de a pagina ser regerada. -->
-      <button class="sidebar-btn" id="navBtnLucrouni" onclick="mostrarModulo('lucrouni')"><span class="mico">🏦</span>Lucro por unidade</button>
-      <button class="sidebar-btn" id="navBtnEngcard" onclick="mostrarModulo('engcard')"><span class="mico">🍔</span>Engenharia de cardápio</button>
-      <button class="sidebar-btn" id="navBtnFichas" onclick="mostrarModulo('fichas')"><span class="mico">📋</span>Fichas técnicas</button>
+    <button class="sidebar-secao" onclick="toggleGrupo('gVendas')">Vendas e marketing <span class="seta">▶</span></button>
+    <div class="sidebar-grupo" id="gVendas">
+      <button class="sidebar-btn" id="navBtnEvolucao" onclick="mostrarModulo('evolucao')"><span class="mico">📈</span>Vendas</button>
+      <button class="sidebar-btn" id="navBtnPromocoes" onclick="mostrarModulo('promocoes')"><span class="mico">🏷️</span>Promoções</button>
+      <button class="sidebar-btn" id="navBtnSite" onclick="mostrarModulo('site')"><span class="mico">🌐</span>Site próprio</button>
+      <button class="sidebar-btn" id="navBtnClientes" onclick="mostrarModulo('clientes')"><span class="mico">👥</span>Clientes do iFood</button>
     </div>
 
-    <button class="sidebar-secao" onclick="toggleGrupo('gIfood')">Canal · iFood <span class="seta">▶</span></button>
+    <button class="sidebar-secao" onclick="toggleGrupo('gIfood')">iFood e entrega <span class="seta">▶</span></button>
     <div class="sidebar-grupo" id="gIfood">
-      <button class="sidebar-btn" id="navBtnResumo" onclick="mostrarModulo('resumo')"><span class="mico">📈</span>Resumo do canal</button>
-      <button class="sidebar-btn" id="navBtnPromocoes" onclick="mostrarModulo('promocoes')"><span class="mico">🏷️</span>Promoções</button>
-      <button class="sidebar-btn" id="navBtnCancelamentos" onclick="mostrarModulo('cancelamentos')"><span class="mico">🚫</span>Cancelamentos</button>
+      <button class="sidebar-btn" id="navBtnIndicadores" onclick="mostrarModulo('indicadores')"><span class="mico">🎯</span>Metas do iFood</button>
       <button class="sidebar-btn" id="navBtnContestacoes" onclick="mostrarModulo('contestacoes')"><span class="mico">⚖️</span>Contestações</button>
+      <button class="sidebar-btn" id="navBtnCancelamentos" onclick="mostrarModulo('cancelamentos')"><span class="mico">🚫</span>Cancelamentos</button>
       <button class="sidebar-btn" id="navBtnNegociacoes" onclick="mostrarModulo('negociacoes')"><span class="mico">🤝</span>Negociações</button>
       <button class="sidebar-btn" id="navBtnAvaliacoes" onclick="mostrarModulo('avaliacoes')"><span class="mico">⭐</span>Avaliações</button>
-      <button class="sidebar-btn" id="navBtnQualidade" onclick="mostrarModulo('qualidade')"><span class="mico">🏅</span>Qualidade &amp; Super</button>
-      <button class="sidebar-btn" id="navBtnCardapio" onclick="mostrarModulo('cardapio')"><span class="mico">🍔</span>Cardápio</button>
-      <button class="sidebar-btn" id="navBtnClientes" onclick="mostrarModulo('clientes')"><span class="mico">👥</span>Clientes</button>
-    </div>
-
-    <!-- Canal proprio: o objetivo declarado do dono e migrar cliente do iFood
-         pra ca. Grupo separado do iFood de proposito — sao dois canais com
-         economia diferente, e o site e o que a agencia de trafego move. -->
-    <button class="sidebar-secao" onclick="toggleGrupo('gSite')">Canal · Site próprio <span class="seta">▶</span></button>
-    <div class="sidebar-grupo" id="gSite">
-      <button class="sidebar-btn" id="navBtnSite" onclick="mostrarModulo('site')"><span class="mico">🌐</span>Site próprio (Accon)</button>
-    </div>
-
-    <button class="sidebar-secao" onclick="toggleGrupo('gEntrega')">Entrega <span class="seta">▶</span></button>
-    <div class="sidebar-grupo" id="gEntrega">
-      <button class="sidebar-btn" id="navBtnAtrasos" onclick="mostrarModulo('atrasos')"><span class="mico">⏱️</span>Atrasos e turnos</button>
+      <button class="sidebar-btn" id="navBtnQualidade" onclick="mostrarModulo('qualidade')"><span class="mico">🏅</span>Super Restaurante</button>
+      <button class="sidebar-btn" id="navBtnAtrasos" onclick="mostrarModulo('atrasos')"><span class="mico">⏱️</span>Atrasos na entrega</button>
       <button class="sidebar-btn" id="navBtnFrete" onclick="mostrarModulo('frete')"><span class="mico">📍</span>Frete por distância</button>
-      <button class="sidebar-btn" id="navBtnLogfin" onclick="mostrarModulo('logfin')"><span class="mico">🛵</span>Financeiro da logística</button>
     </div>
 
-    <button class="sidebar-secao" onclick="toggleGrupo('gFinanceiro')">Financeiro <span class="seta">▶</span></button>
-    <div class="sidebar-grupo" id="gFinanceiro">
-      <button class="sidebar-btn" id="navBtnFluxo" onclick="mostrarModulo('fluxo')"><span class="mico">💵</span>Fluxo de caixa</button>
-      <button class="sidebar-btn" id="navBtnProjecao" onclick="mostrarModulo('projecao')"><span class="mico">🔮</span>Fluxo projetado</button>
+    <button class="sidebar-secao" onclick="toggleGrupo('gCaixa')">Caixa e banco <span class="seta">▶</span></button>
+    <div class="sidebar-grupo" id="gCaixa">
+      <button class="sidebar-btn" id="navBtnProjecao" onclick="mostrarModulo('projecao')"><span class="mico">🔮</span>Contas a pagar e receber</button>
       <button class="sidebar-btn" id="navBtnConcbanco" onclick="mostrarModulo('concbanco')"><span class="mico">🏦</span>Conciliação bancária</button>
       <button class="sidebar-btn" id="navBtnCaixa" onclick="mostrarModulo('caixa')"><span class="mico">🗃️</span>Fechamento de Caixas</button>
       <button class="sidebar-btn" id="navBtnRede" onclick="mostrarModulo('rede')"><span class="mico">🏧</span>Taxas da maquininha</button>
-      <button class="sidebar-btn" id="navBtnDespesas" onclick="mostrarModulo('despesas')"><span class="mico">🧾</span>Análise de despesas</button>
-      <!-- Reembolsos SAIU DO MENU em 12/09/2026 (revisao dos modulos, "de acordo" do dono).
-           O lancamento esta pausado desde 21/08 — rmb_gastos so tem regra de leitura, ninguem
-           consegue registrar. A regra da casa (21/08) e que "em breve" nao fica no menu.
-           O modulo continua inteiro: mostrarModulo('reembolsos') funciona por codigo e a tela
-           abre com a fila e o historico. Volta ao menu quando o lancamento voltar. -->
-      <button class="sidebar-btn" id="navBtnRh" onclick="mostrarModulo('rh')"><span class="mico">💳</span>Descontos em folha</button>
-      <button class="sidebar-btn" id="navBtnForafolha" onclick="mostrarModulo('forafolha')"><span class="mico">🧮</span>Pagamento fora da folha</button>
     </div>
 
-    <button class="sidebar-secao" onclick="toggleGrupo('gProducao')">Produção e estoque <span class="seta">▶</span></button>
-    <div class="sidebar-grupo" id="gProducao">
+    <button class="sidebar-secao" onclick="toggleGrupo('gEstoque')">Estoque e cardápio <span class="seta">▶</span></button>
+    <div class="sidebar-grupo" id="gEstoque">
+      <button class="sidebar-btn" id="navBtnListas" onclick="mostrarModulo('listas')"><span class="mico">📦</span>Listas</button>
       <button class="sidebar-btn" id="navBtnContagem" onclick="mostrarModulo('contagem')"><span class="mico">📋</span>Contagem de estoque</button>
-      <button class="sidebar-btn" id="navBtnListas" onclick="mostrarModulo('listas')"><span class="mico">📦</span>Listas · Pedidos</button>
-      <button class="sidebar-btn" id="navBtnListasFin" onclick="mostrarModulo('listasfin')"><span class="mico">🧾</span>Listas · Financeiro</button>
+      <button class="sidebar-btn" id="navBtnEngcard" onclick="mostrarModulo('engcard')"><span class="mico">🍔</span>Margem por prato</button>
+      <button class="sidebar-btn" id="navBtnCardapio" onclick="mostrarModulo('cardapio')"><span class="mico">🍟</span>Cardápio no iFood</button>
+      <button class="sidebar-btn" id="navBtnFichas" onclick="mostrarModulo('fichas')"><span class="mico">📋</span>Fichas técnicas</button>
+      <button class="sidebar-btn" id="navBtnRateio" onclick="mostrarModulo('rateio')"><span class="mico">🎯</span>Preço sugerido</button>
+    </div>
+
+    <button class="sidebar-secao" onclick="toggleGrupo('gEquipe')">Equipe e filiais <span class="seta">▶</span></button>
+    <div class="sidebar-grupo" id="gEquipe">
+      <button class="sidebar-btn" id="navBtnLogfin" onclick="mostrarModulo('logfin')"><span class="mico">🛵</span>Pagamento dos motoboys</button>
+      <button class="sidebar-btn" id="navBtnRh" onclick="mostrarModulo('rh')"><span class="mico">💳</span>Descontos em folha</button>
+      <button class="sidebar-btn" id="navBtnForafolha" onclick="mostrarModulo('forafolha')"><span class="mico">💸</span>Pagamento fora da folha</button>
+      <button class="sidebar-btn" id="navBtnListasFin" onclick="mostrarModulo('listasfin')"><span class="mico">🧾</span>Cobrança das listas</button>
+      <!-- Reembolsos esta fora desde 12/09/2026: lancamento pausado desde 21/08. Volta
+           aqui quando for religado; mostrarModulo('reembolsos') continua funcionando. -->
     </div>
 
     <button class="sidebar-secao" onclick="toggleGrupo('gSistema')">Sistema <span class="seta">▶</span></button>
     <div class="sidebar-grupo" id="gSistema">
-      <button class="sidebar-btn" id="navBtnRelatorios" onclick="mostrarModulo('relatorios')"><span class="mico">🗞️</span>Resumos semanais</button>
-      <button class="sidebar-btn" id="navBtnConciliacao" onclick="mostrarModulo('conciliacao')"><span class="mico">✅</span>Conferência da base</button>
       <button class="sidebar-btn" id="navBtnRotinas" onclick="mostrarModulo('rotinas')"><span class="mico">🤖</span>Rotinas</button>
-      <button class="sidebar-btn" id="navBtnTelas" onclick="mostrarModulo('telas')"><span class="mico">🗺️</span>Telas do painel</button>
-      <!-- Link, nao modulo: pagina publica do site, aberta em aba nova. Decisao
-           do dono (13/08/2026): fica sem a trava de senha do painel — e a versao
-           que o Fabio abre sem conta. promos.html TEM verbas em R$; aprovado assim. -->
-      <button class="sidebar-btn" onclick="window.open('promos.html','_blank')"><span class="mico">📅</span>Calendário de promos ↗</button>
+      <button class="sidebar-btn" id="navBtnConciliacao" onclick="mostrarModulo('conciliacao')"><span class="mico">✅</span>Conferência dos números</button>
+      <button class="sidebar-btn" id="navBtnPlano" onclick="mostrarModulo('plano')"><span class="mico">🗺️</span>Plano</button>
     </div>
 
     <div class="sidebar-rodape">
@@ -1006,7 +988,7 @@
       <button onclick="resetFiltros()">Limpar filtros</button>
     </div>
 
-    <div id="modulo-estasemana" class="modulo">
+    <div id="modulo-estasemana" class="modulo" style="display:none;">
       <div id="view-estasemana"></div>
     </div>
 
@@ -1019,6 +1001,7 @@
     </div>
 
     <div id="modulo-promocoes" class="modulo" style="display:none;">
+      <div class="tela-atalhos"><button class="preset-btn" onclick="window.open('promos.html','_blank')">Calendário de promos ↗</button></div>
       <div id="view-promocoes"></div>
     </div>
 
@@ -1097,6 +1080,7 @@
     </div>
 
     <div id="modulo-plano" class="modulo" style="display:none;">
+      <div class="tela-atalhos"><button class="preset-btn" onclick="mostrarModulo('telas')">Telas do painel →</button></div>
       <div id="view-plano"></div>
     </div>
 
@@ -1136,7 +1120,7 @@
     <!-- O PLACAR: camada 1 da revisao dos modulos (12/09/2026). Nasce ao lado das
          tres telas que ele um dia substitui (Esta semana, A semana, Fechamento),
          e le a MESMA conta do Fechamento — nao ha segunda conta. -->
-    <div id="modulo-placar" class="modulo" style="display:none;">
+    <div id="modulo-placar" class="modulo">
       <div id="view-placar"></div>
     </div>
 
@@ -1157,6 +1141,7 @@
     </div>
 
     <div id="modulo-projecao" class="modulo" style="display:none;">
+      <div class="tela-atalhos"><button class="preset-btn" onclick="mostrarModulo('fluxo')">Fluxo de caixa dos meses fechados →</button></div>
       <div id="view-projecao"></div>
     </div>
 
@@ -1176,6 +1161,7 @@
     </div>
 
     <div id="modulo-indicadores" class="modulo" style="display:none;">
+      <div class="tela-atalhos"><button class="preset-btn" onclick="mostrarModulo('relatorios')">Relatórios da semana →</button></div>
       <div id="view-indicadores"></div>
     </div>
 
@@ -1644,7 +1630,7 @@ const lojaSummary = document.getElementById('lojaSummary');
 // junto com a Loana. Nao persiste entre recargas DE PROPOSITO: recorte
 // fora do padrao tem que ser escolhido de novo, nunca herdado sem ver.
 let PERIMETRO = 'minha';
-let MODULO_ATUAL = 'estasemana';
+let MODULO_ATUAL = 'placar';
 let GESTAO_LOJA = {};          // nome_loja -> 'propria' | 'terceiros'
 let UNIDADES_PROPRIAS = new Set();
 
@@ -1743,21 +1729,12 @@ function toggleGrupo(id) {
 // Garante que o grupo que contem o modulo esteja aberto (ex.: botao que leva
 // a Cancelamentos a partir da Visao geral, ou o modulo inicial no boot).
 function abrirGrupoDoModulo(nome) {
-  const grupoDe = { plano: 'gComecar', estasemana: 'gComecar', indicadores: 'gComecar',
-                    semana: 'gComecar', fechamento: 'gComecar',
-                    dre: 'gResultado',
-                    engcard: 'gResultado', fichas: 'gResultado', rateio: 'gResultado',
-                    site: 'gSite',
-                    atrasos: 'gEntrega', frete: 'gEntrega', logfin: 'gEntrega',
-                    fluxo: 'gFinanceiro', projecao: 'gFinanceiro', despesas: 'gFinanceiro',
-                    concbanco: 'gFinanceiro', caixa: 'gFinanceiro', rede: 'gFinanceiro',
-                    reembolsos: 'gFinanceiro', rh: 'gFinanceiro',
-                    listas: 'gProducao',
-                    qualidade: 'gIfood',
-                    relatorios: 'gSistema', conciliacao: 'gSistema', rotinas: 'gSistema' };
-  const id = grupoDe[nome] || 'gIfood';
-  const grupo = document.getElementById(id);
-  if (grupo && !grupo.classList.contains('aberto')) toggleGrupo(id);
+  // Le o grupo do proprio menu (12/09/2026). O mapa escrito a mao envelheceu a cada
+  // mudanca de menu e mandava modulo desconhecido para o grupo do iFood. Tela que
+  // nao esta no menu (as que abrem pelo Placar) simplesmente nao abre grupo nenhum.
+  const btn = document.querySelector(`.sidebar-btn[onclick="mostrarModulo('${nome}')"]`);
+  const grupo = btn ? btn.closest('.sidebar-grupo') : null;
+  if (grupo && !grupo.classList.contains('aberto')) toggleGrupo(grupo.id);
 }
 
 // O rodapé explica como o Líquido do iFood é calculado. Isso vale para os
@@ -4457,7 +4434,7 @@ function renderModuloCardapio(periodoSel, lojaSel) {
   </div>` : '';
 
   alvo.innerHTML = `
-  <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Cardápio — conversão e itens</div>
+  <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Cardápio no iFood — conversão e itens</div>
   <div class="caption-label" style="text-align:center;">
     Retrato do relatório de cardápio do Portal de Redes (seletor de período abaixo — não segue o filtro de datas do topo).
   </div>
@@ -4597,7 +4574,7 @@ function renderModuloClientes(mesSel) {
   const rotuloMes = (() => { const [a, m2] = mes.split('-'); return `${MESES_ABREV[Number(m2) - 1]}/${a}`; })();
 
   alvo.innerHTML = `
-  <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Clientes — canal iFood</div>
+  <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Clientes do iFood</div>
   <div class="caption-label" style="text-align:center;">
     Retrato mensal do Portal de Redes (seletor abaixo — não segue o filtro de datas do topo).
     <b>Novo</b> = primeiro pedido no mês · <b>Frequente</b> = mais de um pedido · <b>Recuperado</b> = voltou após 30+ dias sem comprar.
@@ -7478,7 +7455,7 @@ function renderForaFolha() {
     vale alimentação (vai pelo cartão da Flash) nem consumo (não se marca mais).
     O <b>adiantamento</b> sai no dia 20 e é descontado do <b>saldo</b>, pago no <b>5º dia útil</b> do mês seguinte
     (o 5º dia útil conta o sábado; se cair no fim de semana ou feriado, antecipa para o dia útil anterior).
-    As duas parcelas aparecem no Fluxo projetado até serem marcadas como pagas aqui.
+    As duas parcelas aparecem em Contas a pagar e receber até serem marcadas como pagas aqui.
     <span id="ffMsg" style="margin-left:6px;"></span></div>`;
 
   // O TAMANHO DA SEMANA ANTES DAS PESSOAS (12/09/2026). O loop abaixo mostra uma
@@ -7745,13 +7722,13 @@ async function ffBaixar(pessoa, mes, parcela, valor) {
   const r = await trRpc('rh_ff_baixar', { p_pessoa: pessoa, p_mes: mes, p_parcela: parcela, p_pago_em: (dt && dt.value) || trHoje(), p_valor: valor });
   if (!r.ok) { ffAviso('Não deu: ' + await trErroDe(r), false); return; }
   await entrarForaFolha();
-  ffAviso('Marcada como paga — saiu do Fluxo projetado.', true);
+  ffAviso('Marcada como paga — saiu de Contas a pagar e receber.', true);
 }
 async function ffDesfazer(pessoa, mes, parcela) {
   const r = await trRpc('rh_ff_desfazer_baixa', { p_pessoa: pessoa, p_mes: mes, p_parcela: parcela });
   if (!r.ok) { ffAviso('Não deu: ' + await trErroDe(r), false); return; }
   await entrarForaFolha();
-  ffAviso('Baixa desfeita — a parcela voltou para o Fluxo projetado.', true);
+  ffAviso('Baixa desfeita — a parcela voltou para Contas a pagar e receber.', true);
 }
 async function ffSalvarPessoa(id) {
   const v = (s) => document.getElementById(s + id).value.trim();
@@ -8363,7 +8340,7 @@ function renderModuloEvolucao() {
   // receita e' BRUTA (item x preco, antes do desconto do pedido e sem taxa de servico).
   const ITEM = EVOL_F.item;
   if (ITEM && !itensProntos) {
-    alvo.innerHTML = `<div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Evolução de vendas — ${ITEM}</div>
+    alvo.innerHTML = `<div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Vendas — ${ITEM}</div>
       <div class="contexto"${EVOL_ITENS && EVOL_ITENS.erro ? ' style="border-color:var(--farol-fora);"' : ''}>
         ${EVOL_ITENS && EVOL_ITENS.erro ? 'Não consegui carregar os itens: ' + EVOL_ITENS.erro : 'Carregando a venda deste item...'}
         <div style="margin-top:8px;"><button class="preset-btn" onclick="evolLimparFiltros()">voltar para a tela toda</button></div>
@@ -8646,7 +8623,7 @@ function renderModuloEvolucao() {
     + '</div>';
 
   alvo.innerHTML = `
-    <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Evolução de vendas${ITEM ? ' · ' + ITEM : ''} — ${ddmm(janIni)} a ${ddmm(maxData)}</div>
+    <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Vendas${ITEM ? ' · ' + ITEM : ''} — ${ddmm(janIni)} a ${ddmm(maxData)}</div>
     <div class="caption-label" style="text-align:center;">
       A venda registrada no caixa das lojas (Saipos), por canal e por faixa de horário.
       ${unsComDado.length ? `<b>${unsComDado.map(u => UN_ROT[u] || u).join(', ')}</b>.` : ''}
@@ -9030,7 +9007,7 @@ function renderModuloRateio() {
   const pill = (m) => `<button onclick="rateioMargem(${m})" style="font:inherit; font-size:12px; padding:3px 10px; border-radius:999px; cursor:pointer; border:1px solid ${Math.abs(m - RATEIO_MARGEM) < 0.001 ? '#c8102e' : '#34332f'}; background:${Math.abs(m - RATEIO_MARGEM) < 0.001 ? '#c8102e' : '#1a1a19'}; color:#fff;">${Math.round(100 * m)}%</button>`;
   const plPct = rateioPlPct();
   const precoBloco = temPreco ? `
-    <div class="section-label">Preço alvo · ${nome[RATEIO_CANAL] || RATEIO_CANAL} — comissão cheia, pró-labore pago e o lucro que você escolher</div>
+    <div class="section-label">Preço sugerido · ${nome[RATEIO_CANAL] || RATEIO_CANAL} — comissão cheia, pró-labore pago e o lucro que você escolher</div>
     <div class="contexto">Lucro final desejado: ${[0.05, 0.10, 0.15, 0.20].map(pill).join(' ')} &nbsp;·&nbsp; com ${pctM}%, o preço alvo neste canal é o <b>custo da ficha × ~${mult || '—'}</b>.
       ${plPct > 0.0005 ? `O <b>pró-labore da própria loja (${pc(plPct)} da venda) já está dentro da conta</b> — o lucro mostrado é depois de pagar os sócios.` : '<b>Esta loja não tem pró-labore local</b> — a linha é zero e o lucro mostrado já é o final.'}
       <b>Clique num produto para abrir a conta dele</b>, linha a linha, no preço de hoje.
@@ -9048,9 +9025,9 @@ function renderModuloRateio() {
     <div id="tabelaRateioPreco"></div>` : '';
 
   alvo.innerHTML = `
-    <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Preço alvo por produto · ${mesNome(de)} a ${mesNome(ate)}</div>
+    <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Preço sugerido · ${mesNome(de)} a ${mesNome(ate)}</div>
     ${rateioBarraUnidades()}
-    <div class="contexto">Aqui é <b>preço</b>: o custo de operar cada canal vira um <b>markup</b> sobre o custo da ficha, e o markup × CMV dá o preço alvo de cada produto. Os cartões mostram quanto de cada R$ 100 vendidos vai para operar o canal — <b>sem a matéria-prima</b> (ela entra pela ficha) — na leitura <b>cheia</b> (comissão de 9,5% do iFood que o benefício zera até dez/26–jan/27; é por ela que se precifica). Clique no canal para ver o preço alvo dele. Para ler <b>venda</b> por canal, faixa de horário e dia, use a <b>Evolução de vendas</b> aqui do menu.${canais.some(c => porCanal[c].provisorio) ? ' <span style="color:#a5a49a;">Parte da folha ainda cai na proporção geral (nomes sem setor).</span>' : ''}</div>
+    <div class="contexto">Aqui é <b>preço</b>: o custo de operar cada canal vira um <b>markup</b> sobre o custo da ficha, e o markup × CMV dá o preço sugerido de cada produto. Os cartões mostram quanto de cada R$ 100 vendidos vai para operar o canal — <b>sem a matéria-prima</b> (ela entra pela ficha) — na leitura <b>cheia</b> (comissão de 9,5% do iFood que o benefício zera até dez/26–jan/27; é por ela que se precifica). Clique no canal para ver o preço alvo dele. Para ler <b>venda</b> por canal, faixa de horário e dia, use a <b>Evolução de vendas</b> aqui do menu.${canais.some(c => porCanal[c].provisorio) ? ' <span style="color:#a5a49a;">Parte da folha ainda cai na proporção geral (nomes sem setor).</span>' : ''}</div>
     ${(RATEIO.semCriterio || []).length ? `<div class="contexto" style="border-color:#c8102e;"><b>Conta nova sem critério de rateio</b> — está caindo em "por vendas" sem ninguém ter decidido: ${RATEIO.semCriterio.map(r => `${String(r.subtipo).toLowerCase()} (${reais(r.valor_3m)} em 3 meses)`).join(' · ')}. Decidir em rateio_criterios.</div>` : ''}
     <div class="cards">${cards}</div>
     ${precoBloco}`;
@@ -9309,7 +9286,7 @@ function renderModuloSite() {
 
   if (!vendas.length) {
     alvo.innerHTML = `
-      <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Site próprio (Accon)</div>
+      <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Site próprio</div>
       ${avisoVenda}${notaSemPedido}${avisoCliente}
       ${siteBarraPeriodo()}
       <div class="contexto" style="border-color:#c8102e;">Sem pedido do site nesta janela e nestas unidades.</div>`;
@@ -9452,7 +9429,7 @@ function renderModuloSite() {
     vendas: vendasF, cli: cliF, corteVenda, corteCliente, semAsc };
 
   alvo.innerHTML = `
-  <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;" title="O canal que é nosso: sem comissão de marketplace e com o cliente no nome. A venda vem do Saipos, que chega todo dia pela API; quem é o cliente vem da Accon (novo, recência, cupom, campanha). O período é o desta tela; o filtro de unidades do topo vale aqui.">Site próprio (Accon)</div>
+  <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;" title="O canal que é nosso: sem comissão de marketplace e com o cliente no nome. A venda vem do Saipos, que chega todo dia pela API; quem é o cliente vem da Accon (novo, recência, cupom, campanha). O período é o desta tela; o filtro de unidades do topo vale aqui.">Site próprio</div>
   <div class="caption-label" style="text-align:center;">
     Venda até <b>${ddmm(corteVenda)}</b> (Saipos)${fontes.includes('accon') ? '; Boqueirão e 2025 vêm da Accon' : ''} · cliente até <b>${ddmm(corteCliente)}</b> (Accon).
   </div>
@@ -10774,7 +10751,7 @@ function renderModuloEngcard() {
   const unCortesia = cortesia.reduce((s,a) => s + a.un, 0);
 
   alvo.innerHTML = `
-    <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Engenharia de cardápio — Água Verde</div>
+    <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Margem por prato — Água Verde</div>
     <div class="caption-label" style="text-align:center;">
       O que vende muito × o que sobra muito, item a item, nos últimos ${ENGCARD_DIAS} dias.
       Corte pela média da casa: <b>${Math.round(unMedio).toLocaleString('pt-BR')} unidades</b> por item e
@@ -11494,7 +11471,7 @@ function renderLucroUni() {
         período. É o <b>mínimo</b>, não uma promessa: supõe vender exatamente o mesmo depois do
         aumento.
         <a href="javascript:void(0)" onclick="mostrarModulo('rateio')" style="color:var(--tx-3);"
-           title="Preço alvo produto a produto, com a conta aberta: ingrediente, embalagem, impostos, iFood, entrega, fixos e pró-labore.">Ver preço alvo por produto →</a></div>
+           title="Preço alvo produto a produto, com a conta aberta: ingrediente, embalagem, impostos, iFood, entrega, fixos e pró-labore.">Ver preço sugerido por produto →</a></div>
     </div>
 
     <div class="cards cards-3">${cardsUni}</div>
@@ -11597,8 +11574,8 @@ async function entrarListas() {   // Listas · Pedidos
   if (TR_MODULO !== 'pedidos') trTela = null;
   TR_MODULO = 'pedidos';
   alvo.innerHTML = `
-    <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Listas · Pedidos</div>
-    <div class="caption-label" style="text-align:center;" title="Tudo por peso (kg), menos embalagens. Preço de tabela = CMV + 19% de custo de produção, congelado no ato do pedido. Fechamento e contas ficam em Listas · Financeiro.">
+    <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Listas</div>
+    <div class="caption-label" style="text-align:center;" title="Tudo por peso (kg), menos embalagens. Preço de tabela = CMV + 19% de custo de produção, congelado no ato do pedido. Fechamento e contas ficam em Cobrança das listas.">
       A filial pede, a Água Verde separa, quem recebe confere.
     </div>
     <div id="trOperacao"><div class="contexto">Carregando a operação...</div></div>`;
@@ -11660,10 +11637,10 @@ function renderModuloListasFin() {
   </tr>`;
 
   alvo.innerHTML = `
-    <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Listas · Financeiro</div>
+    <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Cobrança das listas</div>
     <div class="caption-label" style="text-align:center;">
       O dinheiro das transferências: fechamento do mês (a Rita valida), contas a pagar
-      (Água Verde e Michiro) e a conta mês a mês. O ciclo do pedido vive em <b>Listas · Pedidos</b>.
+      (Água Verde e Michiro) e a conta mês a mês. O ciclo do pedido vive em <b>Listas</b>.
     </div>
 
     <div class="section-label">${parciais.length ? mesTxt(parciais[0].mes).toUpperCase() : 'MÊS'} EM ANDAMENTO — fechamento parcial por filial</div>
@@ -13092,7 +13069,7 @@ function renderModuloAtrasos() {
   };
 
   alvo.innerHTML = `
-  <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Atrasos e turnos — entregas próprias${ATRASOS_UNIDADE !== 'TODAS' ? ' · ' + ATRASOS_UNIDADE : ''}, ${ddmm(ATRASOS.ini)} a ${ddmm(ATRASOS.fim)}</div>
+  <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Atrasos na entrega — entregas próprias${ATRASOS_UNIDADE !== 'TODAS' ? ' · ' + ATRASOS_UNIDADE : ''}, ${ddmm(ATRASOS.ini)} a ${ddmm(ATRASOS.fim)}</div>
   ${chips}
   ${foodyCobertura(ATRASOS.rows)}
   <div class="contexto" style="border-color:#f5a623;" title="O prazo usado aqui é o horário prometido ao cliente no iFood, não o prazo padrão de 60 min do Foody. Os tempos são apontados por pessoas: veja a caixa Qualidade do apontamento, no fim da tela, antes de tirar conclusão fina.">Fonte: Foody Delivery (logística própria). ${PERIMETRO === 'rede' ? 'Visão Rede completa — <b>inclui Boqueirão, que é gestão separada</b> e tem tabela de corrida e fretes próprios.' : 'Visão Minha gestão — <b>Boqueirão (gestão separada) fica fora</b>; para vê-lo, troque para Rede completa lá em cima.'}</div>
@@ -13467,7 +13444,7 @@ function renderModuloLogfin() {
   LOGFIN_SIM_BASE = { taxasTabela, outrosSoma, turnosReais, custoTotal, custoLiquido, abate, dias };
 
   alvo.innerHTML = `
-  <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Financeiro da logística — entregas próprias${LOGFIN_UNIDADE !== 'TODAS' ? ' · ' + LOGFIN_UNIDADE : ''}, ${ddmm(LOGFIN.ini)} a ${ddmm(LOGFIN.fim)}</div>
+  <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Pagamento dos motoboys — entregas próprias${LOGFIN_UNIDADE !== 'TODAS' ? ' · ' + LOGFIN_UNIDADE : ''}, ${ddmm(LOGFIN.ini)} a ${ddmm(LOGFIN.fim)}</div>
   ${chips}
   ${foodyCobertura(LOGFIN.rows)}
   <div class="contexto" style="border-color:#f5a623;" title="Regra combinada de pagamento: o motoboy recebe o maior entre as corridas e o garantido por hora, turno a turno — R$ ${fmt(logfinPisoSemana())} de segunda a sexta e R$ ${fmt(logfinPisoFds())} no sábado e no domingo. A tarde parada entre almoço e jantar não conta como trabalhada. A hora é estimada da primeira à última entrega do turno, não é ponto batido: o complemento é a estimativa do painel para vigiar a conta, não o acerto real.">Fonte: Foody Delivery (logística própria). ${PERIMETRO === 'rede' ? 'Visão Rede completa — <b>inclui Boqueirão, que é gestão separada</b>, com tabela de corrida mais cara (7,50/9,00) e fretes próprios no iFood (quase sem abate).' : 'Visão Minha gestão — <b>Boqueirão (gestão separada) fica fora</b> dos totais e do simulador; para vê-lo, troque para Rede completa lá em cima.'}</div>
@@ -13691,7 +13668,7 @@ function renderModuloQualidade() {
   }
 
   alvo.innerHTML = `
-  <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Qualidade &amp; Super — semana ${ddmm(atualIni)}${antIni ? ' (vs ' + ddmm(antIni) + ')' : ''}</div>
+  <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Super Restaurante — semana ${ddmm(atualIni)}${antIni ? ' (vs ' + ddmm(antIni) + ')' : ''}</div>
   <div class="caption-label" style="text-align:center;">O nível Super afeta visibilidade e condições no iFood. Fonte: relatório semanal de qualidade da rede.</div>
   <div class="cards">
     <div class="card pos"><div class="card-lbl">Nível 5</div><div class="card-val">${n5}</div><div class="card-pct">loja(s)</div></div>
@@ -14139,7 +14116,7 @@ async function entrarIndicadores() {
       title="Esconde só as metas atingidas; o que está sem dado continua na lista.">só o que não está no verde ${foraDoVerde}</button>
   </div>`;
   alvo.innerHTML = `
-  <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Indicadores e metas</div>
+  <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Metas do iFood</div>
   <div class="contexto" style="text-align:left;">
     <b>Placar da semana ${formatarDataCurta(sem.ini)} – ${formatarDataCurta(sem.fim)}</b>
     (última semana completa seg–dom) · <b style="color:${naMeta >= 6 ? '#3fb950' : naMeta >= 4 ? '#f5a623' : '#ff6b6b'}">${naMeta} de ${METAS_KPI.length} metas atingidas</b><br>
@@ -14442,25 +14419,25 @@ const PLC_GRAOS = [['mes', 'Mês'], ['tri', 'Trimestre'], ['ano', 'Ano até aqui
 // era a decisao da revisao ("clique num numero abre a quebra; a quebra abre a tela").
 const PLC_TILES = [
   { id: 'fat',   rot: 'Faturamento',            un: 'R$', meta: null,          v: a => a.recBruta,
-    telas: [['evolucao', 'Evolução de vendas'], ['resumo', 'Resumo do canal iFood']] },
+    telas: [['evolucao', 'Vendas'], ['resumo', 'Resumo do canal iFood']] },
   { id: 'ped',   rot: 'Pedidos',                un: 'n',  meta: null,          v: a => a.pedidos,
-    telas: [['evolucao', 'Evolução de vendas'], ['cancelamentos', 'Cancelamentos']] },
+    telas: [['evolucao', 'Vendas'], ['cancelamentos', 'Cancelamentos']] },
   { id: 'merc',  rot: 'Mercadoria',             un: 'R$', meta: 'CUSTO',       v: a => a.grupos.CUSTO,
-    telas: [['engcard', 'Engenharia de cardápio'], ['fichas', 'Fichas técnicas'], ['despesas', 'Análise de despesas']] },
+    telas: [['engcard', 'Margem por prato'], ['fichas', 'Fichas técnicas'], ['despesas', 'Despesas']] },
   { id: 'canal', rot: 'Custo dos canais',       un: 'R$', meta: null,          v: a => a.taxas,
     telas: [['resumo', 'Resumo do canal iFood'], ['rede', 'Taxas da maquininha'], ['promocoes', 'Promoções']] },
   { id: 'pess',  rot: 'Pessoas',                un: 'R$', meta: 'PESSOAL',     v: a => a.grupos.PESSOAL,
-    telas: [['despesas', 'Análise de despesas'], ['forafolha', 'Pagamento fora da folha'], ['rh', 'Descontos em folha']] },
+    telas: [['despesas', 'Despesas'], ['forafolha', 'Pagamento fora da folha'], ['rh', 'Descontos em folha']] },
   { id: 'mc',    rot: 'Margem de contribuição', un: 'R$', meta: 'LUCRO_BRUTO', v: a => a.mc,
     def: 'Margem de contribuição = receita líquida − mercadoria. ',
-    telas: [['dre', 'DRE'], ['rateio', 'Preço alvo por produto']] },
+    telas: [['dre', 'DRE'], ['rateio', 'Preço sugerido']] },
   { id: 'res',   rot: 'Resultado',              un: 'R$', meta: 'RESULTADO',   v: a => a.resultado,
     telas: [['fechamento', 'Fechamento do mês'], ['dre', 'DRE'], ['lucrouni', 'Lucro por unidade']] },
   { id: 'caixa', rot: 'Caixa',                  un: 'R$', meta: null,          v: a => a.caixa,
     def: 'Caixa = quanto subiu ou caiu na conta, pela ponte que fecha contra o banco. ',
     // lucrouni entra aqui tambem porque ele e' o caixa POR LOJA — a revisao pediu a
     // quebra por loja de Resultado E de Caixa, e e' a unica tela que mostra as duas juntas.
-    telas: [['fluxo', 'Fluxo de caixa'], ['lucrouni', 'Caixa por loja'], ['projecao', 'Fluxo projetado'], ['concbanco', 'Conciliação bancária']] },
+    telas: [['fluxo', 'Fluxo de caixa'], ['lucrouni', 'Caixa por loja'], ['projecao', 'Contas a pagar e receber'], ['concbanco', 'Conciliação bancária']] },
 ];
 
 function plcGrao(g) { PLC_GRAO = g; PLC_SEL = null; renderPlacar(); }
@@ -14815,7 +14792,7 @@ function renderPlacar() {
     `<button class="preset-btn ${PLC_SEL === p.chave ? 'active' : ''}" onclick="plcPeriodo('${p.chave}')">${p.rot}</button>`).join('');
 
   alvo.innerHTML = `
-    <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">O Placar — ${nomeLojaFin()} · ${atual.rot}</div>
+    <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Placar — ${nomeLojaFin()} · ${atual.rot}</div>
     <div class="caption-label" style="text-align:center;">Contra o período anterior e contra a meta. <b>Clique num número para abrir.</b></div>
     ${(() => { const b = blocoAlertas(); return b ? `<div class="section-label">O que precisa de você agora</div>
       <div class="caption-label" style="text-align:center;">A mesma faixa da tela "Esta semana" — aqui e lá ela é a mesma conta, não uma cópia. Clique no aviso para ir direto na tela dele.</div>${b}` : ''; })()}
@@ -16339,7 +16316,7 @@ function renderModuloDRE() {
   ${cols[cols.length - 1] && cols[cols.length - 1].slice(0, 7) === mesAtual ? `<div class="contexto" style="margin-top:12px;">
     <b>${rotuloMes(cols[cols.length - 1])} está em curso:</b> as despesas do mês entram quase todas de uma vez
     (competência já lançada), mas as vendas ainda estão acontecendo — <b>o mês fecha melhor do que aparece aqui</b>.
-    Compromissos já lançados para os próximos meses não entram nesta tabela: estão no <b>Fluxo projetado</b>.</div>` : ''}
+    Compromissos já lançados para os próximos meses não entram nesta tabela: estão em <b>Contas a pagar e receber</b>.</div>` : ''}
   <details class="detalhes-extra" style="margin-top:12px;">
     <summary>📖 O que significa cada linha (guia rápido)</summary>
     <div style="font-size:12.5px; color:var(--tx-2); line-height:1.8; margin-top:10px;">
@@ -16369,7 +16346,7 @@ function renderModuloDRE() {
     </table>
   </div>
   ${ponteHtml}
-  <div class="caption-label" title="Investimentos, retiradas e aportes ficam fora do resultado (são o destino do lucro). Meses futuros já lançados ficam no Fluxo projetado. A bolinha âmbar aparece a até 10% da meta e a vermelha além disso; as metas são editáveis em fin_metas_dre.">
+  <div class="caption-label" title="Investimentos, retiradas e aportes ficam fora do resultado (são o destino do lucro). Meses futuros já lançados ficam em Contas a pagar e receber. A bolinha âmbar aparece a até 10% da meta e a vermelha além disso; as metas são editáveis em fin_metas_dre.">
   Lançamentos e vendas do Saipos desde jan/2026. Desde 12/09/2026 as <b>taxas de canais</b> saem cobrança a cobrança da conciliação, não mais pela diferença entre vendido e recebido.
   O <b>mês corrente parece pior do que vai fechar</b>: as despesas já estão quase todas lançadas e as vendas ainda estão acontecendo.</div>`;
   encaixarColunaFixa('tabelaDRE');
@@ -16976,7 +16953,7 @@ function renderModuloProjecao() {
    </div>`;
 
   alvo.innerHTML = plcCabecalhoQuebra('projecao') + `
-  <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Fluxo de Caixa Projetado — Rede (as três lojas)</div>
+  <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Contas a pagar e receber — Rede (as três lojas)</div>
   <div class="caption-label" style="text-align:center;">
     Próximos ${HORIZONTE} dias, dia a dia: contas a pagar lançadas no Saipos + receita projetada
     (média por dia da semana das últimas 4 semanas). <b>Esta tela é sempre da rede</b> — saldos, contas a pagar
@@ -17279,7 +17256,7 @@ function renderModuloDespesas() {
   variacoes.forEach(x => { const q = culpadoDa(x[0], x[3]); if (q) quemPuxou[x[0]] = q; });
 
   alvo.innerHTML = plcCabecalhoQuebra('despesas') + seletorLojaFin() + `
-  <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Análise de Despesas — ${nomeLojaFin()}</div>
+  <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Despesas — ${nomeLojaFin()}</div>
   <div class="caption-label" style="text-align:center;">
     Vermelho = gastou mais que ${mesesSel.length > 1 ? 'o período anterior do mesmo tamanho' : 'a média dos meses anteriores'}. Inclui investimento, que o Placar deixa de fora.
   </div>
@@ -17941,7 +17918,7 @@ function renderModuloConciliacao() {
   }
 
   alvo.innerHTML = `
-  <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Conferência da base — Água Verde, Ahú e São Braz</div>
+  <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Conferência dos números — Água Verde, Ahú e São Braz</div>
   <div class="caption-label" style="text-align:center;">
     Checagem diária da base: <b>se algo não bater, aparece aqui.</b> A conciliação com o extrato do banco é feita
     fora do painel (Saipos/OFX) — aqui conferimos a consistência interna e apontamos o que provavelmente falta lançar lá.
@@ -18427,12 +18404,10 @@ async function iniciar() {
     document.getElementById('painel').style.display = 'block';
     MEUS_MODULOS = await carregarAcesso();
     aplicarAcesso();
-    // A home "Esta semana" e o modulo inicial; carrega depois que o painel
-    // aparece para nao segurar o boot (ela busca avaliacoes/negociacoes/metas).
-    // Quem tem acesso restrito abre direto no que e dele — cair numa home que
-    // nao pode ver parece painel quebrado.
-    if (MEUS_MODULOS && !MEUS_MODULOS.includes('estasemana')) mostrarModulo(MEUS_MODULOS[0]);
-    else entrarEstaSemana();
+    // O painel abre no Placar desde 12/09/2026 (antes: "Esta semana"). Carrega depois
+    // que o painel aparece, para nao segurar o boot. Quem tem acesso restrito abre
+    // direto no que e dele — cair numa home que nao pode ver parece painel quebrado.
+    mostrarModulo((MEUS_MODULOS && !MEUS_MODULOS.includes('placar')) ? MEUS_MODULOS[0] : 'placar');
   } catch (err) {
     document.getElementById('loadingMsg').style.display = 'none';
     const erroEl = document.getElementById('erroMsg');
