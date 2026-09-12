@@ -856,6 +856,9 @@
     <div class="sidebar-grupo" id="gComecar">
       <button class="sidebar-btn" id="navBtnPlano" onclick="mostrarModulo('plano')"><span class="mico">🗺️</span>Plano</button>
       <button class="sidebar-btn active" id="navBtnEstaSemana" onclick="mostrarModulo('estasemana')"><span class="mico">🏠</span>Esta semana</button>
+      <!-- O Placar (12/09/2026): entra ao lado das tres telas que ele substitui, nao
+           no lugar delas. So sai do "ao lado" quando os numeros estiverem conferidos. -->
+      <button class="sidebar-btn" id="navBtnPlacar" onclick="mostrarModulo('placar')"><span class="mico">🧮</span>O Placar</button>
       <button class="sidebar-btn" id="navBtnIndicadores" onclick="mostrarModulo('indicadores')"><span class="mico">🎯</span>Indicadores e metas</button>
       <!-- Em portugues, para a Jane e o Fabio (02/09/2026): a semana fechada e o mes fechado
            em uma pagina cada — quanto vendeu, para onde foi cada R$ 100, quanto sobrou, o caixa. -->
@@ -1127,6 +1130,13 @@
 
     <div id="modulo-dre" class="modulo papel" style="display:none;">
       <div id="view-dre"></div>
+    </div>
+
+    <!-- O PLACAR: camada 1 da revisao dos modulos (12/09/2026). Nasce ao lado das
+         tres telas que ele um dia substitui (Esta semana, A semana, Fechamento),
+         e le a MESMA conta do Fechamento — nao ha segunda conta. -->
+    <div id="modulo-placar" class="modulo" style="display:none;">
+      <div id="view-placar"></div>
     </div>
 
     <div id="modulo-semana" class="modulo" style="display:none;">
@@ -1804,6 +1814,7 @@ function mostrarModulo(nome) {
     qualidade: ['modulo-qualidade', 'navBtnQualidade'],
     consolidada: ['modulo-consolidada', 'navBtnConsolidada'],
     evolucao: ['modulo-evolucao', 'navBtnEvolucao'],
+    placar: ['modulo-placar', 'navBtnPlacar'],
     atrasos: ['modulo-atrasos', 'navBtnAtrasos'],
     logfin: ['modulo-logfin', 'navBtnLogfin'],
     frete: ['modulo-frete', 'navBtnFrete'],
@@ -1859,6 +1870,7 @@ function mostrarModulo(nome) {
   if (nome === 'qualidade') entrarQualidade();
   if (nome === 'consolidada') entrarConsolidada();
   if (nome === 'evolucao') entrarEvolucao();
+  if (nome === 'placar') entrarPlacar();
   if (nome === 'atrasos') entrarAtrasos();
   if (nome === 'logfin') entrarLogfin();
   if (nome === 'frete') entrarFrete();
@@ -1900,6 +1912,8 @@ function moduloAtivo() {
   if (cons && cons.style.display !== 'none') return 'consolidada';
   const evo = document.getElementById('modulo-evolucao');
   if (evo && evo.style.display !== 'none') return 'evolucao';
+  const plc = document.getElementById('modulo-placar');
+  if (plc && plc.style.display !== 'none') return 'placar';
   const atr = document.getElementById('modulo-atrasos');
   if (atr && atr.style.display !== 'none') return 'atrasos';
   for (const [idm, nomem] of [['modulo-site','site'],
@@ -7449,7 +7463,8 @@ function renderModuloRh() {
 // MODULO FRETE POR DISTANCIA (aplicado da fila em 16/08/2026).
 // A media geral esconde o que decide: o cliente distante tem o MAIOR
 // ticket. Por isso a tabela mostra ticket ao lado de custo e cobrado.
-// Fonte: vw_frete_faixa_canal (so Agua Verde).
+// Fonte: vw_frete_faixa_canal — desde 12/09/2026 ela traz DATA e as tres lojas
+// (era so Agua Verde e sem periodo), e o filtro de unidade do topo vale aqui.
 let FRETE = null;
 
 async function entrarFrete() {
@@ -12907,6 +12922,7 @@ document.addEventListener('click', (e) => {
   else if (MODULO_ATUAL === 'concbanco') renderConcbanco();
   else if (MODULO_ATUAL === 'semana' && FX_S) renderSemana();
   else if (MODULO_ATUAL === 'fechamento' && FX_M) renderFechamento();
+  else if (MODULO_ATUAL === 'placar' && FX_M) renderPlacar();
 });
 
 // ===== Fechamento do mes e A semana — em portugues, para a Jane e o Fabio (02/09/2026) =====
@@ -12974,11 +12990,13 @@ const FX_SUBT_PDV = ['RECEITAS CARTAO', 'RECEITAS ONLINE', 'RECEITAS DINHEIRO', 
 const FX_GRUPOS = { CUSTO: ['MATERIA PRIMA', 'USO E CONSUMO'], PESSOAL: ['PESSOAL', 'PRO LABORE'],
   VENDA: ['DESPESAS COMERCIAIS', 'DESPESAS LOGISTICA', 'DESPESAS MARKETING'],
   ADMIN: ['DESPESAS ADMINISTRATIVAS', 'DESPESAS MANUTENÇÃO', 'IMPOSTOS E TAXAS'] };
-async function entrarFechamento() {
-  const alvo = document.getElementById('view-fechamento');
-  if (!FX_M) {
-    alvo.innerHTML = '<div class="contexto">Carregando o fechamento...</div>';
-    const [dre, vendas, canal, benef, ponte, metas, prova] = await Promise.all([
+// A CARGA E' COMPARTILHADA (12/09/2026): o Fechamento do mes e o Placar leem o
+// MESMO FX_M. Foi o jeito de garantir que as duas telas nao possam divergir —
+// quem abre primeiro carrega, quem abre depois reusa.
+async function fxCarregarM() {
+  if (FX_M) return;
+  {
+    const [dre, vendas, canal, benef, ponte, metas, metasMes, prova] = await Promise.all([
       consultarTudo('vw_fin_dre_mensal?select=unidade,mes,natureza,tipo,subtipo,credito,debito&mes=gte.2026-01-01'),
       consultarTudo('vw_mes_vendas?select=mes,unidade,canal,pedidos,faturamento&mes=gte.2026-01-01'),
       // custo dos canais por FATO (12/09/2026): substitui a conta por diferenca e o extrato de anuncios so da AV
@@ -12986,13 +13004,25 @@ async function entrarFechamento() {
       consultarTudo('vw_fin_dre_beneficio?select=mes,unidade,beneficio_ifood'),
       consultarTudo('vw_fin_ponte_mensal?select=*'),
       consultarTudo('fin_metas_dre?select=chave,sentido,pct_meta'),
+      // a meta do mes, quando ela muda mes a mes: o custo desce meio ponto por mes
+      // ate 32 em fev/27 (decisao do dono, 02/09/2026). Sem isto o Placar mediria
+      // um trimestre inteiro contra a meta de um mes so.
+      consultarTudo('fin_metas_dre_mes?select=chave,mes,pct_meta').catch(() => []),
       // prova dos nove (04/09/2026): a venda do PDV conferida contra iFood, Rede e vales
       consultarTudo('vw_fechamento_prova_nove?select=mes,unidade,ordem,linha,fonte_a,fonte_b,valor_a,valor_b,diferenca,pct,tolerancia_pct,situacao,piso_ruido&order=mes,ordem').catch(() => []),
     ]);
     const metasMap = {}; metas.forEach(m => { metasMap[m.chave] = { sentido: m.sentido, meta: fxN(m.pct_meta) }; });
-    FX_M = { dre, vendas, canal, benef, ponte, metas: metasMap, prova: prova || [] };
+    const metasMesMap = {}; (metasMes || []).forEach(m => { metasMesMap[m.chave + '|' + m.mes] = fxN(m.pct_meta); });
+    FX_M = { dre, vendas, canal, benef, ponte, metas: metasMap, metasMes: metasMesMap, prova: prova || [] };
     const meses = [...new Set(dre.map(r => r.mes))].sort().filter(m => m.slice(0, 7) < mesCorrenteSP());
     FX_MES_SEL = meses[meses.length - 1];
+  }
+}
+async function entrarFechamento() {
+  const alvo = document.getElementById('view-fechamento');
+  if (!FX_M) {
+    alvo.innerHTML = '<div class="contexto">Carregando o fechamento...</div>';
+    await fxCarregarM();
   }
   renderFechamento();
 }
@@ -13034,6 +13064,314 @@ function fxMesCalc(mes) {
   return { mes, canais, recBruta, pedidos, ticket: pedidos ? recBruta / pedidos : 0, outras, outrasDet, taxasCanais, defasagem, temFato, deducoes, irpj, base, grupos, outrasDesp, ebitda, despFin, recFin, semClass, resultado, benef };
 }
 function fxPonte(mes) { const L = fxLojas(); const rows = FX_M.ponte.filter(r => r.mes === mes && L.includes(r.unidade)); if (!rows.length) return null; const s = c => rows.reduce((a, r) => a + fxN(r[c]), 0); return { res: s('resultado_apurado'), comp: s('ajuste_competencia'), inv: s('investimentos'), ret: s('retiradas'), emp: s('emprestimos'), apo: s('aportes'), rend: s('aplicacoes'), xp: s('transferencias_liquidas'), sem: s('sem_classificacao'), v: s('variacao_caixa') }; }
+// ==================================================================
+// O PLACAR — a camada 1 da revisão dos módulos (12/09/2026)
+// ==================================================================
+// O dono decidiu as 44 linhas da revisão e três telas foram marcadas PLACAR:
+// "Esta semana", "A semana" e "Fechamento do mês". Elas não somem hoje — o Placar
+// nasce ao lado e precisa provar que diz a mesma coisa antes de substituir
+// qualquer uma. Enquanto as duas existirem, os números TÊM de bater: é por isso
+// que este módulo não tem conta própria. Ele chama `fxMesCalc` e `fxPonte`, as
+// MESMAS funções do Fechamento do mês, e só faz três coisas em cima:
+//   1. SOMA vários meses (mês, trimestre, ano até aqui);
+//   2. compara com o período anterior do mesmo tamanho E com a meta, juntos;
+//   3. abre a quebra por loja, por período e por composição ao clicar no número.
+//
+// POR QUE MESES FECHADOS. A DRE é mensal e o mês em curso mente (compra do mês
+// inteiro contra meia venda). O Fechamento já corta assim; o Placar copia o corte.
+//
+// A COMPARAÇÃO COM 2025 NÃO EXISTE e a tela diz: as vendas do Saipos começam em
+// 02/01/2026. O financeiro vai mais atrás, mas comparar resultado sem venda
+// daria meia comparação — pior que nenhuma.
+//
+// DIVERGÊNCIA DELIBERADA DO DESENHO APROVADO: o protótipo tinha um SELETOR de
+// comparação (anterior / meta / 2025). Aqui as duas comparações que existem
+// aparecem JUNTAS, porque o cartão tem duas linhas e esconder uma delas atrás de
+// um botão só dava trabalho ao leitor. Se o dono quiser o seletor, é meia hora.
+let PLC_GRAO = 'mes';        // 'mes' | 'tri' | 'ano'
+let PLC_SEL = null;          // chave do periodo escolhido
+let PLC_ABERTO = null;       // id do tile aberto na quebra
+
+const PLC_GRAOS = [['mes', 'Mês'], ['tri', 'Trimestre'], ['ano', 'Ano até aqui']];
+
+// Cada tile: o rotulo, como tirar o valor do agregado, se e gasto (gasto que
+// sobe e' ruim) e qual meta da `fin_metas_dre` mede ele.
+const PLC_TILES = [
+  { id: 'fat',   rot: 'Faturamento',            un: 'R$', meta: null,          v: a => a.recBruta },
+  { id: 'ped',   rot: 'Pedidos',                un: 'n',  meta: null,          v: a => a.pedidos },
+  { id: 'merc',  rot: 'Mercadoria',             un: 'R$', meta: 'CUSTO',       v: a => a.grupos.CUSTO },
+  { id: 'canal', rot: 'Custo dos canais',       un: 'R$', meta: null,          v: a => a.taxas },
+  { id: 'pess',  rot: 'Pessoas',                un: 'R$', meta: 'PESSOAL',     v: a => a.grupos.PESSOAL },
+  { id: 'mc',    rot: 'Margem de contribuição', un: 'R$', meta: 'LUCRO_BRUTO', v: a => a.mc },
+  { id: 'res',   rot: 'Resultado',              un: 'R$', meta: 'RESULTADO',   v: a => a.resultado },
+  { id: 'caixa', rot: 'Caixa',                  un: 'R$', meta: null,          v: a => a.caixa },
+];
+
+function plcGrao(g) { PLC_GRAO = g; PLC_SEL = null; renderPlacar(); }
+function plcPeriodo(c) { PLC_SEL = c; renderPlacar(); }
+function plcAbrir(id) { PLC_ABERTO = (PLC_ABERTO === id) ? null : id; renderPlacar(); }
+
+// Roda `fn` como se a loja escolhida fosse outra. Existe para a quebra por loja
+// usar EXATAMENTE a mesma conta do cartao — `fxMesCalc` le `LOJA_FIN` de fora.
+// E' sincrono do comeco ao fim e devolve o valor no `finally`, entao nao ha
+// janela em que outra parte do painel veja a loja trocada.
+function plcComLoja(loja, fn) {
+  const antes = LOJA_FIN;
+  LOJA_FIN = loja;
+  try { return fn(); } finally { LOJA_FIN = antes; }
+}
+
+const plcMesesFechados = () =>
+  [...new Set(FX_M.dre.map(r => r.mes))].sort().filter(m => m.slice(0, 7) < mesCorrenteSP());
+
+// Os periodos do grao escolhido, do mais antigo ao mais novo. `completo` diz se o
+// balde tem todos os meses que deveria — T3/26 com julho e agosto NAO tem, e
+// comparar dois tercos de trimestre com um trimestre inteiro e' a mesma armadilha
+// que a tela de Despesas tinha ("caiu 45%" que era so mes faltando).
+const PLC_ESPERADO = { mes: 1, tri: 3, ano: 12 };
+function plcPeriodos() {
+  const ms = plcMesesFechados();
+  const esp = PLC_ESPERADO[PLC_GRAO];
+  const feito = (chave, rot, meses) => ({ chave, rot, meses, completo: meses.length >= esp });
+  if (PLC_GRAO === 'mes') return ms.map(m => feito(m, fxMesRot(m) + '/' + m.slice(2, 4), [m]));
+  const g = {};
+  if (PLC_GRAO === 'tri') {
+    ms.forEach(m => { const t = m.slice(0, 4) + '-T' + (Math.floor((Number(m.slice(5, 7)) - 1) / 3) + 1); (g[t] || (g[t] = [])).push(m); });
+    return Object.keys(g).sort().map(t => feito(t, t.slice(5) + '/' + t.slice(2, 4), g[t]));
+  }
+  ms.forEach(m => { const a = m.slice(0, 4); (g[a] || (g[a] = [])).push(m); });
+  return Object.keys(g).sort().map(a => feito(a, a, g[a]));
+}
+
+// O PERIODO ANTERIOR E' SEMPRE DO MESMO TAMANHO, colado — a mesma regra do resto
+// do painel. Para um trimestre fechado isso da exatamente o trimestre anterior;
+// para um trimestre pela metade da os DOIS meses imediatamente antes, que e' a
+// unica comparacao honesta que existe. Devolve null quando nao ha meses bastantes.
+function plcAnterior(meses) {
+  const ms = plcMesesFechados();
+  const i = ms.indexOf(meses[0]), n = meses.length;
+  if (i < n) return null;
+  const anteriores = ms.slice(i - n, i);
+  const balde = plcPeriodos().find(p => p.meses.length === n && p.meses[0] === anteriores[0]);
+  const rot = balde ? balde.rot
+    : (n === 1 ? fxMesRot(anteriores[0]) + '/' + anteriores[0].slice(2, 4)
+      : fxMesRot(anteriores[0]) + '–' + fxMesRot(anteriores[n - 1]) + '/' + anteriores[n - 1].slice(2, 4));
+  return { meses: anteriores, rot };
+}
+
+// SOMA os meses do periodo. Quase tudo em fxMesCalc e aditivo; o que nao e —
+// ticket e os percentuais — sai da divisao no fim, que e' a unica forma de nao
+// cair na media de media.
+function plcAgrega(meses) {
+  const partes = meses.map(m => fxMesCalc(m));
+  const som = f => partes.reduce((a, p) => a + (Number(f(p)) || 0), 0);
+  const grupos = {};
+  ['CUSTO', 'PESSOAL', 'VENDA', 'ADMIN'].forEach(k => { grupos[k] = som(p => p.grupos[k]); });
+  const canais = {};
+  partes.forEach(p => Object.entries(p.canais).forEach(([c, v]) => { canais[c] = (canais[c] || 0) + v; }));
+  const recBruta = som(p => p.recBruta), pedidos = som(p => p.pedidos);
+  const base = som(p => p.base), taxas = som(p => p.taxasCanais), deducoes = som(p => p.deducoes);
+  const recLiq = base - taxas - deducoes;
+  const pontes = meses.map(m => fxPonte(m)).filter(Boolean);
+  const ps = c => pontes.reduce((a, p) => a + p[c], 0);
+  return {
+    meses, recBruta, pedidos, ticket: pedidos ? recBruta / pedidos : 0,
+    outras: som(p => p.outras), base, taxas, deducoes, recLiq, grupos,
+    mc: recLiq - grupos.CUSTO, ebitda: som(p => p.ebitda), resultado: som(p => p.resultado),
+    benef: som(p => p.benef), temFato: partes.every(p => p.temFato), canais,
+    caixa: pontes.length ? ps('v') : null,
+    caixaOper: pontes.length ? ps('res') + ps('comp') : null,
+    caixaFora: pontes.length ? ps('inv') + ps('ret') + ps('emp') + ps('apo') + ps('rend') + ps('xp') + ps('sem') : null,
+  };
+}
+
+// A meta de um periodo de varios meses e' a media das metas do mes PESADA PELA
+// BASE: em fin_metas_dre_mes o custo desce meio ponto por mes ate 32 em fev/27,
+// entao um trimestre nao tem uma meta so, tem tres. Media simples daria um
+// numero que nao e' a meta de mes nenhum.
+function plcMeta(chave, meses) {
+  const def = FX_M.metas[chave];
+  if (!def) return null;
+  let num = 0, den = 0;
+  meses.forEach(m => {
+    const b = fxMesCalc(m).base;
+    const pm = FX_M.metasMes ? FX_M.metasMes[chave + '|' + m] : undefined;
+    num += (pm === undefined ? def.meta : pm) * b;
+    den += b;
+  });
+  return den ? { meta: num / den, sentido: def.sentido } : null;
+}
+
+// A composicao de cada numero — o terceiro nivel da quebra.
+function plcComposicao(id, meses) {
+  const L = fxLojas();
+  const linhasDre = FX_M.dre.filter(r => meses.includes(r.mes) && L.includes(r.unidade));
+  const porTipo = (tipos) => {
+    const m = {};
+    linhasDre.forEach(r => {
+      if (r.natureza !== 'DESPESAS' || r.tipo === 'INVESTIMENTOS' || !tipos.includes(r.tipo)) return;
+      m[r.subtipo || r.tipo] = (m[r.subtipo || r.tipo] || 0) - (fxN(r.credito) - fxN(r.debito));
+    });
+    return Object.entries(m).map(([k, v]) => ({ k, v })).sort((a, b) => b.v - a.v);
+  };
+  if (id === 'fat') {
+    const a = plcAgrega(meses);
+    return Object.entries(a.canais).map(([k, v]) => ({ k, v })).sort((x, y) => y.v - x.v);
+  }
+  if (id === 'merc') return porTipo(FX_GRUPOS.CUSTO);
+  if (id === 'pess') return porTipo(FX_GRUPOS.PESSOAL);
+  if (id === 'canal') {
+    const cf = FX_M.canal.filter(r => meses.includes(r.mes) && L.includes(r.unidade) && r.classe === 'CANAL' && r.linha !== 'ANUNCIOS');
+    const m = {};
+    cf.forEach(r => { m[r.linha] = (m[r.linha] || 0) + fxN(r.custo); });
+    return Object.entries(m).map(([k, v]) => ({ k, v })).sort((x, y) => y.v - x.v);
+  }
+  return null;
+}
+
+async function entrarPlacar() {
+  const alvo = document.getElementById('view-placar');
+  if (!alvo) return;
+  if (!FX_M) {
+    alvo.innerHTML = '<div class="contexto">Carregando o placar...</div>';
+    await fxCarregarM();
+  }
+  renderPlacar();
+}
+
+function renderPlacar() {
+  const alvo = document.getElementById('view-placar');
+  if (!alvo || !FX_M) return;
+  const periodos = plcPeriodos();
+  if (!periodos.length) { alvo.innerHTML = '<div class="contexto">Ainda não há mês fechado para montar o placar.</div>'; return; }
+  if (!periodos.some(p => p.chave === PLC_SEL)) PLC_SEL = periodos[periodos.length - 1].chave;
+  const i = periodos.findIndex(p => p.chave === PLC_SEL);
+  const atual = periodos[i], anterior = plcAnterior(atual.meses);
+
+  const A = plcAgrega(atual.meses);
+  const B = anterior ? plcAgrega(anterior.meses) : null;
+  const rotAnt = anterior ? 'vs ' + anterior.rot : '';
+
+  // a linha dos ultimos 8 periodos, por tile
+  // O balde pela metade entra marcado: na linha e na tabela ele parece queda, e
+  // nao e' — e' mes faltando. Marcar custa duas palavras e evita a leitura errada.
+  const ultimos = periodos.slice(Math.max(0, i - 7), i + 1);
+  const serie = ultimos.map(p => ({ rot: p.rot + (p.completo ? '' : ' (parcial)'), chave: p.chave,
+                                    n: p.meses.length, completo: p.completo, ag: plcAgrega(p.meses) }));
+
+  const valorDe = (t, ag) => { const v = t.v(ag); return v === null || v === undefined ? null : Number(v); };
+  const fmtDe = (t, v) => v === null ? '—' : (t.un === 'n' ? fxInt(v) : fxMil(v));
+
+  const cartoes = PLC_TILES.map(t => {
+    const v = valorDe(t, A), vb = B ? valorDe(t, B) : null;
+    const meta = t.meta ? plcMeta(t.meta, atual.meses) : null;
+    const pctBase = (t.un === 'R$' && t.id !== 'caixa' && A.base) ? Math.abs(v) / A.base * 100 : null;
+    let extra = '';
+    if (t.id === 'fat') extra = `outras entradas ${fxMil(A.outras)} · tudo que entrou <b>${fxMil(A.base)}</b>`;
+    else if (t.id === 'ped') extra = `valor médio do pedido <b>${fxR2(A.ticket)}</b>${B && B.ticket ? ' · ' + fxVar(A.ticket, B.ticket, rotAnt).replace(/<\/?b>/g, '') : ''}`;
+    else if (t.id === 'caixa') extra = A.caixa === null ? 'a ponte até o caixa não tem este período'
+      : `operação ${fxMil(A.caixaOper)} · investimento, retirada e aporte ${fxMil(A.caixaFora)}`;
+    else if (pctBase !== null) extra = `<b>${fxPct1(pctBase)}</b> de cada R$ 100 que entraram`;
+    if (meta && pctBase !== null) extra += ' ' + fxPill(fxFarol(pctBase, meta.meta, meta.sentido)) + ` <span style="opacity:.7;">meta ${meta.sentido === 'abaixo' ? 'até' : 'a partir de'} ${fxPct1(meta.meta)}</span>`;
+    const vals = serie.map(s => valorDe(t, s.ag)).filter(x => x !== null);
+    const rots = serie.filter(s => valorDe(t, s.ag) !== null).map(s => s.rot);
+    const sp = vals.length > 2 ? fxSpark(vals, rots, x => t.un === 'n' ? fxInt(x) : fxMil(x)) : '';
+    const sel = PLC_ABERTO === t.id;
+    return `<div class="fx-tile${sel ? ' aberto' : ''}" onclick="plcAbrir('${t.id}')" style="cursor:pointer;${sel ? 'border-color:var(--brand);' : ''}" title="${sel ? 'clique para fechar a quebra' : 'clique para abrir a quebra deste número'}">
+      <div class="fx-rotulo">${t.rot}${sel ? ' ✕' : ''}</div>
+      <div class="fx-valor${v !== null && v < 0 ? ' neg' : ''}">${fmtDe(t, v)}</div>
+      <div class="fx-var">${vb !== null && vb !== undefined ? fxVar(v, vb, rotAnt) : '<span style="opacity:.6;">sem período anterior</span>'}</div>
+      <div class="fx-extra">${extra}</div>${sp}</div>`;
+  }).join('');
+
+  // ---------- a quebra ----------
+  let quebra = '';
+  if (PLC_ABERTO) {
+    const t = PLC_TILES.find(x => x.id === PLC_ABERTO);
+    // por loja: a MESMA conta, trocando a loja de fora
+    const porLoja = FX_TODAS.map(u => {
+      const ag = plcComLoja(u, () => plcAgrega(atual.meses));
+      const agB = anterior ? plcComLoja(u, () => plcAgrega(anterior.meses)) : null;
+      const v = valorDe(t, ag), meta = t.meta ? plcComLoja(u, () => plcMeta(t.meta, atual.meses)) : null;
+      const pct = (t.un === 'R$' && t.id !== 'caixa' && ag.base) ? Math.abs(v) / ag.base * 100 : null;
+      return { u, v, vb: agB ? valorDe(t, agB) : null, pct, meta, base: ag.base };
+    });
+    const somaLoja = porLoja.reduce((s, l) => s + (l.v || 0), 0);
+    const tabLoja = `<div id="tabelaPlacarLoja"><table>
+      <tr><th>Loja</th><th>${t.rot}</th><th>${t.un === 'n' ? 'parte do total' : 'de cada R$ 100'}</th><th>vs ${anterior ? anterior.rot : '—'}</th><th>meta</th></tr>
+      ${porLoja.map(l => `<tr><td>${({ 'AGUA VERDE': 'Água Verde', 'AHU': 'Ahú', 'SÃO BRAZ': 'São Braz' })[l.u] || l.u}</td>
+        <td>${fmtDe(t, l.v)}</td>
+        <td>${l.pct !== null ? fxPct1(l.pct) : (somaLoja ? fxPct1((l.v || 0) / somaLoja * 100) : '—')}</td>
+        <td>${l.vb !== null && l.vb !== undefined ? fxVar(l.v, l.vb, '') : '—'}</td>
+        <td>${l.meta && l.pct !== null ? fxPill(fxFarol(l.pct, l.meta.meta, l.meta.sentido)) : '—'}</td></tr>`).join('')}
+      <tr class="liq"><td>${LOJA_FIN === 'REDE' ? 'REDE (as três)' : 'A soma das três'}</td><td>${fmtDe(t, somaLoja)}</td><td>—</td><td>—</td><td>—</td></tr>
+    </table></div>`;
+
+    const tabPer = `<div id="tabelaPlacarPeriodo"><table>
+      <tr><th>${PLC_GRAO === 'mes' ? 'Mês' : PLC_GRAO === 'tri' ? 'Trimestre' : 'Ano'}</th><th>${t.rot}</th><th>de cada R$ 100</th><th>vs anterior</th></tr>
+      ${serie.map((s, k) => {
+        const v = valorDe(t, s.ag);
+        // so compara balde com balde do MESMO tamanho — senao a coluna vira mes faltando
+        const mesmoTam = k > 0 && serie[k - 1].n === s.n;
+        const ant = mesmoTam ? valorDe(t, serie[k - 1].ag) : null;
+        const pct = (t.un === 'R$' && t.id !== 'caixa' && s.ag.base) ? Math.abs(v) / s.ag.base * 100 : null;
+        return `<tr${s.chave === atual.chave ? ' class="sub"' : ''}><td>${s.rot}${s.completo ? '' : ` <span style="opacity:.7;">${s.n} de ${PLC_ESPERADO[PLC_GRAO]} meses</span>`}</td><td>${fmtDe(t, v)}</td>
+          <td>${pct !== null ? fxPct1(pct) : '—'}</td><td>${ant !== null && ant !== undefined ? fxVar(v, ant, '') : '—'}</td></tr>`;
+      }).join('')}
+    </table></div>`;
+
+    const comp = plcComposicao(t.id, atual.meses);
+    const totComp = comp ? comp.reduce((s, c) => s + c.v, 0) : 0;
+    const tabComp = comp && comp.length ? `<div class="section-label">Do que é feito</div>
+      <div id="tabelaPlacarComp"><table>
+        <tr><th>${t.id === 'fat' ? 'Canal' : t.id === 'canal' ? 'Cobrança' : 'Conta'}</th><th>Valor</th><th>parte do total</th></tr>
+        ${comp.map(c => `<tr><td>${c.k}</td><td>${fxMil(c.v)}</td><td>${totComp ? fxPct1(c.v / totComp * 100) : '—'}</td></tr>`).join('')}
+        <tr class="liq"><td>TOTAL</td><td>${fxMil(totComp)}</td><td>100,0%</td></tr>
+      </table></div>` : '';
+
+    quebra = `<div class="contexto" style="border-color:var(--brand);">
+        <b>Abrindo ${t.rot}</b> — ${atual.rot}. <button class="preset-btn" onclick="plcAbrir('${t.id}')">fechar</button>
+      </div>
+      <div class="section-label">Por loja</div>
+      <div class="caption-label" style="text-align:center;">A mesma conta do cartão, uma loja de cada vez. O filtro de loja lá em cima não muda esta tabela — ela mostra sempre as três.</div>
+      ${tabLoja}
+      <div class="section-label">Período a período</div>
+      ${tabPer}
+      ${tabComp}`;
+  }
+
+  const segGrao = PLC_GRAOS.map(([g, rot]) =>
+    `<button class="preset-btn ${PLC_GRAO === g ? 'active' : ''}" onclick="plcGrao('${g}')">${rot}</button>`).join('');
+  const segPer = periodos.slice(-14).map(p =>
+    `<button class="preset-btn ${PLC_SEL === p.chave ? 'active' : ''}" onclick="plcPeriodo('${p.chave}')">${p.rot}</button>`).join('');
+
+  alvo.innerHTML = `
+    <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">O Placar — ${nomeLojaFin()} · ${atual.rot}</div>
+    <div class="caption-label" style="text-align:center;">
+      Oito números, o período que você escolher e duas comparações ao mesmo tempo: o <b>período anterior</b> do mesmo tamanho e a <b>meta</b>.
+      <b>Clique num número para abrir a quebra</b> por loja, período a período e do que ele é feito.
+      Os números saem da mesma conta do <b>Fechamento do mês</b> — não há segunda conta neste painel.
+    </div>
+    ${seletorLojaFin()}
+    <div class="periodo-presets" style="margin-top:10px;">${segGrao}</div>
+    <div class="periodo-presets" style="margin-top:6px;">${segPer}</div>
+    ${atual.completo ? '' : `<div class="contexto" style="border-color:var(--amber-2);">
+      <b>Este ${PLC_GRAO === 'tri' ? 'trimestre' : 'ano'} ainda não fechou:</b> tem ${atual.meses.length} de ${PLC_ESPERADO[PLC_GRAO]} meses
+      (${atual.meses.map(m => fxMesRot(m)).join(', ')}). Os valores são a soma do que existe, e não cabem ao lado de um período inteiro —
+      por isso a comparação aqui é com <b>${anterior ? anterior.rot : 'nada, não há meses suficientes antes'}</b>, ${atual.meses.length} ${atual.meses.length === 1 ? 'mês' : 'meses'} também.
+      Os percentuais e as metas não sofrem: são proporção, não soma.</div>`}
+    ${A.temFato ? '' : `<div class="contexto" style="border-color:var(--amber-2);">Neste período o custo dos canais ainda é calculado pela diferença entre o que foi vendido e o que foi recebido, não cobrança a cobrança. A leitura por fato vale de 2026 em diante, onde a conciliação existe.</div>`}
+    <div class="fx-tiles">${cartoes}</div>
+    ${quebra}
+    <div class="caption-label">
+      <b>Só meses fechados.</b> ${fxMesLongo(plcMesesFechados()[plcMesesFechados().length - 1])} é o último; o mês em curso fica de fora porque compra do mês inteiro contra meia venda não é leitura, é susto.
+      <b>Não há comparação com 2025:</b> a venda do Saipos começa em 02/01/2026. O financeiro vai mais atrás, mas resultado sem venda ao lado seria meia comparação.
+      <b>Margem de contribuição</b> é receita líquida menos mercadoria — o mesmo número e a mesma meta da DRE.
+      <b>Caixa</b> é quanto o dinheiro em conta subiu ou caiu no período, pela ponte que fecha contra o extrato do banco.
+      As metas em % moram em <b>fin_metas_dre</b> e, quando mudam mês a mês, em <b>fin_metas_dre_mes</b>: num trimestre a meta do cartão é a média delas pesada pelo tamanho de cada mês.
+    </div>`;
+}
+
 function renderFechamento() {
   const alvo = document.getElementById('view-fechamento');
   const meses = [...new Set(FX_M.dre.map(r => r.mes))].sort().filter(m => m.slice(0, 7) < mesCorrenteSP());
