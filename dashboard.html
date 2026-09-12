@@ -9287,6 +9287,18 @@ const TELAS_DESTINOS = [
   ['a definir',   'a definir',   ''],
 ];
 
+// CAMADA — decidida pelo dono em 12/09/2026, nas 44 linhas da revisao dos modulos.
+// Nao e' botao: ja esta decidido, e o que a tela faz e' MOSTRAR a decisao para nao se
+// perder. Nao confundir com `destino`, que e' a sucessao e continua sendo escolha dele.
+const TELAS_CAMADAS = {
+  PLACAR:     ['vira o Placar',      'var(--brand)',      'o conteúdo vira o Placar, com período e comparação'],
+  QUEBRA:     ['vira quebra',        'var(--info)',       'é o que abre ao clicar num número do Placar'],
+  DETALHE:    ['detalhe',            'var(--farol-ok)',   'alcançada pela quebra; continua existindo, com dono'],
+  FERRAMENTA: ['ferramenta',         'var(--tx-4)',       'alguém opera nela: lança, marca, confere'],
+  CONSERTO:   ['conserto',           'var(--amber-2)',    'fica, mas tem defeito medido para corrigir antes'],
+  APOSENTAR:  ['aposentada',         'var(--farol-fora)', 'saiu do menu'],
+};
+
 async function entrarTelas() {
   const alvo = document.getElementById('view-telas');
   if (!alvo) return;
@@ -9378,8 +9390,13 @@ function renderModuloTelas() {
         + esc((t.atualizado_por || '').split('@')[0]) + ' · '
         + new Date(t.atualizado_em).toLocaleDateString('pt-BR') + '</div>'
       : '';
+    const cam = TELAS_CAMADAS[t.camada];
+    const selo = cam
+      ? '<div style="font-size:10px; letter-spacing:.06em; text-transform:uppercase; color:' + cam[1]
+        + '; margin-top:3px;" title="' + esc(cam[2]) + '">' + cam[0] + '</div>'
+      : '';
     return cab + '<tr>'
-      + '<td>' + esc(t.rotulo) + '</td>'
+      + '<td>' + esc(t.rotulo) + selo + '</td>'
       + '<td style="min-width:230px;">' + campo(t, 'responde', 'o que esta tela responde', 2) + '</td>'
       + '<td style="min-width:110px;">' + campo(t, 'quem', 'quem olha', 1) + '</td>'
       + '<td style="min-width:95px;">' + campo(t, 'cadencia', 'frequencia', 1) + '</td>'
@@ -9399,6 +9416,10 @@ function renderModuloTelas() {
     + '<div class="caption-label" style="text-align:center;">O Plano diz o que <b>fazer</b>; esta tela diz o que <b>existe</b>. '
     + 'Uma linha por tela: o que ela responde, quem olha, com que frequencia — e para onde ela vai quando o Neto sair. '
     + 'Escrever num campo salva sozinho.</div>'
+    + '<div class="caption-label" style="text-align:center;">Embaixo do nome vem a <b>camada</b>, decidida na revisão dos módulos de 12/09: '
+    + Object.entries(TELAS_CAMADAS).map(([k, c]) =>
+        '<span style="color:' + c[1] + ';">' + c[0] + ' ' + TELAS.filter(t => t.camada === k).length + '</span>').join(' · ')
+    + '. Camada é o desenho do painel; <b>destino</b> é a sucessão, e continua sendo escolha do Neto.</div>'
     + '<div class="plano-barra">'
     + '<div class="plano-contagem"><b>' + decididas + '</b> de ' + TELAS.length + ' com destino definido</div>'
     + '<div class="plano-trilho"><div class="plano-preenche" style="width:' + pct.toFixed(1) + '%;"></div></div></div>'
