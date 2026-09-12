@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Próximos Passos · Burger AV</title>
+<meta name="robots" content="noindex">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body style="margin:0">
+<meta charset="utf-8">
+<title>Próximos Passos · Burger AV</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<style>
+:root{
+  --bg:#f6f1e8; --surface:#fffdf8; --surface2:#f0e9db; --ink:#2b2118; --ink2:#5c5245;
+  --muted:#8a7c6b; --line:#e3d8c6; --accent:#c8102e; --accent-soft:#fbe9ec;
+  --good:#1c7c44; --good-soft:#e3f2e8; --warn:#a3630b; --warn-soft:#f8eeda;
+  --bad:#b3261e; --bad-soft:#f9e7e5; --chip:#efe6d6;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#211b13; --surface:#2b241a; --surface2:#352c20; --ink:#f1e9dc; --ink2:#cfc3b0;
+    --muted:#a2937e; --line:#443a2b; --accent:#f0596f; --accent-soft:#48222a;
+    --good:#59c98a; --good-soft:#22382c; --warn:#e0a33e; --warn-soft:#3d311f;
+    --bad:#ef6b61; --bad-soft:#42241f; --chip:#3a3123;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#211b13; --surface:#2b241a; --surface2:#352c20; --ink:#f1e9dc; --ink2:#cfc3b0;
+  --muted:#a2937e; --line:#443a2b; --accent:#f0596f; --accent-soft:#48222a;
+  --good:#59c98a; --good-soft:#22382c; --warn:#e0a33e; --warn-soft:#3d311f;
+  --bad:#ef6b61; --bad-soft:#42241f; --chip:#3a3123;
+}
+*{box-sizing:border-box}
+body{background:var(--bg); color:var(--ink); margin:0;
+  font-family:'Instrument Sans',system-ui,sans-serif; font-size:16px; line-height:1.55; padding-bottom:84px;}
+.wrap{max-width:960px; margin:0 auto; padding:0 20px;}
+h1,h2,h3{font-family:'Archivo',system-ui,sans-serif; line-height:1.15; text-wrap:balance; margin:0;}
+h1{font-size:clamp(28px,5vw,40px); font-weight:800;}
+h2{font-size:clamp(19px,3vw,25px); font-weight:700; margin-bottom:4px;}
+h3{font-size:16px; font-weight:700; margin:14px 0 4px;}
+p{margin:.5em 0; max-width:78ch;}
+.eyebrow{font-size:12px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:var(--accent); margin-bottom:8px;}
+header.hero{padding:40px 0 6px;}
+.sub{color:var(--ink2); margin-top:10px; max-width:78ch;}
+section{margin:34px 0;}
+.secnum{display:inline-block; background:var(--accent); color:#fff; font-family:'Archivo'; font-weight:700;
+  font-size:13px; border-radius:6px; padding:2px 9px; margin-bottom:8px;}
+:root[data-theme="dark"] .secnum{color:#211b13;}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .secnum{color:#211b13;} }
+.box{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:15px 18px; margin:14px 0;}
+.box.note{background:var(--surface2); border-style:dashed;}
+.small{font-size:13.5px; color:var(--ink2);}
+.chip{display:inline-block; background:var(--chip); border-radius:20px; padding:1px 10px; font-size:12px; font-weight:600; white-space:nowrap;}
+.chip.good{background:var(--good-soft); color:var(--good);}
+.chip.warn{background:var(--warn-soft); color:var(--warn);}
+.chip.bad{background:var(--bad-soft); color:var(--bad);}
+.prop{display:flex; gap:12px; align-items:flex-start; background:var(--surface);
+  border:1px solid var(--line); border-radius:10px; padding:12px 15px; margin:8px 0;}
+.prop input{width:19px; height:19px; margin-top:2px; accent-color:var(--accent); flex:none; cursor:pointer;}
+.prop .body{flex:1; min-width:0;}
+.prop .t{font-weight:600;}
+.prop .d{font-size:13.5px; color:var(--ink2); margin-top:3px;}
+.prop code{background:var(--surface2); border-radius:5px; padding:0 6px; font-size:13px; font-family:inherit;}
+.prop:has(input:checked){opacity:.6;}
+.prop:has(input:checked) .t{text-decoration:line-through;}
+input:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+#bar{position:fixed; left:0; right:0; bottom:0; background:var(--surface);
+  border-top:2px solid var(--accent); padding:10px 20px; z-index:50;}
+#bar .in{max-width:960px; margin:0 auto; display:flex; justify-content:space-between; align-items:center; gap:14px; flex-wrap:wrap;}
+#bar .lbl{font-size:13px; color:var(--muted);}
+#bar .num{font-family:'Archivo'; font-weight:800; font-variant-numeric:tabular-nums;}
+ul.lst{padding-left:20px; margin:.4em 0;} ul.lst li{margin:5px 0; max-width:78ch;}
+@media (prefers-reduced-motion: reduce){ *{transition:none !important;} }
+</style>
+
+<div class="wrap">
+<header class="hero">
+  <div class="eyebrow">Engenharia de cardápio · Burger AV · checklist vivo · 12/09/2026</div>
+  <h1>Próximos passos — tudo que falta, numa página</h1>
+  <p class="sub">Consolida o que ficou aberto do cardápio-alvo v2, da revisão fina e da Missão Combos.
+  Marque ao fazer; o progresso salva neste navegador. Os artefatos anteriores viram referência — daqui
+  pra frente, é só esta página. <strong>Regra de sempre:</strong> item EM campanha não se edita direto
+  (tira da seleção → mexe → repõe, na mesma sentada); qualquer tela que não bater com o descrito, me
+  chama antes de clicar.</p>
+</header>
+
+<section>
+  <div class="secnum">1</div>
+  <h2>Acréscimos dos combos — alinhar à regra (avulso − piso)</h2>
+  <p class="small">Onde: abrir o produto (container/combo) → Grupos de complementos → editar o valor de
+  cada opção. ⚠️ <strong>3 containers estão em campanha</strong> (2 Burgers · Burger Clássico da Seleção ·
+  Pratos executivos): nesses, tira do drawer → edita → repõe; os demais são livres.</p>
+
+  <div class="prop"><input type="checkbox" id="pp-a1">
+    <div class="body"><div class="t">1.1 · Marmitas — 4 ajustes, repetidos em 5 lugares</div>
+    <div class="d">Nos grupos de escolha de marmita de: <code>Pratos executivos</code> (Seleção — EM
+    CAMPANHA, tira-repõe) · <code>2x Marmitas</code> (2 grupos: primeira e segunda) ·
+    <code>Combo marmita + refri</code> · <code>Combo marmita + brownie</code>.<br>
+    Em cada um: <strong>PF Pernil +5 → +10</strong> · <strong>PF Costela +7 → +10</strong> ·
+    <strong>Agostinho carne +7 → +10</strong> · <strong>Pf Feijoada +3 → +5</strong>.
+    (São os 4 que subiram de preço na v2 — o combo ficou sendo o caminho barato.)</div></div></div>
+
+  <div class="prop"><input type="checkbox" id="pp-a2">
+    <div class="body"><div class="t">1.2 · Burgers Clássicos — a escada certa, em 4 lugares</div>
+    <div class="d">Nos grupos de: <code>Burgers Clássicos</code> (container da Seleção — EM CAMPANHA) ·
+    <code>2x Burgers</code> (2 grupos) · <code>Combo clássico</code>.<br>
+    Escada completa: <strong>Jesse +0</strong> (hoje +6!) · <strong>Schumacher +1</strong> ·
+    <strong>Ayrton +2</strong> · <strong>Nelson +3</strong> (hoje é upgrade grátis) ·
+    <strong>Chaplin +4</strong> · <strong>Rubens +5</strong> · <strong>Alain +7</strong>.</div></div></div>
+
+  <div class="prop"><input type="checkbox" id="pp-a3">
+    <div class="body"><div class="t">1.3 · Burgers Especiais — tirar o desconto duplo, em 2 lugares</div>
+    <div class="d">Nos grupos de: <code>Lanches especiais</code> (Seleção) · <code>Combo especial</code>.<br>
+    Escada: smashes <strong>+0</strong> · João Frango e Kf Citizen <strong>+5</strong> · Cheech
+    <strong>+7</strong> · James Brown <strong>+8</strong> · Mad Max <strong>+8</strong> · Honolulu
+    <strong>+10</strong> · John Lennon <strong>+12</strong> · CDM <strong>+13</strong> · Gaudério
+    <strong>+14</strong>.</div></div></div>
+
+  <div class="prop"><input type="checkbox" id="pp-a4">
+    <div class="body"><div class="t">1.4 · Pontuais (2 grupos, livres)</div>
+    <div class="d"><code>Seleção Vegana</code>: Da Vinci <strong>+8 → +4</strong> · Helio Gracie
+    <strong>+12 → +9</strong>. <code>Porções p/ compartilhar</code>: Kentucky <strong>+10 → +6</strong> ·
+    Frango a passarinho <strong>+5 → +3</strong> (esses dois BAIXAM — coerência com o avulso).</div></div></div>
+
+  <div class="prop"><input type="checkbox" id="pp-a5">
+    <div class="body"><div class="t">1.5 · Me avisar ao terminar os acréscimos</div>
+    <div class="d">Releio os grupos pela API e confiro que os 3 containers seguiram nas campanhas —
+    fecha a auditoria da seção 7.</div></div></div>
+</section>
+
+<section>
+  <div class="secnum">2</div>
+  <h2>Complementos — o que restou da revisão fina</h2>
+
+  <div class="prop"><input type="checkbox" id="pp-b1">
+    <div class="body"><div class="t">2.1 · Trocar os 5 grupos importados do Schumacher (U1)</div>
+    <div class="d">No item <code>Michael Schumacher (Hambúrgueres da Casa)</code>: remover os grupos que
+    a réplica trouxe ("Vai comer no seco?", "final feliz?", "parceiro?", "molhinho?", "turbinar...
+    (adicional vai dentro do lanche)" — os únicos sem histórico da loja) e adicionar os 5 canônicos,
+    os mesmos dos outros burgers da Casa. Fora de campanha — livre.</div></div></div>
+
+  <div class="prop"><input type="checkbox" id="pp-b2">
+    <div class="body"><div class="t">2.2 · Unificar os grupos dos combos e do kids (U3)</div>
+    <div class="d">Réplicas idênticas para fundir (manter um, trocar nos itens, apagar o clone):
+    <strong>"Escolha sua bebida" ×3</strong> (2 combos de lanche + 1 de marmita) ·
+    <strong>"Escolha seu acompanhamento" ×2</strong> · <strong>"Escolha seu prato" ×2</strong>
+    (Seleção × combo marmita+brownie — conferir se as 15 opções batem antes) ·
+    <strong>"Escolha sua bebida kids" ×2</strong>. Nenhum em campanha... exceto o grupo de prato dos
+    <code>Pratos executivos</code> — esse com tira-repõe.</div></div></div>
+
+  <div class="prop"><input type="checkbox" id="pp-b3">
+    <div class="body"><div class="t">2.3 · Garfo e faca: 12 grupos idênticos → 1 (U4)</div>
+    <div class="d">21 pratos usam cópias idênticas (opção única 0,60, máx 20). Eleger o canônico e
+    trocar item a item — <strong>pode ser aos poucos, um por dia</strong>. Nos 4 pratos do Almoço
+    Campeão (em campanha): tira-repõe ou deixar para o dia da troca do pool.</div></div></div>
+
+  <div class="prop"><input type="checkbox" id="pp-b4">
+    <div class="body"><div class="t">2.4 · Ordem-funil dos grupos nos itens FORA de campanha</div>
+    <div class="d">Padrão: <strong>1º turbinar · 2º parceiro/acompanhamento · 3º molhinho · 4º bebida ·
+    5º sobremesa · 6º talheres</strong>. Arrastar dentro de cada item livre (porções, churrasco &amp;
+    defumadas, veganos, kids, Paulo, Pedro ×3, Bezerra ×2, Adoniran ×2, Agostinho frango, caldos fora
+    do Hits). Os ~19 em campanha ficam para o dia do pool.</div></div></div>
+
+  <div class="prop"><input type="checkbox" id="pp-b5">
+    <div class="body"><div class="t">2.5 · Dois pontos finais nos nomes dos caldos</div>
+    <div class="d"><code>Caldo de mandioquinha (Batata Salsa).</code> e <code>Caldo verde com
+    calabresa.</code> → tirar o ponto. Fora de campanha, renomear livre.</div></div></div>
+</section>
+
+<section>
+  <div class="secnum">3</div>
+  <h2>Segunda-feira 15/09 — Burger do Mês</h2>
+  <div class="prop"><input type="checkbox" id="pp-c1">
+    <div class="body"><div class="t">3.1 · Fim de semana: me mandar a composição do primeiro burger</div>
+    <div class="d">Ingredientes e gramaturas — eu devolvo ficha, custo e preço com sobra ≥ 57% antes de
+    segunda.</div></div></div>
+  <div class="prop"><input type="checkbox" id="pp-c2">
+    <div class="body"><div class="t">3.2 · Segunda: criar a categoria "🍔 Burger do Mês" no topo + o burger</div>
+    <div class="d">Foto real · preço cheio da ficha aprovada · <strong>Código PDV cadastrado no Saipos
+    ANTES</strong> (nasce amarrado) · NUNCA entra em campanha (morre todo mês) · arrastar a categoria
+    para o 1º lugar.</div></div></div>
+</section>
+
+<section>
+  <div class="secnum">4</div>
+  <h2>Fila (sem data — quando quiser tirar)</h2>
+  <div class="prop"><input type="checkbox" id="pp-d1">
+    <div class="body"><div class="t">4.1 · Casadinho Ayrton — 64,99 <span class="chip good">60,2% verde</span></div>
+    <div class="d">Combo de itens FIXOS: Ayrton + London + lata (riscado 75,99). Criar como produto
+    combo sem escolhas, PDV próprio no Saipos antes. É o primeiro da fila por ser verde e simples.</div></div></div>
+  <div class="prop"><input type="checkbox" id="pp-d2">
+    <div class="body"><div class="t">4.2 · Compartilha 84,99 e Família FDS 92,99</div>
+    <div class="d">Mesma receita (itens fixos, PDV antes). O FDS pode nascer com horário sex–dom.
+    Âmbar em % mas R$ 45–49 de sobra por venda.</div></div></div>
+  <div class="prop"><input type="checkbox" id="pp-d3">
+    <div class="body"><div class="t">4.3 · Queijo extra +5,00 no turbinar</div>
+    <div class="d">Me passar a gramatura da fatia → calculo ficha e crio o de/para; você adiciona a
+    opção no grupo.</div></div></div>
+  <div class="prop"><input type="checkbox" id="pp-d4">
+    <div class="body"><div class="t">4.4 · Duas decisões de cauda (suas)</div>
+    <div class="d">Pedro Pedreiro (Bife) sai? (9 vendas/60d; o Silvio cobre o papel) · Meia-peça de
+    costelinha avulsa sai? (7 vendas; ficam a peça inteira + os 2 combos). Em branco = fica tudo.</div></div></div>
+</section>
+
+<section>
+  <div class="secnum">🤖</div>
+  <h2>Do meu lado (sem ação sua — só para você saber o que rodo)</h2>
+  <ul class="lst">
+    <li><strong>Vigia do pool do Hits</strong> (na leitura semanal): posições-família do almoço, canja e
+    vagas da R$ 5 — aviso no dia que o iFood liberar, e aí trocamos as seleções e o Almoço Campeão morre.</li>
+    <li><strong>Leitura semanal do efeito</strong> (próxima ~18/09): vendas item × semana × controle para
+    tudo que mudou — Silvio 37,99, Alain 41,99, proteções, reprecificações.</li>
+    <li><strong>Conferência pós-acréscimos</strong> (quando você marcar o 1.5) e, com a matriz estável,
+    <strong>réplicas Comida Brasileira + Cidadão Vegan</strong> — incluindo pausar a torta alemã vegana
+    nas irmãs (saiu de produção).</li>
+  </ul>
+</section>
+</div>
+
+<div id="bar"><div class="in">
+  <div><span class="num" id="feitas">0</span> <span class="lbl">de <span id="total">?</span> passos feitos</span></div>
+  <div class="lbl">progresso salvo neste navegador</div>
+</div></div>
+
+<script>
+(function(){
+  var caixas = Array.prototype.slice.call(document.querySelectorAll('.prop input[type=checkbox]'));
+  document.getElementById('total').textContent = caixas.length;
+  function atualiza(){
+    var feitas=0;
+    caixas.forEach(function(c){
+      if(c.checked) feitas++;
+      try{ localStorage.setItem('pp:'+c.id, c.checked?'1':'0'); }catch(e){}
+    });
+    document.getElementById('feitas').textContent = feitas;
+  }
+  caixas.forEach(function(c){
+    try{ if(localStorage.getItem('pp:'+c.id)==='1') c.checked=true; }catch(e){}
+    c.addEventListener('change', atualiza);
+  });
+  atualiza();
+})();
+</script>
+
+</body>
+</html>
