@@ -13170,6 +13170,25 @@ const plcCtxSolta = (modulo) => { delete PLC_CTX[modulo]; };
 function plcVoltar() { mostrarModulo('placar'); }
 function plcCtxLimpar(modulo) { plcCtxSolta(modulo); mostrarModulo(modulo); }
 
+// Quais numeros do Placar esta tela abre por dentro — sai do proprio PLC_TILES, ao
+// contrario, entao a lista nunca discorda dos botoes da quebra.
+const plcNumerosDaTela = (modulo) =>
+  PLC_TILES.filter(t => (t.telas || []).some(([m]) => m === modulo)).map(t => t.rot);
+
+// O cabecalho da tela de quebra. Duas formas: veio do Placar (o aviso do recorte) ou
+// nao veio (uma linha dizendo de que numero ela e a quebra). A segunda existe para a
+// arvore ficar visivel mesmo para quem entrou pelo menu — camada que so aparece quando
+// se chega por um caminho especifico nao e camada, e' atalho.
+function plcCabecalhoQuebra(modulo) {
+  const c = plcCtx(modulo);
+  if (c) return plcChip(modulo);
+  const nums = plcNumerosDaTela(modulo);
+  if (!nums.length) return '';
+  return `<div class="caption-label" style="text-align:center;">Esta tela abre por dentro
+    ${nums.length === 1 ? 'o número' : 'os números'} <b>${nums.join('</b>, <b>')}</b> do Placar.
+    <button class="preset-btn" onclick="mostrarModulo('placar')">ver no Placar →</button></div>`;
+}
+
 // O aviso que a tela de quebra mostra no topo quando veio do Placar. Vazio quando
 // nao veio — a tela continua funcionando sozinha, como sempre funcionou.
 function plcChip(modulo) {
