@@ -10417,10 +10417,20 @@ function renderLucroUni() {
   // O mes corrente e SEMPRE parcial (nota fiscal e folha do mes ainda nao
   // lancadas), e mes parcial inflado vira decisao errada. Ele aparece na tabela
   // marcado, mas fica fora de todo total desta tela.
+  // QUANDO A PESSOA CHEGA PELO PLACAR (12/09/2026) esta tela e' a quebra por loja de
+  // "Resultado" e de "Caixa", e abre no MESMO recorte: os meses e a loja que o Placar
+  // estava mostrando. O contexto e' so LIDO aqui — nada de escrever em LOJA_FIN nem em
+  // activeUnidades, que sao globais e vazariam para as outras telas.
+  // O fallback nao e' enfeite: mes do Placar que nao exista nesta view deixaria
+  // `fechados` vazio, e ai mesTxt(undefined) estoura no meio do template — a tela
+  // ficaria parada em "Carregando", sem erro na cara de ninguem.
+  const ctx = plcCtx('lucrouni');
   const meses = [...new Set(res.map(r => r.mes))].sort();
   const mesAberto = meses[meses.length - 1];
-  const fechados = meses.filter(m => m < mesAberto);
-  const unidades = [...new Set(res.map(r => r.unidade))].sort();
+  const doCtx = ctx && ctx.meses ? meses.filter(m => ctx.meses.includes(m)) : [];
+  const fechados = doCtx.length ? doCtx : meses.filter(m => m < mesAberto);
+  const ctxLoja = (ctx && ctx.loja && ctx.loja !== 'REDE') ? ctx.loja : null;
+  const unidades = [...new Set(res.map(r => r.unidade))].sort().filter(u => !ctxLoja || u === ctxLoja);
 
   const somaU = (u, campo) => res.reduce((s, r) =>
     s + (r.unidade === u && fechados.includes(r.mes) ? nu(r[campo]) : 0), 0);
@@ -10436,18 +10446,27 @@ function renderLucroUni() {
   const ehCartao = (c) => /^(CREDITO|CARTAO)/.test(c);
   // movimento acumulado ATE o ultimo mes fechado — mesma janela do lucro
   const movAte = {};
+  // O QUE ENTROU ANTES DA JANELA (12/09/2026). Sem isto o caixa inicial e' sempre a
+  // abertura da conta em janeiro, e com um recorte de um mes so a tela compararia a
+  // variacao de caixa do ANO inteiro com o lucro de um MES. Enquanto a janela comeca
+  // no primeiro mes da base, movAntes e' zero e nada muda em relacao ao que havia.
+  const movAntes = {};
   saldos.forEach(s => {
+    if (s.mes < fechados[0]) { movAntes[s.conta] = (movAntes[s.conta] || 0) + nu(s.movimento); return; }
     if (s.mes > fechados[fechados.length - 1]) return;
     movAte[s.conta] = (movAte[s.conta] || 0) + nu(s.movimento);
   });
   const caixaU = {};
-  contas.filter(c => !ehCartao(c.conta)).forEach(c => {
+  contas.filter(c => !ehCartao(c.conta) && (!ctxLoja || c.unidade === ctxLoja)).forEach(c => {
     const a = caixaU[c.unidade] || (caixaU[c.unidade] = { ini: 0, fim: 0 });
-    a.ini += nu(c.saldo_inicial);
-    a.fim += nu(c.saldo_inicial) + (movAte[c.conta] || 0);
+    const abre = nu(c.saldo_inicial) + (movAntes[c.conta] || 0);
+    a.ini += abre;
+    a.fim += abre + (movAte[c.conta] || 0);
   });
+  // A XP e' reserva DA REDE e nao tem dono por loja: ela fica fora do corte de loja,
+  // e o cartao diz isso quando a tela esta recortada numa unidade so.
   const xp = contas.find(c => c.conta === 'XP INVESTIMENTOS');
-  const xpIni = xp ? nu(xp.saldo_inicial) : 0;
+  const xpIni = (xp ? nu(xp.saldo_inicial) : 0) + (movAntes['XP INVESTIMENTOS'] || 0);
   const xpFim = xpIni + (movAte['XP INVESTIMENTOS'] || 0);
   const caixaIni = Object.values(caixaU).reduce((s, a) => s + a.ini, 0);
   const caixaFim = Object.values(caixaU).reduce((s, a) => s + a.fim, 0);
@@ -10498,8 +10517,9 @@ function renderLucroUni() {
   const sobrouCaixa = caixaFim - caixaIni;
 
   alvo.innerHTML = `
+    ${plcCabecalhoQuebra('lucrouni')}
     <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">
-      Lucro por unidade · ${mesTxt(fechados[0])} a ${mesTxt(fechados[fechados.length - 1])}</div>
+      Lucro por unidade${ctxLoja ? ' · ' + un(ctxLoja) : ''} · ${fechados.length === 1 ? mesTxt(fechados[0]) : mesTxt(fechados[0]) + ' a ' + mesTxt(fechados[fechados.length - 1])}</div>
     <div class="contexto">Esta tela é o <b>dinheiro real lançado</b>: a receita como entrou no financeiro, já líquida do que o iFood reteve, menos as despesas lançadas. Mais o caixa conta a conta e o que sai do lucro (retiradas, investimentos, repasses entre as casas).</div>
     <div class="contexto" style="border-color:#f5a623;"><b>O número daqui não é o mesmo da DRE, e os dois estão certos.</b>
       A <a href="javascript:void(0)" onclick="mostrarModulo('dre')" style="color:#a5a49a;">DRE</a> e o
@@ -10525,7 +10545,8 @@ function renderLucroUni() {
     <div id="tabelaLucroUni"><table>
       <thead><tr><th>Mês</th><th>Unidade</th><th>Receita</th><th>Mercadoria da AV</th>
         <th>Lucro</th><th>Benefício iFood</th><th>Lucro sem o benefício</th><th>% do lucro</th></tr></thead>
-      <tbody>${res.filter(r => r.mes >= fechados[0]).map(linhaTab).join('')}</tbody>
+      <tbody>${res.filter(r => (fechados.includes(r.mes) || r.mes === mesAberto)
+        && (!ctxLoja || r.unidade === ctxLoja)).map(linhaTab).join('')}</tbody>
     </table></div>
     <div class="contexto">
       <b>Mercadoria da AV</b> é o que a filial comprou da Água Verde no mês, pela lista fechada —
@@ -10536,12 +10557,12 @@ function renderLucroUni() {
     <div class="section-label">O que sobrou em caixa, e por quê</div>
     <div class="cards cards-3">
       <div class="card blue">
-        <div class="card-lbl">XP · reserva</div>
+        <div class="card-lbl">XP · reserva${ctxLoja ? ' (da rede)' : ''}</div>
         <div class="card-val">${rs(xpFim - xpIni)}</div>
-        <div class="card-pct">${rs(xpIni)} → ${rs(xpFim)}</div>
+        <div class="card-pct">${rs(xpIni)} → ${rs(xpFim)}${ctxLoja ? ' · a XP não tem dono por loja' : ''}</div>
       </div>
       <div class="card ${sobrouCaixa >= 0 ? 'pos' : 'neg'}">
-        <div class="card-lbl">Caixa da rede inteira</div>
+        <div class="card-lbl">Caixa ${ctxLoja ? 'de ' + un(ctxLoja) : 'da rede inteira'}</div>
         <div class="card-val">${rs(sobrouCaixa)}</div>
         <div class="card-pct">${rs(caixaIni)} → ${rs(caixaFim)}</div>
       </div>
@@ -13137,7 +13158,9 @@ const PLC_TILES = [
   { id: 'res',   rot: 'Resultado',              un: 'R$', meta: 'RESULTADO',   v: a => a.resultado,
     telas: [['fechamento', 'Fechamento do mês'], ['dre', 'DRE'], ['lucrouni', 'Lucro por unidade']] },
   { id: 'caixa', rot: 'Caixa',                  un: 'R$', meta: null,          v: a => a.caixa,
-    telas: [['fluxo', 'Fluxo de caixa'], ['projecao', 'Fluxo projetado'], ['concbanco', 'Conciliação bancária']] },
+    // lucrouni entra aqui tambem porque ele e' o caixa POR LOJA — a revisao pediu a
+    // quebra por loja de Resultado E de Caixa, e e' a unica tela que mostra as duas juntas.
+    telas: [['fluxo', 'Fluxo de caixa'], ['lucrouni', 'Caixa por loja'], ['projecao', 'Fluxo projetado'], ['concbanco', 'Conciliação bancária']] },
 ];
 
 function plcGrao(g) { PLC_GRAO = g; PLC_SEL = null; renderPlacar(); }
