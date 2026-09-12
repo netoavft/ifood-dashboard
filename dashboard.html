@@ -76,8 +76,13 @@
   .sidebar-btn:hover { background:var(--surface-2); }
   /* Modulo ativo = letreiro aceso (16/08/2026): o mesmo gradiente da marca com
      texto preto. Amarelo permitido aqui: sidebar e area de navegacao/marca,
-     o farol nunca aparece nela. */
-  .sidebar-btn.active { background:linear-gradient(135deg,var(--marca-amarelo),var(--marca-laranja)); color:var(--bg); font-weight:800; }
+     o farol nunca aparece nela.
+     REVISADO 12/09/2026 (dono): o amarelo CHEIO no estado ativo pesava a leitura —
+     ele se repetia em toda tela, ao lado do numero. Virou CONTORNO: filete amarelo
+     no menu, borda amarela no botao. A fachada (faixa do topo, logo, login) nao
+     mudou. E a mesma solucao que o vermelho recebeu em 16/08, pelo mesmo motivo. */
+  .sidebar-btn.active { background:var(--surface-2); color:var(--tx-1); font-weight:700;
+                        box-shadow:inset 3px 0 0 var(--marca-amarelo); }
   .main-content { flex:1; min-width:0; }
 
   .wrap { max-width: 1100px; margin: 0 auto; padding: 28px 32px 60px; }
@@ -111,7 +116,7 @@
     padding:8px 14px; border-radius:8px; cursor:pointer; transition: all .15s ease;
   }
   .navbtn:hover { border-color:var(--marca-laranja); color:var(--tx-1); }
-  .navbtn.active { background:linear-gradient(135deg,var(--marca-amarelo),var(--marca-laranja)); color:var(--bg); border-color:transparent; font-weight:800; }
+  .navbtn.active { background:var(--surface-2); color:var(--tx-1); border-color:var(--marca-amarelo); font-weight:700; }
 
   /* Titulos em BRANCO desde 16/08/2026 (pedido do dono: o vermelho pesava a
      leitura). O vermelho segue como acento em botoes ativos e no farol. */
@@ -132,7 +137,7 @@
   .preset-btn { background:var(--surface-2); border:1px solid var(--line); color:#c3c2b7; font-size:12px; font-weight:700;
                 padding:7px 12px; border-radius:8px; cursor:pointer; font-family:inherit; }
   .preset-btn:hover { border-color:var(--marca-laranja); color:var(--tx-1); }
-  .preset-btn.active { background:linear-gradient(135deg,var(--marca-amarelo),var(--marca-laranja)); color:var(--bg); border-color:transparent; }
+  .preset-btn.active { background:var(--surface-2); color:var(--tx-1); border-color:var(--marca-amarelo); }
 
   .contexto { background:var(--zebra); border:1px solid var(--line); border-radius:10px; padding:10px 16px;
               margin:16px 0 4px; text-align:center; color:#a5a49a; font-size:12.5px; line-height:1.7; }
