@@ -5151,12 +5151,12 @@ function renderDiaConcartao(unidade, dia, trs, pix, cobr, forma, descs, onl) {
   semParS = semParS.filter(t => !t._composto);
   semParR = semParR.filter(t => !t._composto);
 
-  // Última regra (dono, 28/08/2026): diferença de centavos/arredondamento.
-  // Medido em 01–09/08 AV: 7 de 9 quase-pares tinham até R$ 0,06 de diferença
-  // com hora colada — arredondamento de verdade. Régua adotada: até R$ 0,10 e
-  // 30 min = "arredondamento"; de R$ 0,10 a R$ 2,00 = "quase par — conferir"
-  // (fica para avaliação humana, nunca some sozinho). Nos DOIS casos a
-  // diferença continua no saldo do dia — a régua-mestra nada engole.
+  // Quase-par: mesmo horário (30 min), valor até R$ 2,00 diferente.
+  // 28/08/2026: até R$ 0,10 era "arredondamento" e ia para "absorvido".
+  // REVOGADO pelo dono em 14/09/2026: "trazer toda diferença a partir de 0,01 entre
+  // venda registrada e valor passado na maquininha; está dando como conciliado valores
+  // com diferença de centavos". Agora TODO quase-par vai para "2º conferir" — o array
+  // arredond fica vazio de propósito (outras partes da tela ainda o leem).
   const arredond = [], conferir = [];
   [...semParS].forEach(s => {
     let melhor = null, nota = Infinity;
@@ -5167,7 +5167,7 @@ function renderDiaConcartao(unidade, dia, trs, pix, cobr, forma, descs, onl) {
     if (melhor) {
       melhor._quase = s._quase = true;
       const dv = +melhor.valor - +s.valor;
-      (Math.abs(dv) <= 0.10 ? arredond : conferir).push({ s, r: melhor, dv });
+      conferir.push({ s, r: melhor, dv });   // a partir de R$ 0,01 (dono, 14/09/2026)
     }
   });
   semParS = semParS.filter(t => !t._quase);
@@ -5247,8 +5247,8 @@ function renderDiaConcartao(unidade, dia, trs, pix, cobr, forma, descs, onl) {
     leitura: 'passou na maquininha, mas não está registrado no Saipos', acao: 'achar a venda no Saipos (lançada em outra forma ou não lançada)' }));
   conferir.forEach(q => pend.push({ forma: formaPadrao(q.s.detalhe), caixa: q.s.caixa || null, chave: 'quase:' + q.s.referencia + ':' + q.r.referencia, bloco: 'maquininha', efeito: +q.s.valor - +q.r.valor,
     p: 2, cor: '#f5a623', hora: hhmm(q.s.hora), saipos: limpa(q.s.detalhe) + ' ' + reaisCc(q.s.valor) + ' · ' + rotVenda(q.s), real: limpa(q.r.detalhe) + ' ' + reaisCc(q.r.valor) + ' às ' + hhmm(q.r.hora),
-    valor: q.dv, leitura: 'quase o mesmo valor no mesmo horário (diferença ' + (q.dv > 0 ? '+' : '') + q.dv.toFixed(2).replace('.', ',') + ')',
-    acao: 'conferir se é a mesma venda (gorjeta? digitação?)' }));
+    valor: q.dv, leitura: (Math.abs(q.dv) <= 0.10 ? 'diferença de centavos' : 'quase o mesmo valor') + ' no mesmo horário: registrado ' + reaisCc(Math.abs(q.dv)) + (q.dv < 0 ? ' a mais' : ' a menos') + ' que a maquininha',
+    acao: Math.abs(q.dv) <= 0.10 ? 'valor digitado na maquininha diferente do registrado: conferir qual está certo e acertar no Saipos' : 'conferir se é a mesma venda (gorjeta? digitação?)' }));
   pix.filter(x => !x.recebido).forEach(x => pend.push({ forma: formaPadrao(x.tipo), caixa: x.caixa || null, chave: 'pix:' + x.id_sale + ':' + (+x.valor).toFixed(2), bloco: x.subgrupo === 'CHAVE' ? 'pix_chave' : 'maquininha', efeito: +x.valor,
     p: x.aguardando ? 3 : 1, cor: x.aguardando ? '#9aa4af' : '#ff6b6b', hora: hhmm(String(x.entrega || '').slice(11)),
     saipos: x.tipo + (x.subgrupo === 'CHAVE' ? ' (chave CNPJ)' : ' (QR da maquininha)') + ' · ' + rotVenda(x) + (x.entregador ? ' · motoboy ' + x.entregador : ''),
