@@ -17351,7 +17351,7 @@ function renderModuloDespesas() {
 // PC) vem depois. Serie comeca em 01/08/2026 (antes nao ha coluna dinheiro).
 // ------------------------------------------------------------------
 let CAIXA_DIAS = null, CAIXA_CONTAGENS = null, CAIXA_RESP = null;
-let CAIXA_CARTAO = null, CAIXA_PIX = null, CAIXA_TURNOS = null, CAIXA_VALID = null, CAIXA_DIAS_CX = null, CAIXA_CONF = null, CAIXA_CARTAO_CX = null, CAIXA_PIX_CX = null;
+let CAIXA_CARTAO = null, CAIXA_PIX = null, CAIXA_TURNOS = null, CAIXA_VALID = null, CAIXA_DIAS_CX = null, CAIXA_CONF = null, CAIXA_CARTAO_CX = null, CAIXA_PIX_CX = null, CAIXA_AVISOS = null;
 
 // FECHAMENTO DE CAIXAS (09/09/2026) — modulo unico, decisao do dono: absorveu
 // "Cartao & maquininha" (taxas/aluguel, secao no fim da tela) e "Conciliacao de
@@ -17365,7 +17365,7 @@ async function entrarCaixa() {
   if (CAIXA_DIAS === null) {
     alvo.innerHTML = '<div class="contexto">Carregando fechamento de caixas (PDV × gaveta × maquininhas × banco)...</div>';
     await carregarEmailDono();   // o dono tambem pode explicar pendencias
-    [CAIXA_DIAS, CAIXA_CONTAGENS, CAIXA_RESP, CAIXA_CARTAO, CAIXA_PIX, CAIXA_TURNOS, CAIXA_VALID, CAIXA_DIAS_CX, CAIXA_CONF, CAIXA_CARTAO_CX, CAIXA_PIX_CX] = await Promise.all([
+    [CAIXA_DIAS, CAIXA_CONTAGENS, CAIXA_RESP, CAIXA_CARTAO, CAIXA_PIX, CAIXA_TURNOS, CAIXA_VALID, CAIXA_DIAS_CX, CAIXA_CONF, CAIXA_CARTAO_CX, CAIXA_PIX_CX, CAIXA_AVISOS] = await Promise.all([
       consultarTudo('vw_caixa_fechamento_dia?select=*&order=data.desc'),
       consultarTudo('caixa_contagem?select=*&order=data.desc'),
       consultarTudo('caixa_responsaveis?select=email,unidade'),
@@ -17384,6 +17384,8 @@ async function entrarCaixa() {
       // cartao e PIX, quebradas por caixa (Saipos pelo cashier, Rede pela maquininha SD)
       consultarTudo('vw_cartao_conciliacao_caixa_dia?select=*&dia=gte.2026-08-01&order=dia'),
       consultarTudo('vw_pix_conciliacao_caixa_dia?select=*&dia=gte.2026-08-01&order=dia'),
+      // recados da equipe para o dono (15/09/2026): o botao "Avisar o Neto"
+      consultarTudo('painel_aviso?select=*&order=criado_em.desc&limit=40'),
     ]);
     CAIXA_DIAS_CX.forEach(r => { ['dinheiro_pdv', 'lancado_cofre', 'movimento_book', 'diferenca'].forEach(k => { r[k] = Number(r[k]); }); });
     CAIXA_DIAS.forEach(r => {
@@ -17408,6 +17410,77 @@ async function entrarCaixa() {
 // 10/09/2026 (dono: "os caixas sobem separados"): uma contagem por CAIXA do Saipos —
 // SALÃO e DELIVERY — cada uma com seu enviado + troco. O delivery abre com R$ 0,01
 // (o Saipos nao deixa abrir zerado), por isso o troco dele vem preenchido com 0,01.
+// "Avisar o Neto" (dono, 15/09/2026: "tem como colocar um botão no painel da Arissa, pra
+// ela conseguir te avisar direto?"). Nasceu depois de 15/09, quando a Arissa abriu o
+// módulo de manhã e o dia anterior estava pela metade (a importação do Saipos só terminou
+// às 11:12) — o aviso foi parar no WhatsApp e não no sistema. O recado leva a loja e o dia
+// que a pessoa está vendo, fica em `painel_aviso` e aparece: como faixa no painel do dono,
+// e no resumo da importação diária da manhã seguinte.
+const CAIXA_AVISO_ASSUNTOS = [
+  'Os dados de ontem não apareceram',
+  'Um valor não bate com o Saipos',
+  'Não consigo registrar a contagem',
+  'A tela travou ou deu erro',
+  'Outro',
+];
+async function caixaRecarregarAvisos() {
+  CAIXA_AVISOS = await consultarTudo('painel_aviso?select=*&order=criado_em.desc&limit=40');
+  renderModuloCaixa();
+}
+function caixaAvisar() {
+  const s = rmbSessao();
+  if (!s || !s.email) { alert('Sessão expirada — faça login de novo.'); return; }
+  const F = CAIXA_FILTRO;
+  const ov = document.createElement('div');
+  ov.style.cssText = 'position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:9999; display:flex; align-items:center; justify-content:center; padding:16px;';
+  ov.innerHTML = `<div style="background:#1c1c1a; color:#e8e6dc; border:1px solid rgba(154,164,175,.35); border-radius:8px; max-width:560px; width:100%; padding:16px 18px; font-size:13px;">
+    <div style="font-size:14px; font-weight:700;">Avisar o Neto</div>
+    <div style="color:#a5a49a; font-size:12px; margin:2px 0 10px;">Ele vê isto no painel dele e no resumo da importação da manhã. Não é urgência: se a loja estiver parada, ligue.</div>
+    <label>o que houve<br><select id="avAssunto" style="width:100%; padding:4px; font:inherit;">${CAIXA_AVISO_ASSUNTOS.map(a => `<option>${a}</option>`).join('')}</select></label>
+    <div style="display:flex; gap:8px; margin-top:8px;">
+      <label style="flex:1;">loja<br><select id="avLoja" style="width:100%; padding:4px; font:inherit;"><option value="">todas</option>${['AGUA VERDE', 'AHU', 'SÃO BRAZ'].map(u => `<option ${F.loja === u ? 'selected' : ''}>${u}</option>`).join('')}</select></label>
+      <label style="flex:1;">dia (se for de um dia)<br><input type="date" id="avDia" style="width:100%; padding:4px; font:inherit;"></label>
+    </div>
+    <label style="display:block; margin-top:8px;">conte o que você está vendo<br><textarea id="avTexto" rows="3" style="width:100%; padding:4px; font:inherit;" placeholder="ex.: abri agora e o dia de ontem da Água Verde está quase vazio"></textarea></label>
+    <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:10px;">
+      <button id="avCancelar" style="font:inherit; padding:5px 12px; cursor:pointer;">cancelar</button>
+      <button id="avEnviar" style="font:inherit; padding:5px 14px; cursor:pointer; font-weight:700;">Enviar</button>
+    </div></div>`;
+  document.body.appendChild(ov);
+  const fechar = () => ov.remove();
+  ov.querySelector('#avCancelar').onclick = fechar;
+  ov.addEventListener('click', e => { if (e.target === ov) fechar(); });
+  ov.querySelector('#avEnviar').onclick = async () => {
+    const texto = ov.querySelector('#avTexto').value.trim();
+    if (!texto) { alert('Escreva o que está acontecendo — é o que o Neto vai ler.'); return; }
+    const corpo = { quem: s.email, modulo: 'caixa', assunto: ov.querySelector('#avAssunto').value,
+      unidade: ov.querySelector('#avLoja').value || null, dia: ov.querySelector('#avDia').value || null, texto };
+    const bt = ov.querySelector('#avEnviar'); bt.disabled = true; bt.textContent = 'enviando...';
+    try {
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/painel_aviso`, { method: 'POST', headers: rmbHeaders(), body: JSON.stringify(corpo) });
+      if (!r.ok) throw new Error((await r.text()).slice(0, 160));
+      fechar();
+      await caixaRecarregarAvisos();
+      alert('Avisado. O recado fica registrado no painel do Neto.');
+    } catch (e) { alert('Não consegui enviar: ' + e.message); bt.disabled = false; bt.textContent = 'Enviar'; }
+  };
+  setTimeout(() => { const t = ov.querySelector('#avTexto'); if (t) t.focus(); }, 50);
+}
+async function caixaAvisoPatch(id, campos) {
+  try {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/painel_aviso?id=eq.${id}`, { method: 'PATCH', headers: rmbHeaders(), body: JSON.stringify(campos) });
+    if (!r.ok) throw new Error((await r.text()).slice(0, 160));
+    await caixaRecarregarAvisos();
+  } catch (e) { alert('Não consegui atualizar o recado: ' + e.message); }
+}
+function caixaAvisoResponder(id) {
+  const t = prompt('Resposta para quem avisou (ela vê no painel):');
+  if (t === null || !t.trim()) return;
+  const s = rmbSessao();
+  caixaAvisoPatch(id, { resposta: t.trim(), respondido_em: new Date().toISOString(), respondido_por: (s || {}).email || null, status: 'VISTO' });
+}
+function caixaAvisoResolver(id) { caixaAvisoPatch(id, { status: 'RESOLVIDO', respondido_em: new Date().toISOString(), respondido_por: ((rmbSessao() || {}).email || null) }); }
+
 // Abre/recolhe o detalhe venda a venda de uma forma no fechamento (11/09/2026)
 function caixaToggleForma(fid) {
   const rows = document.querySelectorAll('.det-' + fid);
@@ -17506,6 +17579,7 @@ function renderModuloCaixa() {
     ${btn(F.naoConf, `caixaFiltrar('naoConf',${!F.naoConf})`, 'não conferidos')}
     <span style="width:12px;"></span>
     <span style="font-size:12px; color:#a5a49a;" title="muda o módulo inteiro para um caixa só: tabela do dia, contagem, conferido e o clique no dia">caixa:</span>${btn(!F.caixa, "caixaFiltrar('caixa','')", 'Os dois')}${btn(F.caixa === 'SALÃO', "caixaFiltrar('caixa','SALÃO')", 'Salão')}${btn(F.caixa === 'DELIVERY', "caixaFiltrar('caixa','DELIVERY')", 'Delivery')}
+    <button onclick="caixaAvisar()" title="manda um recado para o Neto com a loja e o dia que você está vendo — ele aparece no painel dele e no resumo da importação da manhã" style="font:inherit; font-size:12px; padding:3px 12px; cursor:pointer; margin-left:auto; font-weight:600;">✉ Avisar o Neto</button>
   </div>`;
 
   let blocos = '';
@@ -17610,7 +17684,26 @@ function renderModuloCaixa() {
     </div>`;
   }
 
+  // Faixa de recados (15/09/2026). Para o dono: o que está aberto, com "resolvido".
+  // Para quem avisou: o próprio recado enquanto não for respondido, e a resposta depois.
+  const euAgora = ((rmbSessao() || {}).email || '').toLowerCase();
+  const dono = typeof souODono === 'function' && souODono();
+  const avisos = (CAIXA_AVISOS || []).filter(a => dono ? a.status !== 'RESOLVIDO'
+    : (String(a.quem || '').toLowerCase() === euAgora && (a.status !== 'RESOLVIDO' || a.resposta)));
+  const dhm = t => String(t || '').slice(0, 16).replace('T', ' ').split('-').length ? String(t || '').slice(8, 10) + '/' + String(t || '').slice(5, 7) + ' ' + String(t || '').slice(11, 16) : '';
+  const avisosHtml = !avisos.length ? '' : `
+    <div class="contexto" style="text-align:left; border-color:#f5a623; margin-bottom:8px;">
+      <b style="color:#f5a623;">${dono ? `Recado${avisos.length > 1 ? 's' : ''} da equipe (${avisos.length})` : 'Você avisou o Neto'}</b>
+      ${avisos.slice(0, 6).map(a => `<div style="margin-top:6px; font-size:13px;">
+        <b>${dhm(a.criado_em)}</b> · ${String(a.quem || '').split('@')[0]}${a.unidade ? ' · ' + a.unidade : ''}${a.dia ? ' · dia ' + String(a.dia).split('-').reverse().slice(0, 2).join('/') : ''} — <b>${a.assunto}</b>
+        <div style="color:#a5a49a;">${a.texto}</div>
+        ${a.resposta ? `<div style="color:#7bc47f; margin-top:2px;">↳ resposta do Neto: ${a.resposta}</div>` : ''}
+        ${dono ? `<button onclick="caixaAvisoResponder(${a.id})" style="font:inherit; font-size:11px; padding:1px 8px; cursor:pointer; margin-top:2px;">responder</button>
+          <button onclick="caixaAvisoResolver(${a.id})" style="font:inherit; font-size:11px; padding:1px 8px; cursor:pointer;">resolvido</button>` : ''}
+      </div>`).join('')}
+    </div>`;
   alvo.innerHTML = `
+    ${avisosHtml}
     <div class="section-label">Fechamento de Caixas</div>
     <div class="contexto" style="text-align:left;">
       O que o PDV registrou × o que de fato chegou, dia a dia. Cada turno fecha o caixa no Saipos sem digitar
