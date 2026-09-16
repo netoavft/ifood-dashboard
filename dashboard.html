@@ -6582,6 +6582,9 @@ async function concbFormEnsinar(d) {
     // o dono ditou em 24/08/2026, e sao os mesmos que o receituario ja usava.
     + lista('ensTipo', 'Tipo de lançamento', ['DESPESA', 'RECEITA', 'TRANSFERENCIA'], false)
     + lista('ensMet', 'Forma de pagamento', metodos)
+    // ROBO LANCA (dono, 16/09/2026). NAO = a regra so faz a linha casar com o que ja
+    // esta no Saipos (ex.: COPEL, conta a pagar com provisao) — o robo nunca a lanca.
+    + lista('ensRobo', 'Robô lança?', ['SIM', 'NÃO'], false)
     + '<div id="ensBlocoTransf" style="display:none">'
     +   lista('ensOri', 'Sai de qual conta', contasRegra)
     +   lista('ensDest', 'Entra em qual conta', contasRegra)
@@ -6630,6 +6633,7 @@ async function concbFormEnsinar(d) {
     let met = document.getElementById('ensMet').value.trim();
     const agrupa = document.getElementById('ensAgrupa').checked;
     const palavra = document.getElementById('ensPalavra').value.trim();
+    const robo = document.getElementById('ensRobo').value.trim();
     const ori = transf ? document.getElementById('ensOri').value.trim() : '';
     const dest = transf ? document.getElementById('ensDest').value.trim() : '';
     let cat = transf ? '' : document.getElementById('ensCat').value.trim();
@@ -6663,13 +6667,15 @@ async function concbFormEnsinar(d) {
     // A descricao e o unico campo obrigatorio: e ela que vira o par de de-para e
     // faz a linha casar sozinha da proxima vez. Os outros dois enriquecem.
     if (!desc) { alert('A descrição do Saipos é o que faz a linha casar. Preencha ela.'); return; }
+    // Sem resposta nao se chuta: SIM lancaria em dobro uma conta que so devia casar.
+    if (!robo) { alert('Escolha se o robô lança (SIM) ou se a regra serve só para casar (NÃO).'); return; }
     fecha();
     await concbGravarLicao({ tipo: revisar ? 'DUVIDA' : 'NOME', conta: d.conta, fitid: d.fitid,
       memo_banco: d.memo || null, nome_banco: d.nome || null, texto: desc,
       o_que_e: oQue || null, categoria: cat || null, documento: docLinha || null,
       tipo_lancamento: tipoLanc || null, metodo_pagamento: met || null,
       conta_origem: contas.origem || null, conta_destino: contas.destino || null,
-      agrupa: agrupa, palavra_chave: palavra || null });
+      agrupa: agrupa, palavra_chave: palavra || null, robo_lanca: robo === 'SIM' });
   });
 }
 
