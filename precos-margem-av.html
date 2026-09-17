@@ -80,135 +80,176 @@ input:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
 #bar .lbl{font-size:13px; color:var(--muted);}
 #bar .num{font-family:'Archivo'; font-weight:800; font-variant-numeric:tabular-nums;}
 @media (prefers-reduced-motion: reduce){ *{transition:none !important;} }
+details{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:12px 18px; margin:14px 0;}
+details summary{cursor:pointer; font-weight:600;}
+ol.small{padding-left:20px;} ol.small li{margin:5px 0;}
 </style>
 
 <div class="wrap">
 <header class="hero">
-  <div class="eyebrow">Burger AV · cardápio inteiro · lido do portal em 17/09/2026</div>
-  <h1>Preços pela margem — o número certo de cada item</h1>
-  <p class="sub">Cada item, cada opção de combo e cada adicional pago comparados com o custo da ficha de
-  hoje (última nota fiscal). <strong>A régua:</strong> o custo do canal iFood da Água Verde em jun–ago foi
-  59,8% da venda; somando embalagem e a margem-alvo, a comida pode ser no máximo <strong>22,3% do preço
-  praticado</strong> (é a mesma margem de 57% do estudo). Preço mínimo = custo ÷ 0,223.
-  <strong>Mercadoria</strong> (refri, brownie comprado) tem régua própria desde 17/09: só taxas que acompanham a
-  venda (17,6%) + margem 10% → preço mínimo = compra ÷ 0,724, sem folha nem estrutura.
-  <strong>A régua é piso:</strong> o que já está acima dela fica como está.</p>
+  <div class="eyebrow">Burger AV · checklist de preços · revisado do zero em 17/09/2026</div>
+  <h1>Preços pela margem — o que aplicar</h1>
+  <p class="sub">Esta versão <strong>substitui todas as anteriores</strong>. Refiz a conta sem reaproveitar os scripts
+  que erraram e encontrei mais erros (lista em "O que mudou"). Cada combo foi testado na pior combinação possível de
+  escolhas. Nenhum preço baixa: <strong>a régua é piso</strong>.</p>
   <div class="tiles">
-    <div class="tile"><div class="v">68 de 78</div><div class="l">itens produzidos já dentro da margem — não mexer</div></div>
-    <div class="tile"><div class="v">5 + 15</div><div class="l">itens e ajustes de combo/adicional para subir já</div></div>
-    <div class="tile"><div class="v">0</div><div class="l">decisões pendentes — brownie resolvido pela régua da mercadoria</div></div>
-    <div class="tile"><div class="v">8</div><div class="l">fichas erradas ou faltando — não dá para precificar ainda</div></div>
+    <div class="tile"><div class="v">23</div><div class="l">edições no portal, em 4 passos</div></div>
+    <div class="tile"><div class="v">21,95%</div><div class="l">teto do custo da comida produzida sobre o preço</div></div>
+    <div class="tile"><div class="v">72,3%</div><div class="l">teto da mercadoria (refri, brownie, água, talher, sachê)</div></div>
+    <div class="tile"><div class="v">0</div><div class="l">decisões suas pendentes para aplicar</div></div>
   </div>
 </header>
 
 <section>
-  <div class="secnum">1</div>
-  <h2>Mude já — fichas conferidas, número fechado</h2>
-  <p class="small">Nenhum destes está selecionado em campanha do Hits: edição direta, sem tira-repõe. Preço
-  arredondado para o próximo ,99 acima do mínimo; acréscimo para o próximo real inteiro.</p>
-
-  <h3>1A · Itens avulsos</h3>
-  <div class="tablewrap"><table>
-    <tr><th></th><th>Item (categoria)</th><th class="num">Custo ficha</th><th class="num">Hoje</th><th class="num">CMV hoje</th><th class="num">Mínimo</th><th class="num">Novo</th></tr>
-    <tr><td class="chk"><input type="checkbox" id="m-ufo1"></td><td>Ufo Burger Salada (Ufo Burger)</td><td class="num">8,33</td><td class="num">34,99</td><td class="num">23,8%</td><td class="num">37,34</td><td class="num novo">37,99</td></tr>
-    <tr><td class="chk"><input type="checkbox" id="m-ufo2"></td><td>Ufo Burger Gorgonzola Crispy</td><td class="num">8,21</td><td class="num">35,99</td><td class="num">22,8%</td><td class="num">36,79</td><td class="num novo">36,99</td></tr>
-    <tr><td class="chk"><input type="checkbox" id="m-ufo3"></td><td>Ufo Burger Cheddar Bacon</td><td class="num">9,59</td><td class="num">42,99</td><td class="num">22,3%</td><td class="num">43,01</td><td class="num novo">43,99</td></tr>
-    <tr><td class="chk"><input type="checkbox" id="m-ufo4"></td><td>Ufo Burger Costela Catupiry</td><td class="num">11,75</td><td class="num">49,99</td><td class="num">23,5%</td><td class="num">52,69</td><td class="num novo">52,99</td></tr>
-    <tr><td class="chk"><input type="checkbox" id="m-til"></td><td>Tilápia empanada (Porções) — 300 g de iscas a R$ 57,61/kg</td><td class="num">17,28</td><td class="num">64,99</td><td class="num">26,6%</td><td class="num">77,50</td><td class="num novo">77,99</td></tr>
-  </table></div>
-  <p class="small">A Tilápia sobe R$ 13 porque leva o dobro de peixe da versão com fritas (300 g × 150 g).
-  Se preferir não subir tanto, a alternativa é reduzir a porção — me passa a gramatura nova que eu recalculo.</p>
-
-  <h3>1B · Opções dentro de combos</h3>
-  <div class="tablewrap"><table>
-    <tr><th></th><th>Combo → opção</th><th class="num">Custo total</th><th class="num">Acréscimo hoje</th><th class="num">CMV hoje</th><th class="num">Novo</th></tr>
-    <tr><td class="chk"><input type="checkbox" id="m-c1"></td><td>Lanches especiais (Seleção, 34,99) → João Frango</td><td class="num">8,28</td><td class="num">+2</td><td class="num">22,4%</td><td class="num novo">+3</td></tr>
-    <tr><td class="chk"><input type="checkbox" id="m-c2"></td><td>Porções p/ compartilhar (Seleção, 29,99) → Tilápia empanada</td><td class="num">17,28</td><td class="num">+35</td><td class="num">26,6%</td><td class="num novo">+48</td></tr>
-  </table></div>
-  <div class="box note"><p class="small"><strong>Combo marmita + refri: nada muda.</strong> A versão anterior pedia
-  Silvio +8 e Adoniran carne +10 porque eu tinha passado o refri pela régua de produção — errado pela sua regra
-  de mercadoria. Com o refri na régua própria, todas as marmitas cabem com o acréscimo de hoje. O +10 que você
-  pôs em Costela/Strogonoff de carne pode ficar (a régua é piso), mas ela não exige mais.</p></div>
-
-  <h3>1C · Adicionais pagos</h3>
-  <div class="tablewrap"><table>
-    <tr><th></th><th>Grupo → adicional</th><th class="num">Custo</th><th class="num">Hoje</th><th class="num">CMV hoje</th><th class="num">Novo</th></tr>
-    <tr><td class="chk"><input type="checkbox" id="m-a1"></td><td>Turbinar o prato → 02 linguiças toscanas</td><td class="num">4,66</td><td class="num">14,00</td><td class="num">33,3%</td><td class="num novo">21,00</td></tr>
-    <tr><td class="chk"><input type="checkbox" id="m-a2"></td><td>Turbinar o prato → Batata frita (porção individual)</td><td class="num">3,86</td><td class="num">14,99</td><td class="num">25,8%</td><td class="num novo">18,00</td></tr>
-    <tr><td class="chk"><input type="checkbox" id="m-a3"></td><td>Turbinar o prato vegano → Batata frita (individual)</td><td class="num">3,86</td><td class="num">12,00</td><td class="num">32,2%</td><td class="num novo">18,00</td></tr>
-    <tr><td class="chk"><input type="checkbox" id="m-a4"></td><td>Turbinar o prato → Kit molhos salada</td><td class="num">0,61</td><td class="num">2,00</td><td class="num">30,7%</td><td class="num novo">3,00</td></tr>
-    <tr><td class="chk"><input type="checkbox" id="m-a5"></td><td>Turbinar o caldo → 1 pão brioche</td><td class="num">1,59</td><td class="num">4,00</td><td class="num">39,8%</td><td class="num novo">8,00</td></tr>
-    <tr><td class="chk"><input type="checkbox" id="m-a6"></td><td>Turbinar o caldo → Bacon</td><td class="num">1,07</td><td class="num">4,00</td><td class="num">26,6%</td><td class="num novo">5,00</td></tr>
-    <tr><td class="chk"><input type="checkbox" id="m-a7"></td><td>Turbinar lanche veg → Salada (alface, tomate e picles)</td><td class="num">1,30</td><td class="num">5,00</td><td class="num">26,1%</td><td class="num novo">6,00</td></tr>
-    <tr><td class="chk"><input type="checkbox" id="m-a8"></td><td>"Esse lanche não merece um parceiro?" (normal e veg) → Batata frita</td><td class="num">3,86</td><td class="num">14,99</td><td class="num">25,8%</td><td class="num novo">18,00</td></tr>
-  </table></div>
+  <div class="secnum">0</div>
+  <h2>Antes de começar</h2>
+  <ul class="lst">
+    <li><strong>Confira a coluna "Hoje"</strong>: é o que o portal mostrava hoje de manhã. Se a tela mostrar outro valor,
+    <strong>não altere aquela linha</strong> e me avise.</li>
+    <li><strong>Já aplicou algo das versões anteriores?</strong> Me diga o quê. Principalmente se mudou o preço base do
+    Combo clássico (45,99), do Combo especial (52,99) ou da marmita + brownie (55,99): esses aumentos não são mais
+    necessários.</li>
+    <li>Nos itens com preço riscado, o riscado (De) continua acima do novo preço: <strong>mexa só no Por</strong>.</li>
+    <li>Na conferência dos drawers do Hits (11/09), nenhuma destas linhas estava selecionada em campanha: a edição é direta. Se o portal pedir para tirar algo do Hits antes de salvar, <strong>pare e me avise</strong>.</li>
+  </ul>
 </section>
 
 <section>
-  <div class="secnum">1D</div>
-  <h2>Combos — decidido por você em 17/09, refeito com a régua da mercadoria</h2>
-  <div class="box note"><p class="small"><strong>Suas decisões:</strong> (1) acompanhamento do combo e do
-  "parceiro" = <strong>porção individual</strong> (corrigido na base); (2) <strong>combos seguem a régua</strong>;
-  (3) <strong>costelinha pela âncora</strong> — sem mudança; (4) <strong>brownie e refri são mercadoria</strong>:
-  entram pela compra ÷ 0,724, sem mão de obra. <strong>Como o combo é conferido:</strong> preço mínimo =
-  produzido ÷ 0,223 + mercadoria ÷ 0,724, somando a opção +0 mais cara de cada grupo. A folga entre o preço de hoje
-  e esse mínimo é dividida entre os grupos que têm opção paga — assim <em>qualquer combinação</em> (ex.: Rubens +
-  batata, ou Silvio + Silvio) fica dentro da régua, não só cada opção sozinha. A régua é piso: acréscimo acima fica.</p></div>
-
+  <div class="secnum">1</div>
+  <h2>Passo 1 · Preço de itens avulsos</h2>
   <div class="tablewrap"><table>
-    <tr><th></th><th>Combo → o que muda</th><th>Hoje</th><th>Novo</th></tr>
-    <tr><td class="chk"><input type="checkbox" id="m-e1"></td><td><strong>2x Burgers Clássicos</strong> — preço (mínimo 52,44)</td><td class="num">47,99</td><td class="num novo">52,99</td></tr>
-    <tr><td class="chk"><input type="checkbox" id="m-e2"></td><td>2x Burgers → 1º e 2º lanche (os dois grupos)</td><td>Schumacher +3 · Ayrton +5 · Chaplin +6 · Rubens +6</td><td class="novo">Schumacher +5 · Ayrton +6 · Chaplin +10 · Rubens +11</td></tr>
-    <tr><td class="chk"><input type="checkbox" id="m-e3"></td><td><strong>Combo clássico</strong> (fica 44,99) → acompanhamento</td><td>Batata +2 · Frango +5</td><td class="novo">Batata +8 · Frango +7</td></tr>
-    <tr><td class="chk"><input type="checkbox" id="m-e4"></td><td><strong>Combo especial</strong> (fica 49,99) → acompanhamento</td><td>Batata +2 · Frango +5</td><td class="novo">Batata +9 · Frango +7</td></tr>
-    <tr><td class="chk"><input type="checkbox" id="m-e5"></td><td><strong>2x marmitas no desconto</strong> (fica 49,99) → 1ª e 2ª marmita</td><td>Silvio +5 · Adoniran carne +7</td><td class="novo">Silvio +7 · Adoniran carne +9</td></tr>
+    <tr><th></th><th>Onde → o que</th><th class="num">Hoje</th><th class="num">Novo</th><th>Conta</th></tr>
+    <tr><td class="chk"><input type="checkbox" id="p1"></td><td>Ufo Burger → Ufo Burger Salada</td><td class="num">34,99</td><td class="num novo">37,99</td><td class="small">custo 8,33 ÷ 0,2195 = 37,93</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="p2"></td><td>Ufo Burger → Ufo Burger Gorgonzola Crispy</td><td class="num">35,99</td><td class="num novo">37,99</td><td class="small">custo 8,21 ÷ 0,2195 = 37,38</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="p3"></td><td>Ufo Burger → Ufo Burger Cheddar Bacon (riscado 50,99 fica)</td><td class="num">42,99</td><td class="num novo">43,99</td><td class="small">custo 9,59 ÷ 0,2195 = 43,69</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="p4"></td><td>Ufo Burger → Ufo Burger Costela Catupiry (riscado 57,99 fica)</td><td class="num">49,99</td><td class="num novo">53,99</td><td class="small">custo 11,75 ÷ 0,2195 = 53,52</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="p5"></td><td>Porções → Tilápia empanada</td><td class="num">64,99</td><td class="num novo">78,99</td><td class="small">300 g de iscas a R$ 57,61/kg = 17,28 ÷ 0,2195 = 78,73</td></tr>
   </table></div>
-  <p class="small"><strong>Sem mudança:</strong> preço do Combo clássico e do especial, todos os lanches deles,
-  Combo marmita + refri, <strong>Combo marmita + brownie + refri</strong> (mínimo 26,79 contra 46,99 — cabe com
-  folga em todas as marmitas), as bebidas e a costelinha.</p>
-  <p class="small">Por que 2x marmitas entrou: duas Silvio custam R$ 13,96 de comida e pedem 62,60; hoje saem por
-  59,99. Duas Adoniran carne pedem 66,55 e saem por 63,99.</p>
+  <p class="small">A Tilápia empanada leva o dobro de peixe da "empanada e fritas" (300 g × 150 g), por isso sobe R$ 14.
+  Se preferir não subir tanto, a saída é reduzir a porção: me passe a gramatura que eu recalculo.</p>
+</section>
+
+<section>
+  <div class="secnum">2</div>
+  <h2>Passo 2 · Opções dentro da Seleção Cidadão do Mundo</h2>
+  <div class="tablewrap"><table>
+    <tr><th></th><th>Onde → o que</th><th class="num">Hoje</th><th class="num">Novo</th><th>Conta</th></tr>
+    <tr><td class="chk"><input type="checkbox" id="s1"></td><td>Lanches especiais (34,99) → Selecione seu burger especial → João Frango</td><td class="num">+2</td><td class="num novo">+3</td><td class="small">custo 8,28 ÷ 0,2195 = 37,71 → 34,99 + 3 = 37,99</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="s2"></td><td>Lanches especiais (34,99) → Selecione seu burger especial → Mad Max Burger</td><td class="num">+5</td><td class="num novo">+6</td><td class="small">custo 8,82 ÷ 0,2195 = 40,18 → 34,99 + 6 = 40,99</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="s3"></td><td>Porções para compartilhar (29,99) → Escolha sua porção preferida → Tilápia empanada</td><td class="num">+35</td><td class="num novo">+49</td><td class="small">29,99 + 49 = 78,99, igual ao avulso</td></tr>
+  </table></div>
 </section>
 
 <section>
   <div class="secnum">3</div>
-  <h2>Não dá para precificar ainda — ficha errada ou faltando</h2>
-  <p class="small">Aqui não existe número certo até a ficha ser corrigida. Nenhum desses vazou para as
-  recomendações acima.</p>
+  <h2>Passo 3 · Combos</h2>
+  <p class="small">Cada combo tem os próprios grupos de escolha: mudar um não afeta os outros. Nos grupos de 1º e 2º
+  lanche e de 1ª e 2ª marmita, aplique o mesmo valor nos dois.</p>
   <div class="tablewrap"><table>
-    <tr><th>Item</th><th>O que está errado</th><th>Quem resolve</th></tr>
-    <tr><td>Crosta de mozarela (Ufo, +8)</td><td>ficha "MOZARELA FATIA" com custo R$ 38 — é preço de quilo</td><td>gramatura da crosta (Lana)</td></tr>
-    <tr><td>Queijo do Mahatma Gandhi</td><td>amarrado na "MOZARELA PECA" (R$ 37,99) e no queijo vegano receita (R$ 18,29)</td><td>gramatura da fatia</td></tr>
-    <tr><td>Cheiro verde (caldo, +2)</td><td>custo R$ 26,67 — é preço de quilo</td><td>gramatura</td></tr>
-    <tr><td>Combos Kids (burger kid, vegan kid, nuggets, proteínas do prato kids)</td><td>sem ficha</td><td>criar fichas</td></tr>
-    <tr><td>Alcatra e T-Bone</td><td>sem ficha amarrada (e o T-Bone já era suspeito)</td><td>conferir fichas</td></tr>
-    <tr><td>Adicionais de caldo: pernil, carne e costela desfiada; tiras de frango; burger/espetinho de PTS</td><td>sem ficha</td><td>criar fichas ADD</td></tr>
-    <tr><td>Brownie Vegano, Quentão, Chá mate batido</td><td>sem ficha amarrada</td><td>conferir de/para</td></tr>
-    <tr><td>Caldos individuais (mandioquinha R$ 0,97 · canja R$ 1,52 · verde R$ 1,93)</td><td>custo por kg da receita parece baixo (R$ 3,23/kg) — CMV de 4 a 7%</td><td>conferir receita (não pede aumento, mas a margem mostrada pode estar inflada)</td></tr>
+    <tr><th></th><th>Onde → o que</th><th class="num">Hoje</th><th class="num">Novo</th><th>Conta</th></tr>
+    <tr><td class="chk"><input type="checkbox" id="c1"></td><td><strong>2x Burgers Clássicos</strong> → preço (riscado 57,99 fica)</td><td class="num">47,99</td><td class="num novo">53,99</td><td class="small">dois Nelson = 11,69 ÷ 0,2195 = 53,26</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="c2"></td><td>2x Burgers → <strong>Selecione o primeiro lanche</strong></td><td class="num">Schumacher +3 · Ayrton +5 · Chaplin +6 · Rubens +6</td><td class="num novo">Schumacher +5 · Ayrton +6 · Chaplin +10 · Rubens +11</td><td class="small">Nelson 0, Alain +5 e Jesse +6 ficam</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="c3"></td><td>2x Burgers → <strong>Selecione o segundo lanche</strong></td><td class="num">Schumacher +3 · Ayrton +5 · Chaplin +6 · Rubens +6</td><td class="num novo">Schumacher +5 · Ayrton +6 · Chaplin +10 · Rubens +11</td><td class="small">pior caso: dois Rubens pedem 74,55 → 53,99 + 22 = 75,99</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="c4"></td><td><strong>Combo clássico</strong> (preço 44,99 fica) → Escolha seu acompanhamento</td><td class="num">Batata +2 · Frango +5</td><td class="num novo">Batata +9 · Frango +7</td><td class="small">pior caso: Rubens + batata + Pepsi pedem 59,22 → 44,99 + 6 + 9 = 59,99</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="c5"></td><td><strong>Combo especial</strong> (preço 49,99 fica) → Escolha seu acompanhamento</td><td class="num">Batata +2 · Frango +5</td><td class="num novo">Batata +8 · Frango +7</td><td class="small">anéis +0, lanches e bebidas ficam</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="c6"></td><td><strong>2x marmitas no desconto</strong> (49,99 fica) → Selecione sua primeira marmita</td><td class="num">Silvio +5 · Adoniran carne +7</td><td class="num novo">Silvio +7 · Adoniran carne +9</td><td class="small">as outras marmitas ficam</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="c7"></td><td>2x marmitas → Selecione sua segunda marmita</td><td class="num">Silvio +5 · Adoniran carne +7</td><td class="num novo">Silvio +7 · Adoniran carne +9</td><td class="small">pior caso: duas Adoniran carne pedem 67,60 → 49,99 + 18 = 67,99</td></tr>
   </table></div>
+  <div class="box note"><p class="small"><strong>Não mexa:</strong> Combo marmita + refri e Combo marmita + brownie +
+  refri (todas as marmitas cabem com o acréscimo de hoje, e o brownie fica). O +10 que já está em Costela e Strogonoff
+  de carne pode ficar. Também ficam como estão: Seleção Burgers, Pratos executivos, Seleção Vegana e Caldos.</p></div>
+  <p class="small">Por que a batata sobe no combo: na porção individual ela custa 3,86, e os anéis (a opção +0) custam
+  1,21. Os R$ 2,65 de diferença pedem R$ 12 a mais de preço (2,65 ÷ 0,2195). Parte disso já está coberta pela folga do preço base;
+  o acréscimo cobre o resto.</p>
 </section>
 
 <section>
   <div class="secnum">4</div>
-  <h2>Mercadoria — fora da régua, sem mudança</h2>
-  <p class="small">Decisão de 01/09: bebidas prontas, chopp, quentão, torta alemã e brownie não absorvem custo de
-  produção, então não seguem a régua de 22,3%. A régua própria da mercadoria continua pendente. Sobras por venda
-  hoje: latas R$ 3,50–4,80 · 2L R$ 7,50–10,40 · chopp 500 ml R$ 7–11,60 · chopp 1L R$ 14–21 · brownie R$ 6,71
-  · torta alemã R$ 5,88.</p>
+  <h2>Passo 4 · Adicionais pagos</h2>
+  <p class="small">Estes grupos são compartilhados: editou uma vez, muda em todos os itens que usam o grupo.</p>
+  <div class="tablewrap"><table>
+    <tr><th></th><th>Onde → o que</th><th class="num">Hoje</th><th class="num">Novo</th><th>Conta</th></tr>
+    <tr><td class="chk"><input type="checkbox" id="a1"></td><td>"Deseja turbinar o seu prato?" (12 itens: pratos, executivos, prato kids) → Batata frita</td><td class="num">14,99</td><td class="num novo">18,00</td><td class="small">batata individual 3,86 ÷ 0,2195 = 17,58</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="a2"></td><td>"Deseja turbinar o seu prato?" → 02 unidades de linguiça toscana</td><td class="num">14,00</td><td class="num novo">22,00</td><td class="small">200 g a R$ 23,30/kg = 4,66 ÷ 0,2195 = 21,23</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="a3"></td><td>"Esse lanche não merece um parceiro?" do grupo dos burgers (26 itens) → Batata Frita</td><td class="num">14,99</td><td class="num novo">18,00</td><td class="small">3,86 ÷ 0,2195 = 17,58</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="a4"></td><td>"Esse lanche não merece um parceiro?" do grupo dos veganos (7 itens) → Batata Frita</td><td class="num">14,99</td><td class="num novo">18,00</td><td class="small">é outro grupo, com o mesmo nome</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="a5"></td><td>"Deseja turbinar seu prato vegano?" (Cid Moreira, Lisa Simpson, Mahatma) → Batata Frita</td><td class="num">12,00</td><td class="num novo">18,00</td><td class="small">3,86 ÷ 0,2195 = 17,58</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="a6"></td><td>"Deseja turbinar seu lanche veg?" → Salada (alface, tomate e picles)</td><td class="num">5,00</td><td class="num novo">6,00</td><td class="small">custo 1,30 ÷ 0,2195 = 5,93</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="a7"></td><td>"Deseja turbinar seu caldo?" → 1 unidade de pão brioche</td><td class="num">4,00</td><td class="num novo">8,00</td><td class="small">custo 1,59 ÷ 0,2195 = 7,24</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="a8"></td><td>"Deseja turbinar seu caldo?" → Bacon</td><td class="num">4,00</td><td class="num novo">5,00</td><td class="small">custo 1,07 ÷ 0,2195 = 4,85</td></tr>
+  </table></div>
 </section>
 
 <section>
   <div class="secnum">5</div>
-  <h2>Todo o resto — dentro da margem, manter</h2>
-  <p class="small">68 itens produzidos, os containers da Seleção (Burgers, Executivos, Vegana, Caldos, Porções
-  exceto Tilápia), 2x Marmitas, e 26 adicionais já estão com CMV abaixo de 22,3%. Destaques: todos os burgers
-  da casa (15–21%), pratos clássicos (7–19%), porções (13–20%), veganos (12–16%), sobremesas de ficha (Dalí
-  11,7%, Rita Lee 14,8%).</p>
+  <h2>Passo 5 · Me avise que terminou</h2>
+  <p>Eu leio o cardápio inteiro pela API do portal (só leitura) e confiro, linha a linha, se cada valor ficou como aqui.
+  Divergência volta para você com o nome da linha.</p>
 </section>
+
+<section>
+  <h2>O que mudou em relação às versões anteriores — não aplicar o antigo</h2>
+  <div class="tablewrap"><table>
+    <tr><th>A versão anterior dizia</th><th>Agora</th><th>Motivo</th></tr>
+    <tr><td>Régua de 22,3%</td><td><strong>21,95%</strong></td><td>os 59,8% estavam divididos pelo total do Saipos; o preço é sobre o valor do item, 0,6% menor → 60,16%</td></tr>
+    <tr><td>Combo clássico 45,99 · Combo especial 52,99 com João Frango +4, James Brown +5, Mad Max +7, Gaudério +13</td><td>preços e lanches ficam</td><td>o refri do combo estava carregando mão de obra</td></tr>
+    <tr><td>Marmita + brownie a 55,99, ou trocar o brownie pelo Dalí</td><td>nada muda</td><td>brownie é mercadoria</td></tr>
+    <tr><td>Marmita + refri: Silvio +8, Adoniran carne +10</td><td>nada muda</td><td>refri é mercadoria</td></tr>
+    <tr><td>Kit molhos salada 2→3 · kit sachê veg 2→3</td><td>ficam em 2</td><td>sachê comprado pronto é mercadoria (mínimos 0,85 e 0,91)</td></tr>
+    <tr><td>Batata do combo +12 (clássico e especial)</td><td>+9 e +8</td><td>refri fora da régua de produção + teste da pior combinação</td></tr>
+    <tr><td>2x Burgers 52,99 · Ufo Gorgonzola 36,99 · Costela Catupiry 52,99 · Tilápia 77,99 / +48 · linguiça 21</td><td>53,99 · 37,99 · 53,99 · 78,99 / +49 · 22</td><td>régua 21,95%</td></tr>
+    <tr><td>(não constava)</td><td>Mad Max na Seleção Lanches especiais +5→+6</td><td>régua 21,95%</td></tr>
+  </table></div>
+</section>
+
+<section>
+  <h2>Fora deste checklist</h2>
+  <ul class="lst">
+    <li><strong>Costelinha (3 itens): fica, pela regra de âncora.</strong> Só para referência, a régua pediria 100,99 · 107,99 · 166,99.</li>
+    <li><strong>Chopp:</strong> fora da régua (leva o trabalho de envase do salão); é avaliado pela sobra em R$.</li>
+    <li><strong>Sem ficha ou com ficha errada, então sem preço calculado:</strong> crosta de mozarela e cheiro verde (ficha com preço de kg),
+    Mahatma Gandhi (queijo), Ufo Vegan, Kids (Batman/Robin, nuggets, proteínas), chá mate batido, quentão, brownie vegano,
+    Alcatra, T-Bone, adicionais do caldo (pernil, carne e costela desfiados), tiras de frango do turbinar, burger e espetinho
+    de PTS, farofa, feijão e ovo do prato vegano.</li>
+    <li><strong>Para a Lana confirmar:</strong> a ficha da batata individual tem 180 g e a porção London tem 200 g.</li>
+  </ul>
+  <div class="box">
+    <h3 style="margin-top:0">⚠️ Achado da conferência: códigos PDV sem nenhuma venda</h3>
+    <p class="small">Nestas opções, o código PDV do portal não aparece em nenhuma venda do Saipos nos últimos 120 dias. Pode ser
+    a origem do erro de PDV que você já viu nos combos. <strong>Confira na tela do Saipos</strong> antes de trocar qualquer código:</p>
+    <ul class="lst small">
+      <li>Combo clássico, Combo especial, Combo marmita + refri, Combo marmita + brownie → bebida → <strong>Pepsi Cola 350ml</strong> (PDV 173497) e <strong>Refrigerante Guaraná sem Açúcar Antarctica</strong> (PDV 1238386)</li>
+      <li>"Vai comer no seco?" (75 itens) → <strong>Refrigerante Lata Pepsi 350ml</strong> (151878), <strong>Água sem gás</strong> (535168) e <strong>Água com gás</strong> (246848)</li>
+      <li>Seleção Porções para compartilhar → <strong>Pork and Roll</strong> (25280084) e <strong>Pork and Cubes</strong> (25280085)</li>
+    </ul>
+    <p class="small">Nas vendas, a Pepsi lata aparece com o código 11055714 e o Guaraná zero com 1008660. Há ainda 44 refrigerantes que
+    entraram com o nome cru do iFood (código 1000160), sinal de código que o Saipos não reconheceu. Nada disso muda preço:
+    o custo dessas opções saiu da ficha da bebida.</p>
+  </div>
+</section>
+
+<details>
+  <summary>Como a conta foi feita e conferida</summary>
+  <p class="small"><strong>Régua.</strong> iFood Água Verde, jun–ago de 2026: despesas + benefício iFood (comissão cheia) = R$ 800.281,
+  sendo folha e encargos 16,9 · motoboy 13,2 · iFood 16,1 · estrutura 12,2 · impostos 1,5 → 59,8% do total do Saipos
+  (R$ 1.338.064). O preço, porém, é sobre o valor dos itens (R$ 1.330.238), e sobre essa base a despesa é
+  <strong>60,16%</strong>. Os descontos que a loja banca (R$ 218 mil) e a taxa de entrega recebida (R$ 215 mil) praticamente se anulam.</p>
+  <p class="small"><strong>Comida produzida:</strong> 100 − 60,16 − embalagem 7,89 − margem 10 = <strong>21,95%</strong> → preço mínimo = custo ÷ 0,2195.<br>
+  <strong>Mercadoria:</strong> só o que acompanha o valor da venda (iFood + impostos = 17,71%) + margem 10% → preço mínimo = compra ÷ 0,7229.
+  Não entram folha, estrutura, motoboy (é por pedido) nem embalagem.</p>
+  <p class="small"><strong>Conferências desta vez:</strong></p>
+  <ol class="small">
+    <li>Os 121 itens do cardápio ligados ao produto do Saipos pelo código PDV, conferindo nome e preço médio vendido; códigos vizinhos (Feijoada 1 × 2 pessoas, Guaraná × Guaraná zero) resolvidos.</li>
+    <li>Cada opção de combo e adicional ligada pela escolha realmente vendida; opção sem venda usou a ficha do item de mesmo nome.</li>
+    <li>Ficha de cada item que muda aberta ingrediente por ingrediente: quantidade × preço bate, custo da última nota (setembro).</li>
+    <li>Combos: a pior combinação possível de cada um fica dentro da régua com os números novos.</li>
+    <li>Arredondamento: preço para o ,99 acima e acréscimo para o real inteiro acima; o que já estava acima ficou.</li>
+  </ol>
+</details>
 </div>
 
 <div id="bar"><div class="in">
-  <div><span class="num" id="feitas">0</span> <span class="lbl">de <span id="total">?</span> mudanças da seção 1 feitas</span></div>
+  <div><span class="num" id="feitas">0</span> <span class="lbl">de <span id="total">?</span> edições feitas</span></div>
   <div class="lbl">progresso salvo neste navegador</div>
 </div></div>
 
@@ -220,12 +261,12 @@ input:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
     var feitas=0;
     caixas.forEach(function(c){
       if(c.checked) feitas++;
-      try{ localStorage.setItem('pm:'+c.id, c.checked?'1':'0'); }catch(e){}
+      try{ localStorage.setItem('pm2:'+c.id, c.checked?'1':'0'); }catch(e){}
     });
     document.getElementById('feitas').textContent = feitas;
   }
   caixas.forEach(function(c){
-    try{ if(localStorage.getItem('pm:'+c.id)==='1') c.checked=true; }catch(e){}
+    try{ if(localStorage.getItem('pm2:'+c.id)==='1') c.checked=true; }catch(e){}
     c.addEventListener('change', atualiza);
   });
   atualiza();
