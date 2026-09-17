@@ -5246,7 +5246,7 @@ function renderDiaConcartao(unidade, dia, trs, pix, cobr, forma, descs, onl) {
     p: 2, cor: '#f5a623', hora: hhmm(r.hora), saipos: 'nada desse valor no Saipos', real: limpa(r.detalhe), valor: +r.valor,
     leitura: 'passou na maquininha, mas não está registrado no Saipos', acao: 'achar a venda no Saipos (lançada em outra forma ou não lançada)' }));
   conferir.forEach(q => pend.push({ forma: formaPadrao(q.s.detalhe), caixa: q.s.caixa || null, chave: 'quase:' + q.s.referencia + ':' + q.r.referencia, bloco: 'maquininha', efeito: +q.s.valor - +q.r.valor,
-    p: 2, cor: '#f5a623', hora: hhmm(q.s.hora), saipos: limpa(q.s.detalhe) + ' ' + reaisCc(q.s.valor) + ' · ' + rotVenda(q.s), real: limpa(q.r.detalhe) + ' ' + reaisCc(q.r.valor) + ' às ' + hhmm(q.r.hora),
+    p: 2, cor: '#f5a623', hora: hhmm(q.s.hora), saipos: limpa(q.s.detalhe) + ' ' + reaisCc(q.s.valor) + ' · ' + rotVenda(q.s) + quem(q.s), real: limpa(q.r.detalhe) + ' ' + reaisCc(q.r.valor) + ' às ' + hhmm(q.r.hora),
     valor: q.dv, leitura: (Math.abs(q.dv) <= 0.10 ? 'diferença de centavos' : 'quase o mesmo valor') + ' no mesmo horário: registrado ' + reaisCc(Math.abs(q.dv)) + (q.dv < 0 ? ' a mais' : ' a menos') + ' que a maquininha',
     acao: Math.abs(q.dv) <= 0.10 ? 'valor digitado na maquininha diferente do registrado: conferir qual está certo e acertar no Saipos' : 'conferir se é a mesma venda (gorjeta? digitação?)' }));
   pix.filter(x => !x.recebido).forEach(x => pend.push({ forma: formaPadrao(x.tipo), caixa: x.caixa || null, chave: 'pix:' + x.id_sale + ':' + (+x.valor).toFixed(2), bloco: x.subgrupo === 'CHAVE' ? 'pix_chave' : 'maquininha', efeito: +x.valor,
@@ -5549,7 +5549,7 @@ function renderDiaConcartao(unidade, dia, trs, pix, cobr, forma, descs, onl) {
               else status = '<span style="color:#7bc47f;">✔ bateu</span>';
             }
           }
-          det.push({ ord: min(x.hora), hora: hhmm(x.hora), venda: rotVenda(x), reg: `${limpa(x.detalhe)} ${reaisCc(x.valor)}`, passou, contrib, status, cor, bg });
+          det.push({ ord: min(x.hora), hora: hhmm(x.hora), venda: rotVenda(x) + (moto[x.referencia] ? ' · 🛵 ' + moto[x.referencia] : ''), reg: `${limpa(x.detalhe)} ${reaisCc(x.valor)}`, passou, contrib, status, cor, bg });
         });
         pend.filter(px => String(px.chave).startsWith('rede:') && px.forma === l.forma && noCxItem(px, cx)).forEach(px => { const st = statusPend(px);
           det.push({ ord: min(px.hora + ':00'), hora: px.hora, venda: '—', reg: '<span style="color:#9aa4af;">nada no Saipos</span>', passou: px.real, contrib: contribDe(px), status: st.status, cor: st.cor, bg: st.bg }); });
@@ -5593,6 +5593,8 @@ function renderDiaConcartao(unidade, dia, trs, pix, cobr, forma, descs, onl) {
       <div style="display:flex; flex-wrap:wrap; align-items:center; gap:6px 16px; margin-bottom:6px; font-size:12px;">
         <div style="font-size:13px; text-transform:uppercase; font-weight:700; background:#f2efe6; color:#111110; padding:4px 12px; border-radius:4px;">${rot}</div>
         ${estado ? `<span>${estado}</span>` : ''}
+        ${cx === 'DELIVERY' && !Object.keys(moto).length && saipos.some(x => doDia(x) && x.caixa === 'DELIVERY')
+          ? '<span style="color:#9aa4af;" title="o motoboy vem do Foody; Ahú e São Braz usam o TrackEat desde o fim de agosto, que ainda não tem integração">🛵 motoboy não disponível nesta loja (sistema de entrega sem integração)</span>' : ''}
         <span>${nA ? `<b style="color:#f5a623;">1º ajustar no Saipos: ${nA}</b>` : '<span style="color:#7bc47f;">1º nada a ajustar no Saipos</span>'} · ${nC ? `<b style="color:#ff6b6b;">2º conferir: ${nC}</b>` : '<span style="color:#7bc47f;">2º nada a conferir</span>'}${nE ? ` · <span style="color:#9aa4af;">aguardando: ${nE}</span>` : ''}</span>
         <span style="margin-left:auto;">${carimboCx(cx)}</span>
       </div>
