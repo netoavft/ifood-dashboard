@@ -93,9 +93,9 @@ input:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
   <strong>A régua é piso:</strong> o que já está acima dela fica como está.</p>
   <div class="tiles">
     <div class="tile"><div class="v">68 de 78</div><div class="l">itens produzidos já dentro da margem — não mexer</div></div>
-    <div class="tile"><div class="v">5 + 11</div><div class="l">itens e opções/adicionais para subir já (fichas conferidas)</div></div>
-    <div class="tile"><div class="v">3</div><div class="l">decisões suas que mudam o número (até R$ 16)</div></div>
-    <div class="tile"><div class="v">9</div><div class="l">fichas erradas ou faltando — não dá para precificar ainda</div></div>
+    <div class="tile"><div class="v">5 + 20</div><div class="l">itens e ajustes de combo/adicional para subir já</div></div>
+    <div class="tile"><div class="v">1</div><div class="l">escolha pendente: o brownie do combo marmita</div></div>
+    <div class="tile"><div class="v">8</div><div class="l">fichas erradas ou faltando — não dá para precificar ainda</div></div>
   </div>
 </header>
 
@@ -141,65 +141,53 @@ input:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
     <tr><td class="chk"><input type="checkbox" id="m-a5"></td><td>Turbinar o caldo → 1 pão brioche</td><td class="num">1,59</td><td class="num">4,00</td><td class="num">39,8%</td><td class="num novo">8,00</td></tr>
     <tr><td class="chk"><input type="checkbox" id="m-a6"></td><td>Turbinar o caldo → Bacon</td><td class="num">1,07</td><td class="num">4,00</td><td class="num">26,6%</td><td class="num novo">5,00</td></tr>
     <tr><td class="chk"><input type="checkbox" id="m-a7"></td><td>Turbinar lanche veg → Salada (alface, tomate e picles)</td><td class="num">1,30</td><td class="num">5,00</td><td class="num">26,1%</td><td class="num novo">6,00</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="m-a8"></td><td>"Esse lanche não merece um parceiro?" (normal e veg) → Batata frita</td><td class="num">3,86</td><td class="num">14,99</td><td class="num">25,8%</td><td class="num novo">18,00</td></tr>
   </table></div>
 </section>
 
 <section>
-  <div class="secnum">2</div>
-  <h2>Três decisões suas — cada uma muda o número</h2>
+  <div class="secnum">1D</div>
+  <h2>Combos na régua — decidido por você em 17/09</h2>
+  <div class="box note"><p class="small"><strong>Suas decisões:</strong> (1) o acompanhamento do combo e do
+  "parceiro" é a <strong>porção individual</strong> — corrigido na nossa base (7 amarrações passaram das fichas
+  London/New York/Kentucky para as individuais; conferência do CMV ok); (2) <strong>combos seguem a
+  régua</strong>; (3) <strong>costelinha fica pela regra de âncora</strong> — sem mudança nos três itens.
+  Números recalculados com o custo corrigido. Nenhum destes combos está selecionado em campanha: edição direta.
+  A régua é piso: acréscimo que já está acima do mínimo fica como está.</p></div>
+
+  <div class="tablewrap"><table>
+    <tr><th></th><th>Combo → o que muda</th><th>Hoje</th><th>Novo</th></tr>
+    <tr><td class="chk"><input type="checkbox" id="m-d1"></td><td><strong>2x Burgers Clássicos</strong> — preço (CMV hoje 24,4%)</td><td class="num">47,99</td><td class="num novo">52,99</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="m-d2"></td><td>2x Burgers → escolha do 1º e do 2º lanche (os dois grupos)</td><td>Schumacher +3 · Ayrton +5 · Chaplin +6 · Rubens +6</td><td class="novo">Schumacher +5 · Ayrton +6 · Chaplin +10 · Rubens +10</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="m-d3"></td><td><strong>Combo clássico</strong> + acompanhamento + bebida — preço</td><td class="num">44,99</td><td class="num novo">45,99</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="m-d4"></td><td>Combo clássico → escolha do lanche</td><td>Schumacher +3 · Ayrton +5 · Chaplin +6 · Rubens +6</td><td class="novo">Schumacher +5 · Ayrton +6 · Chaplin +10 · Rubens +11</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="m-d5"></td><td>Combo clássico → acompanhamento</td><td>Batata +2 · Frango +5</td><td class="novo">Batata +12 · Frango +11</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="m-d6"></td><td><strong>Combo especial</strong> + acompanhamento + bebida — preço</td><td class="num">49,99</td><td class="num novo">52,99</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="m-d7"></td><td>Combo especial → escolha do lanche</td><td>João Frango +2 · James Brown +4 · Mad Max +5 · Gaudério +12</td><td class="novo">João Frango +4 · James Brown +5 · Mad Max +7 · Gaudério +13</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="m-d8"></td><td>Combo especial → acompanhamento</td><td>Batata +2 · Frango +5</td><td class="novo">Batata +12 · Frango +10</td></tr>
+  </table></div>
+  <p class="small">Ficam como estão (já acima do mínimo): Nelson +0, Alain +5 e Jesse +6 nos combos de burger
+  clássico; Kf Citizen, Cheech, Honolulu, John Lennon e CDM no combo especial; anéis +0 e todas as bebidas.</p>
 
   <div class="box">
-    <h3 style="margin-top:0">2.1 · Qual porção vai no combo e no "parceiro"?</h3>
-    <p>No cadastro, a batata, os anéis e o frango dos combos (e do grupo "Esse lanche não merece um parceiro?")
-    estão amarrados na ficha da <strong>porção inteira</strong> (London, New York, Kentucky). Mas existem
-    fichas de <strong>porção individual</strong>. A diferença de custo é grande:</p>
-    <div class="tablewrap"><table>
-      <tr><th>Acompanhamento</th><th class="num">Porção inteira</th><th class="num">Porção individual</th></tr>
-      <tr><td>Batata frita</td><td class="num">4,29 (200 g)</td><td class="num">3,86 (180 g)</td></tr>
-      <tr><td>Anéis de cebola</td><td class="num">4,04</td><td class="num">1,21</td></tr>
-      <tr><td>Frango crocante</td><td class="num">7,08</td><td class="num">3,57</td></tr>
-    </table></div>
-    <p><strong>O que muda:</strong></p>
-    <div class="tablewrap"><table>
-      <tr><th>Onde</th><th class="num">Hoje</th><th class="num">Se for individual</th><th class="num">Se for inteira</th></tr>
-      <tr><td>Combo clássico + acompanhamento + bebida — preço base</td><td class="num">44,99</td><td class="num">45,99</td><td class="num">58,99</td></tr>
-      <tr><td>&nbsp;&nbsp;→ acréscimo da batata / do frango</td><td class="num">+2 / +5</td><td class="num">+12 / +11</td><td class="num">+1 / +14</td></tr>
-      <tr><td>Combo especial + acompanhamento + bebida — preço base</td><td class="num">49,99</td><td class="num">52,99</td><td class="num">65,99</td></tr>
-      <tr><td>&nbsp;&nbsp;→ acréscimo da batata / do frango</td><td class="num">+2 / +5</td><td class="num">+12 / +10</td><td class="num">+1 / +13</td></tr>
-      <tr><td>Parceiro → Batata frita (549 vendas/120d)</td><td class="num">14,99</td><td class="num">18,00</td><td class="num">20,00</td></tr>
-      <tr><td>Parceiro → Anéis de cebola</td><td class="num">12,99</td><td class="num">12,99 (ok)</td><td class="num">19,00</td></tr>
-      <tr><td>Parceiro → Frango crocante</td><td class="num">17,99</td><td class="num">17,99 (ok)</td><td class="num">32,00</td></tr>
-    </table></div>
-    <p class="small">Com porção individual, anéis custam R$ 2,65 a menos que a batata — por isso a batata
-    precisa de +12 no combo (cada R$ 1 de custo pede R$ 4,48 de preço para manter 22,3%).</p>
+    <h3 style="margin-top:0">⚠️ Olhe antes de aplicar: a batata no combo sobe R$ 10</h3>
+    <p>Na porção individual, a batata custa R$ 3,86 e os anéis R$ 1,21. Como os anéis são a opção sem acréscimo,
+    a batata precisa carregar a diferença inteira: cada R$ 1 de custo pede R$ 4,48 de preço para manter os 22,3%.
+    Na prática, o cliente que hoje monta <strong>Nelson + batata + bebida por 46,99 passa a pagar 57,99</strong>.
+    Esse é o preço real da margem nesse caminho — qualquer arranjo (batata como opção base, por exemplo) chega
+    aos mesmos ~57,99. Se o número assustar, a saída não é baixar o acréscimo: é rever a gramatura da
+    batata individual com a Lana.</p>
   </div>
 
   <div class="box">
-    <h3 style="margin-top:0">2.2 · Combos de volume seguem a régua?</h3>
-    <p>Três combos estão abaixo da margem <strong>mesmo na opção mais barata</strong>:</p>
+    <h3 style="margin-top:0">🍫 Única escolha pendente: o brownie do Combo marmita + brownie + refri</h3>
+    <p>O brownie é mercadoria comprada a R$ 6,00 e sozinho puxa o combo para fora da régua. Dois caminhos:</p>
     <div class="tablewrap"><table>
-      <tr><th>Combo</th><th class="num">Vendas 60d</th><th class="num">Hoje</th><th class="num">CMV hoje</th><th class="num">Preço na régua</th></tr>
-      <tr><td><strong>2x Burgers Clássicos</strong> — o maior item da loja</td><td class="num">2.168</td><td class="num">47,99</td><td class="num">24,4%</td><td class="num">52,99</td></tr>
-      <tr><td>Combo marmita + brownie + refri</td><td class="num">94</td><td class="num">46,99</td><td class="num">26,2%</td><td class="num">55,99</td></tr>
-      <tr><td>Combo especial + acompanhamento + bebida</td><td class="num">390</td><td class="num">49,99</td><td class="num">23,3%</td><td class="num">52,99 ou 65,99 (depende da 2.1)</td></tr>
+      <tr><th>Caminho</th><th>Preço do combo</th><th>Acréscimos que mudam</th></tr>
+      <tr><td><strong>A — trocar o brownie pelo Salvador Dalí</strong> (ficha R$ 2,35) · recomendado</td><td>fica 46,99</td><td>Silvio +5→+9 · Adoniran carne +7→+11 · Agostinho carne +10→+11 · Costela +10→+12 · Adoniran frango +5→+6</td></tr>
+      <tr><td>B — manter o brownie</td><td>46,99 → <strong>55,99</strong></td><td>Pedro grelhado +1→+4 · Severino +3→+10 · Silvio +5→+17 · Bezerra frango +2→+8 · Bezerra carne +4→+9 · Adoniran frango +5→+14 · Adoniran carne +7→+19 · Agostinho frango +5→+7 · Agostinho carne +10→+19 · Costela +10→+19</td></tr>
     </table></div>
-    <p>Se seguirem a régua, a escada de acréscimos dos burgers no <strong>2x Burgers</strong> (com a base em
-    52,99) fica: Nelson +0 · Alain +4 · Jesse +4 · Schumacher +5 · Ayrton +6 · Chaplin +10 · Rubens +10. No
-    container <strong>Burgers da Seleção</strong> (39,99, um burger só) todos já cabem — a escada atual fica.</p>
-    <p class="small">O Combo marmita + brownie pesa porque o brownie é mercadoria comprada a R$ 6,00. Trocar
-    por sobremesa de ficha mais barata (Dalí custa 2,35) resolve sem subir o preço.</p>
-  </div>
-
-  <div class="box">
-    <h3 style="margin-top:0">2.3 · Costelinha: régua ou exceção de âncora?</h3>
-    <p>Em 12/09 combinamos julgar âncora acima de R$ 100 pelo R$ de sobra por venda, não pela régua. Pela
-    régua, os três precisam subir; pela regra de âncora, ficam:</p>
-    <div class="tablewrap"><table>
-      <tr><th>Item</th><th class="num">Custo</th><th class="num">Hoje</th><th class="num">CMV hoje</th><th class="num">Pela régua</th></tr>
-      <tr><td>Meia peça costelinha + arroz + batata</td><td class="num">22,03</td><td class="num">92,99</td><td class="num">23,7%</td><td class="num">98,99</td></tr>
-      <tr><td>Costelinha peça (Ribs On Fire)</td><td class="num">23,51</td><td class="num">97,99</td><td class="num">24,0%</td><td class="num">105,99</td></tr>
-      <tr><td>Costelinha + arroz + batata + farofa</td><td class="num">36,64</td><td class="num">139,99</td><td class="num">26,2%</td><td class="num">164,99</td></tr>
-    </table></div>
+    <p class="small">No B, o Silvio nesse combo chegaria a 72,99. Me diz A ou B que eu registro e transformo em checklist.</p>
   </div>
 </section>
 
@@ -218,7 +206,6 @@ input:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
     <tr><td>Adicionais de caldo: pernil, carne e costela desfiada; tiras de frango; burger/espetinho de PTS</td><td>sem ficha</td><td>criar fichas ADD</td></tr>
     <tr><td>Brownie Vegano, Quentão, Chá mate batido</td><td>sem ficha amarrada</td><td>conferir de/para</td></tr>
     <tr><td>Caldos individuais (mandioquinha R$ 0,97 · canja R$ 1,52 · verde R$ 1,93)</td><td>custo por kg da receita parece baixo (R$ 3,23/kg) — CMV de 4 a 7%</td><td>conferir receita (não pede aumento, mas a margem mostrada pode estar inflada)</td></tr>
-    <tr><td>Anéis e frango crocante dos combos</td><td>ver decisão 2.1</td><td>você</td></tr>
   </table></div>
 </section>
 
