@@ -90,11 +90,13 @@ input:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
   hoje (última nota fiscal). <strong>A régua:</strong> o custo do canal iFood da Água Verde em jun–ago foi
   59,8% da venda; somando embalagem e a margem-alvo, a comida pode ser no máximo <strong>22,3% do preço
   praticado</strong> (é a mesma margem de 57% do estudo). Preço mínimo = custo ÷ 0,223.
+  <strong>Mercadoria</strong> (refri, brownie comprado) tem régua própria desde 17/09: só taxas que acompanham a
+  venda (17,6%) + margem 10% → preço mínimo = compra ÷ 0,724, sem folha nem estrutura.
   <strong>A régua é piso:</strong> o que já está acima dela fica como está.</p>
   <div class="tiles">
     <div class="tile"><div class="v">68 de 78</div><div class="l">itens produzidos já dentro da margem — não mexer</div></div>
-    <div class="tile"><div class="v">5 + 20</div><div class="l">itens e ajustes de combo/adicional para subir já</div></div>
-    <div class="tile"><div class="v">1</div><div class="l">escolha pendente: o brownie do combo marmita</div></div>
+    <div class="tile"><div class="v">5 + 15</div><div class="l">itens e ajustes de combo/adicional para subir já</div></div>
+    <div class="tile"><div class="v">0</div><div class="l">decisões pendentes — brownie resolvido pela régua da mercadoria</div></div>
     <div class="tile"><div class="v">8</div><div class="l">fichas erradas ou faltando — não dá para precificar ainda</div></div>
   </div>
 </header>
@@ -122,14 +124,11 @@ input:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
     <tr><th></th><th>Combo → opção</th><th class="num">Custo total</th><th class="num">Acréscimo hoje</th><th class="num">CMV hoje</th><th class="num">Novo</th></tr>
     <tr><td class="chk"><input type="checkbox" id="m-c1"></td><td>Lanches especiais (Seleção, 34,99) → João Frango</td><td class="num">8,28</td><td class="num">+2</td><td class="num">22,4%</td><td class="num novo">+3</td></tr>
     <tr><td class="chk"><input type="checkbox" id="m-c2"></td><td>Porções p/ compartilhar (Seleção, 29,99) → Tilápia empanada</td><td class="num">17,28</td><td class="num">+35</td><td class="num">26,6%</td><td class="num novo">+48</td></tr>
-    <tr><td class="chk"><input type="checkbox" id="m-c3"></td><td>Combo marmita + refri (37,99) → Silvio Santos</td><td class="num">10,13</td><td class="num">+5</td><td class="num">23,6%</td><td class="num novo">+8</td></tr>
-    <tr><td class="chk"><input type="checkbox" id="m-c4"></td><td>Combo marmita + refri (37,99) → Adoniran carne</td><td class="num">10,57</td><td class="num">+7</td><td class="num">23,5%</td><td class="num novo">+10</td></tr>
   </table></div>
-  <div class="box note"><p class="small"><strong>Correção sobre as marmitas: NÃO reverter o +10.</strong> No
-  Combo marmita + refri (o combo mais barato), a Costela e o Strogonoff de carne precisam exatamente de +10
-  para caber na margem. Nos outros quatro grupos de marmita, qualquer valor a partir de +0 já cabe. Então o
-  +10 que você aplicou fica. Se já tiver revertido, volte Costela e Strogonoff de carne para +10. O Pernil e a
-  Feijoada podem ficar como estiverem.</p></div>
+  <div class="box note"><p class="small"><strong>Combo marmita + refri: nada muda.</strong> A versão anterior pedia
+  Silvio +8 e Adoniran carne +10 porque eu tinha passado o refri pela régua de produção — errado pela sua regra
+  de mercadoria. Com o refri na régua própria, todas as marmitas cabem com o acréscimo de hoje. O +10 que você
+  pôs em Costela/Strogonoff de carne pode ficar (a régua é piso), mas ela não exige mais.</p></div>
 
   <h3>1C · Adicionais pagos</h3>
   <div class="tablewrap"><table>
@@ -147,48 +146,28 @@ input:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
 
 <section>
   <div class="secnum">1D</div>
-  <h2>Combos na régua — decidido por você em 17/09</h2>
-  <div class="box note"><p class="small"><strong>Suas decisões:</strong> (1) o acompanhamento do combo e do
-  "parceiro" é a <strong>porção individual</strong> — corrigido na nossa base (7 amarrações passaram das fichas
-  London/New York/Kentucky para as individuais; conferência do CMV ok); (2) <strong>combos seguem a
-  régua</strong>; (3) <strong>costelinha fica pela regra de âncora</strong> — sem mudança nos três itens.
-  Números recalculados com o custo corrigido. Nenhum destes combos está selecionado em campanha: edição direta.
-  A régua é piso: acréscimo que já está acima do mínimo fica como está.</p></div>
+  <h2>Combos — decidido por você em 17/09, refeito com a régua da mercadoria</h2>
+  <div class="box note"><p class="small"><strong>Suas decisões:</strong> (1) acompanhamento do combo e do
+  "parceiro" = <strong>porção individual</strong> (corrigido na base); (2) <strong>combos seguem a régua</strong>;
+  (3) <strong>costelinha pela âncora</strong> — sem mudança; (4) <strong>brownie e refri são mercadoria</strong>:
+  entram pela compra ÷ 0,724, sem mão de obra. <strong>Como o combo é conferido:</strong> preço mínimo =
+  produzido ÷ 0,223 + mercadoria ÷ 0,724, somando a opção +0 mais cara de cada grupo. A folga entre o preço de hoje
+  e esse mínimo é dividida entre os grupos que têm opção paga — assim <em>qualquer combinação</em> (ex.: Rubens +
+  batata, ou Silvio + Silvio) fica dentro da régua, não só cada opção sozinha. A régua é piso: acréscimo acima fica.</p></div>
 
   <div class="tablewrap"><table>
     <tr><th></th><th>Combo → o que muda</th><th>Hoje</th><th>Novo</th></tr>
-    <tr><td class="chk"><input type="checkbox" id="m-d1"></td><td><strong>2x Burgers Clássicos</strong> — preço (CMV hoje 24,4%)</td><td class="num">47,99</td><td class="num novo">52,99</td></tr>
-    <tr><td class="chk"><input type="checkbox" id="m-d2"></td><td>2x Burgers → escolha do 1º e do 2º lanche (os dois grupos)</td><td>Schumacher +3 · Ayrton +5 · Chaplin +6 · Rubens +6</td><td class="novo">Schumacher +5 · Ayrton +6 · Chaplin +10 · Rubens +10</td></tr>
-    <tr><td class="chk"><input type="checkbox" id="m-d3"></td><td><strong>Combo clássico</strong> + acompanhamento + bebida — preço</td><td class="num">44,99</td><td class="num novo">45,99</td></tr>
-    <tr><td class="chk"><input type="checkbox" id="m-d4"></td><td>Combo clássico → escolha do lanche</td><td>Schumacher +3 · Ayrton +5 · Chaplin +6 · Rubens +6</td><td class="novo">Schumacher +5 · Ayrton +6 · Chaplin +10 · Rubens +11</td></tr>
-    <tr><td class="chk"><input type="checkbox" id="m-d5"></td><td>Combo clássico → acompanhamento</td><td>Batata +2 · Frango +5</td><td class="novo">Batata +12 · Frango +11</td></tr>
-    <tr><td class="chk"><input type="checkbox" id="m-d6"></td><td><strong>Combo especial</strong> + acompanhamento + bebida — preço</td><td class="num">49,99</td><td class="num novo">52,99</td></tr>
-    <tr><td class="chk"><input type="checkbox" id="m-d7"></td><td>Combo especial → escolha do lanche</td><td>João Frango +2 · James Brown +4 · Mad Max +5 · Gaudério +12</td><td class="novo">João Frango +4 · James Brown +5 · Mad Max +7 · Gaudério +13</td></tr>
-    <tr><td class="chk"><input type="checkbox" id="m-d8"></td><td>Combo especial → acompanhamento</td><td>Batata +2 · Frango +5</td><td class="novo">Batata +12 · Frango +10</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="m-e1"></td><td><strong>2x Burgers Clássicos</strong> — preço (mínimo 52,44)</td><td class="num">47,99</td><td class="num novo">52,99</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="m-e2"></td><td>2x Burgers → 1º e 2º lanche (os dois grupos)</td><td>Schumacher +3 · Ayrton +5 · Chaplin +6 · Rubens +6</td><td class="novo">Schumacher +5 · Ayrton +6 · Chaplin +10 · Rubens +11</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="m-e3"></td><td><strong>Combo clássico</strong> (fica 44,99) → acompanhamento</td><td>Batata +2 · Frango +5</td><td class="novo">Batata +8 · Frango +7</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="m-e4"></td><td><strong>Combo especial</strong> (fica 49,99) → acompanhamento</td><td>Batata +2 · Frango +5</td><td class="novo">Batata +9 · Frango +7</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="m-e5"></td><td><strong>2x marmitas no desconto</strong> (fica 49,99) → 1ª e 2ª marmita</td><td>Silvio +5 · Adoniran carne +7</td><td class="novo">Silvio +7 · Adoniran carne +9</td></tr>
   </table></div>
-  <p class="small">Ficam como estão (já acima do mínimo): Nelson +0, Alain +5 e Jesse +6 nos combos de burger
-  clássico; Kf Citizen, Cheech, Honolulu, John Lennon e CDM no combo especial; anéis +0 e todas as bebidas.</p>
-
-  <div class="box">
-    <h3 style="margin-top:0">⚠️ Olhe antes de aplicar: a batata no combo sobe R$ 10</h3>
-    <p>Na porção individual, a batata custa R$ 3,86 e os anéis R$ 1,21. Como os anéis são a opção sem acréscimo,
-    a batata precisa carregar a diferença inteira: cada R$ 1 de custo pede R$ 4,48 de preço para manter os 22,3%.
-    Na prática, o cliente que hoje monta <strong>Nelson + batata + bebida por 46,99 passa a pagar 57,99</strong>.
-    Esse é o preço real da margem nesse caminho — qualquer arranjo (batata como opção base, por exemplo) chega
-    aos mesmos ~57,99. Se o número assustar, a saída não é baixar o acréscimo: é rever a gramatura da
-    batata individual com a Lana.</p>
-  </div>
-
-  <div class="box">
-    <h3 style="margin-top:0">🍫 Única escolha pendente: o brownie do Combo marmita + brownie + refri</h3>
-    <p>O brownie é mercadoria comprada a R$ 6,00 e sozinho puxa o combo para fora da régua. Dois caminhos:</p>
-    <div class="tablewrap"><table>
-      <tr><th>Caminho</th><th>Preço do combo</th><th>Acréscimos que mudam</th></tr>
-      <tr><td><strong>A — trocar o brownie pelo Salvador Dalí</strong> (ficha R$ 2,35) · recomendado</td><td>fica 46,99</td><td>Silvio +5→+9 · Adoniran carne +7→+11 · Agostinho carne +10→+11 · Costela +10→+12 · Adoniran frango +5→+6</td></tr>
-      <tr><td>B — manter o brownie</td><td>46,99 → <strong>55,99</strong></td><td>Pedro grelhado +1→+4 · Severino +3→+10 · Silvio +5→+17 · Bezerra frango +2→+8 · Bezerra carne +4→+9 · Adoniran frango +5→+14 · Adoniran carne +7→+19 · Agostinho frango +5→+7 · Agostinho carne +10→+19 · Costela +10→+19</td></tr>
-    </table></div>
-    <p class="small">No B, o Silvio nesse combo chegaria a 72,99. Me diz A ou B que eu registro e transformo em checklist.</p>
-  </div>
+  <p class="small"><strong>Sem mudança:</strong> preço do Combo clássico e do especial, todos os lanches deles,
+  Combo marmita + refri, <strong>Combo marmita + brownie + refri</strong> (mínimo 26,79 contra 46,99 — cabe com
+  folga em todas as marmitas), as bebidas e a costelinha.</p>
+  <p class="small">Por que 2x marmitas entrou: duas Silvio custam R$ 13,96 de comida e pedem 62,60; hoje saem por
+  59,99. Duas Adoniran carne pedem 66,55 e saem por 63,99.</p>
 </section>
 
 <section>
