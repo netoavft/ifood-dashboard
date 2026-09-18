@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Faxina da Famosa Marmita</title>
+<meta name="robots" content="noindex">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body style="margin:0">
+<meta charset="utf-8">
+<title>Faxina da Famosa Marmita</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<style>
+:root{
+  --bg:#f6f1e8; --surface:#fffdf8; --surface2:#f0e9db; --ink:#2b2118; --ink2:#5c5245;
+  --muted:#8a7c6b; --line:#e3d8c6; --accent:#c8102e; --accent-soft:#fbe9ec;
+  --good:#1c7c44; --good-soft:#e3f2e8; --warn:#a3630b; --warn-soft:#f8eeda;
+  --bad:#b3261e; --bad-soft:#f9e7e5; --chip:#efe6d6;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#211b13; --surface:#2b241a; --surface2:#352c20; --ink:#f1e9dc; --ink2:#cfc3b0;
+    --muted:#a2937e; --line:#443a2b; --accent:#f0596f; --accent-soft:#48222a;
+    --good:#59c98a; --good-soft:#22382c; --warn:#e0a33e; --warn-soft:#3d311f;
+    --bad:#ef6b61; --bad-soft:#42241f; --chip:#3a3123;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#211b13; --surface:#2b241a; --surface2:#352c20; --ink:#f1e9dc; --ink2:#cfc3b0;
+  --muted:#a2937e; --line:#443a2b; --accent:#f0596f; --accent-soft:#48222a;
+  --good:#59c98a; --good-soft:#22382c; --warn:#e0a33e; --warn-soft:#3d311f;
+  --bad:#ef6b61; --bad-soft:#42241f; --chip:#3a3123;
+}
+*{box-sizing:border-box}
+body{background:var(--bg); color:var(--ink); margin:0;
+  font-family:'Instrument Sans',system-ui,sans-serif; font-size:16px; line-height:1.55; padding-bottom:84px;}
+.wrap{max-width:1000px; margin:0 auto; padding:0 20px;}
+h1,h2,h3{font-family:'Archivo',system-ui,sans-serif; line-height:1.15; text-wrap:balance; margin:0;}
+h1{font-size:clamp(28px,5vw,40px); font-weight:800;}
+h2{font-size:clamp(19px,3vw,25px); font-weight:700; margin-bottom:4px;}
+h3{font-size:16px; font-weight:700; margin:16px 0 4px;}
+p{margin:.5em 0; max-width:78ch;}
+.eyebrow{font-size:12px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:var(--accent); margin-bottom:8px;}
+header.hero{padding:40px 0 6px;}
+.sub{color:var(--ink2); margin-top:10px; max-width:80ch;}
+.tiles{display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:12px; margin:22px 0 6px;}
+.tile{background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:13px 16px;}
+.tile .v{font-family:'Archivo'; font-weight:800; font-size:22px; font-variant-numeric:tabular-nums;}
+.tile .l{font-size:12.5px; color:var(--muted); margin-top:2px;}
+section{margin:36px 0;}
+.secnum{display:inline-block; background:var(--accent); color:#fff; font-family:'Archivo'; font-weight:700;
+  font-size:13px; border-radius:6px; padding:2px 9px; margin-bottom:8px;}
+:root[data-theme="dark"] .secnum{color:#211b13;}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .secnum{color:#211b13;} }
+.box{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:15px 18px; margin:14px 0;}
+.box.note{background:var(--surface2); border-style:dashed;}
+.small{font-size:13.5px; color:var(--ink2);}
+.tablewrap{overflow-x:auto; margin:12px 0; border:1px solid var(--line); border-radius:10px; background:var(--surface);}
+table{border-collapse:collapse; width:100%; min-width:640px; font-size:14px;}
+th{font-size:11.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted);
+  text-align:left; padding:9px 12px; border-bottom:1px solid var(--line); font-weight:600;}
+td{padding:8px 12px; border-bottom:1px solid var(--line); vertical-align:top;}
+tr:last-child td{border-bottom:none;}
+td.num,th.num{text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap;}
+td.chk{width:34px;}
+td.chk input{width:18px; height:18px; accent-color:var(--accent); cursor:pointer;}
+tr:has(input:checked) td{opacity:.55;}
+tr:has(input:checked) td.novo{text-decoration:line-through;}
+.novo{font-weight:700;}
+.chip{display:inline-block; background:var(--chip); border-radius:20px; padding:1px 10px; font-size:12px; font-weight:600; white-space:nowrap;}
+.chip.good{background:var(--good-soft); color:var(--good);}
+.chip.warn{background:var(--warn-soft); color:var(--warn);}
+.chip.bad{background:var(--bad-soft); color:var(--bad);}
+ul.lst{padding-left:20px; margin:.4em 0;} ul.lst li{margin:6px 0; max-width:80ch;}
+input:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+#bar{position:fixed; left:0; right:0; bottom:0; background:var(--surface);
+  border-top:2px solid var(--accent); padding:10px 20px; z-index:50;}
+#bar .in{max-width:1000px; margin:0 auto; display:flex; justify-content:space-between; align-items:center; gap:14px; flex-wrap:wrap;}
+#bar .lbl{font-size:13px; color:var(--muted);}
+#bar .num{font-family:'Archivo'; font-weight:800; font-variant-numeric:tabular-nums;}
+@media (prefers-reduced-motion: reduce){ *{transition:none !important;} }
+details{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:12px 18px; margin:14px 0;}
+details summary{cursor:pointer; font-weight:600;}
+.opt{display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:12px; margin:12px 0;}
+.opt .box{margin:0;}
+.opt h3{margin-top:0;}
+</style>
+
+<div class="wrap">
+<header class="hero">
+  <div class="eyebrow">A Famosa Marmita · cardápio lido pela API do portal e Hits lido campanha por campanha · 18/09/2026</div>
+  <h1>Faxina da Famosa Marmita</h1>
+  <p class="sub">Mesmo norte da Burger: <strong>um item de cada, cardápio limpo e funcional</strong>. A Fase 1 não mexe em
+  preço nem em Hits e pode ser feita hoje. A Fase 2 junta os clones e reorganiza os caldos, e depende de uma decisão sua
+  (seção 2). Os preços em si entram na revisão pela margem que faremos depois da correção da base.</p>
+  <div class="tiles">
+    <div class="tile"><div class="v">36 → 24</div><div class="l">itens no cardápio, hoje → depois das duas fases</div></div>
+    <div class="tile"><div class="v">7 → 6</div><div class="l">categorias</div></div>
+    <div class="tile"><div class="v">6</div><div class="l">campanhas Hits ativas (R$ 5 e R$ 8 × Sempre, Almoço, Jantar)</div></div>
+    <div class="tile"><div class="v">1</div><div class="l">decisão sua: o preço único de cada marmita</div></div>
+  </div>
+</header>
+
+<section>
+  <h2>O que achei</h2>
+  <ul class="lst">
+    <li><strong>3 pares de clones</strong> na categoria "Mais Pedidos Do Ifood com Desconto !!!": marmita de frango, marmita Angus e
+    caldos, cada um em versão "Água Verde e Região" e "Curitiba Geral", com R$ 8 de diferença. <strong>Os seis usam o mesmo código
+    PDV</strong> e caem num único produto do Saipos ("FAMOSA MARMITA (ESCOLHA O ITEM)"): quem diz o prato é a escolha.</li>
+    <li><strong>O clone barato vende mais que o original</strong> (funil do iFood, 03/08 a 13/09, 6 semanas):
+      <div class="tablewrap"><table>
+        <tr><th>Item</th><th class="num">Versão Água Verde</th><th class="num">Versão Curitiba</th></tr>
+        <tr><td>Marmita de frango</td><td class="num">32,99 · 129 un · 815 visitas</td><td class="num">24,99 · <strong>285 un</strong> · 1.815 visitas</td></tr>
+        <tr><td>Marmita Angus</td><td class="num">36,99 · 101 un</td><td class="num">28,99 · <strong>112 un</strong></td></tr>
+        <tr><td>Caldos</td><td class="num">35,99 · 21 un</td><td class="num">27,99 · 15 un</td></tr>
+      </table></div></li>
+    <li><strong>Categoria "As Mais Pedidas" desligada inteira</strong>, com 7 marmitas avulsas paradas. A Milanesa aparece duas vezes, com o mesmo PDV (almoço e jantar).</li>
+    <li><strong>Caldos cadastrados de 4 jeitos</strong>: dois cadastros com escolha (os clones) e mais 5 avulsos, em que Canja e Mandioquinha têm uma
+    segunda posição só para a tarde (14h30–18h), com outro preço.</li>
+    <li><strong>Vagas do Hits desperdiçadas</strong>:
+      <ul class="lst">
+        <li>As campanhas R$ 5 no Almoço e R$ 5 no Jantar usam o Caldo de mandioquinha da posição da tarde, que só existe das 14h30 às 18h.</li>
+        <li>A R$ 5 Sempre ativa usa 1 das 3 vagas.</li>
+        <li>As faixas de R$ 10 e R$ 13 não existem na Famosa (confirmado com duas buscas diferentes cada).</li>
+      </ul></li>
+    <li><strong>Grupos repetidos nos caldos</strong>: "Deseja turbinar seu caldo?", "pão brioche" e "colher" existem em 3 cópias cada, com as mesmas opções.</li>
+    <li><strong>"Chuva!" a R$ 0,01</strong>, e entrou em 4 pedidos em 60 dias. Na Burger você subiu para R$ 100 pelo mesmo motivo.</li>
+    <li><strong>Nomes que o cliente vê com "!!!"</strong>, "Curitba" escrito errado, pontos no fim ("Canja de galinha.") e espaços dentro de parênteses.</li>
+  </ul>
+</section>
+
+<section>
+  <div class="secnum">1</div>
+  <h2>Fase 1 · Pode fazer hoje (sem mexer em preço nem em Hits)</h2>
+  <div class="tablewrap"><table>
+    <tr><th></th><th>Onde → o que</th><th>Hoje</th><th>Depois</th><th>Por quê</th></tr>
+    <tr><td class="chk"><input type="checkbox" id="f1"></td><td>Categoria <strong>As Mais Pedidas</strong> (7 itens)</td><td>desligada</td><td class="novo"><strong>excluir a categoria</strong></td><td class="small">nenhum dos 7 está em campanha; estão indisponíveis</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="f2"></td><td>Observações → Chuva!</td><td>R$ 0,01</td><td class="novo">R$ 100,00</td><td class="small">mesma regra da Burger: aviso, não produto</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="f3"></td><td>Caldos (os 5 avulsos e os 2 cadastros com escolha) → grupos "turbinar", "pão brioche" e "colher"</td><td>3 cópias de cada</td><td class="novo">um grupo de cada, aplicado a todos os caldos</td><td class="small">mesmo trabalho que fizemos na Burger (U1)</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="f4"></td><td>Combo marmita + brownie + refri → talheres</td><td>sem o grupo</td><td class="novo">adicionar "Você precisa de talheres?"</td><td class="small">os outros combos e marmitas já têm</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="f5"></td><td>2x Marmitas no desconto → talheres</td><td>sem o grupo</td><td class="novo">adicionar "Você precisa de talheres?"</td><td class="small">idem</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="f6"></td><td>Nomes de grupo com "!!!"</td><td>"Escolha seu Caldinho do Famosa !!!"</td><td class="novo">"Escolha seu caldo"</td><td class="small">o cliente vê esse texto</td></tr>
+  </table></div>
+  <p class="small">Os marcadores "Xxx" e "Yyy" nos grupos compartilhados (bebida, sobremesa, talheres, turbinar) ficam: são a sua forma de enxergar o grupo dentro do item.
+  Se preferir tirar, é só renomear. Cada um é um grupo só, então a mudança vale para todos os itens.</p>
+</section>
+
+<section>
+  <div class="secnum">2</div>
+  <h2>A decisão: qual preço fica quando os clones virarem um item só</h2>
+  <p>Juntar é o que limpa o cardápio: de 6 cadastros para 3. A pergunta é qual dos dois preços sobrevive. A margem não trava nenhum
+  dos dois: pela ficha de hoje (ainda antes da sua correção da base), a marmita mais cara de frango custa R$ 4,56 e a de Angus R$ 5,02.
+  Mesmo no preço mais baixo, com o Hits aplicado, o custo fica abaixo de 22% do preço.</p>
+  <div class="opt">
+    <div class="box">
+      <h3>A · Fica o preço da versão Curitiba (recomendo)</h3>
+      <p class="small">Frango 24,99 · Angus 28,99 · Caldos 27,99. Cliente longe paga o mesmo de hoje. Cliente perto paga com Hits: frango 19,99 na R$ 5 e
+      Angus/caldos 20,99/19,99 na R$ 8. Esse mesmo cliente perto <strong>já consegue</strong> comprar o clone por esses valores hoje.</p>
+      <p class="small"><strong>Risco medido:</strong> se todo cliente da versão Água Verde continuar comprando, ele paga menos. São 129 frangos × R$ 5,
+      101 Angus × R$ 8 e 21 caldos × R$ 8 = R$ 1.621 em 6 semanas, <strong>cerca de R$ 1,2 mil/mês</strong>.
+      Preserva os 412 pedidos da versão Curitiba (62% do volume).</p>
+    </div>
+    <div class="box">
+      <h3>B · Fica o preço da versão Água Verde</h3>
+      <p class="small">Frango 32,99 · Angus 36,99 · Caldos 35,99. Cliente perto paga 24,99/28,99/27,99 com Hits R$ 8, como hoje.
+      <strong>Cliente a mais de 4 km</strong> (o Hits não chega até ele) passa a pagar R$ 8 a mais.</p>
+      <p class="small"><strong>Risco não medido:</strong> os 412 pedidos da versão Curitiba em 6 semanas. Não há como saber quantos são de longe,
+      porque o iFood não informa a distância por item.</p>
+    </div>
+  </div>
+  <p class="small">Qualquer que seja a escolha, o riscado dos clones sai ou fica realista. Hoje o frango Curitiba mostra "De 42,99 por 24,99": 42% de desconto
+  sobre um preço que nunca foi cobrado.</p>
+</section>
+
+<section>
+  <div class="secnum">3</div>
+  <h2>Fase 2 · Depois da sua decisão (checklist com o caminho A)</h2>
+  <p class="small">A ordem importa: primeiro o item que fica entra nas campanhas, depois o outro sai. Assim nenhuma vaga fica vazia, a regra que você
+  usou na Burger. Os valores de Hits abaixo assumem o caminho A; se escolher B, eu refaço esta tabela.</p>
+  <div class="tablewrap"><table>
+    <tr><th></th><th>Onde → o que</th><th>Hoje</th><th>Depois</th><th>Por quê</th></tr>
+    <tr><td class="chk"><input type="checkbox" id="g1"></td><td>Frango Curitiba → renomear</td><td>"Escolha sua Marmita de Frango do Famosa! (Curitba Geral)"</td><td class="novo">"Famosa Marmita de Frango"</td><td class="small">já está na R$ 5 Sempre e na R$ 5 Jantar</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="g2"></td><td>Hits R$ 5 no Almoço → incluir a Famosa Marmita de Frango</td><td>Dalí + caldo da tarde</td><td class="novo">Dalí + frango + (vaga do caldo, ver g8)</td><td class="small">completa a Marmita de Frango nos 3 períodos da R$ 5</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="g3"></td><td>Hits R$ 8 Sempre e R$ 8 Almoço → tirar o Frango Água Verde</td><td>Frango AV 32,99 → 24,99</td><td class="novo">vaga livre para a Angus única (g5)</td><td class="small">o frango passa a ter desconto pela R$ 5</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="g4"></td><td>Frango Água Verde</td><td>item ativo</td><td class="novo"><strong>excluir</strong></td><td class="small">só depois de g1–g3</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="g5"></td><td>Angus Curitiba → renomear e pôr na R$ 8 Sempre e na R$ 8 Almoço</td><td>"…Carne Angus - (Curitiba Geral)" só na R$ 8 Jantar</td><td class="novo">"Famosa Marmita de Carne Angus" nos 3 períodos da R$ 8</td><td class="small">ocupa as vagas do Frango AV e da Angus AV</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="g6"></td><td>Angus Água Verde → tirar da R$ 8 Sempre, Almoço e Jantar e excluir</td><td>item ativo</td><td class="novo"><strong>excluir</strong></td><td class="small">depois de g5</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="g7"></td><td>Caldos: o cadastro com escolha que fica</td><td>dois clones (35,99 e 27,99), o de 35,99 na R$ 8 Sempre e Almoço</td><td class="novo">um "Caldos da Famosa" a 27,99, na R$ 8 Sempre e Almoço; o outro excluído</td><td class="small">mesma lógica das marmitas</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="g8"></td><td>Caldos avulsos: tirar as posições da tarde</td><td>Canja 26,99 + Canja 25,99 (tarde) · Mandioquinha 25,99 + 24,99 (tarde)</td><td class="novo">Canja e Mandioquinha em uma posição cada, o dia todo; a Mandioquinha a 24,99 na R$ 5 Sempre, Almoço e Jantar</td><td class="small">a posição da tarde ocupa vagas da R$ 5 no almoço e no jantar sem estar à venda</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="g9"></td><td>Categorias: renomear</td><td>"Mais Pedidos Do Ifood com Desconto !!!" · "Combo no precinho!!"</td><td class="novo">"Marmitas" · "Combos"</td><td class="small">nome que o cliente entende</td></tr>
+  </table></div>
+  <p class="small">Resultado: Marmitas (2) · Combos (3) · Caldos (1 com escolha + 3 avulsos) · Bebidas (11) · Sobremesas (3) · Observações (1) = 24 itens em 6 categorias.
+  Se as bebidas 2 L (3 vendas em 60 dias) e o chá mate (1 venda) também saírem, ficam 20 itens. Essa decisão fica com você.</p>
+</section>
+
+<section>
+  <h2>Para conferir no Saipos</h2>
+  <ul class="lst">
+    <li><strong>Sobremesa do "Vai encerrar sem final feliz?"</strong>: entre 18/07 e 13/09, 21 sobremesas (Brownie 13, Dalí 5, Torta 3) entraram no Saipos
+    com o nome cru do iFood (código 1000160). Os códigos atuais do grupo (Brownie 23011966, Dalí 6556912, Torta 23012213) existem em vendas. Vale ver na tela
+    se o problema já parou.</li>
+    <li>Brownie avulso a 12,99 e como adicional a 11,99. Escolher um preço só entra na revisão de preços.</li>
+  </ul>
+</section>
+
+<details>
+  <summary>Mapa do Hits hoje (lido nos drawers em 18/09)</summary>
+  <div class="tablewrap"><table>
+    <tr><th>Campanha</th><th>Itens (De → Por)</th><th class="num">Pedidos 30 dias</th></tr>
+    <tr><td>R$ 5 · Sempre ativa</td><td>Frango Curitiba 24,99 → 19,99 · <em>2 vagas livres</em></td><td class="num">59</td></tr>
+    <tr><td>R$ 5 · Almoço</td><td>Salvador Dalí 19,99 → 14,99 · Caldo de mandioquinha (posição da tarde) 24,99 → 19,99</td><td class="num">2</td></tr>
+    <tr><td>R$ 5 · Jantar</td><td>Frango Curitiba 24,99 → 19,99 · Caldo de mandioquinha (posição da tarde) 24,99 → 19,99</td><td class="num">20</td></tr>
+    <tr><td>R$ 8 · Sempre ativa</td><td>Angus AV 36,99 → 28,99 · Frango AV 32,99 → 24,99 · Caldos AV 35,99 → 27,99</td><td class="num">53</td></tr>
+    <tr><td>R$ 8 · Almoço</td><td>Angus AV · Frango AV · Caldos AV (mesmos valores)</td><td class="num">11</td></tr>
+    <tr><td>R$ 8 · Jantar</td><td>2x Marmitas 37,99 → 29,99 · Angus AV 36,99 → 28,99 · Angus Curitiba 28,99 → 20,99</td><td class="num">36</td></tr>
+  </table></div>
+  <p class="small">Raio de todas: até 4 km. A variante "R$ 8 (+R$ 2 iFood)" espelha os itens da principal.</p>
+</details>
+</div>
+
+<div id="bar"><div class="in">
+  <div><span class="num" id="feitas">0</span> <span class="lbl">de <span id="total">?</span> passos feitos</span></div>
+  <div class="lbl">progresso salvo neste navegador</div>
+</div></div>
+
+<script>
+(function(){
+  var caixas = Array.prototype.slice.call(document.querySelectorAll('td.chk input[type=checkbox]'));
+  document.getElementById('total').textContent = caixas.length;
+  function atualiza(){
+    var feitas=0;
+    caixas.forEach(function(c){
+      if(c.checked) feitas++;
+      try{ localStorage.setItem('fm:'+c.id, c.checked?'1':'0'); }catch(e){}
+    });
+    document.getElementById('feitas').textContent = feitas;
+  }
+  caixas.forEach(function(c){
+    try{ if(localStorage.getItem('fm:'+c.id)==='1') c.checked=true; }catch(e){}
+    c.addEventListener('change', atualiza);
+  });
+  atualiza();
+})();
+</script>
+
+</body>
+</html>
