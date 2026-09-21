@@ -82,148 +82,145 @@ input:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
 @media (prefers-reduced-motion: reduce){ *{transition:none !important;} }
 details{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:12px 18px; margin:14px 0;}
 details summary{cursor:pointer; font-weight:600;}
-.opt{display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:12px; margin:12px 0;}
-.opt .box{margin:0;}
-.opt h3{margin-top:0;}
+.nome{font-family:ui-monospace,Consolas,monospace; font-size:13px; background:var(--surface2); border-radius:4px; padding:1px 5px; white-space:normal;}
+.onde{font-size:12px; color:var(--muted); display:block; margin-bottom:2px; text-transform:uppercase; letter-spacing:.05em;}
+td.acao{font-weight:600;}
+ul.mapa{padding-left:20px; margin:.3em 0;} ul.mapa li{margin:3px 0;}
+.cols{display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:14px;}
+.cols .box{margin:0;}
 </style>
 
 <div class="wrap">
 <header class="hero">
-  <div class="eyebrow">A Famosa Marmita · cardápio lido pela API do portal e Hits lido campanha por campanha · 18/09/2026</div>
+  <div class="eyebrow">A Famosa Marmita · cardápio lido pela API em 18/09 · Hits lido campanha por campanha · caminho B decidido em 21/09</div>
   <h1>Faxina da Famosa Marmita</h1>
-  <p class="sub">Mesmo norte da Burger: <strong>um item de cada, cardápio limpo e funcional</strong>. A Fase 1 não mexe em
-  preço nem em Hits e pode ser feita hoje. A Fase 2 junta os clones e reorganiza os caldos, pelo <strong>caminho B</strong>, que você decidiu em 21/09. Os preços em si entram na revisão pela margem que faremos depois da correção da base.</p>
+  <p class="sub">Um item de cada, cardápio limpo. Cada linha diz <strong>onde</strong> fazer (categoria do cardápio ou campanha do Hits) e o
+  <strong>nome exato</strong> do item como aparece hoje no portal. Faça os passos na ordem: as campanhas mudam <strong>antes</strong> das exclusões,
+  para nenhuma vaga do Hits ficar vazia.</p>
   <div class="tiles">
-    <div class="tile"><div class="v">36 → 24</div><div class="l">itens no cardápio, hoje → depois das duas fases</div></div>
+    <div class="tile"><div class="v">36 → 24</div><div class="l">itens no cardápio</div></div>
     <div class="tile"><div class="v">7 → 6</div><div class="l">categorias</div></div>
-    <div class="tile"><div class="v">6</div><div class="l">campanhas Hits ativas (R$ 5 e R$ 8 × Sempre, Almoço, Jantar)</div></div>
-    <div class="tile"><div class="v">B</div><div class="l">decidido em 21/09: fica o preço da versão Água Verde</div></div>
+    <div class="tile"><div class="v">5</div><div class="l">passos, 19 marcações</div></div>
+    <div class="tile"><div class="v">B</div><div class="l">fica o preço da versão Água Verde (32,99 · 36,99 · 35,99)</div></div>
   </div>
 </header>
 
 <section>
-  <h2>O que achei</h2>
-  <ul class="lst">
-    <li><strong>3 pares de clones</strong> na categoria "Mais Pedidos Do Ifood com Desconto !!!": marmita de frango, marmita Angus e
-    caldos, cada um em versão "Água Verde e Região" e "Curitiba Geral", com R$ 8 de diferença. <strong>Os seis usam o mesmo código
-    PDV</strong> e caem num único produto do Saipos ("FAMOSA MARMITA (ESCOLHA O ITEM)"): quem diz o prato é a escolha.</li>
-    <li><strong>O clone barato vende mais que o original</strong> (funil do iFood, 03/08 a 13/09, 6 semanas):
-      <div class="tablewrap"><table>
-        <tr><th>Item</th><th class="num">Versão Água Verde</th><th class="num">Versão Curitiba</th></tr>
-        <tr><td>Marmita de frango</td><td class="num">32,99 · 129 un · 815 visitas</td><td class="num">24,99 · <strong>285 un</strong> · 1.815 visitas</td></tr>
-        <tr><td>Marmita Angus</td><td class="num">36,99 · 101 un</td><td class="num">28,99 · <strong>112 un</strong></td></tr>
-        <tr><td>Caldos</td><td class="num">35,99 · 21 un</td><td class="num">27,99 · 15 un</td></tr>
-      </table></div></li>
-    <li><strong>Categoria "As Mais Pedidas" desligada inteira</strong>, com 7 marmitas avulsas paradas. A Milanesa aparece duas vezes, com o mesmo PDV (almoço e jantar).</li>
-    <li><strong>Caldos cadastrados de 4 jeitos</strong>: dois cadastros com escolha (os clones) e mais 5 avulsos, em que Canja e Mandioquinha têm uma
-    segunda posição só para a tarde (14h30–18h), com outro preço.</li>
-    <li><strong>Vagas do Hits desperdiçadas</strong>:
-      <ul class="lst">
-        <li>As campanhas R$ 5 no Almoço e R$ 5 no Jantar usam o Caldo de mandioquinha da posição da tarde, que só existe das 14h30 às 18h.</li>
-        <li>A R$ 5 Sempre ativa usa 1 das 3 vagas.</li>
-        <li>As faixas de R$ 10 e R$ 13 não existem na Famosa (confirmado com duas buscas diferentes cada).</li>
-      </ul></li>
-    <li><strong>Grupos repetidos nos caldos</strong>: "Deseja turbinar seu caldo?", "pão brioche" e "colher" existem em 3 cópias cada, com as mesmas opções.</li>
-    <li><strong>"Chuva!" a R$ 0,01</strong>, e entrou em 4 pedidos em 60 dias. Na Burger você subiu para R$ 100 pelo mesmo motivo.</li>
-    <li><strong>Nomes que o cliente vê com "!!!"</strong>, "Curitba" escrito errado, pontos no fim ("Canja de galinha.") e espaços dentro de parênteses.</li>
-  </ul>
-</section>
-
-<section>
   <div class="secnum">1</div>
-  <h2>Fase 1 · Pode fazer hoje (sem mexer em preço nem em Hits)</h2>
+  <h2>Passo 1 · Caldos avulsos (categoria "Caldos")</h2>
+  <p class="small">Hoje Canja e Mandioquinha existem duas vezes cada: uma posição para almoço e noite e outra só para a tarde. Ficam uma de cada,
+  o dia todo. Os nomes são parecidos, então <strong>confira pelo preço</strong>.</p>
   <div class="tablewrap"><table>
-    <tr><th></th><th>Onde → o que</th><th>Hoje</th><th>Depois</th><th>Por quê</th></tr>
-    <tr><td class="chk"><input type="checkbox" id="f1"></td><td>Categoria <strong>As Mais Pedidas</strong> (7 itens)</td><td>desligada</td><td class="novo"><strong>excluir a categoria</strong></td><td class="small">nenhum dos 7 está em campanha; estão indisponíveis</td></tr>
-    <tr><td class="chk"><input type="checkbox" id="f2"></td><td>Observações → Chuva!</td><td>R$ 0,01</td><td class="novo">R$ 100,00</td><td class="small">mesma regra da Burger: aviso, não produto</td></tr>
-    <tr><td class="chk"><input type="checkbox" id="f3"></td><td>Caldos (os 5 avulsos e os 2 cadastros com escolha) → grupos "turbinar", "pão brioche" e "colher"</td><td>3 cópias de cada</td><td class="novo">um grupo de cada, aplicado a todos os caldos</td><td class="small">mesmo trabalho que fizemos na Burger (U1)</td></tr>
-    <tr><td class="chk"><input type="checkbox" id="f4"></td><td>Combo marmita + brownie + refri → talheres</td><td>sem o grupo</td><td class="novo">adicionar "Você precisa de talheres?"</td><td class="small">se o portal só deixar como obrigatória, <strong>pule</strong>: é compartilhado e ficaria obrigatório nas outras marmitas</td></tr>
-    <tr><td class="chk"><input type="checkbox" id="f5"></td><td>2x Marmitas no desconto → talheres</td><td>sem o grupo</td><td class="novo">adicionar "Você precisa de talheres?"</td><td class="small">idem</td></tr>
-    <tr><td class="chk"><input type="checkbox" id="f6"></td><td>Nomes de grupo com "!!!"</td><td>"Escolha seu Caldinho do Famosa !!!"</td><td class="novo">"Escolha seu caldo"</td><td class="small">o cliente vê esse texto</td></tr>
+    <tr><th></th><th>Onde · item (nome exato de hoje)</th><th>O que fazer</th><th>Como fica</th></tr>
+    <tr><td class="chk"><input type="checkbox" id="c1"></td><td><span class="onde">Cardápio › categoria "Caldos"</span><span class="nome">Canja de galinha.</span> · <strong>26,99</strong> (com ponto no fim)</td><td class="acao">Mudar a disponibilidade para o dia todo</td><td class="small">Canja 26,99 à venda o dia inteiro</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="c2"></td><td><span class="onde">Cardápio › categoria "Caldos"</span><span class="nome">Caldo de mandioquinha (Batata Salsa).</span> · <strong>24,99</strong> (De 32,99) · hoje só 14h30–18h</td><td class="acao">Mudar a disponibilidade para o dia todo</td><td class="small">Mandioquinha 24,99 o dia inteiro. É a que está no Hits R$ 5 Almoço e R$ 5 Jantar</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="c3"></td><td><span class="onde">Cardápio › categoria "Caldos"</span><span class="nome">Canja de galinha</span> · <strong>25,99</strong> (De 33,99) · só 14h30–18h</td><td class="acao"><strong>Excluir</strong></td><td class="small">só depois de c1</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="c4"></td><td><span class="onde">Cardápio › categoria "Caldos"</span><span class="nome">Caldo de mandioquinha (Batata Salsa).</span> · <strong>25,99</strong> (sem riscado)</td><td class="acao"><strong>Excluir</strong></td><td class="small">só depois de c2. Não está em nenhuma campanha</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="c5"></td><td><span class="onde">Cardápio › categoria "Caldos"</span><span class="nome">Canja de galinha.</span> e <span class="nome">Caldo de mandioquinha (Batata Salsa).</span></td><td class="acao">Tirar o ponto do fim do nome</td><td class="small">"Canja de galinha" · "Caldo de mandioquinha (batata salsa)"</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="c6"></td><td><span class="onde">Cardápio › categoria "Caldos"</span><span class="nome">Caldo de mandioquinha ( Batata Salsa ) com costela desfiada</span> · 29,99</td><td class="acao">Nada no preço; só tirar os espaços dentro dos parênteses</td><td class="small">"Caldo de mandioquinha (batata salsa) com costela desfiada"</td></tr>
   </table></div>
-  <p class="small">Os marcadores "Xxx" e "Yyy" nos grupos compartilhados (bebida, sobremesa, talheres, turbinar) ficam: são a sua forma de enxergar o grupo dentro do item.
-  Se preferir tirar, é só renomear. Cada um é um grupo só, então a mudança vale para todos os itens.</p>
 </section>
 
 <section>
   <div class="secnum">2</div>
-  <h2>A decisão: qual preço fica quando os clones virarem um item só — <span style="color:var(--good)">decidido: B</span></h2>
-  <p>Juntar é o que limpa o cardápio: de 6 cadastros para 3. A pergunta é qual dos dois preços sobrevive. A margem não trava nenhum
-  dos dois: pela ficha de hoje (ainda antes da sua correção da base), a marmita mais cara de frango custa R$ 4,56 e a de Angus R$ 5,02.
-  Mesmo no preço mais baixo, com o Hits aplicado, o custo fica abaixo de 22% do preço.</p>
-  <div class="opt">
-    <div class="box">
-      <h3>A · Fica o preço da versão Curitiba</h3>
-      <p class="small">Frango 24,99 · Angus 28,99 · Caldos 27,99. Cliente longe paga o mesmo de hoje. Cliente perto paga com Hits: frango 19,99 na R$ 5 e
-      Angus/caldos 20,99/19,99 na R$ 8. Esse mesmo cliente perto <strong>já consegue</strong> comprar o clone por esses valores hoje.</p>
-      <p class="small"><strong>Risco medido:</strong> se todo cliente da versão Água Verde continuar comprando, ele paga menos. São 129 frangos × R$ 5,
-      101 Angus × R$ 8 e 21 caldos × R$ 8 = R$ 1.621 em 6 semanas, <strong>cerca de R$ 1,2 mil/mês</strong>.
-      Preserva os 412 pedidos da versão Curitiba (62% do volume).</p>
-    </div>
-    <div class="box">
-      <h3>B · Fica o preço da versão Água Verde ✓ escolhido</h3>
-      <p class="small">Frango 32,99 · Angus 36,99 · Caldos 35,99. Cliente perto paga 24,99/28,99/27,99 com Hits R$ 8, como hoje.
-      <strong>Cliente a mais de 4 km</strong> (o Hits não chega até ele) passa a pagar R$ 8 a mais.</p>
-      <p class="small"><strong>Risco não medido:</strong> os 412 pedidos da versão Curitiba em 6 semanas. Não há como saber quantos são de longe,
-      porque o iFood não informa a distância por item.</p>
-    </div>
-  </div>
-  <p class="small">Qualquer que seja a escolha, o riscado dos clones sai ou fica realista. Hoje o frango Curitiba mostra "De 42,99 por 24,99": 42% de desconto
-  sobre um preço que nunca foi cobrado.</p>
+  <h2>Passo 2 · Hits (antes de excluir qualquer marmita)</h2>
+  <p class="small">Caminho: <strong>Promoções › Hits</strong>, buscar a campanha pelo nome e abrir. As campanhas R$ 8 Sempre ativa, R$ 8 no almoço e
+  R$ 5 no almoço <strong>não mudam</strong>.</p>
+  <div class="tablewrap"><table>
+    <tr><th></th><th>Onde · item (nome exato de hoje)</th><th>O que fazer</th><th>Como fica</th></tr>
+    <tr><td class="chk"><input type="checkbox" id="h1"></td><td><span class="onde">Hits › campanha "Hits com R$8 OFF no Jantar"</span>Remover <span class="nome">Escolha sua Famosa Marmita de Carne Angus - (Curitiba Geral)</span> · 28,99 (De 46,99)</td><td class="acao">1º remover</td><td class="small">libera a vaga</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="h2"></td><td><span class="onde">Hits › campanha "Hits com R$8 OFF no Jantar"</span>Adicionar <span class="nome">Escolha sua Marmita de Frango do Famosa ! ( Água Verde E Região )</span> · 32,99</td><td class="acao">2º adicionar</td><td class="small">fica: 2x Marmitas no desconto · Marmita Angus Água Verde · Marmita de Frango Água Verde</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="h3"></td><td><span class="onde">Hits › campanha "Hits com R$ 5 OFF - Sempre ativa"</span>Remover <span class="nome">Escolha sua Marmita de Frango do Famosa! (Curitba Geral)</span> · 24,99 (De 42,99)<br>Adicionar <span class="nome">Caldo de mandioquinha (Batata Salsa).</span> · <strong>24,99</strong> (De 32,99)<br>Adicionar <span class="nome">Salvador dalí (Cheese cake)</span> · 19,99</td><td class="acao">Remover 1, adicionar 2</td><td class="small">fica: Caldo de mandioquinha · Salvador dalí</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="h4"></td><td><span class="onde">Hits › campanha "Hits com R$5 OFF no Jantar"</span>Remover <span class="nome">Escolha sua Marmita de Frango do Famosa! (Curitba Geral)</span> · 24,99 (De 42,99)<br>Adicionar <span class="nome">Salvador dalí (Cheese cake)</span> · 19,99</td><td class="acao">Remover 1, adicionar 1</td><td class="small">fica: Caldo de mandioquinha · Salvador dalí</td></tr>
+  </table></div>
+  <p class="small">A marmita de frango de 32,99 não entra na R$ 5 (é da faixa R$ 8), por isso a vaga dela vai para o Dalí. Cada campanha de R$ 5 fica com
+  uma vaga livre, para um salgado de 15 a 24,99 que entra junto com a revisão de preços.</p>
 </section>
 
 <section>
   <div class="secnum">3</div>
-  <h2>Fase 2 · Checklist pelo caminho B</h2>
-  <p class="small">Ficam as versões Água Verde (frango 32,99 · Angus 36,99 · caldos 35,99). Elas já estão na R$ 8 Sempre ativa e na R$ 8 Almoço,
-  então o cliente perto continua pagando 24,99 / 28,99 / 27,99. A ordem importa: <strong>primeiro a campanha, depois a exclusão</strong>,
-  para nenhuma vaga ficar vazia.</p>
+  <h2>Passo 3 · Excluir os 3 clones de Curitiba (categoria "Mais Pedidos Do Ifood com Desconto !!!")</h2>
+  <p class="small">Todos ficam na mesma categoria dos originais. <strong>Os que saem são os de menor preço e com "Curitiba" no nome.</strong></p>
   <div class="tablewrap"><table>
-    <tr><th></th><th>Onde → o que</th><th>Hoje</th><th>Depois</th><th>Por quê</th></tr>
-    <tr><td class="chk"><input type="checkbox" id="b1"></td><td>Hits <strong>R$ 8 no Jantar</strong> → tirar a Angus Curitiba e pôr a Marmita de Frango Água Verde</td><td>2x Marmitas · Angus AV · Angus Curitiba</td><td class="novo">2x Marmitas · Angus AV · Frango AV</td><td class="small">no jantar a Angus fica uma vez só e o frango entra</td></tr>
-    <tr><td class="chk"><input type="checkbox" id="b2"></td><td>Hits <strong>R$ 5 Sempre ativa</strong> → tirar o Frango Curitiba, pôr Mandioquinha e Salvador Dalí</td><td>Frango Curitiba</td><td class="novo">Mandioquinha · Salvador Dalí</td><td class="small">o frango de 32,99 é da faixa R$ 8 e não entra na R$ 5</td></tr>
-    <tr><td class="chk"><input type="checkbox" id="b3"></td><td>Hits <strong>R$ 5 no Jantar</strong> → tirar o Frango Curitiba, pôr Salvador Dalí</td><td>Frango Curitiba · Mandioquinha</td><td class="novo">Mandioquinha · Salvador Dalí</td><td class="small">mesma troca</td></tr>
-    <tr><td class="chk"><input type="checkbox" id="b4"></td><td>Frango Curitiba · Angus Curitiba · Caldos Curitiba</td><td>3 itens ativos</td><td class="novo"><strong>excluir os 3</strong></td><td class="small">só depois de b1–b3; o Caldos Curitiba não está em campanha</td></tr>
-    <tr><td class="chk"><input type="checkbox" id="b5"></td><td>Os 3 que ficam → renomear</td><td>"Escolha sua Marmita de Frango do Famosa ! ( Água Verde E Região )" e parecidos</td><td class="novo">"Famosa Marmita de Frango" · "Famosa Marmita de Carne Angus" · "Caldos da Famosa"</td><td class="small">sem "!!!" e sem a região no nome</td></tr>
-    <tr><td class="chk"><input type="checkbox" id="b6"></td><td>Categorias → renomear</td><td>"Mais Pedidos Do Ifood com Desconto !!!" · "Combo no precinho!!"</td><td class="novo">"Marmitas" · "Combos"</td><td class="small">nome que o cliente entende</td></tr>
+    <tr><th></th><th>Onde · item (nome exato de hoje)</th><th>O que fazer</th><th>Como fica</th></tr>
+    <tr><td class="chk"><input type="checkbox" id="x1"></td><td><span class="onde">Cardápio › categoria "Mais Pedidos Do Ifood com Desconto !!!"</span><span class="nome">Escolha sua Marmita de Frango do Famosa! (Curitba Geral)</span> · 24,99 (De 42,99)</td><td class="acao"><strong>Excluir</strong></td><td class="small">só depois de h3 e h4</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="x2"></td><td><span class="onde">Cardápio › categoria "Mais Pedidos Do Ifood com Desconto !!!"</span><span class="nome">Escolha sua Famosa Marmita de Carne Angus - (Curitiba Geral)</span> · 28,99 (De 46,99)</td><td class="acao"><strong>Excluir</strong></td><td class="small">só depois de h1</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="x3"></td><td><span class="onde">Cardápio › categoria "Mais Pedidos Do Ifood com Desconto !!!"</span><span class="nome">Caldos Campeões de venda !!! ( Curitiba Geral )</span> · 27,99 (De 35,99)</td><td class="acao"><strong>Excluir</strong></td><td class="small">não está em campanha</td></tr>
   </table></div>
-  <p class="small">Os caldos avulsos (Canja e Mandioquinha em uma posição cada, o dia todo) seguem o que combinamos em 21/09 e não mudam com o caminho B.
-  A Mandioquinha que ficou já está na R$ 5 Almoço; com b2 e b3, fica nos 3 períodos da R$ 5.</p>
-  <p class="small"><strong>Vagas da R$ 5 depois disso:</strong> Sempre 2/3 · Almoço 2/3 · Jantar 2/3. A terceira vaga pede um item salgado de 15 a 24,99
-  (a "Marmita do Dia" de 01/09 é a candidata). Isso entra junto com a revisão de preços.</p>
-  <div class="box note"><p class="small"><strong>O que vou acompanhar:</strong> o cliente a mais de 4 km passa a pagar R$ 8 a mais. Base das 6 semanas
-  antes da mudança (funil 03/08–13/09): marmita de frango 414 un (as duas versões somadas), Angus 213, caldos 36. Leio o funil toda semana. Se o volume
-  somado cair, a volta é simples: recriar uma versão mais barata.</p></div>
-  <p class="small">Resultado: Marmitas (2) · Combos (3) · Caldos (1 com escolha + 3 avulsos) · Bebidas (11) · Sobremesas (3) · Observações (1) = 24 itens em 6 categorias.</p>
+  <div class="box note"><p class="small"><strong>Ficam nesta categoria (não excluir):</strong> <span class="nome">Escolha sua Marmita de Frango do Famosa ! ( Água Verde E Região )</span> · 32,99 · <span class="nome">Escolha Sua Marmita de Carne Angus - ( Água Verde E Região )</span> · 36,99 · <span class="nome">Caldos Campeões de venda !!! ( Água Verde E Região )</span> · 35,99</p></div>
 </section>
 
 <section>
-  <h2>Para conferir no Saipos</h2>
-  <ul class="lst">
-    <li><strong>Sobremesa do "Vai encerrar sem final feliz?"</strong>: entre 18/07 e 13/09, 21 sobremesas (Brownie 13, Dalí 5, Torta 3) entraram no Saipos
-    com o nome cru do iFood (código 1000160). Os códigos atuais do grupo (Brownie 23011966, Dalí 6556912, Torta 23012213) existem em vendas. Vale ver na tela
-    se o problema já parou.</li>
-    <li>Brownie avulso a 12,99 e como adicional a 11,99. Escolher um preço só entra na revisão de preços.</li>
+  <div class="secnum">4</div>
+  <h2>Passo 4 · Limpeza de nomes e da categoria parada</h2>
+  <div class="tablewrap"><table>
+    <tr><th></th><th>Onde · item (nome exato de hoje)</th><th>O que fazer</th><th>Como fica</th></tr>
+    <tr><td class="chk"><input type="checkbox" id="n1"></td><td><span class="onde">Cardápio › categoria "Mais Pedidos Do Ifood com Desconto !!!"</span><span class="nome">Escolha sua Marmita de Frango do Famosa ! ( Água Verde E Região )</span> · 32,99</td><td class="acao">Renomear</td><td class="small">"Famosa Marmita de Frango"</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="n2"></td><td><span class="onde">Cardápio › categoria "Mais Pedidos Do Ifood com Desconto !!!"</span><span class="nome">Escolha Sua Marmita de Carne Angus - ( Água Verde E Região )</span> · 36,99</td><td class="acao">Renomear</td><td class="small">"Famosa Marmita de Carne Angus"</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="n3"></td><td><span class="onde">Cardápio › categoria "Mais Pedidos Do Ifood com Desconto !!!"</span><span class="nome">Caldos Campeões de venda !!! ( Água Verde E Região )</span> · 35,99</td><td class="acao">Renomear o item e a pergunta <span class="nome">Escolha seu Caldinho do Famosa !!!</span></td><td class="small">item "Caldos da Famosa" · pergunta "Escolha seu caldo"</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="n4"></td><td><span class="onde">Cardápio › categorias</span><span class="nome">Mais Pedidos Do Ifood com Desconto !!!</span> e <span class="nome">Combo no precinho!!</span></td><td class="acao">Renomear as duas categorias</td><td class="small">"Marmitas" e "Combos"</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="n5"></td><td><span class="onde">Cardápio › categoria "As Mais Pedidas" (está desligada)</span>Marmita frango a passarinho · Marmita frango grelhado · Marmita frango empanado · Marmita bife Angus grelhado · Marmita carne Angus desfiada · Marmita Bife a Milanesa ( Angus ) Almoço · Marmita de Bife a Milanesa ( Angus )</td><td class="acao"><strong>Excluir a categoria inteira</strong></td><td class="small">nenhum dos 7 está em campanha</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="n6"></td><td><span class="onde">Cardápio › categoria "Observações"</span><span class="nome">Chuva!</span> · 0,01</td><td class="acao">Mudar o preço para 100,00</td><td class="small">mesma regra da Burger: é aviso, não produto</td></tr>
+  </table></div>
+  <p class="small"><strong>Opcionais</strong> (fazer se o portal deixar, pular se travar):</p>
+  <ul class="lst small">
+    <li>Juntar as 3 cópias de "Deseja turbinar seu caldo?", "Deseja adicionar pão brioche?" e "Deseja colher descartável?" em um grupo de cada, aplicado a todos os caldos.</li>
+    <li>Pôr "Você precisa de talheres? Xxx" no <span class="nome">Combo marmita + brownie + refri grátis</span> e no <span class="nome">2x Marmitas no desconto</span>.
+    Se o portal só aceitar como obrigatória, <strong>pule</strong>: o grupo é compartilhado e ficaria obrigatório em todas as marmitas.</li>
   </ul>
 </section>
 
+<section>
+  <div class="secnum">5</div>
+  <h2>Passo 5 · Me avise que terminou</h2>
+  <p>Eu leio o cardápio e as 6 campanhas de novo e confiro linha a linha. Divergência volta para você com o nome do item.</p>
+</section>
+
+<section>
+  <h2>Como fica depois</h2>
+  <div class="cols">
+    <div class="box">
+      <h3 style="margin-top:0">Cardápio · 24 itens em 6 categorias</h3>
+      <ul class="mapa small">
+        <li><strong>Marmitas</strong>: Famosa Marmita de Frango 32,99 · Famosa Marmita de Carne Angus 36,99 · Caldos da Famosa 35,99</li>
+        <li><strong>Combos</strong>: 2x Marmitas no desconto · Combo marmita + refri · Combo marmita + brownie + refri grátis</li>
+        <li><strong>Caldos</strong>: Caldo de mandioquinha com costela desfiada 29,99 · Canja de galinha 26,99 · Caldo de mandioquinha 24,99</li>
+        <li><strong>Bebidas</strong>: as 11 de hoje</li>
+        <li><strong>Sobremesas</strong>: Brownie · Torta alemã · Salvador dalí</li>
+        <li><strong>Observações</strong>: Chuva! a 100,00</li>
+      </ul>
+    </div>
+    <div class="box">
+      <h3 style="margin-top:0">Hits · 6 campanhas</h3>
+      <ul class="mapa small">
+        <li><strong>R$ 8 Sempre ativa</strong>: Angus · Frango · Caldos da Famosa (sem mudança)</li>
+        <li><strong>R$ 8 no almoço</strong>: Angus · Frango · Caldos da Famosa (sem mudança)</li>
+        <li><strong>R$ 8 no Jantar</strong>: 2x Marmitas · Angus · Frango</li>
+        <li><strong>R$ 5 Sempre ativa</strong>: Caldo de mandioquinha · Salvador dalí · <em>1 vaga</em></li>
+        <li><strong>R$ 5 no almoço</strong>: Salvador dalí · Caldo de mandioquinha · <em>1 vaga</em> (sem mudança)</li>
+        <li><strong>R$ 5 no Jantar</strong>: Caldo de mandioquinha · Salvador dalí · <em>1 vaga</em></li>
+      </ul>
+    </div>
+  </div>
+  <div class="box note"><p class="small"><strong>O que vou acompanhar (caminho B):</strong> o cliente a mais de 4 km, que o Hits não alcança, passa a pagar
+  R$ 8 a mais. Base das 6 semanas antes (funil 03/08–13/09, as duas versões somadas): marmita de frango 414 un · Angus 213 · caldos 36. Leio o funil toda
+  semana; se o volume somado cair, a volta é recriar uma versão mais barata.</p></div>
+</section>
+
 <details>
-  <summary>Mapa do Hits hoje (lido nos drawers em 18/09)</summary>
-  <div class="tablewrap"><table>
-    <tr><th>Campanha</th><th>Itens (De → Por)</th><th class="num">Pedidos 30 dias</th></tr>
-    <tr><td>R$ 5 · Sempre ativa</td><td>Frango Curitiba 24,99 → 19,99 · <em>2 vagas livres</em></td><td class="num">59</td></tr>
-    <tr><td>R$ 5 · Almoço</td><td>Salvador Dalí 19,99 → 14,99 · Caldo de mandioquinha (posição da tarde) 24,99 → 19,99</td><td class="num">2</td></tr>
-    <tr><td>R$ 5 · Jantar</td><td>Frango Curitiba 24,99 → 19,99 · Caldo de mandioquinha (posição da tarde) 24,99 → 19,99</td><td class="num">20</td></tr>
-    <tr><td>R$ 8 · Sempre ativa</td><td>Angus AV 36,99 → 28,99 · Frango AV 32,99 → 24,99 · Caldos AV 35,99 → 27,99</td><td class="num">53</td></tr>
-    <tr><td>R$ 8 · Almoço</td><td>Angus AV · Frango AV · Caldos AV (mesmos valores)</td><td class="num">11</td></tr>
-    <tr><td>R$ 8 · Jantar</td><td>2x Marmitas 37,99 → 29,99 · Angus AV 36,99 → 28,99 · Angus Curitiba 28,99 → 20,99</td><td class="num">36</td></tr>
-  </table></div>
-  <p class="small">Raio de todas: até 4 km. A variante "R$ 8 (+R$ 2 iFood)" espelha os itens da principal.</p>
+  <summary>Por que essas mudanças (o diagnóstico de 18/09)</summary>
+  <ul class="lst small">
+    <li>Os 6 itens da categoria "Mais Pedidos" (3 pares Água Verde × Curitiba) usam o mesmo código PDV e caem num único produto do Saipos; quem define o prato é a escolha.</li>
+    <li>Funil 03/08–13/09: frango Curitiba 285 un × Água Verde 129; Angus 112 × 101; caldos 15 × 21.</li>
+    <li>As campanhas R$ 5 no almoço e no jantar usavam a Mandioquinha da posição da tarde, que só existia das 14h30 às 18h. Com o passo 1 ela passa a valer o dia todo.</li>
+    <li>As faixas de R$ 10 e R$ 13 não existem na Famosa (duas buscas diferentes para cada uma).</li>
+    <li>Para conferir no Saipos: de 18/07 a 13/09, 21 sobremesas do "Vai encerrar sem final feliz?" entraram com o nome cru do iFood (código 1000160). Vale ver se já parou.</li>
+  </ul>
 </details>
 </div>
 
 <div id="bar"><div class="in">
-  <div><span class="num" id="feitas">0</span> <span class="lbl">de <span id="total">?</span> passos feitos</span></div>
+  <div><span class="num" id="feitas">0</span> <span class="lbl">de <span id="total">?</span> marcações feitas</span></div>
   <div class="lbl">progresso salvo neste navegador</div>
 </div></div>
 
@@ -235,12 +232,12 @@ details summary{cursor:pointer; font-weight:600;}
     var feitas=0;
     caixas.forEach(function(c){
       if(c.checked) feitas++;
-      try{ localStorage.setItem('fm:'+c.id, c.checked?'1':'0'); }catch(e){}
+      try{ localStorage.setItem('fm2:'+c.id, c.checked?'1':'0'); }catch(e){}
     });
     document.getElementById('feitas').textContent = feitas;
   }
   caixas.forEach(function(c){
-    try{ if(localStorage.getItem('fm:'+c.id)==='1') c.checked=true; }catch(e){}
+    try{ if(localStorage.getItem('fm2:'+c.id)==='1') c.checked=true; }catch(e){}
     c.addEventListener('change', atualiza);
   });
   atualiza();
