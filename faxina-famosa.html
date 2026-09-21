@@ -92,13 +92,12 @@ details summary{cursor:pointer; font-weight:600;}
   <div class="eyebrow">A Famosa Marmita · cardápio lido pela API do portal e Hits lido campanha por campanha · 18/09/2026</div>
   <h1>Faxina da Famosa Marmita</h1>
   <p class="sub">Mesmo norte da Burger: <strong>um item de cada, cardápio limpo e funcional</strong>. A Fase 1 não mexe em
-  preço nem em Hits e pode ser feita hoje. A Fase 2 junta os clones e reorganiza os caldos, e depende de uma decisão sua
-  (seção 2). Os preços em si entram na revisão pela margem que faremos depois da correção da base.</p>
+  preço nem em Hits e pode ser feita hoje. A Fase 2 junta os clones e reorganiza os caldos, pelo <strong>caminho B</strong>, que você decidiu em 21/09. Os preços em si entram na revisão pela margem que faremos depois da correção da base.</p>
   <div class="tiles">
     <div class="tile"><div class="v">36 → 24</div><div class="l">itens no cardápio, hoje → depois das duas fases</div></div>
     <div class="tile"><div class="v">7 → 6</div><div class="l">categorias</div></div>
     <div class="tile"><div class="v">6</div><div class="l">campanhas Hits ativas (R$ 5 e R$ 8 × Sempre, Almoço, Jantar)</div></div>
-    <div class="tile"><div class="v">1</div><div class="l">decisão sua: o preço único de cada marmita</div></div>
+    <div class="tile"><div class="v">B</div><div class="l">decidido em 21/09: fica o preço da versão Água Verde</div></div>
   </div>
 </header>
 
@@ -138,7 +137,7 @@ details summary{cursor:pointer; font-weight:600;}
     <tr><td class="chk"><input type="checkbox" id="f1"></td><td>Categoria <strong>As Mais Pedidas</strong> (7 itens)</td><td>desligada</td><td class="novo"><strong>excluir a categoria</strong></td><td class="small">nenhum dos 7 está em campanha; estão indisponíveis</td></tr>
     <tr><td class="chk"><input type="checkbox" id="f2"></td><td>Observações → Chuva!</td><td>R$ 0,01</td><td class="novo">R$ 100,00</td><td class="small">mesma regra da Burger: aviso, não produto</td></tr>
     <tr><td class="chk"><input type="checkbox" id="f3"></td><td>Caldos (os 5 avulsos e os 2 cadastros com escolha) → grupos "turbinar", "pão brioche" e "colher"</td><td>3 cópias de cada</td><td class="novo">um grupo de cada, aplicado a todos os caldos</td><td class="small">mesmo trabalho que fizemos na Burger (U1)</td></tr>
-    <tr><td class="chk"><input type="checkbox" id="f4"></td><td>Combo marmita + brownie + refri → talheres</td><td>sem o grupo</td><td class="novo">adicionar "Você precisa de talheres?"</td><td class="small">os outros combos e marmitas já têm</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="f4"></td><td>Combo marmita + brownie + refri → talheres</td><td>sem o grupo</td><td class="novo">adicionar "Você precisa de talheres?"</td><td class="small">se o portal só deixar como obrigatória, <strong>pule</strong>: é compartilhado e ficaria obrigatório nas outras marmitas</td></tr>
     <tr><td class="chk"><input type="checkbox" id="f5"></td><td>2x Marmitas no desconto → talheres</td><td>sem o grupo</td><td class="novo">adicionar "Você precisa de talheres?"</td><td class="small">idem</td></tr>
     <tr><td class="chk"><input type="checkbox" id="f6"></td><td>Nomes de grupo com "!!!"</td><td>"Escolha seu Caldinho do Famosa !!!"</td><td class="novo">"Escolha seu caldo"</td><td class="small">o cliente vê esse texto</td></tr>
   </table></div>
@@ -148,13 +147,13 @@ details summary{cursor:pointer; font-weight:600;}
 
 <section>
   <div class="secnum">2</div>
-  <h2>A decisão: qual preço fica quando os clones virarem um item só</h2>
+  <h2>A decisão: qual preço fica quando os clones virarem um item só — <span style="color:var(--good)">decidido: B</span></h2>
   <p>Juntar é o que limpa o cardápio: de 6 cadastros para 3. A pergunta é qual dos dois preços sobrevive. A margem não trava nenhum
   dos dois: pela ficha de hoje (ainda antes da sua correção da base), a marmita mais cara de frango custa R$ 4,56 e a de Angus R$ 5,02.
   Mesmo no preço mais baixo, com o Hits aplicado, o custo fica abaixo de 22% do preço.</p>
   <div class="opt">
     <div class="box">
-      <h3>A · Fica o preço da versão Curitiba (recomendo)</h3>
+      <h3>A · Fica o preço da versão Curitiba</h3>
       <p class="small">Frango 24,99 · Angus 28,99 · Caldos 27,99. Cliente longe paga o mesmo de hoje. Cliente perto paga com Hits: frango 19,99 na R$ 5 e
       Angus/caldos 20,99/19,99 na R$ 8. Esse mesmo cliente perto <strong>já consegue</strong> comprar o clone por esses valores hoje.</p>
       <p class="small"><strong>Risco medido:</strong> se todo cliente da versão Água Verde continuar comprando, ele paga menos. São 129 frangos × R$ 5,
@@ -162,7 +161,7 @@ details summary{cursor:pointer; font-weight:600;}
       Preserva os 412 pedidos da versão Curitiba (62% do volume).</p>
     </div>
     <div class="box">
-      <h3>B · Fica o preço da versão Água Verde</h3>
+      <h3>B · Fica o preço da versão Água Verde ✓ escolhido</h3>
       <p class="small">Frango 32,99 · Angus 36,99 · Caldos 35,99. Cliente perto paga 24,99/28,99/27,99 com Hits R$ 8, como hoje.
       <strong>Cliente a mais de 4 km</strong> (o Hits não chega até ele) passa a pagar R$ 8 a mais.</p>
       <p class="small"><strong>Risco não medido:</strong> os 412 pedidos da versão Curitiba em 6 semanas. Não há como saber quantos são de longe,
@@ -175,23 +174,27 @@ details summary{cursor:pointer; font-weight:600;}
 
 <section>
   <div class="secnum">3</div>
-  <h2>Fase 2 · Depois da sua decisão (checklist com o caminho A)</h2>
-  <p class="small">A ordem importa: primeiro o item que fica entra nas campanhas, depois o outro sai. Assim nenhuma vaga fica vazia, a regra que você
-  usou na Burger. Os valores de Hits abaixo assumem o caminho A; se escolher B, eu refaço esta tabela.</p>
+  <h2>Fase 2 · Checklist pelo caminho B</h2>
+  <p class="small">Ficam as versões Água Verde (frango 32,99 · Angus 36,99 · caldos 35,99). Elas já estão na R$ 8 Sempre ativa e na R$ 8 Almoço,
+  então o cliente perto continua pagando 24,99 / 28,99 / 27,99. A ordem importa: <strong>primeiro a campanha, depois a exclusão</strong>,
+  para nenhuma vaga ficar vazia.</p>
   <div class="tablewrap"><table>
     <tr><th></th><th>Onde → o que</th><th>Hoje</th><th>Depois</th><th>Por quê</th></tr>
-    <tr><td class="chk"><input type="checkbox" id="g1"></td><td>Frango Curitiba → renomear</td><td>"Escolha sua Marmita de Frango do Famosa! (Curitba Geral)"</td><td class="novo">"Famosa Marmita de Frango"</td><td class="small">já está na R$ 5 Sempre e na R$ 5 Jantar</td></tr>
-    <tr><td class="chk"><input type="checkbox" id="g2"></td><td>Hits R$ 5 no Almoço → incluir a Famosa Marmita de Frango</td><td>Dalí + caldo da tarde</td><td class="novo">Dalí + frango + (vaga do caldo, ver g8)</td><td class="small">completa a Marmita de Frango nos 3 períodos da R$ 5</td></tr>
-    <tr><td class="chk"><input type="checkbox" id="g3"></td><td>Hits R$ 8 Sempre e R$ 8 Almoço → tirar o Frango Água Verde</td><td>Frango AV 32,99 → 24,99</td><td class="novo">vaga livre para a Angus única (g5)</td><td class="small">o frango passa a ter desconto pela R$ 5</td></tr>
-    <tr><td class="chk"><input type="checkbox" id="g4"></td><td>Frango Água Verde</td><td>item ativo</td><td class="novo"><strong>excluir</strong></td><td class="small">só depois de g1–g3</td></tr>
-    <tr><td class="chk"><input type="checkbox" id="g5"></td><td>Angus Curitiba → renomear e pôr na R$ 8 Sempre e na R$ 8 Almoço</td><td>"…Carne Angus - (Curitiba Geral)" só na R$ 8 Jantar</td><td class="novo">"Famosa Marmita de Carne Angus" nos 3 períodos da R$ 8</td><td class="small">ocupa as vagas do Frango AV e da Angus AV</td></tr>
-    <tr><td class="chk"><input type="checkbox" id="g6"></td><td>Angus Água Verde → tirar da R$ 8 Sempre, Almoço e Jantar e excluir</td><td>item ativo</td><td class="novo"><strong>excluir</strong></td><td class="small">depois de g5</td></tr>
-    <tr><td class="chk"><input type="checkbox" id="g7"></td><td>Caldos: o cadastro com escolha que fica</td><td>dois clones (35,99 e 27,99), o de 35,99 na R$ 8 Sempre e Almoço</td><td class="novo">um "Caldos da Famosa" a 27,99, na R$ 8 Sempre e Almoço; o outro excluído</td><td class="small">mesma lógica das marmitas</td></tr>
-    <tr><td class="chk"><input type="checkbox" id="g8"></td><td>Caldos avulsos: tirar as posições da tarde</td><td>Canja 26,99 + Canja 25,99 (tarde) · Mandioquinha 25,99 + 24,99 (tarde)</td><td class="novo">Canja e Mandioquinha em uma posição cada, o dia todo; a Mandioquinha a 24,99 na R$ 5 Sempre, Almoço e Jantar</td><td class="small">a posição da tarde ocupa vagas da R$ 5 no almoço e no jantar sem estar à venda</td></tr>
-    <tr><td class="chk"><input type="checkbox" id="g9"></td><td>Categorias: renomear</td><td>"Mais Pedidos Do Ifood com Desconto !!!" · "Combo no precinho!!"</td><td class="novo">"Marmitas" · "Combos"</td><td class="small">nome que o cliente entende</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="b1"></td><td>Hits <strong>R$ 8 no Jantar</strong> → tirar a Angus Curitiba e pôr a Marmita de Frango Água Verde</td><td>2x Marmitas · Angus AV · Angus Curitiba</td><td class="novo">2x Marmitas · Angus AV · Frango AV</td><td class="small">no jantar a Angus fica uma vez só e o frango entra</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="b2"></td><td>Hits <strong>R$ 5 Sempre ativa</strong> → tirar o Frango Curitiba, pôr Mandioquinha e Salvador Dalí</td><td>Frango Curitiba</td><td class="novo">Mandioquinha · Salvador Dalí</td><td class="small">o frango de 32,99 é da faixa R$ 8 e não entra na R$ 5</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="b3"></td><td>Hits <strong>R$ 5 no Jantar</strong> → tirar o Frango Curitiba, pôr Salvador Dalí</td><td>Frango Curitiba · Mandioquinha</td><td class="novo">Mandioquinha · Salvador Dalí</td><td class="small">mesma troca</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="b4"></td><td>Frango Curitiba · Angus Curitiba · Caldos Curitiba</td><td>3 itens ativos</td><td class="novo"><strong>excluir os 3</strong></td><td class="small">só depois de b1–b3; o Caldos Curitiba não está em campanha</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="b5"></td><td>Os 3 que ficam → renomear</td><td>"Escolha sua Marmita de Frango do Famosa ! ( Água Verde E Região )" e parecidos</td><td class="novo">"Famosa Marmita de Frango" · "Famosa Marmita de Carne Angus" · "Caldos da Famosa"</td><td class="small">sem "!!!" e sem a região no nome</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="b6"></td><td>Categorias → renomear</td><td>"Mais Pedidos Do Ifood com Desconto !!!" · "Combo no precinho!!"</td><td class="novo">"Marmitas" · "Combos"</td><td class="small">nome que o cliente entende</td></tr>
   </table></div>
-  <p class="small">Resultado: Marmitas (2) · Combos (3) · Caldos (1 com escolha + 3 avulsos) · Bebidas (11) · Sobremesas (3) · Observações (1) = 24 itens em 6 categorias.
-  Se as bebidas 2 L (3 vendas em 60 dias) e o chá mate (1 venda) também saírem, ficam 20 itens. Essa decisão fica com você.</p>
+  <p class="small">Os caldos avulsos (Canja e Mandioquinha em uma posição cada, o dia todo) seguem o que combinamos em 21/09 e não mudam com o caminho B.
+  A Mandioquinha que ficou já está na R$ 5 Almoço; com b2 e b3, fica nos 3 períodos da R$ 5.</p>
+  <p class="small"><strong>Vagas da R$ 5 depois disso:</strong> Sempre 2/3 · Almoço 2/3 · Jantar 2/3. A terceira vaga pede um item salgado de 15 a 24,99
+  (a "Marmita do Dia" de 01/09 é a candidata). Isso entra junto com a revisão de preços.</p>
+  <div class="box note"><p class="small"><strong>O que vou acompanhar:</strong> o cliente a mais de 4 km passa a pagar R$ 8 a mais. Base das 6 semanas
+  antes da mudança (funil 03/08–13/09): marmita de frango 414 un (as duas versões somadas), Angus 213, caldos 36. Leio o funil toda semana. Se o volume
+  somado cair, a volta é simples: recriar uma versão mais barata.</p></div>
+  <p class="small">Resultado: Marmitas (2) · Combos (3) · Caldos (1 com escolha + 3 avulsos) · Bebidas (11) · Sobremesas (3) · Observações (1) = 24 itens em 6 categorias.</p>
 </section>
 
 <section>
