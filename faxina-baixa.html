@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Faxina da Baixa Gastronomia</title>
+<meta name="robots" content="noindex">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body style="margin:0">
+<meta charset="utf-8">
+<title>Faxina da Baixa Gastronomia</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<style>
+:root{
+  --bg:#f6f1e8; --surface:#fffdf8; --surface2:#f0e9db; --ink:#2b2118; --ink2:#5c5245;
+  --muted:#8a7c6b; --line:#e3d8c6; --accent:#c8102e; --accent-soft:#fbe9ec;
+  --good:#1c7c44; --good-soft:#e3f2e8; --warn:#a3630b; --warn-soft:#f8eeda;
+  --bad:#b3261e; --bad-soft:#f9e7e5; --chip:#efe6d6;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#211b13; --surface:#2b241a; --surface2:#352c20; --ink:#f1e9dc; --ink2:#cfc3b0;
+    --muted:#a2937e; --line:#443a2b; --accent:#f0596f; --accent-soft:#48222a;
+    --good:#59c98a; --good-soft:#22382c; --warn:#e0a33e; --warn-soft:#3d311f;
+    --bad:#ef6b61; --bad-soft:#42241f; --chip:#3a3123;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#211b13; --surface:#2b241a; --surface2:#352c20; --ink:#f1e9dc; --ink2:#cfc3b0;
+  --muted:#a2937e; --line:#443a2b; --accent:#f0596f; --accent-soft:#48222a;
+  --good:#59c98a; --good-soft:#22382c; --warn:#e0a33e; --warn-soft:#3d311f;
+  --bad:#ef6b61; --bad-soft:#42241f; --chip:#3a3123;
+}
+*{box-sizing:border-box}
+body{background:var(--bg); color:var(--ink); margin:0;
+  font-family:'Instrument Sans',system-ui,sans-serif; font-size:16px; line-height:1.55; padding-bottom:84px;}
+.wrap{max-width:1000px; margin:0 auto; padding:0 20px;}
+h1,h2,h3{font-family:'Archivo',system-ui,sans-serif; line-height:1.15; text-wrap:balance; margin:0;}
+h1{font-size:clamp(28px,5vw,40px); font-weight:800;}
+h2{font-size:clamp(19px,3vw,25px); font-weight:700; margin-bottom:4px;}
+h3{font-size:16px; font-weight:700; margin:16px 0 4px;}
+p{margin:.5em 0; max-width:78ch;}
+.eyebrow{font-size:12px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:var(--accent); margin-bottom:8px;}
+header.hero{padding:40px 0 6px;}
+.sub{color:var(--ink2); margin-top:10px; max-width:80ch;}
+.tiles{display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:12px; margin:22px 0 6px;}
+.tile{background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:13px 16px;}
+.tile .v{font-family:'Archivo'; font-weight:800; font-size:22px; font-variant-numeric:tabular-nums;}
+.tile .l{font-size:12.5px; color:var(--muted); margin-top:2px;}
+section{margin:36px 0;}
+.secnum{display:inline-block; background:var(--accent); color:#fff; font-family:'Archivo'; font-weight:700;
+  font-size:13px; border-radius:6px; padding:2px 9px; margin-bottom:8px;}
+:root[data-theme="dark"] .secnum{color:#211b13;}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .secnum{color:#211b13;} }
+.box{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:15px 18px; margin:14px 0;}
+.box.note{background:var(--surface2); border-style:dashed;}
+.small{font-size:13.5px; color:var(--ink2);}
+.tablewrap{overflow-x:auto; margin:12px 0; border:1px solid var(--line); border-radius:10px; background:var(--surface);}
+table{border-collapse:collapse; width:100%; min-width:640px; font-size:14px;}
+th{font-size:11.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted);
+  text-align:left; padding:9px 12px; border-bottom:1px solid var(--line); font-weight:600;}
+td{padding:8px 12px; border-bottom:1px solid var(--line); vertical-align:top;}
+tr:last-child td{border-bottom:none;}
+td.num,th.num{text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap;}
+td.chk{width:34px;}
+td.chk input{width:18px; height:18px; accent-color:var(--accent); cursor:pointer;}
+tr:has(input:checked) td{opacity:.55;}
+tr:has(input:checked) td.novo{text-decoration:line-through;}
+.novo{font-weight:700;}
+.chip{display:inline-block; background:var(--chip); border-radius:20px; padding:1px 10px; font-size:12px; font-weight:600; white-space:nowrap;}
+.chip.good{background:var(--good-soft); color:var(--good);}
+.chip.warn{background:var(--warn-soft); color:var(--warn);}
+.chip.bad{background:var(--bad-soft); color:var(--bad);}
+ul.lst{padding-left:20px; margin:.4em 0;} ul.lst li{margin:6px 0; max-width:80ch;}
+input:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+#bar{position:fixed; left:0; right:0; bottom:0; background:var(--surface);
+  border-top:2px solid var(--accent); padding:10px 20px; z-index:50;}
+#bar .in{max-width:1000px; margin:0 auto; display:flex; justify-content:space-between; align-items:center; gap:14px; flex-wrap:wrap;}
+#bar .lbl{font-size:13px; color:var(--muted);}
+#bar .num{font-family:'Archivo'; font-weight:800; font-variant-numeric:tabular-nums;}
+@media (prefers-reduced-motion: reduce){ *{transition:none !important;} }
+details{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:12px 18px; margin:14px 0;}
+details summary{cursor:pointer; font-weight:600;}
+.nome{font-family:ui-monospace,Consolas,monospace; font-size:13px; background:var(--surface2); border-radius:4px; padding:1px 5px; white-space:normal;}
+.onde{font-size:12px; color:var(--muted); display:block; margin-bottom:2px; text-transform:uppercase; letter-spacing:.05em;}
+td.acao{font-weight:600;}
+ul.mapa{padding-left:20px; margin:.3em 0;} ul.mapa li{margin:3px 0;}
+.cols{display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:14px;}
+.cols .box{margin:0;}
+</style>
+
+<div class="wrap">
+<header class="hero">
+  <div class="eyebrow">Baixa Gastronomia · cardápio lido pela API e Hits lido campanha por campanha em 21/09 · caminho A decidido em 21/09</div>
+  <h1>Faxina da Baixa Gastronomia</h1>
+  <p class="sub">Um item de cada, cardápio limpo. Aqui fica o preço da versão Curitiba, que vende 83% do volume. Cada linha diz <strong>onde</strong>
+  fazer e o <strong>nome exato</strong> do item como aparece hoje no portal. Faça na ordem: <strong>primeiro o Hits, depois as exclusões</strong>,
+  para nenhuma vaga ficar vazia.</p>
+  <div class="tiles">
+    <div class="tile"><div class="v">34 → 22</div><div class="l">itens no cardápio</div></div>
+    <div class="tile"><div class="v">6 → 5</div><div class="l">categorias</div></div>
+    <div class="tile"><div class="v">299 × 61</div><div class="l">unidades Curitiba × Água Verde em 6 semanas (funil 10/08–20/09)</div></div>
+    <div class="tile"><div class="v">A</div><div class="l">fica o preço Curitiba: Angus 36,99 · Frango 32,99 · Defumadas 32,99 · Caldos 28,99</div></div>
+  </div>
+</header>
+
+<section>
+  <div class="secnum">1</div>
+  <h2>Passo 1 · Hits (antes de excluir qualquer item)</h2>
+  <p class="small">Caminho: <strong>Promoções › Hits</strong>, buscar a campanha pelo nome, abrir e <strong>clicar em "Salvar alterações"</strong> no fim
+  (sem salvar, a mudança não vale). Cada campanha aceita 3 itens: remova antes de adicionar.</p>
+  <div class="tablewrap"><table>
+    <tr><th></th><th>Onde · item (nome exato de hoje)</th><th>O que fazer</th><th>Como fica</th></tr>
+    <tr><td class="chk"><input type="checkbox" id="h1"></td><td><span class="onde">Hits › campanha "Hits com R$ 8 OFF - Sempre ativa"</span>Remover <span class="nome">Marmitas Defumadas Mais Cobiçadas do Ifood  !!! ( Água Verde e Região )</span> · 39,99<br>Remover <span class="nome">Caldos Campeões de venda !!! ( Água Verde e Região )</span> · 35,99<br>Remover <span class="nome">Marmitas de Frango Mais Vendidas do Ifood !!! ( Água Verde e Região )</span> · 39,99<br>Adicionar <span class="nome">Marmitas de Carne ( Angus ) Campeãs de Venda !!! ( Curitiba Geral )</span> · 36,99<br>Adicionar <span class="nome">Marmitas de Frango Mais Vendidas no Ifood !!! ( Curitiba Geral )</span> · 32,99<br>Adicionar <span class="nome">Marmitas Defumadas Mais Cobiçadas do Ifood  !!! ( Curitiba e Região )</span> · 32,99</td><td class="acao">Remover 3, adicionar 3</td><td class="small">Angus · Frango · Defumadas (versão Curitiba). A Angus, que mais vende, hoje não está nesta campanha</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="h2"></td><td><span class="onde">Hits › campanha "Hits com R$8 OFF no almoço"</span>Remover <span class="nome">Marmitas de Frango Mais Vendidas do Ifood !!! ( Água Verde e Região )</span> · 39,99<br>Adicionar <span class="nome">Caldos Campeões de venda !!! ( Curitiba Geral )</span> · 28,99</td><td class="acao">Remover 1, adicionar 1</td><td class="small">Angus · Frango · Caldos (Angus e Frango Curitiba já estão lá)</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="h3"></td><td><span class="onde">Hits › campanha "Hits com R$8 OFF no Jantar"</span>Remover <span class="nome">Caldos Campeões de venda !!! ( Água Verde e Região )</span> · 35,99<br>Remover <span class="nome">Marmitas de Frango Mais Vendidas do Ifood !!! ( Água Verde e Região )</span> · 39,99<br>Remover <span class="nome">Marmitas Defumadas Mais Cobiçadas do Ifood  !!! ( Água Verde e Região )</span> · 39,99<br>Adicionar <span class="nome">Marmitas de Carne ( Angus ) Campeãs de Venda !!! ( Curitiba Geral )</span> · 36,99<br>Adicionar <span class="nome">Marmitas de Frango Mais Vendidas no Ifood !!! ( Curitiba Geral )</span> · 32,99<br>Adicionar <span class="nome">Caldos Campeões de venda !!! ( Curitiba Geral )</span> · 28,99</td><td class="acao">Remover 3, adicionar 3</td><td class="small">Angus · Frango · Caldos</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="h4"></td><td><span class="onde">Hits › campanha "Hits com R$ 10 OFF - Sempre ativa", "Hits com R$10 OFF no almoço" e "Hits com R$10 OFF no jantar" (as 3)</span>Remover <span class="nome">Marmitas de Carne ( Angus ) Campeãs de Venda !!! ( Água Verde e Região )</span> · 45,99<br>Adicionar <span class="nome">2x Marmitas no desconto</span> · 53,99</td><td class="acao">Nas 3 campanhas: remover 1, adicionar 1</td><td class="small">Combo marmita + refri · Combo marmita + brownie · 2x Marmitas. Se o 2x não aparecer como elegível, deixe a vaga livre e me avise</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="h5"></td><td><span class="onde">Hits › campanha "Hits com R$5 OFF no almoço" e "Hits com R$5 OFF no Jantar"</span>Adicionar <span class="nome">Salvador dalí (Cheese cake)</span> · 19,99<br>Adicionar <span class="nome">Torta alemã</span> · 19,99</td><td class="acao">Nas 2 campanhas: adicionar 2</td><td class="small">hoje as duas estão ligadas e <strong>vazias</strong> (0 itens, 0 pedidos). Ficam iguais à R$ 5 Sempre ativa</td></tr>
+  </table></div>
+</section>
+
+<section>
+  <div class="secnum">2</div>
+  <h2>Passo 2 · Excluir as 4 versões Água Verde (categoria "Campeões De Vendas!")</h2>
+  <p class="small">Estão na mesma categoria das que ficam. <strong>As que saem são as de preço mais alto, com "Água Verde e Região" no nome.</strong></p>
+  <div class="tablewrap"><table>
+    <tr><th></th><th>Onde · item (nome exato de hoje)</th><th>O que fazer</th><th>Como fica</th></tr>
+    <tr><td class="chk"><input type="checkbox" id="x1"></td><td><span class="onde">Cardápio › categoria "Campeões De Vendas!"</span><span class="nome">Marmitas de Carne ( Angus ) Campeãs de Venda !!! ( Água Verde e Região )</span> · 45,99</td><td class="acao"><strong>Excluir</strong></td><td class="small">só depois de h4</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="x2"></td><td><span class="onde">Cardápio › categoria "Campeões De Vendas!"</span><span class="nome">Marmitas de Frango Mais Vendidas do Ifood !!! ( Água Verde e Região )</span> · 39,99</td><td class="acao"><strong>Excluir</strong></td><td class="small">só depois de h1, h2 e h3</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="x3"></td><td><span class="onde">Cardápio › categoria "Campeões De Vendas!"</span><span class="nome">Marmitas Defumadas Mais Cobiçadas do Ifood  !!! ( Água Verde e Região )</span> · 39,99</td><td class="acao"><strong>Excluir</strong></td><td class="small">só depois de h1 e h3</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="x4"></td><td><span class="onde">Cardápio › categoria "Campeões De Vendas!"</span><span class="nome">Caldos Campeões de venda !!! ( Água Verde e Região )</span> · 35,99</td><td class="acao"><strong>Excluir</strong></td><td class="small">só depois de h1 e h3</td></tr>
+  </table></div>
+  <div class="box note"><p class="small"><strong>Ficam nesta categoria (não excluir):</strong> <span class="nome">Marmitas de Carne ( Angus ) Campeãs de Venda !!! ( Curitiba Geral )</span> · 36,99 · <span class="nome">Marmitas de Frango Mais Vendidas no Ifood !!! ( Curitiba Geral )</span> · 32,99 · <span class="nome">Marmitas Defumadas Mais Cobiçadas do Ifood  !!! ( Curitiba e Região )</span> · 32,99 · <span class="nome">Caldos Campeões de venda !!! ( Curitiba Geral )</span> · 28,99</p></div>
+</section>
+
+<section>
+  <div class="secnum">3</div>
+  <h2>Passo 3 · Categoria parada e nomes</h2>
+  <div class="tablewrap"><table>
+    <tr><th></th><th>Onde · item (nome exato de hoje)</th><th>O que fazer</th><th>Como fica</th></tr>
+    <tr><td class="chk"><input type="checkbox" id="n1"></td><td><span class="onde">Cardápio › categoria "Marmitas" (está desligada)</span>Marmita frango grelhado · Marmita Pernil desfiado · Marmita Parmegiana de frango · Marmita Strogonoff de frango · Marmita Bife grelhado · Marmita Parmegiana de carne · Marmita Strogonoff de carne Angus · Marmita Costela Desfiada</td><td class="acao"><strong>Excluir a categoria inteira</strong></td><td class="small">nenhum dos 8 está em campanha. Faça antes do n6, para o nome "Marmitas" ficar livre</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="n2"></td><td><span class="onde">Cardápio › categoria "Campeões De Vendas!"</span><span class="nome">Marmitas de Carne ( Angus ) Campeãs de Venda !!! ( Curitiba Geral )</span> · 36,99</td><td class="acao">Renomear o item e a pergunta <span class="nome">Marmitas de Carne ( Angus ) Campeãs de Venda</span></td><td class="small">item "Marmita de Carne Angus" · pergunta "Escolha sua marmita"</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="n3"></td><td><span class="onde">Cardápio › categoria "Campeões De Vendas!"</span><span class="nome">Marmitas de Frango Mais Vendidas no Ifood !!! ( Curitiba Geral )</span> · 32,99</td><td class="acao">Renomear o item e a pergunta <span class="nome">Escolha sua Marmita Campeã</span></td><td class="small">item "Marmita de Frango" · pergunta "Escolha sua marmita"</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="n4"></td><td><span class="onde">Cardápio › categoria "Campeões De Vendas!"</span><span class="nome">Marmitas Defumadas Mais Cobiçadas do Ifood  !!! ( Curitiba e Região )</span> · 32,99</td><td class="acao">Renomear</td><td class="small">item "Marmita Defumada"</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="n5"></td><td><span class="onde">Cardápio › categoria "Campeões De Vendas!"</span><span class="nome">Caldos Campeões de venda !!! ( Curitiba Geral )</span> · 28,99</td><td class="acao">Renomear</td><td class="small">item "Caldos da Baixa"</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="n6"></td><td><span class="onde">Cardápio › categorias</span><span class="nome">Campeões De Vendas!</span> e <span class="nome">Combos no precinho!!</span></td><td class="acao">Renomear as duas</td><td class="small">"Marmitas" e "Combos"</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="n7"></td><td><span class="onde">Cardápio › categoria "Observações"</span><span class="nome">Chuva!</span> · 0,01</td><td class="acao">Mudar o preço para 100,00</td><td class="small">mesma regra da Burger e da Famosa</td></tr>
+  </table></div>
+  <p class="small">O preço riscado das versões que ficam (De 55,99 · 49,99 · 49,99 · 45,99) fica como está por enquanto e entra na revisão de preços.</p>
+</section>
+
+<section>
+  <div class="secnum">4</div>
+  <h2>Passo 4 · Conferir os talheres</h2>
+  <div class="tablewrap"><table>
+    <tr><th></th><th>Onde · item (nome exato de hoje)</th><th>O que fazer</th><th>Como fica</th></tr>
+    <tr><td class="chk"><input type="checkbox" id="t1"></td><td><span class="onde">Grupos "Você precisa de talheres? Xxx" e "Deseja talher e molho para salada?"</span><span class="nome">Garfo e faca descartável</span> e <span class="nome">Talher descartável</span></td><td class="acao">Reativar, se não foi de propósito</td><td class="small">hoje as duas opções estão pausadas: só colher e sachê estão à venda</td></tr>
+  </table></div>
+</section>
+
+<section>
+  <div class="secnum">5</div>
+  <h2>Passo 5 · Me avise que terminou</h2>
+  <p>Eu leio o cardápio e as 9 campanhas de novo e confiro linha a linha.</p>
+</section>
+
+<section>
+  <h2>Como fica depois</h2>
+  <div class="cols">
+    <div class="box">
+      <h3 style="margin-top:0">Cardápio · 22 itens em 5 categorias</h3>
+      <ul class="mapa small">
+        <li><strong>Marmitas</strong>: Marmita de Carne Angus 36,99 · Marmita de Frango 32,99 · Marmita Defumada 32,99 · Caldos da Baixa 28,99</li>
+        <li><strong>Combos</strong>: 2x Marmitas no desconto 53,99 · Combo marmita + refri 40,99 · Combo marmita + brownie + refrigerante gratis 47,99</li>
+        <li><strong>Bebidas</strong>: as 11 de hoje</li>
+        <li><strong>Sobremesas</strong>: Brownie · Torta alemã · Salvador dalí</li>
+        <li><strong>Observações</strong>: Chuva! a 100,00</li>
+      </ul>
+    </div>
+    <div class="box">
+      <h3 style="margin-top:0">Hits · 9 campanhas</h3>
+      <ul class="mapa small">
+        <li><strong>R$ 5</strong> Sempre, Almoço e Jantar: Salvador dalí · Torta alemã · <em>1 vaga</em></li>
+        <li><strong>R$ 8 Sempre ativa</strong>: Angus · Frango · Defumada</li>
+        <li><strong>R$ 8 no almoço</strong> e <strong>no Jantar</strong>: Angus · Frango · Caldos</li>
+        <li><strong>R$ 10</strong> Sempre, Almoço e Jantar: Combo marmita + refri · Combo marmita + brownie · 2x Marmitas</li>
+        <li>R$ 13: não existe na Baixa</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<details>
+  <summary>Por que essas mudanças (o diagnóstico de 21/09)</summary>
+  <ul class="lst small">
+    <li>Os 8 itens de "Campeões De Vendas!" (4 pares Água Verde × Curitiba) usam o mesmo código PDV (38004186) e caem num único produto do Saipos ("BAIXA GASTRONOMIA (ESCOLHA O ITEM)"); quem define o prato é a escolha.</li>
+    <li>Funil 10/08–20/09: Angus Curitiba 182 × Água Verde 27 · Frango 72 × 21 · Caldos 34 × 7 · Defumadas 11 × 6.</li>
+    <li>No almoço, que é onde está o volume (36 pedidos em 30 dias na R$ 8 Almoço), a Angus e o Frango Curitiba já estavam no Hits: o cliente perto já pagava o preço Curitiba.</li>
+    <li>Risco do caminho A: se quem compra a versão Água Verde passar a pagar o preço Curitiba, são cerca de R$ 300 por mês a menos (61 unidades × ~R$ 7).</li>
+    <li>Margem: a marmita mais cara (parmegiana de carne, ficha R$ 7,97, antes da sua correção da base) fica em 18,5% do preço de 42,99 (Angus 36,99 + 6).</li>
+    <li>As campanhas R$ 5 Almoço e R$ 5 Jantar estavam ligadas e vazias. A R$ 5 Sempre ativa tem Dalí e Torta alemã, mas 0 pedidos em 30 dias.</li>
+  </ul>
+</details>
+</div>
+
+<div id="bar"><div class="in">
+  <div><span class="num" id="feitas">0</span> <span class="lbl">de <span id="total">?</span> marcações feitas</span></div>
+  <div class="lbl">progresso salvo neste navegador</div>
+</div></div>
+
+<script>
+(function(){
+  var caixas = Array.prototype.slice.call(document.querySelectorAll('td.chk input[type=checkbox]'));
+  document.getElementById('total').textContent = caixas.length;
+  function atualiza(){
+    var feitas=0;
+    caixas.forEach(function(c){
+      if(c.checked) feitas++;
+      try{ localStorage.setItem('bx:'+c.id, c.checked?'1':'0'); }catch(e){}
+    });
+    document.getElementById('feitas').textContent = feitas;
+  }
+  caixas.forEach(function(c){
+    try{ if(localStorage.getItem('bx:'+c.id)==='1') c.checked=true; }catch(e){}
+    c.addEventListener('change', atualiza);
+  });
+  atualiza();
+})();
+</script>
+
+</body>
+</html>
