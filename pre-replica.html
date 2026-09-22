@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Revisão Antes de Replicar</title>
+<meta name="robots" content="noindex">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body style="margin:0">
+<meta charset="utf-8">
+<title>Revisão Antes de Replicar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<style>
+:root{
+  --bg:#f6f1e8; --surface:#fffdf8; --surface2:#f0e9db; --ink:#2b2118; --ink2:#5c5245;
+  --muted:#8a7c6b; --line:#e3d8c6; --accent:#c8102e; --accent-soft:#fbe9ec;
+  --good:#1c7c44; --good-soft:#e3f2e8; --warn:#a3630b; --warn-soft:#f8eeda;
+  --bad:#b3261e; --bad-soft:#f9e7e5; --chip:#efe6d6;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#211b13; --surface:#2b241a; --surface2:#352c20; --ink:#f1e9dc; --ink2:#cfc3b0;
+    --muted:#a2937e; --line:#443a2b; --accent:#f0596f; --accent-soft:#48222a;
+    --good:#59c98a; --good-soft:#22382c; --warn:#e0a33e; --warn-soft:#3d311f;
+    --bad:#ef6b61; --bad-soft:#42241f; --chip:#3a3123;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#211b13; --surface:#2b241a; --surface2:#352c20; --ink:#f1e9dc; --ink2:#cfc3b0;
+  --muted:#a2937e; --line:#443a2b; --accent:#f0596f; --accent-soft:#48222a;
+  --good:#59c98a; --good-soft:#22382c; --warn:#e0a33e; --warn-soft:#3d311f;
+  --bad:#ef6b61; --bad-soft:#42241f; --chip:#3a3123;
+}
+*{box-sizing:border-box}
+body{background:var(--bg); color:var(--ink); margin:0;
+  font-family:'Instrument Sans',system-ui,sans-serif; font-size:16px; line-height:1.55; padding-bottom:84px;}
+.wrap{max-width:1000px; margin:0 auto; padding:0 20px;}
+h1,h2,h3{font-family:'Archivo',system-ui,sans-serif; line-height:1.15; text-wrap:balance; margin:0;}
+h1{font-size:clamp(28px,5vw,40px); font-weight:800;}
+h2{font-size:clamp(19px,3vw,25px); font-weight:700; margin-bottom:4px;}
+h3{font-size:16px; font-weight:700; margin:16px 0 4px;}
+p{margin:.5em 0; max-width:78ch;}
+.eyebrow{font-size:12px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:var(--accent); margin-bottom:8px;}
+header.hero{padding:40px 0 6px;}
+.sub{color:var(--ink2); margin-top:10px; max-width:80ch;}
+.tiles{display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:12px; margin:22px 0 6px;}
+.tile{background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:13px 16px;}
+.tile .v{font-family:'Archivo'; font-weight:800; font-size:22px; font-variant-numeric:tabular-nums;}
+.tile .l{font-size:12.5px; color:var(--muted); margin-top:2px;}
+section{margin:36px 0;}
+.secnum{display:inline-block; background:var(--accent); color:#fff; font-family:'Archivo'; font-weight:700;
+  font-size:13px; border-radius:6px; padding:2px 9px; margin-bottom:8px;}
+:root[data-theme="dark"] .secnum{color:#211b13;}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .secnum{color:#211b13;} }
+.box{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:15px 18px; margin:14px 0;}
+.box.note{background:var(--surface2); border-style:dashed;}
+.small{font-size:13.5px; color:var(--ink2);}
+.tablewrap{overflow-x:auto; margin:12px 0; border:1px solid var(--line); border-radius:10px; background:var(--surface);}
+table{border-collapse:collapse; width:100%; min-width:640px; font-size:14px;}
+th{font-size:11.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted);
+  text-align:left; padding:9px 12px; border-bottom:1px solid var(--line); font-weight:600;}
+td{padding:8px 12px; border-bottom:1px solid var(--line); vertical-align:top;}
+tr:last-child td{border-bottom:none;}
+td.num,th.num{text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap;}
+td.chk{width:34px;}
+td.chk input{width:18px; height:18px; accent-color:var(--accent); cursor:pointer;}
+tr:has(input:checked) td{opacity:.55;}
+tr:has(input:checked) td.novo{text-decoration:line-through;}
+.novo{font-weight:700;}
+.chip{display:inline-block; background:var(--chip); border-radius:20px; padding:1px 10px; font-size:12px; font-weight:600; white-space:nowrap;}
+.chip.good{background:var(--good-soft); color:var(--good);}
+.chip.warn{background:var(--warn-soft); color:var(--warn);}
+.chip.bad{background:var(--bad-soft); color:var(--bad);}
+ul.lst{padding-left:20px; margin:.4em 0;} ul.lst li{margin:6px 0; max-width:80ch;}
+input:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+#bar{position:fixed; left:0; right:0; bottom:0; background:var(--surface);
+  border-top:2px solid var(--accent); padding:10px 20px; z-index:50;}
+#bar .in{max-width:1000px; margin:0 auto; display:flex; justify-content:space-between; align-items:center; gap:14px; flex-wrap:wrap;}
+#bar .lbl{font-size:13px; color:var(--muted);}
+#bar .num{font-family:'Archivo'; font-weight:800; font-variant-numeric:tabular-nums;}
+@media (prefers-reduced-motion: reduce){ *{transition:none !important;} }
+details{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:12px 18px; margin:14px 0;}
+details summary{cursor:pointer; font-weight:600;}
+.nome{font-family:ui-monospace,Consolas,monospace; font-size:13px; background:var(--surface2); border-radius:4px; padding:1px 5px; white-space:normal;}
+.onde{font-size:12px; color:var(--muted); display:block; margin-bottom:2px; text-transform:uppercase; letter-spacing:.05em;}
+td.acao{font-weight:600;}
+.cod{font-size:11px; font-weight:700; color:var(--accent); margin-top:4px; letter-spacing:.04em;}
+.tag{display:inline-block; font-size:11px; font-weight:700; border-radius:4px; padding:1px 6px; margin-right:4px;}
+.t-b{background:var(--accent-soft); color:var(--accent);} .t-c{background:var(--good-soft); color:var(--good);} .t-v{background:var(--warn-soft); color:var(--warn);}
+ul.mapa{padding-left:20px; margin:.3em 0;} ul.mapa li{margin:4px 0;}
+</style>
+
+<div class="wrap">
+<header class="hero">
+  <div class="eyebrow">Burger AV · Comida Brasileira AV · Cidadão Vegan AV — lidos pela API em 22/09/2026</div>
+  <h1>Revisão antes de replicar</h1>
+  <p class="sub">Li os três cardápios inteiros e rodei a mesma bateria de conferências das faxinas: preço contra a régua de margem,
+  código PDV repetido, item ou opção pausada, grupo de complemento duplicado, preço riscado sem desconto e nome com sujeira.
+  <strong>O que estiver errado agora vira erro em 4 lojas depois da réplica</strong> (Ahú e São Braz × cada marca), e o Hits das lojas de
+  destino zera por 24 horas.</p>
+  <div class="tiles">
+    <div class="tile"><div class="v">249</div><div class="l">itens lidos: 121 Burger · 86 Comida Brasileira · 42 Vegan</div></div>
+    <div class="tile"><div class="v">6</div><div class="l">coisas para arrumar antes (as 3 primeiras são as que pesam)</div></div>
+    <div class="tile"><div class="v">12</div><div class="l">cadastros do grupo "Você precisa de garfo e faca?" na Burger</div></div>
+    <div class="tile"><div class="v">24h</div><div class="l">prazo de elegibilidade do Hits em cada loja nova</div></div>
+  </div>
+</header>
+
+<section>
+  <div class="secnum">1</div>
+  <h2>Arrumar antes de replicar</h2>
+  <div class="tablewrap"><table>
+    <tr><th></th><th>Lojas · o que está assim hoje</th><th>O que fazer antes de replicar</th><th>Por quê</th></tr>
+    <tr><td class="chk"><input type="checkbox" id="r1"><div class="cod">R1</div></td><td><span class="tag t-b">Burger</span><span class="tag t-c">Comida Bras.</span><br>Preços que a revisão pela margem mandou subir e ainda não subiram: <span class="nome">Ufo Burger Salada</span> 34,99 (23,8% de custo) · <span class="nome">Ufo Burger Gorgonzola Crispy</span> 35,99 · <span class="nome">Ufo Burger Cheddar Bacon</span> 42,99 · <span class="nome">Ufo Burger Costela Catupiry</span> 49,99 · <span class="nome">Tilápia empanada</span> 64,99 (26,6%)</td><td class="acao">Aplicar o checklist de preços (37,99 · 37,99 · 43,99 · 53,99 · 78,99) e os acréscimos de combo e adicional</td><td class="small">replicando agora, o preço errado vai para Ahú e São Braz e depois são 6 lojas para corrigir em vez de 2</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="r2"><div class="cod">R2</div></td><td><span class="tag t-c">Comida Bras.</span><br><span class="nome">Pedro Pedreiro (Frango a passarinho)</span> aparece <strong>duas vezes</strong>: em "Mais Pedidos do Ifood" e em "Pratos Clássicos", com o mesmo PDV 38474609 e o mesmo preço</td><td class="acao">Decidir qual posição fica e excluir a outra. No plano da CB o prato de "Mais Pedidos" era o <strong>Pedro Pedreiro (Frango grelhado)</strong>, que vende 60 contra 5</td><td class="small">item repetido é o que você não quer no cardápio, e a réplica leva a duplicata junto</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="r3"><div class="cod">R3</div></td><td><span class="tag t-b">Burger</span><span class="tag t-c">Comida Bras.</span><span class="tag t-v">Vegan</span><br>Grupos de complemento repetidos: "Você precisa de garfo e faca?" tem <strong>12 cadastros</strong> na Burger e 12 na Comida Brasileira; na Vegan, "Vai comer no seco?" tem 9, "molho vegano adicional" 7 e "acompanhamento veg" 6</td><td class="acao">Unificar cada pergunta em um cadastro só (é o U4/U1 que já estava na fila)</td><td class="small">cada cópia vira outra cópia em cada loja nova: 12 viram 36</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="r4"><div class="cod">R4</div></td><td><span class="tag t-b">Burger</span><span class="tag t-c">Comida Bras.</span><br><span class="nome">Caldo verde com calabresa.</span> está pausado como item e como opção dentro de <span class="nome">Caldos imperdiveis</span></td><td class="acao">Reativar, se voltou a ser produzido, ou excluir das duas lojas</td><td class="small">item pausado replicado nasce pausado nas filiais</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="r5"><div class="cod">R5</div></td><td><span class="tag t-b">Burger</span><span class="tag t-c">Comida Bras.</span><span class="tag t-v">Vegan</span><br><span class="nome">Rita Lee</span> está com "De 19,99 por 19,99"</td><td class="acao">Tirar o preço riscado ou colocar um De real</td><td class="small">desconto de zero reais na vitrine</td></tr>
+    <tr><td class="chk"><input type="checkbox" id="r6"><div class="cod">R6</div></td><td><span class="tag t-b">Burger</span><span class="tag t-c">Comida Bras.</span><span class="tag t-v">Vegan</span><br>Nomes com sujeira: <span class="nome">Caldo de mandioquinha (batata salsa).</span> e <span class="nome">Caldo verde com calabresa.</span> terminam em ponto · <span class="nome">Costelinha barbecue defumada peça ( Ribs On The Barbecue)</span> tem espaço dentro do parêntese · na Vegan a categoria <span class="nome">Caldos !!!</span></td><td class="acao">Corrigir os nomes</td><td class="small">é o texto que o cliente lê</td></tr>
+  </table></div>
+</section>
+
+<section>
+  <div class="secnum">2</div>
+  <h2>Está certo assim, não mexa</h2>
+  <ul class="lst">
+    <li><strong>Mesmo PDV em duas posições nos pratos de almoço</strong> (Severino, Agostinho carne, Pf Pernil e Pf Costela aparecem em "Almoço Campeão"
+    a 39,99–47,99 e em "Pratos Clássicos"/"Pratos Defumados" a 35,99–42,99). É proposital: a posição do Almoço Campeão existe para as campanhas
+    de almoço do Hits, com o De mais alto. Não é duplicata para apagar.</li>
+    <li><strong>"Com crosta de mozarela crocante" pausado nos 4 Ufo Burger</strong>: a ficha está errada (preço de quilo) e o adicional segue pausado até a correção.</li>
+    <li><strong>Adicionais de carne pausados nos caldos da Vegan</strong> (pernil, costela, bacon, carne desfiada) e o garfo e faca pausado nos 3 pratos veganos.</li>
+    <li><strong>Costelinha acima da régua</strong> (92,99 · 97,99 · 139,99): é a regra da âncora que você decidiu — item acima de R$ 100 se julga pela sobra em reais.</li>
+    <li><strong>Bebidas, chopp e sobremesa comprada</strong> aparecem com CMV alto porque são mercadoria, que tem régua própria.</li>
+  </ul>
+</section>
+
+<section>
+  <div class="secnum">3</div>
+  <h2>Ordem sugerida</h2>
+  <ol class="lst">
+    <li>Arrumar os 6 itens da seção 1 nas lojas de origem.</li>
+    <li>Replicar Burger, Comida Brasileira e Vegan para Ahú e São Braz.</li>
+    <li>Em cada loja nova, terminar o cardápio (tirar o que não se vende lá, ajustar categorias) <strong>antes</strong> de tentar o Hits.</li>
+    <li>Esperar as 24 horas de elegibilidade e então montar as campanhas. Eu confiro a elegibilidade pela API e aviso quando abrir.</li>
+    <li>Me avise depois de replicar: leio as 6 lojas e comparo item a item com a origem.</li>
+  </ol>
+  <p class="small">Lembrete do que já aconteceu na Comida Brasileira: a réplica zerou as 9 campanhas do Hits. O mesmo vai acontecer no Ahú e no São Braz,
+  então o combinado é replicar, arrumar e só depois montar campanha.</p>
+</section>
+</div>
+
+<div id="bar"><div class="in">
+  <div><span class="num" id="feitas">0</span> <span class="lbl">de <span id="total">?</span> itens arrumados</span></div>
+  <div class="lbl">progresso salvo neste navegador</div>
+</div></div>
+
+<script>
+(function(){
+  var caixas = Array.prototype.slice.call(document.querySelectorAll('td.chk input[type=checkbox]'));
+  document.getElementById('total').textContent = caixas.length;
+  function atualiza(){
+    var feitas=0;
+    caixas.forEach(function(c){
+      if(c.checked) feitas++;
+      try{ localStorage.setItem('pr:'+c.id, c.checked?'1':'0'); }catch(e){}
+    });
+    document.getElementById('feitas').textContent = feitas;
+  }
+  caixas.forEach(function(c){
+    try{ if(localStorage.getItem('pr:'+c.id)==='1') c.checked=true; }catch(e){}
+    c.addEventListener('change', atualiza);
+  });
+  atualiza();
+})();
+</script>
+
+</body>
+</html>
