@@ -927,6 +927,7 @@
            abre com a fila e o historico. Volta ao menu quando o lancamento voltar. -->
       <button class="sidebar-btn" id="navBtnRh" onclick="mostrarModulo('rh')"><span class="mico">💳</span>Descontos em folha</button>
       <button class="sidebar-btn" id="navBtnForafolha" onclick="mostrarModulo('forafolha')"><span class="mico">🧮</span>Pagamento fora da folha</button>
+      <button class="sidebar-btn" id="navBtnCargos" onclick="mostrarModulo('cargos')"><span class="mico">🪪</span>Cargos e salários</button>
     </div>
 
     <button class="sidebar-secao" onclick="toggleGrupo('gProducao')">Produção e estoque <span class="seta">▶</span></button>
@@ -1074,6 +1075,11 @@
 
     <div id="modulo-forafolha" class="modulo" style="display:none;">
       <div id="view-forafolha"></div>
+    </div>
+
+    <!-- Cargos e salários (22/09/2026): base de consulta da folha para a Hellen -->
+    <div id="modulo-cargos" class="modulo" style="display:none;">
+      <div id="view-cargos"></div>
     </div>
 
     <div id="modulo-listas" class="modulo" style="display:none;">
@@ -1826,6 +1832,7 @@ function mostrarModulo(nome) {
     rh: ['modulo-rh', 'navBtnRh'],
     // forafolha nasceu 04/09 fora deste mapa e abriu em branco — mesma armadilha do rateio.
     forafolha: ['modulo-forafolha', 'navBtnForafolha'],
+    cargos: ['modulo-cargos', 'navBtnCargos'],
     concbanco: ['modulo-concbanco', 'navBtnConcbanco'],
     caixa: ['modulo-caixa', 'navBtnCaixa'],
     rede: ['modulo-rede', 'navBtnRede'],
@@ -1910,6 +1917,7 @@ function mostrarModulo(nome) {
   if (nome === 'reembolsos') entrarReembolsos();
   if (nome === 'rh') entrarRh();
   if (nome === 'forafolha') entrarForaFolha();
+  if (nome === 'cargos') entrarCargos();
   if (nome === 'rotinas') entrarRotinas();
   if (nome === 'fluxo') entrarFluxo();
   if (nome === 'dre') entrarDre();
@@ -1944,7 +1952,7 @@ function moduloAtivo() {
                               ['modulo-fichas','fichas'], ['modulo-engcard','engcard'],
                               ['modulo-plano','plano'],
                               ['modulo-reembolsos','reembolsos'], ['modulo-rh','rh'],
-                              ['modulo-forafolha','forafolha']]) {
+                              ['modulo-forafolha','forafolha'], ['modulo-cargos','cargos']]) {
     const el = document.getElementById(idm);
     if (el && el.style.display !== 'none') return nomem;
   }
@@ -7763,6 +7771,151 @@ async function ffSalvarPessoa(id) {
   FF.editando = null;
   await entrarForaFolha();
   ffAviso('Parâmetros salvos — todos os meses foram recalculados.', true);
+}
+
+// ------------------------------------------------------------------
+// CARGOS E SALÁRIOS (22/09/2026) — base de consulta da folha, para a Hellen.
+// Lê rh_pessoas_folha / rh_cargos_tabela pelas views vw_rh_* (RLS: pode_ver_pessoal).
+// Fonte: planilha do dono "Folha após dissidio.xlsx", carregada por
+// script/import_folha_cargos.py, uma vigência por carga. Só salário base por
+// enquanto — VT, VA e encargos entram depois (pedido do dono, 22/09).
+// Recorte da tela: unidade e setor (clique nos chips ou na linha do setor).
+// ------------------------------------------------------------------
+let CARGOS = null;
+let CARGOS_F = { unidade: null, setor: null };
+
+async function entrarCargos() {
+  const alvo = document.getElementById('view-cargos');
+  if (!alvo) return;
+  if (CARGOS) { renderModuloCargos(); return; }
+  alvo.innerHTML = '<div class="contexto">Carregando cargos e salários...</div>';
+  try {
+    const [pessoas, setores, tabela] = await Promise.all([
+      consultarTudo('vw_rh_folha_pessoas?select=*&order=unidade,nome'),
+      consultarTudo('vw_rh_folha_setor?select=*&order=unidade,setor'),
+      consultarTudo('vw_rh_cargos_tabela?select=*&order=unidade,familia,nivel,horas'),
+    ]);
+    CARGOS = { pessoas, setores, tabela };
+  } catch (e) {
+    alvo.innerHTML = `<div class="contexto">Não consegui carregar cargos e salários: ${e.message}</div>`;
+    return;
+  }
+  if (!CARGOS.pessoas.length) {
+    alvo.innerHTML = '<div class="contexto">Nada para mostrar — ou a base ainda não foi carregada, ou este login não vê dados de pessoal.</div>';
+    return;
+  }
+  renderModuloCargos();
+}
+
+function cargosFiltrar(campo, valor) {
+  CARGOS_F[campo] = (CARGOS_F[campo] === valor) ? null : valor;
+  renderModuloCargos();
+}
+function cargosLimpar() { CARGOS_F = { unidade: null, setor: null }; renderModuloCargos(); }
+
+function renderModuloCargos() {
+  const alvo = document.getElementById('view-cargos');
+  if (!alvo || CARGOS === null) return;
+  const n = (v) => Number(v) || 0;
+  const R = (v) => n(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const R0 = (v) => n(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
+  const esc = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const nomeBonito = (s) => String(s || '').toLowerCase().replace(/(^|\s)\S/g, (c) => c.toUpperCase());
+  const F = CARGOS_F;
+  const todos = CARGOS.pessoas.filter(p => p.ativo);
+  const vis = todos.filter(p => (!F.unidade || p.unidade === F.unidade) && (!F.setor || (p.setor || 'SEM SETOR') === F.setor));
+  const vigencia = todos.length ? todos[0].vigencia : null;
+  const mesVig = vigencia ? new Date(vigencia + 'T12:00:00').toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }) : '';
+
+  // ---- cabeçalho ----
+  const unidades = [...new Set(todos.map(p => p.unidade))];
+  const setoresVis = [...new Set(todos.filter(p => !F.unidade || p.unidade === F.unidade).map(p => p.setor || 'SEM SETOR'))].sort();
+  const chip = (rot, ativo, onclick) =>
+    `<button type="button" onclick="${onclick}" style="font:inherit;font-size:12px;padding:3px 10px;border-radius:999px;cursor:pointer;` +
+    `background:${ativo ? 'var(--surface-2)' : 'transparent'};color:${ativo ? 'var(--tx-1)' : 'var(--tx-4)'};` +
+    `border:1px solid ${ativo ? 'var(--brand)' : 'var(--line)'};font-weight:${ativo ? 700 : 400};">${esc(rot)}${ativo ? ' ✕' : ''}</button>`;
+  const totalBase = vis.reduce((s, p) => s + n(p.salario), 0);
+  const totalAumento = vis.reduce((s, p) => s + n(p.aumento), 0);
+  const foraTabela = vis.filter(p => p.situacao_tabela !== 'NA TABELA');
+  const pendencias = vis.filter(p => p.obs_rh);
+
+  let h = `
+    <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Cargos e salários</div>
+    <div class="contexto">Salário base bruto da folha de ${esc(mesVig)}, após o dissídio de 6,11%. VT, VA e encargos entram depois.</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 12px;align-items:center;">
+      ${unidades.map(u => chip(u, F.unidade === u, `cargosFiltrar('unidade','${esc(u)}')`)).join('')}
+      <span style="width:1px;height:18px;background:var(--line);margin:0 4px;"></span>
+      ${setoresVis.map(s => chip(s, F.setor === s, `cargosFiltrar('setor','${esc(s)}')`)).join('')}
+      ${(F.unidade || F.setor) ? `<a href="javascript:void(0)" onclick="cargosLimpar()" style="font-size:12px;color:var(--tx-4);margin-left:6px;">limpar</a>` : ''}
+    </div>
+    <div class="cards">
+      <div class="card neutral"><div class="card-lbl">Pessoas na folha</div><div class="card-val">${vis.length}</div><div class="card-pct">${F.unidade || F.setor ? 'no recorte' : 'ativas, sem pró-labore'}</div></div>
+      <div class="card neutral"><div class="card-lbl">Salário base por mês</div><div class="card-val">${R0(totalBase)}</div><div class="card-pct">média ${R0(vis.length ? totalBase / vis.length : 0)} por pessoa</div></div>
+      <div class="card ${totalAumento > 0 ? 'pos' : 'neutral'}"><div class="card-lbl">Aumento do dissídio</div><div class="card-val">${R0(totalAumento)}</div><div class="card-pct">por mês, sobre a folha anterior</div></div>
+      <div class="card ${foraTabela.length ? 'highlight' : 'neutral'}"><div class="card-lbl">Fora da tabela</div><div class="card-val">${foraTabela.length}</div><div class="card-pct">${foraTabela.length ? 'cargo ou valor sem célula na tabela' : 'todo mundo enquadrado'}</div></div>
+    </div>`;
+
+  if (pendencias.length) {
+    h += `<div class="contexto" style="margin-top:10px;">Para o RH: ${pendencias.map(p => `<b>${esc(nomeBonito(p.nome).split(' ')[0])}</b> — ${esc(p.obs_rh.toLowerCase())}`).join('; ')}.</div>`;
+  }
+
+  // ---- pessoas ----
+  const sit = (p) => p.situacao_tabela === 'NA TABELA' ? '<span style="color:var(--farol-ok);">na tabela</span>'
+    : p.situacao_tabela === 'DIFERENTE DA TABELA' ? `<span style="color:var(--farol-perto);">tabela diz ${R(p.salario_tabela)}</span>`
+    : '<span style="color:var(--farol-perto);">fora da tabela</span>';
+  h += `<div class="section-label">Quem está na folha <span style="font-weight:400;color:var(--tx-4);">· ${vis.length} pessoa${vis.length === 1 ? '' : 's'}</span></div>
+    <div id="tabelaCargosPessoas" style="overflow-x:auto;"><table>
+      <thead><tr><th>Unidade</th><th>Nome</th><th>Cargo</th><th style="text-align:right;">Jornada</th><th style="text-align:right;">Salário base</th><th style="text-align:right;">Antes</th><th>Tabela</th><th>Setor</th><th>Turno</th><th>Admissão</th></tr></thead>
+      <tbody>${vis.map(p => `<tr>
+        <td>${esc(p.unidade)}</td>
+        <td>${esc(nomeBonito(p.nome))}${p.matricula ? ` <span style="color:var(--tx-5);font-size:11px;">#${esc(p.matricula)}</span>` : ''}</td>
+        <td>${esc(nomeBonito(p.cargo))}</td>
+        <td style="text-align:right;">${p.horas ? p.horas + 'h' : '–'}</td>
+        <td style="text-align:right;font-weight:600;">${R(p.salario)}</td>
+        <td style="text-align:right;color:var(--tx-4);">${p.salario_anterior != null ? R(p.salario_anterior) : '–'}</td>
+        <td>${sit(p)}</td>
+        <td>${p.setor ? `<a href="javascript:void(0)" onclick="cargosFiltrar('setor','${esc(p.setor)}')" style="color:inherit;">${esc(p.setor)}</a>` : '<span style="color:var(--tx-5);">sem setor</span>'}</td>
+        <td>${esc(p.turno || '–')}</td>
+        <td>${p.admissao ? new Date(p.admissao + 'T12:00:00').toLocaleDateString('pt-BR') : '–'}</td>
+      </tr>`).join('')}</tbody>
+      <tfoot><tr class="sub"><td colspan="4">Total</td><td style="text-align:right;">${R(totalBase)}</td><td style="text-align:right;">${R(vis.reduce((s, p) => s + n(p.salario_anterior != null ? p.salario_anterior : p.salario), 0))}</td><td colspan="4"></td></tr></tfoot>
+    </table></div>`;
+
+  // ---- por setor ----
+  const setores = CARGOS.setores.filter(s => !F.unidade || s.unidade === F.unidade);
+  const totSet = setores.reduce((s, x) => s + n(x.salario_base), 0);
+  h += `<div class="section-label">Folha por setor <span style="font-weight:400;color:var(--tx-4);">· clique para recortar</span></div>
+    <div id="tabelaCargosSetor" style="overflow-x:auto;"><table>
+      <thead><tr><th>Unidade</th><th>Setor</th><th style="text-align:right;">Pessoas</th><th style="text-align:right;">Salário base</th><th style="text-align:right;">% da folha</th><th style="text-align:right;">Aumento</th></tr></thead>
+      <tbody>${setores.map(s => `<tr onclick="cargosFiltrar('setor','${esc(s.setor)}')" style="cursor:pointer;${F.setor === s.setor ? 'font-weight:700;' : ''}">
+        <td>${esc(s.unidade)}</td><td>${esc(s.setor)}</td>
+        <td style="text-align:right;">${n(s.pessoas)}</td>
+        <td style="text-align:right;">${R(s.salario_base)}</td>
+        <td style="text-align:right;">${totSet ? (100 * n(s.salario_base) / totSet).toFixed(0) : 0}%</td>
+        <td style="text-align:right;color:var(--tx-4);">${R(s.aumento)}</td>
+      </tr>`).join('')}</tbody>
+      <tfoot><tr class="sub"><td colspan="2">Total</td><td style="text-align:right;">${setores.reduce((s, x) => s + n(x.pessoas), 0)}</td><td style="text-align:right;">${R(totSet)}</td><td style="text-align:right;">100%</td><td style="text-align:right;">${R(setores.reduce((s, x) => s + n(x.aumento), 0))}</td></tr></tfoot>
+    </table></div>`;
+
+  // ---- tabela de cargos vigente ----
+  const tabUnid = [...new Set(CARGOS.tabela.map(t => t.unidade))];
+  const ordemFam = ['AUXILIAR', 'ATENDENTE', 'COZINHEIRO', 'ESTOQUISTA', 'LIDER', 'SUPERVISOR', 'GERENTE'];
+  h += `<div class="section-label">Tabela de cargos vigente <span style="font-weight:400;color:var(--tx-4);">· Ahú usa a tabela da Água Verde</span></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px;">`;
+  for (const u of tabUnid) {
+    const linhas = {};
+    for (const t of CARGOS.tabela.filter(t => t.unidade === u)) {
+      const k = t.cargo; (linhas[k] = linhas[k] || { fam: t.familia, nivel: t.nivel, cargo: t.cargo })[t.horas] = t.salario;
+    }
+    const ordenadas = Object.values(linhas).sort((a, b) => (ordemFam.indexOf(a.fam) - ordemFam.indexOf(b.fam)) || (n(a.nivel) - n(b.nivel)));
+    h += `<div><div style="font-size:12px;color:var(--tx-4);margin-bottom:4px;">${esc(u)}</div>
+      <div id="tabelaCargosTabela${u.replace(/\W/g, '')}"><table>
+        <thead><tr><th>Cargo</th><th style="text-align:right;">180h</th><th style="text-align:right;">220h</th></tr></thead>
+        <tbody>${ordenadas.map(l => `<tr><td>${esc(nomeBonito(l.cargo))}</td><td style="text-align:right;">${l[180] != null ? R(l[180]) : '–'}</td><td style="text-align:right;">${l[220] != null ? R(l[220]) : '–'}</td></tr>`).join('')}</tbody>
+      </table></div></div>`;
+  }
+  h += `</div>`;
+  alvo.innerHTML = h;
 }
 
 async function entrarRh() {
@@ -14455,7 +14608,7 @@ const PLC_TILES = [
   { id: 'canal', rot: 'Custo dos canais',       un: 'R$', meta: null,          v: a => a.taxas,
     telas: [['resumo', 'Resumo do canal iFood'], ['rede', 'Taxas da maquininha'], ['promocoes', 'Promoções']] },
   { id: 'pess',  rot: 'Pessoas',                un: 'R$', meta: 'PESSOAL',     v: a => a.grupos.PESSOAL,
-    telas: [['despesas', 'Análise de despesas'], ['forafolha', 'Pagamento fora da folha'], ['rh', 'Descontos em folha']] },
+    telas: [['despesas', 'Análise de despesas'], ['cargos', 'Cargos e salários'], ['forafolha', 'Pagamento fora da folha'], ['rh', 'Descontos em folha']] },
   { id: 'mc',    rot: 'Margem de contribuição', un: 'R$', meta: 'LUCRO_BRUTO', v: a => a.mc,
     def: 'Margem de contribuição = receita líquida − mercadoria. ',
     telas: [['dre', 'DRE'], ['rateio', 'Preço alvo por produto']] },
@@ -18277,6 +18430,7 @@ function renderAll() {
   if (ativo === 'listasfin' && LISTAS !== null) renderModuloListasFin();
   if (ativo === 'reembolsos' && REEMBOLSOS !== null) renderModuloReembolsos(REEMBOLSOS);
   if (ativo === 'rh' && RH !== null) renderModuloRh();
+  if (ativo === 'cargos' && CARGOS !== null) renderModuloCargos();
   if (ativo === 'negociacoes' && NEGOCIACOES !== null) renderModuloNegociacoes();
   if (ativo === 'avaliacoes' && AVALIACOES !== null) renderModuloAvaliacoes();
   if (ativo === 'cardapio' && CARDAPIO !== null) renderModuloCardapio();
