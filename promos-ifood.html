@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Promoções do iFood por Loja</title>
+<meta name="robots" content="noindex">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body style="margin:0">
+<meta charset="utf-8">
+<title>Promoções do iFood por Loja</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<style>
+:root{
+  --bg:#f6f1e8; --surface:#fffdf8; --surface2:#f0e9db; --ink:#2b2118; --ink2:#5c5245;
+  --muted:#8a7c6b; --line:#e3d8c6; --accent:#c8102e; --accent-soft:#fbe9ec;
+  --good:#1c7c44; --good-soft:#e3f2e8; --warn:#a3630b; --warn-soft:#f8eeda;
+  --bad:#b3261e; --bad-soft:#f9e7e5; --chip:#efe6d6;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#211b13; --surface:#2b241a; --surface2:#352c20; --ink:#f1e9dc; --ink2:#cfc3b0;
+    --muted:#a2937e; --line:#443a2b; --accent:#f0596f; --accent-soft:#48222a;
+    --good:#59c98a; --good-soft:#22382c; --warn:#e0a33e; --warn-soft:#3d311f;
+    --bad:#ef6b61; --bad-soft:#42241f; --chip:#3a3123;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#211b13; --surface:#2b241a; --surface2:#352c20; --ink:#f1e9dc; --ink2:#cfc3b0;
+  --muted:#a2937e; --line:#443a2b; --accent:#f0596f; --accent-soft:#48222a;
+  --good:#59c98a; --good-soft:#22382c; --warn:#e0a33e; --warn-soft:#3d311f;
+  --bad:#ef6b61; --bad-soft:#42241f; --chip:#3a3123;
+}
+*{box-sizing:border-box}
+body{background:var(--bg); color:var(--ink); margin:0;
+  font-family:'Instrument Sans',system-ui,sans-serif; font-size:16px; line-height:1.55; padding-bottom:84px;}
+.wrap{max-width:1000px; margin:0 auto; padding:0 20px;}
+h1,h2,h3{font-family:'Archivo',system-ui,sans-serif; line-height:1.15; text-wrap:balance; margin:0;}
+h1{font-size:clamp(28px,5vw,40px); font-weight:800;}
+h2{font-size:clamp(19px,3vw,25px); font-weight:700; margin-bottom:4px;}
+h3{font-size:16px; font-weight:700; margin:16px 0 4px;}
+p{margin:.5em 0; max-width:78ch;}
+.eyebrow{font-size:12px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:var(--accent); margin-bottom:8px;}
+header.hero{padding:40px 0 6px;}
+.sub{color:var(--ink2); margin-top:10px; max-width:80ch;}
+.tiles{display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:12px; margin:22px 0 6px;}
+.tile{background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:13px 16px;}
+.tile .v{font-family:'Archivo'; font-weight:800; font-size:22px; font-variant-numeric:tabular-nums;}
+.tile .l{font-size:12.5px; color:var(--muted); margin-top:2px;}
+section{margin:36px 0;}
+.secnum{display:inline-block; background:var(--accent); color:#fff; font-family:'Archivo'; font-weight:700;
+  font-size:13px; border-radius:6px; padding:2px 9px; margin-bottom:8px;}
+:root[data-theme="dark"] .secnum{color:#211b13;}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .secnum{color:#211b13;} }
+.box{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:15px 18px; margin:14px 0;}
+.box.note{background:var(--surface2); border-style:dashed;}
+.small{font-size:13.5px; color:var(--ink2);}
+.tablewrap{overflow-x:auto; margin:12px 0; border:1px solid var(--line); border-radius:10px; background:var(--surface);}
+table{border-collapse:collapse; width:100%; min-width:640px; font-size:14px;}
+th{font-size:11.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted);
+  text-align:left; padding:9px 12px; border-bottom:1px solid var(--line); font-weight:600;}
+td{padding:8px 12px; border-bottom:1px solid var(--line); vertical-align:top;}
+tr:last-child td{border-bottom:none;}
+td.num,th.num{text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap;}
+td.chk{width:34px;}
+td.chk input{width:18px; height:18px; accent-color:var(--accent); cursor:pointer;}
+tr:has(input:checked) td{opacity:.55;}
+tr:has(input:checked) td.novo{text-decoration:line-through;}
+.novo{font-weight:700;}
+.chip{display:inline-block; background:var(--chip); border-radius:20px; padding:1px 10px; font-size:12px; font-weight:600; white-space:nowrap;}
+.chip.good{background:var(--good-soft); color:var(--good);}
+.chip.warn{background:var(--warn-soft); color:var(--warn);}
+.chip.bad{background:var(--bad-soft); color:var(--bad);}
+ul.lst{padding-left:20px; margin:.4em 0;} ul.lst li{margin:6px 0; max-width:80ch;}
+input:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+#bar{position:fixed; left:0; right:0; bottom:0; background:var(--surface);
+  border-top:2px solid var(--accent); padding:10px 20px; z-index:50;}
+#bar .in{max-width:1000px; margin:0 auto; display:flex; justify-content:space-between; align-items:center; gap:14px; flex-wrap:wrap;}
+#bar .lbl{font-size:13px; color:var(--muted);}
+#bar .num{font-family:'Archivo'; font-weight:800; font-variant-numeric:tabular-nums;}
+@media (prefers-reduced-motion: reduce){ *{transition:none !important;} }
+
+.num{text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap;}
+.nome small{display:block; color:var(--muted); font-size:12px;}
+.ver{font-weight:700;}
+.ver.ok{color:var(--good);} .ver.at{color:var(--warn);} .ver.mal{color:var(--accent);}
+.achado{background:var(--surface); border:1px solid var(--line); border-left:4px solid var(--accent); border-radius:10px; padding:14px 18px; margin:14px 0;}
+.achado h3{margin:0 0 6px; font-size:16px;}
+.achado.corr{border-left-color:var(--warn);}
+.tt{font-size:12.5px; color:var(--ink2);}
+</style>
+
+<div class="wrap">
+<header class="hero">
+  <div class="eyebrow">13 lojas próprias + 4 do Boqueirão · relatório de promoções do iFood · 24/08 a 20/09/2026 (4 semanas)</div>
+  <h1>Promoções do iFood, loja a loja</h1>
+  <p class="sub">"Promo do iFood" = tudo que não é Hits, Campanha Inteligente, frete grátis ou anúncio (sua regra de 23/09). A conta de quem paga
+  sai dos pedidos em que ela foi a <strong>única</strong> promoção — é o único jeito de separar o dinheiro, porque o relatório soma as promos que
+  vêm juntas no mesmo pedido.</p>
+</header>
+
+<div class="achado">
+  <h3>1. Nas lojas próprias as promos do iFood custam zero — e aparecem em 27% dos pedidos</h3>
+  Em 2.449 de 8.918 pedidos houve alguma promo do iFood; em quase todos ela veio <strong>por cima da nossa</strong> (Hits, CI, frete).
+  Só 304 pedidos vieram exclusivamente por ela, e neles o iFood pagou R$ 3.083 e nós, R$ 0. O que vende é o <strong>Clube iFood Recorrente</strong>
+  (o resto são outras versões do Clube e cupons CRM, com poucos pedidos cada). Não tira nada do nosso caixa e não aumenta o nosso custo quando
+  vem junto com a nossa promo — então não há motivo para brigar para desligar.
+</div>
+<div class="achado">
+  <h3>2. As campanhas "Hits (+R$ X iFood)" custam para nós o mesmo que o Hits normal</h3>
+  Pedido com Hits R$ 8 comum: nós R$ 9,13, iFood R$ 6,88. Com "R$ 8 (+R$ 2 iFood)": nós R$ 8,91, iFood R$ 9,19. Com "+R$ 4": nós R$ 9,33, iFood R$ 11,79.
+  É o mesmo Hits com o iFood pondo mais dinheiro. Deram 505 pedidos em 4 semanas nas lojas próprias (1 em cada 6 pedidos de Hits) — pouco,
+  mas não é nada, e não pesa no nosso bolso.
+</div>
+<div class="achado">
+  <h3>3. Boqueirão: o "Cupom Clube 25% off – limitado a R$ 10" é pago 100% pela loja</h3>
+  Nas 3 lojas do Boqueirão (Burger, Vegan e Veganete Alto Boqueirão) a loja pagou R$ 611 em 98 pedidos (≈ R$ 9,50 por pedido) e o iFood, R$ 0.
+  Não é Hits, CI nem frete. Como o Boqueirão é gestão separada, fica o aviso para quem cuida de lá.
+</div>
+<div class="achado corr">
+  <h3>4. Correção sobre a Rita Lee</h3>
+  Eu disse que o "50% off CI Clube" travava a Rita Lee fora do Hits. <strong>Não se sustenta</strong>: o Dalí tem um "60% off CI Clube" parecido e entrou no
+  Hits R$ 5. O motivo de a Rita Lee não ficar elegível segue sem prova — pode ser volume de venda (o critério é "Top 3 itens em vendas").
+</div>
+
+<h2>Lojas próprias</h2>
+<div class="tablewrap"><table>
+<tr><th>Loja <span class="tt">· promos do iFood que mais aparecem (pedidos)</span></th><th class="num">Pedidos iFood</th><th class="num">Com promo do iFood</th><th class="num">Só com promo do iFood</th><th class="num">iFood pagou nesses</th><th class="num">Nós pagamos</th><th class="num">Hits "+iFood"</th><th>Veredito</th></tr>
+<tr><td class="nome">Cidadão do Mundo Burger - Água Verde<small>Clube Recorrente 1208 · Clube Benefícios 71 · Clube Avulso 30% 63</small></td><td class="num">4.623</td><td class="num">1.638 <span class="tt">(35%)</span></td><td class="num">182 <span class="tt">(4%)</span></td><td class="num">R$ 1.865</td><td class="num">R$ 0</td><td class="num">134 <span class="tt">de 809</span></td><td><span class="ver ok">Custo zero para nós</span></td></tr>
+<tr><td class="nome">A Famosa Marmita<small>Clube Recorrente 110 · cupom CRM 6 · Clube Benefícios 2</small></td><td class="num">773</td><td class="num">131 <span class="tt">(17%)</span></td><td class="num">11 <span class="tt">(1%)</span></td><td class="num">R$ 103</td><td class="num">R$ 0</td><td class="num">93 <span class="tt">de 438</span></td><td><span class="ver ok">Custo zero para nós</span></td></tr>
+<tr><td class="nome">Cidadão do Mundo Burger - São Braz<small>Clube Recorrente 141 · cupom CRM 5 · Clube Benefícios 2</small></td><td class="num">704</td><td class="num">171 <span class="tt">(24%)</span></td><td class="num">20 <span class="tt">(3%)</span></td><td class="num">R$ 193</td><td class="num">R$ 0</td><td class="num">52 <span class="tt">de 339</span></td><td><span class="ver ok">Custo zero para nós</span></td></tr>
+<tr><td class="nome">Cidadão do Mundo Burger - Ahú<small>Clube Recorrente 106 · cupom CRM 9 · Clube Avulso R$12 5</small></td><td class="num">690</td><td class="num">139 <span class="tt">(20%)</span></td><td class="num">29 <span class="tt">(4%)</span></td><td class="num">R$ 280</td><td class="num">R$ 0</td><td class="num">48 <span class="tt">de 394</span></td><td><span class="ver ok">Custo zero para nós</span></td></tr>
+<tr><td class="nome">Cidadão Vegan Burger Agua Verde<small>Clube Recorrente 57 · Clube Avulso 30% 4 · cupom CRM 4</small></td><td class="num">509</td><td class="num">72 <span class="tt">(14%)</span></td><td class="num">18 <span class="tt">(4%)</span></td><td class="num">R$ 179</td><td class="num">R$ 0</td><td class="num">56 <span class="tt">de 307</span></td><td><span class="ver ok">Custo zero para nós</span></td></tr>
+<tr><td class="nome">Baixa Gastronomia<small>Clube Recorrente 61 · Clube Avulso 30% 7 · Clube Benefícios 5</small></td><td class="num">483</td><td class="num">89 <span class="tt">(18%)</span></td><td class="num">9 <span class="tt">(2%)</span></td><td class="num">R$ 124</td><td class="num">R$ 0</td><td class="num">31 <span class="tt">de 205</span></td><td><span class="ver ok">Custo zero para nós</span></td></tr>
+<tr><td class="nome">Cidadão do Mundo Comida Brasileira - Sb<small>Clube Recorrente 40 · Clube Benefícios 3 · cupom CRM 2</small></td><td class="num">280</td><td class="num">48 <span class="tt">(17%)</span></td><td class="num">7 <span class="tt">(2%)</span></td><td class="num">R$ 67</td><td class="num">R$ 0</td><td class="num">23 <span class="tt">de 150</span></td><td><span class="ver ok">Custo zero para nós</span></td></tr>
+<tr><td class="nome">Cidadão do Mundo Comida Brasileira AV<small>Clube Recorrente 56 · cupom CRM 3 · Clube Benefícios 2</small></td><td class="num">255</td><td class="num">70 <span class="tt">(27%)</span></td><td class="num">14 <span class="tt">(5%)</span></td><td class="num">R$ 144</td><td class="num">R$ 0</td><td class="num">13 <span class="tt">de 74</span></td><td><span class="ver ok">Custo zero para nós</span></td></tr>
+<tr><td class="nome">Cidadão Vegan  - Ahú<small>Clube Recorrente 13 · cupom CRM 4 · UBERONE_IFOOD_SOT 3</small></td><td class="num">179</td><td class="num">24 <span class="tt">(13%)</span></td><td class="num">3 <span class="tt">(2%)</span></td><td class="num">R$ 30</td><td class="num">R$ 0</td><td class="num">21 <span class="tt">de 120</span></td><td><span class="ver ok">Custo zero para nós</span></td></tr>
+<tr><td class="nome">Cidadão do Mundo Comida Brasileira - Ahú<small>Clube Recorrente 30 · Clube Avulso 30% 4 · Clube Avulso 2</small></td><td class="num">174</td><td class="num">43 <span class="tt">(25%)</span></td><td class="num">4 <span class="tt">(2%)</span></td><td class="num">R$ 37</td><td class="num">R$ 0</td><td class="num">18 <span class="tt">de 99</span></td><td><span class="ver ok">Custo zero para nós</span></td></tr>
+<tr><td class="nome">Veganete - Agua Verde<small>Clube Recorrente 14 · cupom CRM 3 · Clube Benefícios 2</small></td><td class="num">151</td><td class="num">22 <span class="tt">(15%)</span></td><td class="num">7 <span class="tt">(5%)</span></td><td class="num">R$ 60</td><td class="num">R$ 0</td><td class="num">14 <span class="tt">de 75</span></td><td><span class="ver ok">Custo zero para nós</span></td></tr>
+<tr><td class="nome">Ufo Burger<small>[CLUBE] Cupom de R$ 20 OFF para  1 · Clube Recorrente 1</small></td><td class="num">62</td><td class="num">2 <span class="tt">(3%)</span></td><td class="num">0 <span class="tt">(0%)</span></td><td class="num">R$ 0</td><td class="num">R$ 0</td><td class="num">2 <span class="tt">de 14</span></td><td><span class="ver ok">Custo zero para nós</span></td></tr>
+<tr><td class="nome">Cidadão Vegan - São Braz<small>—</small></td><td class="num">35</td><td class="num">0 <span class="tt">(0%)</span></td><td class="num">0 <span class="tt">(0%)</span></td><td class="num">R$ 0</td><td class="num">R$ 0</td><td class="num">0 <span class="tt">de 0</span></td><td><span class="ver at">Nenhuma promo do iFood</span></td></tr>
+</table></div>
+
+<h2>Boqueirão (gestão separada)</h2>
+<div class="tablewrap"><table>
+<tr><th>Loja <span class="tt">· promos do iFood que mais aparecem (pedidos)</span></th><th class="num">Pedidos iFood</th><th class="num">Com promo do iFood</th><th class="num">Só com promo do iFood</th><th class="num">iFood pagou nesses</th><th class="num">Nós pagamos</th><th class="num">Hits "+iFood"</th><th>Veredito</th></tr>
+<tr><td class="nome">Cidadão do Mundo Burger - Boqueirão<small>Clube Recorrente 59 · cupom CRM 11 · Clube Benefícios 9</small></td><td class="num">1.299</td><td class="num">97 <span class="tt">(7%)</span></td><td class="num">40 <span class="tt">(3%)</span></td><td class="num">R$ 432</td><td class="num">R$ 262</td><td class="num">70 <span class="tt">de 377</span></td><td><span class="ver mal">Cupom Clube 25% pago pela loja (R$ 262)</span></td></tr>
+<tr><td class="nome">Cidadão do Mundo Comida Brasileira - Boq<small>Clube Recorrente 94 · [CI] Missões iFood - Resgate de  2 · Clube Avulso 30% 2</small></td><td class="num">217</td><td class="num">114 <span class="tt">(53%)</span></td><td class="num">2 <span class="tt">(1%)</span></td><td class="num">R$ 25</td><td class="num">R$ 0</td><td class="num">7 <span class="tt">de 34</span></td><td><span class="ver ok">Custo zero para nós</span></td></tr>
+<tr><td class="nome">Cidadão Vegan Boqueirão<small>Clube Recorrente 20 · cupom CRM 5</small></td><td class="num">97</td><td class="num">27 <span class="tt">(28%)</span></td><td class="num">27 <span class="tt">(28%)</span></td><td class="num">R$ 281</td><td class="num">R$ 285</td><td class="num">1 <span class="tt">de 7</span></td><td><span class="ver mal">Cupom Clube 25% pago pela loja (R$ 285)</span></td></tr>
+<tr><td class="nome">Veganete - Alto Boqueirão<small>Clube Recorrente 6 · cupom CRM 3</small></td><td class="num">34</td><td class="num">9 <span class="tt">(26%)</span></td><td class="num">9 <span class="tt">(26%)</span></td><td class="num">R$ 84</td><td class="num">R$ 64</td><td class="num">2 <span class="tt">de 17</span></td><td><span class="ver mal">Cupom Clube 25% pago pela loja (R$ 64)</span></td></tr>
+</table></div>
+<p class="small">Fonte: <code>fato_promocoes</code> (relatório de promoções do iFood, importado 23/09) e <code>fato_pedidos</code> (pedidos não cancelados).
+"Com promo do iFood" conta o pedido uma vez, mesmo com duas promos do iFood. "Hits +iFood" = pedidos nessas campanhas, de quantos pedidos de Hits da loja.
+O Vegan São Braz não teve nenhuma promo do iFood nas 4 semanas.</p>
+</div>
+
+</body>
+</html>
