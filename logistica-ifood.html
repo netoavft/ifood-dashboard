@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Logística iFood × entrega própria · Cidadão do Mundo</title>
+<!-- Página mantida pelo Claude. Fonte dos números: contexto/project_proposta_logistica_ifood_2026_09.md
+     (fato_pedidos, fato_promocoes, foody_entregas, trackeat_entregas, log_regras_pagamento, vw_ft_custo). -->
+<style>
+  :root { --vermelho:#c8102e; --fundo:#faf6f0; --card:#fff; --tinta:#2b2320; --suave:#8a7d74; --linha:#e8ded2; --destaque:#fff3c4; --verde:#2e7d4f; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--fundo); color:var(--tinta); padding:24px 16px 48px; line-height:1.45; }
+  .wrap { max-width:1040px; margin:0 auto; }
+  h1 { font-size:1.5rem; color:var(--vermelho); margin-bottom:4px; }
+  .sub { color:var(--suave); font-size:.9rem; margin-bottom:20px; }
+  h2 { font-size:1.08rem; margin:30px 0 10px; border-left:4px solid var(--vermelho); padding-left:10px; }
+  .card { background:var(--card); border:1px solid var(--linha); border-radius:10px; padding:14px; overflow-x:auto; }
+  table { border-collapse:collapse; width:100%; font-size:.88rem; }
+  th, td { border:1px solid var(--linha); padding:8px 9px; vertical-align:top; }
+  th { background:#f4ece1; text-align:left; }
+  td.n { text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; }
+  td.n small { display:block; color:var(--suave); }
+  tr.total td { background:var(--destaque); font-weight:700; }
+  .volta { color:var(--verde); }
+  .resumo { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; margin-bottom:6px; }
+  .kpi { background:var(--card); border:1px solid var(--linha); border-radius:10px; padding:14px; }
+  .kpi .l { font-size:.78rem; color:var(--suave); text-transform:uppercase; letter-spacing:.4px; }
+  .kpi .v { font-size:1.5rem; font-weight:800; margin-top:4px; }
+  .kpi .s { font-size:.82rem; color:var(--suave); }
+  .kpi.alerta .v { color:var(--vermelho); }
+  .aviso { background:#fdf0f2; border:1px solid #f3c9d0; border-radius:10px; padding:12px 14px; font-size:.9rem; margin-top:10px; }
+  .pend { background:#f6f2ea; border:1px dashed var(--suave); border-radius:10px; padding:12px 14px; font-size:.9rem; margin-top:10px; }
+  ul, ol { margin:6px 0 0 20px; }
+  li { margin:5px 0; }
+  .rodape { color:var(--suave); font-size:.8rem; margin-top:32px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Logística iFood × entrega própria</h1>
+  <div class="sub">Rede sem Boqueirão &middot; base 07 a 20/09/2026 levada para um mês (&asymp; 10.400 pedidos iFood) &middot; Atualizado em <b>23/09/2026</b></div>
+
+  <div class="resumo">
+    <div class="kpi"><div class="l">Entrega própria (hoje)</div><div class="v">R$ 36,0 mil/mês</div><div class="s">R$ 3,45 por pedido</div></div>
+    <div class="kpi"><div class="l">Logística iFood</div><div class="v">R$ 76,7 mil/mês</div><div class="s">R$ 7,36 por pedido</div></div>
+    <div class="kpi alerta"><div class="l">Diferença</div><div class="v">+ R$ 40,7 mil/mês</div><div class="s">o iFood sai mais caro para a rede</div></div>
+  </div>
+
+  <h2>1. A conta linha a linha</h2>
+  <div class="card">
+  <table>
+    <tr><th>#</th><th>Linha</th><th>Entrega própria (hoje)</th><th>Logística iFood</th><th>O que é</th></tr>
+    <tr><td>1</td><td><b>Corridas dos motoboys</b></td><td class="n">R$ 72.091<small>R$ 6,92/pedido</small></td><td class="n">R$ 0</td><td>O que pagamos por entrega pela nossa tabela (R$ 6 a R$ 12,50 conforme a distância). No iFood não temos motoboy.</td></tr>
+    <tr><td>2</td><td><b>Garantido dos motoboys</b></td><td class="n">R$ 2.431<small>R$ 0,23</small></td><td class="n">R$ 0</td><td>Complemento quando as corridas do turno não chegam a R$ 20/hora (seg–sex) ou R$ 25/hora (sáb–dom).</td></tr>
+    <tr><td>3</td><td><b>Refeição dos motoboys</b></td><td class="n">R$ 3.250<small>R$ 0,31</small></td><td class="n">R$ 0</td><td>Uma refeição por turno trabalhado, ao custo médio de um prato clássico (R$ 5,46 pela ficha técnica).</td></tr>
+    <tr><td>4</td><td><b>Adicional por distância (rota)</b></td><td class="n">R$ 0</td><td class="n">R$ 48.912<small>R$ 4,69</small></td><td>Cobrado pelo iFood em todo pedido: até 3 km R$ 3,99 (7.560 pedidos) &middot; 3–5 km R$ 5,99 (2.203) &middot; 5–7 km R$ 7,99 (510) &middot; acima de 7 km R$ 9,99 (148).</td></tr>
+    <tr><td>5</td><td><b>Frete grátis até 3 km</b></td><td class="n">R$ 0 no caixa</td><td class="n">R$ 37.800<small>R$ 3,63</small></td><td><b>Hoje</b> o frete é nosso: no mesmo pedido a taxa entra e a promoção sai, então zera. <b>No iFood</b> o frete é deles e pagamos até R$ 5 por pedido, em dinheiro.</td></tr>
+    <tr><td>6</td><td><b>Frete grátis acima de 3 km</b> (promo de R$ 9,99 do fim de semana)</td><td class="n">R$ 0 no caixa</td><td class="n">R$ 17.141<small>R$ 1,64</small></td><td>Mesma lógica da linha 5. No iFood, qualquer frete grátis acima dos R$ 5 sai do nosso bolso.</td></tr>
+    <tr><td>7</td><td><b>Frete que o Hits devolve</b></td><td class="n volta">− R$ 27.180<small>− R$ 2,61</small></td><td class="n volta">− R$ 27.180<small>− R$ 2,61</small></td><td>O iFood paga os ~R$ 7 de frete nos pedidos Hits até 3 km. Continua igual nos dois modelos.</td></tr>
+    <tr><td>8</td><td><b>Frete pago pelo cliente</b></td><td class="n volta">− R$ 14.589<small>− R$ 1,40</small></td><td class="n">R$ 0</td><td>Quem paga frete, quase sempre acima de 3 km. <b>Hoje o dinheiro fica com a gente; no iFood, fica com o iFood.</b></td></tr>
+    <tr class="total"><td></td><td>CUSTO LÍQUIDO DE ENTREGA</td><td class="n">R$ 36.003<small>R$ 3,45/pedido</small></td><td class="n">R$ 76.672<small>R$ 7,36/pedido</small></td><td>O iFood sai <b>R$ 40,7 mil/mês</b> mais caro</td></tr>
+  </table>
+  </div>
+  <div class="pend"><b>Como ler:</b> valor com sinal de menos (em verde) é dinheiro que volta para nós. Comissão e taxa de pagamento online não entram porque são iguais nos dois modelos, e o benefício de R$ 500 mil continua nos dois.</div>
+
+  <h2>2. Por que o estudo do iFood mostra economia e a nossa conta não</h2>
+  <div class="card">
+    <ul>
+      <li>O estudo compara só a <b>linha 1 com a linha 4</b> (motoboy contra adicional). Nessa comparação o iFood ganha mesmo.</li>
+      <li>Ele deixa de fora a <b>linha 8</b>: o frete pago pelo cliente deixa de ser nosso.</li>
+      <li>Ele trata a <b>linha 5</b> como custo nosso hoje. Hoje ela não tira dinheiro do caixa; no iFood, tira.</li>
+      <li>Ele usa <b>87%</b> dos pedidos até 3 km. Pela rota, que é como o adicional será cobrado, são <b>72% a 78%</b>.</li>
+    </ul>
+    <div class="aviso"><b>Exemplo real (pedido 6844, Água Verde, 15/09):</b> itens R$ 67,99 + taxa de entrega R$ 6,99 − frete grátis R$ 6,99 − comissão R$ 1,77 = repasse <b>R$ 66,22</b>. O frete grátis zera: é dinheiro que deixamos de cobrar, não dinheiro que sai.</div>
+  </div>
+
+  <h2>3. A loja teste de marmita</h2>
+  <div class="card">
+    <p><b>Formato:</b> sai da cozinha da Água Verde, 4 marmitas a preço competitivo, com Logística iFood. A rede continua com entrega própria.</p>
+    <p style="margin-top:10px"><b>Custo de entrega esperado por pedido até 3 km:</b></p>
+    <table style="margin-top:6px">
+      <tr><th>Tipo de pedido</th><th>Entrega própria</th><th>Logística iFood</th></tr>
+      <tr><td>Pedido Hits (marmita de R$ 15 a 24,99 cai na faixa de R$ 5)</td><td class="n volta">+ R$ 0,49</td><td class="n">− R$ 1,99<small>− 3,99 − 5 + 7</small></td></tr>
+      <tr><td>Com frete grátis, sem Hits</td><td class="n">− R$ 6,50</td><td class="n">− R$ 8,99</td></tr>
+      <tr><td>Cliente paga o frete</td><td class="n volta">+ R$ 0,49</td><td class="n">− R$ 3,99</td></tr>
+    </table>
+    <p style="margin-top:12px">O teste custa uns <b>R$ 2,50 a mais por pedido</b> do que a entrega própria. Esse é o preço de aprender duas coisas:</p>
+    <ol>
+      <li><b>Custo depois do repasse.</b> Conferir no repasse do iFood, pedido a pedido, se o que chega bate com a tabela acima: adicional por rota, os R$ 5 do frete grátis e os R$ 7 do Hits voltando.</li>
+      <li><b>Motoboy do iFood em todos os turnos.</b> Medir por turno e horário (almoço, tarde, jantar, madrugada, dia de semana e fim de semana): tempo até o entregador aceitar e chegar, atrasos e cancelamentos por falta de entregador.</li>
+    </ol>
+    <div class="pend"><b>A combinar antes de ligar a loja:</b> a data da avaliação (por exemplo, 4 semanas) e o que conta como "passou" em cada um dos dois pontos. Assim a decisão de estender (ou não) a Logística iFood sai do dado, e não da impressão.</div>
+  </div>
+
+  <h2>4. De onde vêm os números</h2>
+  <div class="card" style="font-size:.86rem">
+    <ul>
+      <li><b>Pedidos, taxa de entrega e distância:</b> export de pedidos do iFood (a faixa de distância sai da taxa cobrada, que segue a rota).</li>
+      <li><b>Frete grátis da loja e volta do Hits:</b> relatório de promoções do iFood, semana a semana.</li>
+      <li><b>Corridas e garantido:</b> Foody (Água Verde) e TrackEat (Ahú e São Braz), com a regra de pagamento dos motoboys.</li>
+      <li><b>Refeição:</b> custo médio dos 13 pratos clássicos pela ficha técnica.</li>
+      <li><b>Condições da Logística iFood:</b> proposta do iFood de 22/09/2026, com as respostas confirmadas pelo Neto (benefício continua, Hits segue devolvendo ~R$ 7, adicional pela rota).</li>
+      <li><b>Em aberto:</b> como ficam as entregas do site próprio.</li>
+    </ul>
+  </div>
+
+  <div class="rodape">Cidadão do Mundo &middot; análise interna &middot; 23/09/2026</div>
+</div>
+</body>
+</html>
