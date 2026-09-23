@@ -78,14 +78,21 @@
   <h2>3. A loja teste de marmita</h2>
   <div class="card">
     <p><b>Formato:</b> sai da cozinha da Água Verde, 4 marmitas a preço competitivo, com Logística iFood. A rede continua com entrega própria.</p>
-    <p style="margin-top:10px"><b>Custo de entrega esperado por pedido até 3 km:</b></p>
+    <p style="margin-top:10px"><b>Custo de entrega de UM pedido de marmita até 3 km</b> — mesmas linhas da tabela 1, agora por pedido. Até 3 km o frete é sempre grátis (promo de R$ 6,99), então o pedido é de um destes dois tipos:</p>
     <table style="margin-top:6px">
-      <tr><th>Tipo de pedido</th><th>Entrega própria</th><th>Logística iFood</th></tr>
-      <tr><td>Pedido Hits (marmita de R$ 15 a 24,99 cai na faixa de R$ 5)</td><td class="n volta">+ R$ 0,49</td><td class="n">− R$ 1,99<small>− 3,99 − 5 + 7</small></td></tr>
-      <tr><td>Com frete grátis, sem Hits</td><td class="n">− R$ 6,50</td><td class="n">− R$ 8,99</td></tr>
-      <tr><td>Cliente paga o frete</td><td class="n volta">+ R$ 0,49</td><td class="n">− R$ 3,99</td></tr>
+      <tr><th rowspan="2">#</th><th rowspan="2">Linha</th><th colspan="2">Pedido Hits<br><small>(marmita de R$ 15 a 24,99 entra na faixa de R$ 5)</small></th><th colspan="2">Pedido sem Hits</th></tr>
+      <tr><th>Própria</th><th>iFood</th><th>Própria</th><th>iFood</th></tr>
+      <tr><td>1</td><td>Corrida do motoboy <small>(até 3 km: R$ 6 ou R$ 7, média R$ 6,33)</small></td><td class="n">R$ 6,33</td><td class="n">R$ 0</td><td class="n">R$ 6,33</td><td class="n">R$ 0</td></tr>
+      <tr><td>2</td><td>Garantido</td><td class="n">R$ 0,23</td><td class="n">R$ 0</td><td class="n">R$ 0,23</td><td class="n">R$ 0</td></tr>
+      <tr><td>3</td><td>Refeição</td><td class="n">R$ 0,31</td><td class="n">R$ 0</td><td class="n">R$ 0,31</td><td class="n">R$ 0</td></tr>
+      <tr><td>4</td><td>Adicional por distância</td><td class="n">R$ 0</td><td class="n">R$ 3,99</td><td class="n">R$ 0</td><td class="n">R$ 3,99</td></tr>
+      <tr><td>5</td><td>Frete grátis até 3 km</td><td class="n">R$ 0 no caixa</td><td class="n">R$ 5,00</td><td class="n">R$ 0 no caixa</td><td class="n">R$ 5,00</td></tr>
+      <tr><td>7</td><td>Hits devolve o frete</td><td class="n volta">− R$ 6,99</td><td class="n volta">− R$ 6,99</td><td class="n">—</td><td class="n">—</td></tr>
+      <tr class="total"><td></td><td>Custo de entrega do pedido</td><td class="n volta">sobra R$ 0,12</td><td class="n">R$ 2,00</td><td class="n">R$ 6,87</td><td class="n">R$ 8,99</td></tr>
+      <tr class="total"><td></td><td>iFood a mais, por pedido</td><td class="n" colspan="2">R$ 2,12</td><td class="n" colspan="2">R$ 2,12</td></tr>
     </table>
-    <p style="margin-top:12px">O teste custa uns <b>R$ 2,50 a mais por pedido</b> do que a entrega própria. Esse é o preço de aprender duas coisas:</p>
+    <div class="aviso"><b>Por que a loja teste dá R$ 2,12 a mais e a rede dá R$ 3,91?</b> Porque a rede tem ~25% de pedidos <b>acima de 3 km</b>, e é ali que o iFood pesa mais: o adicional sobe (R$ 5,99 a R$ 9,99), o frete que o cliente pagaria vai para o iFood (linha 8) e o frete grátis do fim de semana sai do nosso bolso (linha 6). Uma marmita perto de casa fica quase toda até 3 km — por isso a diferença cai para R$ 2,12. Se a loja teste vender longe, o número dela sobe em direção aos R$ 3,91.</div>
+    <p style="margin-top:12px">O teste custa uns <b>R$ 2,12 a mais por pedido</b> até 3 km (100 pedidos = R$ 212). Esse é o preço de aprender duas coisas:</p>
     <ol>
       <li><b>Custo depois do repasse.</b> Conferir no repasse do iFood, pedido a pedido, se o que chega bate com a tabela acima: adicional por rota, os R$ 5 do frete grátis e os R$ 7 do Hits voltando.</li>
       <li><b>Motoboy do iFood em todos os turnos.</b> Medir por turno e horário (almoço, tarde, jantar, madrugada, dia de semana e fim de semana): tempo até o entregador aceitar e chegar, atrasos e cancelamentos por falta de entregador.</li>
