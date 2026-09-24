@@ -12123,9 +12123,9 @@ async function trTelaPedido(unidadeEscolhida) {
     <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:0 18px;">
       ${linhas.map((i, idx) => `
         <label data-busca="${i.item.toLowerCase()}" class="tr-linha" style="display:grid; grid-template-columns:1fr 76px; gap:2px 10px; align-items:center; font-size:12.5px; padding:5px 2px;">
-          <span>${i.item} <span class="tr-det">(${i.emb_fator ? 'pede em ' + i.emb_nome + ' de ' + trEmbDesc(i) : (i.un_medida || 'un')}${i.nao_cobrado ? ' · não cobrado' : (i.preco_tabela ? ' · R$ ' + Number(i.preco_tabela).toFixed(2) + '/' + (i.un_medida || 'un').toLowerCase() : '')})${i.sem_custo ? ' ⚠️ sem custo' : ''}</span>${i.emb_fator ? `<br><span id="trqe_${idx}" class="tr-conv" style="font-size:11px;"></span>` : ''}</span>
+          <span>${i.item} <span class="tr-det">(${i.emb_fator ? 'pede em ' + i.emb_nome + ' de ' + trEmbDesc(i) : (i.un_medida || 'un')}${i.nao_cobrado ? ' · não cobrado' : (i.preco_tabela ? ' · R$ ' + Number(i.preco_tabela).toFixed(2) + '/' + (i.un_medida || 'un').toLowerCase() : '')})${i.sem_custo ? ' ⚠️ sem custo' : ''}</span><br><span id="trqe_${idx}" class="tr-conv" style="font-size:11px;"></span></span>
           <input type="number" min="0" step="any" id="trq_${idx}" class="trc-in" placeholder="${i.emb_fator ? i.emb_nome + 's' : (i.minimo || i.maximo ? (i.minimo ?? '') + '–' + (i.maximo ?? '') : '')}"
-            oninput="trqTem(this)${i.emb_fator ? `; trEmbHint(${idx})` : ''}"
+            oninput="trqTem(this); trEmbHint(${idx})"
             style="width:72px; justify-self:end; text-align:right;">
         </label>`).join('')}
     </div>
@@ -12186,14 +12186,22 @@ function trEmbDesc(i) {
   if ((i.un_medida || '') === 'KG') return f >= 1 ? String(f).replace('.', ',') + ' kg' : Math.round(f * 1000) + ' g';
   return f + ' ' + (i.un_medida || 'un').toLowerCase();
 }
+// Letreiro da linha (24/09/2026, dono): conversao da embalagem E o valor do
+// item conforme digita — "2 × 700 g ≈ 1,4 kg = R$ 26,51". Login sem valores
+// ve so a conversao (preco chega nulo); item nao cobrado nao mostra R$ 0.
 function trEmbHint(idx) {
   const i = (window._trItensPedido || [])[idx];
   const el = document.getElementById('trqe_' + idx);
   if (!i || !el) return;
   const n = Number(document.getElementById('trq_' + idx)?.value || 0);
-  el.textContent = n > 0
-    ? `${n} × ${trEmbDesc(i)} ≈ ${(n * i.emb_fator).toLocaleString('pt-BR', { maximumFractionDigits: 2 })} ${(i.un_medida || 'un').toLowerCase()}`
-    : '';
+  if (n <= 0) { el.textContent = ''; return; }
+  const partes = [];
+  if (i.emb_fator) partes.push(`${n} × ${trEmbDesc(i)} ≈ ${(n * i.emb_fator).toLocaleString('pt-BR', { maximumFractionDigits: 2 })} ${(i.un_medida || 'un').toLowerCase()}`);
+  if (i.preco_tabela != null && Number(i.preco_tabela) > 0) {
+    const qtd = i.emb_fator ? n * i.emb_fator : n;
+    partes.push(`R$ ${fmt(qtd * Number(i.preco_tabela))}`);
+  }
+  el.textContent = partes.join(' = ');
 }
 
 // itens fora da grade: linhas dinamicas no fim do pedido (03/09/2026)
@@ -12334,9 +12342,9 @@ async function trEditarPedido(id) {
     <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:0 18px;">
       ${novos.map((i, idx) => `
         <label data-busca2="${i.item.toLowerCase()}" class="tr-linha" style="display:grid; grid-template-columns:1fr 76px; gap:2px 10px; align-items:center; font-size:12.5px; padding:5px 2px;">
-          <span>${i.item} <span class="tr-det">(${i.emb_fator ? 'pede em ' + i.emb_nome + ' de ' + trEmbDesc(i) : (i.un_medida || 'un')}${i.nao_cobrado ? ' · não cobrado' : (i.preco_tabela ? ' · R$ ' + Number(i.preco_tabela).toFixed(2) + '/' + (i.un_medida || 'un').toLowerCase() : '')})</span>${i.emb_fator ? `<br><span id="trne_${idx}" class="tr-conv" style="font-size:11px;"></span>` : ''}</span>
+          <span>${i.item} <span class="tr-det">(${i.emb_fator ? 'pede em ' + i.emb_nome + ' de ' + trEmbDesc(i) : (i.un_medida || 'un')}${i.nao_cobrado ? ' · não cobrado' : (i.preco_tabela ? ' · R$ ' + Number(i.preco_tabela).toFixed(2) + '/' + (i.un_medida || 'un').toLowerCase() : '')})</span><br><span id="trne_${idx}" class="tr-conv" style="font-size:11px;"></span></span>
           <input type="number" min="0" step="any" id="trn_${idx}" class="trc-in" placeholder="${i.emb_fator ? i.emb_nome + 's' : ''}"
-            oninput="trqTem(this)${i.emb_fator ? `; trEditHint(${idx})` : ''}"
+            oninput="trqTem(this); trEditHint(${idx})"
             style="width:72px; justify-self:end; text-align:right;">
         </label>`).join('')}
     </div>
@@ -12359,9 +12367,14 @@ function trEditHint(idx) {
   const el = document.getElementById('trne_' + idx);
   if (!i || !el) return;
   const n = Number(document.getElementById('trn_' + idx)?.value || 0);
-  el.textContent = n > 0
-    ? `${n} × ${trEmbDesc(i)} ≈ ${(n * i.emb_fator).toLocaleString('pt-BR', { maximumFractionDigits: 2 })} ${(i.un_medida || 'un').toLowerCase()}`
-    : '';
+  if (n <= 0) { el.textContent = ''; return; }
+  const partes = [];
+  if (i.emb_fator) partes.push(`${n} × ${trEmbDesc(i)} ≈ ${(n * i.emb_fator).toLocaleString('pt-BR', { maximumFractionDigits: 2 })} ${(i.un_medida || 'un').toLowerCase()}`);
+  if (i.preco_tabela != null && Number(i.preco_tabela) > 0) {
+    const qtd = i.emb_fator ? n * i.emb_fator : n;
+    partes.push(`R$ ${fmt(qtd * Number(i.preco_tabela))}`);
+  }
+  el.textContent = partes.join(' = ');
 }
 async function trSalvarEdicao() {
   const msg = document.getElementById('trEditMsg');
