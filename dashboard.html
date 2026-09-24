@@ -12751,7 +12751,7 @@ async function trReabrirConferencia(id) {
 // fechar a lista, na mensagem final — e ai a lista ja estava fechada. Agora a
 // linha se marca enquanto se digita e o contador fica ao lado do botao.
 function trConfRecontar() {
-  let difs = 0;
+  let difs = 0, total = 0, temValor = false;
   (window._trItensConf || []).forEach((i, idx) => {
     const el = document.getElementById('trc_' + idx);
     if (!el) return;
@@ -12762,7 +12762,20 @@ function trConfRecontar() {
     if (tag) tag.hidden = !dif;
     const tr = el.closest('tr');
     if (tr) tr.style.fontWeight = dif ? '700' : '';
+    // valor da linha ao vivo (24/09/2026, dono): recebido x preco congelado
+    const bruto = Number(el.value || 0);
+    const qtd = i._fator ? bruto * i._fator : bruto;
+    const vcel = document.getElementById('trcv_' + idx);
+    if (vcel) {
+      const partes = [];
+      if (i._fator && bruto > 0) partes.push(`= ${Math.round(qtd * 100) / 100} ${(i.un_medida || '').toLowerCase()}`);
+      if (i._pe != null && i._pe > 0 && bruto > 0) { partes.push(`R$ ${fmt(qtd * i._pe)}`); }
+      vcel.textContent = partes.join(' · ');
+    }
+    if (i._pe != null && i._pe > 0) { total += qtd * i._pe; temValor = true; }
   });
+  const tot = document.getElementById('trConfTotal');
+  if (tot) tot.textContent = temValor ? ` · Total recebido: R$ ${fmt(total)}` : '';
   const cont = document.getElementById('trConfDifs');
   if (cont) {
     cont.textContent = difs ? `${difs} ${difs === 1 ? 'item diferente' : 'itens diferentes'} do separado` : 'tudo igual ao separado';
@@ -12777,12 +12790,16 @@ function trConfRecontar() {
 // Item com DUAS embalagens (pernil) fica em kg — nao da para saber o mix.
 async function trAbrirConferencia(id) {
   const alvo = document.getElementById('trTelaConteudo');
-  const [rl, ri] = await Promise.all([
+  const [rl, ri, rv] = await Promise.all([
     trFetch(`tr_listas?id=eq.${id}&select=id,unidade`),
     trFetch(`tr_lista_itens?id_lista=eq.${id}&order=item&select=id,item,un_medida,qtd_separada,qtd_recebida,avulso,observacao,editado`),
+    trFetch(`vw_tr_conferencia_valores?id_lista=eq.${id}&select=id,preco_efetivo`),
   ]);
   const lista = (await rl.json())[0] || {};
   const itens = await ri.json();
+  // preco CONGELADO por linha (mascarado por login) — o valor ao vivo da conferencia
+  const precos = {};
+  if (rv.ok) (await rv.json()).forEach(v => { precos[v.id] = v.preco_efetivo; });
   const rc = await trFetch(`vw_tr_itens_pedido?unidade=eq.${encodeURIComponent(lista.unidade || '')}&select=item,un_medida,emb_nome,emb_fator,emb2_fator`);
   const cat = {};
   if (rc.ok) (await rc.json()).forEach(x => { cat[x.item] = x; });
@@ -12792,12 +12809,14 @@ async function trAbrirConferencia(id) {
     i._desc = cx && cx.emb_fator ? cx.emb_nome + ' de ' + trEmbDesc(cx) : null;
     i._fator = cx && cx.emb_fator && !cx.emb2_fator ? Number(cx.emb_fator) : null;
     i._emb = i._fator ? cx.emb_nome : null;
+    i._pe = precos[i.id] != null ? Number(precos[i.id]) : null;
   });
   window._trItensConf = itens;
   alvo.innerHTML = `
     <div class="caption-label"><button class="preset-btn" onclick="trListaAberta=null; trTelaConferencia();">← listas</button>
       Conferência da lista <b>#${id}</b> — o campo vem preenchido com o separado; <b>corrija o que veio diferente</b>.
-      Item com embalagem confere em <b>caixas/potes/pacotes</b>, como foi pedido.</div>
+      Item com embalagem confere em <b>caixas/potes/pacotes</b>, como foi pedido.
+      <span id="trConfTotal" style="font-size:12.5px; font-weight:700;"></span></div>
     <div id="tabelaTrOpConf"><table>
       <tr><th>Item</th><th>Separado</th><th>Recebido</th></tr>
       ${itens.map((i, idx) => `<tr><td>${i.item} <span class="dre-av">${i.un_medida || ''}</span>${i._desc ? ` <span class="tr-det">(${i._desc})</span>` : ''}${i.avulso ? ' <span class="tr-tag">🆕 fora da grade</span>' : ''}${i.observacao ? ` <span class="tr-tag">${i.observacao}</span>` : ''}${i.editado ? ' <span class="tr-tag">✏️ editado</span>' : ''}</td>
@@ -12808,7 +12827,8 @@ async function trAbrirConferencia(id) {
           data-sep="${i._fator ? arred(Number(i.qtd_separada || 0) / i._fator) : Number(i.qtd_separada || 0)}"
           value="${i._fator ? arred(Number(i.qtd_recebida ?? i.qtd_separada ?? 0) / i._fator) : (i.qtd_recebida ?? i.qtd_separada ?? 0)}"
           style="width:80px; text-align:right;">${i._fator ? ` <span class="tr-det">${i._emb}s</span>` : ''}
-          <span class="tr-tag" id="trdif_${idx}" hidden>≠ diferente do separado</span></td></tr>`).join('')}
+          <span class="tr-tag" id="trdif_${idx}" hidden>≠ diferente do separado</span>
+          <br><span class="tr-conv" id="trcv_${idx}" style="font-size:11px;"></span></td></tr>`).join('')}
     </table></div>
     ${TR_OP.papel === 'SEPARACAO' ? `<div class="caption-label">Consulta da separação — quem registra o recebimento
       e fecha a lista é a filial que recebeu.</div>` : `<div style="margin-top:12px;">
