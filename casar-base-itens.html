@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Casar itens das listas com a Base Oficial</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --papel:#faf6ef; --cartao:#ffffff; --tinta:#2b2420; --tinta2:#7a6f63;
+  --borda:#e6ddd0; --vermelho:#c8102e; --verde:#1a7a3c; --verde-bg:#e8f5ec;
+  --azul:#1155aa; --azul-bg:#e9f1fb; --ambar-bg:#fdf3dd; --ambar:#8a6410;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--papel);color:var(--tinta);
+  font-family:'Inter',system-ui,sans-serif;font-size:14px;line-height:1.45}
+.wrap{max-width:760px;margin:0 auto;padding:16px 16px 90px}
+h1{font-size:19px;font-weight:800;margin:8px 0 2px}
+.sub{color:var(--tinta2);font-size:12.5px;margin:0 0 14px}
+.topo{position:sticky;top:0;z-index:5;background:var(--papel);padding:10px 0 8px;border-bottom:1px solid var(--borda)}
+.contador{font-weight:700;font-size:13px;margin-bottom:8px}
+.contador b{color:var(--verde)}
+.fbar{display:flex;gap:8px;flex-wrap:wrap}
+.fbar input{flex:1;min-width:160px;padding:9px 12px;border:1px solid var(--borda);border-radius:9px;
+  font:inherit;font-size:14px;background:var(--cartao);color:var(--tinta)}
+.fbtn{padding:8px 12px;border:1px solid var(--borda);border-radius:9px;background:var(--cartao);
+  font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;color:var(--tinta2)}
+.fbtn.on{background:var(--tinta);color:#fff;border-color:var(--tinta)}
+.card{background:var(--cartao);border:1px solid var(--borda);border-radius:12px;padding:12px 14px;margin:10px 0}
+.card.ok{border-color:#bfe0ca;background:#fcfffc}
+.nome{font-weight:800;font-size:14.5px}
+.meta{color:var(--tinta2);font-size:12px;margin:2px 0 8px}
+.meta .tag{display:inline-block;padding:1px 7px;border-radius:20px;font-size:11px;font-weight:700;margin-right:6px}
+.tag.cid{background:var(--azul-bg);color:var(--azul)} .tag.forn{background:var(--ambar-bg);color:var(--ambar)}
+.sug{background:var(--verde-bg);border-radius:9px;padding:8px 10px;font-size:13px;margin-bottom:8px;
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.sug b{font-weight:700}
+.btn{padding:7px 12px;border:0;border-radius:8px;font:inherit;font-size:12.5px;font-weight:700;cursor:pointer}
+.btn.confirma{background:var(--verde);color:#fff}
+.btn.novo{background:var(--azul-bg);color:var(--azul)}
+.btn.limpa{background:transparent;color:var(--tinta2);text-decoration:underline;padding:7px 4px}
+.linha{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.buscaBase{position:relative;flex:1;min-width:200px}
+.buscaBase input{width:100%;padding:8px 11px;border:1px solid var(--borda);border-radius:8px;
+  font:inherit;font-size:13.5px;background:#fff;color:var(--tinta)}
+.dd{position:absolute;left:0;right:0;top:100%;z-index:9;background:#fff;border:1px solid var(--borda);
+  border-radius:0 0 10px 10px;max-height:230px;overflow:auto;box-shadow:0 8px 20px rgba(0,0,0,.12)}
+.dd div{padding:8px 11px;cursor:pointer;font-size:13px;border-top:1px solid #f2ece2}
+.dd div:hover{background:var(--papel)}
+.dd small{color:var(--tinta2)}
+.estado{margin-top:8px;font-size:13px;font-weight:700}
+.estado.casado{color:var(--verde)} .estado.novo{color:var(--azul)}
+.obs{margin-top:8px;width:100%;padding:8px 11px;border:1px solid var(--borda);border-radius:8px;
+  font:inherit;font-size:13px;background:#fff;color:var(--tinta)}
+.rodape{position:fixed;left:0;right:0;bottom:0;background:var(--cartao);border-top:1px solid var(--borda);
+  padding:10px 16px;display:flex;gap:10px;justify-content:center;z-index:6}
+.btn.gerar{background:var(--vermelho);color:#fff;font-size:14px;padding:11px 22px;border-radius:10px}
+#saida{display:none;white-space:pre-wrap;background:var(--tinta);color:#f5efe6;border-radius:12px;
+  padding:14px;font-family:ui-monospace,Consolas,monospace;font-size:12px;margin:14px 0;user-select:all}
+.aviso{background:var(--ambar-bg);color:var(--ambar);border-radius:10px;padding:10px 13px;font-size:12.5px;margin:10px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Casar itens das listas com a Base Oficial</h1>
+  <p class="sub">86 itens da grade das listas ainda não casam com a <b>Base de Itens</b> (ft_item_base).
+  22 têm sugestão pronta (diferença é só o sufixo MP/HTF da base) — basta confirmar.
+  Os demais: busque o nome oficial ou marque <b>“É novo”</b> para entrar na base.
+  <b>Em branco = fica como está.</b> Suas escolhas ficam salvas neste aparelho.</p>
+  <div class="aviso">💡 Muitos sem candidato são <b>receitas de produção própria</b> e <b>embalagens</b> —
+  se devem entrar na base, marque “É novo” e eu preparo o cadastro para sua revisão final.</div>
+  <div class="topo">
+    <div class="contador"><b id="nDec">0</b> decididos de <span id="nTot">86</span></div>
+    <div class="fbar">
+      <input id="filtro" type="search" placeholder="Buscar item da grade…">
+      <button class="fbtn on" data-f="todos">Todos</button>
+      <button class="fbtn" data-f="pend">Pendentes</button>
+      <button class="fbtn" data-f="dec">Decididos</button>
+      <button class="fbtn" data-f="sug">Com sugestão</button>
+    </div>
+  </div>
+  <div id="lista"></div>
+  <div id="saida"></div>
+</div>
+<div class="rodape">
+  <button class="btn gerar" id="btnGerar">Gerar respostas para o chat</button>
+</div>
+<script>
+const DADOS = {"itens": [{"item": "1/2 COSTELINHA BARBECUE PECA", "custo": "COSTELINHA BARBECUE KG ATACADO", "origem": "CIDADAO", "sug": ""}, {"item": "ABACATE", "custo": "", "origem": "FORNECEDOR", "sug": "ABACATE MP"}, {"item": "ALCATRA (ORELHA DE ELEFANTE)", "custo": "", "origem": "CIDADAO", "sug": "ALCATRA (ORELHA DE ELEFANTE) MP"}, {"item": "ALFACE AMERICANA", "custo": "", "origem": "FORNECEDOR", "sug": "ALFACE AMERICANA MP"}, {"item": "ALHO BATIDO RECEITA", "custo": "", "origem": "CIDADAO", "sug": ""}, {"item": "ANEIS DE CEBOLA CONGELADO KG", "custo": "", "origem": "CIDADAO", "sug": ""}, {"item": "ARROZ PARBOILIZADO", "custo": "ARROZ PARBOILIZADO 5KG", "origem": "CIDADAO", "sug": "ARROZ PARBOILIZADO MP"}, {"item": "BATATA CONGELADA KG", "custo": "", "origem": "CIDADAO", "sug": ""}, {"item": "BETERRABA", "custo": "", "origem": "FORNECEDOR", "sug": "BETERRABA MP"}, {"item": "BIFE DE CARNE EMPANADO RECEITA", "custo": "", "origem": "CIDADAO", "sug": ""}, {"item": "BIFE DE CARNE GRELHADO RECEITA", "custo": "", "origem": "CIDADAO", "sug": ""}, {"item": "BOBINA/FOLHA PICOTADA FRIOS 40X30", "custo": "", "origem": "FORNECEDOR", "sug": ""}, {"item": "BOBINA/SACO PICOTADO PORCOES 16X30", "custo": "", "origem": "FORNECEDOR", "sug": ""}, {"item": "BOLINHO DE CARNE RECEITA", "custo": "BOLINHO DE CARNE 150G RECEITA", "origem": "CIDADAO", "sug": ""}, {"item": "BOLINHO DE PERNIL RECEITA", "custo": "BOLINHO DE PERNIL 35G RECEITA", "origem": "CIDADAO", "sug": ""}, {"item": "BROWNIE TRADICIONAL RECEITA", "custo": "", "origem": "CIDADAO", "sug": "BROWNIE TRADICIONAL"}, {"item": "BROWNIE VEGANO RECEITA", "custo": "BROWNIE VEGANO 70G RECEITA", "origem": "CIDADAO", "sug": ""}, {"item": "CALDO DE GALINHA", "custo": "CALDO DE GALINHA 1,1KG", "origem": "CIDADAO", "sug": "CALDO DE GALINHA MP"}, {"item": "CALDO DE MANDIOQUINHA RECEITA", "custo": "", "origem": "CIDADAO", "sug": ""}, {"item": "CANETA PILOT", "custo": "", "origem": "CIDADAO", "sug": ""}, {"item": "CANJA DE GALINHA RECEITA", "custo": "", "origem": "CIDADAO", "sug": ""}, {"item": "CARNE DESFIADA RECEITA", "custo": "", "origem": "CIDADAO", "sug": ""}, {"item": "CATCHUP GALAO", "custo": "CATCHUP GALAO 3,8KG", "origem": "CIDADAO", "sug": ""}, {"item": "CEBOLA", "custo": "", "origem": "FORNECEDOR", "sug": "CEBOLA MP"}, {"item": "CEBOLA GRELHADA RECEITA", "custo": "", "origem": "CIDADAO", "sug": ""}, {"item": "CENOURA", "custo": "", "origem": "FORNECEDOR", "sug": "CENOURA MP"}, {"item": "CHEESECAKE TRADICIONAL RECEITA", "custo": "", "origem": "CIDADAO", "sug": ""}, {"item": "CHEESECAKE VEGANA RECEITA", "custo": "", "origem": "CIDADAO", "sug": ""}, {"item": "CONFIT DE TOMATE CEREJA RECEITA", "custo": "", "origem": "CIDADAO", "sug": ""}, {"item": "COSTELA BOVINA PECA", "custo": "COSTELA BOVINA DEFUMADA RECEITA", "origem": "CIDADAO", "sug": ""}, {"item": "COSTELA E ACEM DESFIADO RECEITA", "custo": "", "origem": "CIDADAO", "sug": ""}, {"item": "COSTELINHA BARBECUE PECA", "custo": "COSTELINHA BARBECUE KG ATACADO", "origem": "CIDADAO", "sug": ""}, {"item": "COSTELINHA DEFUMADA RECEITA", "custo": "", "origem": "CIDADAO", "sug": ""}, {"item": "DISCO DE MOZARELA EMPANADO RECEITA", "custo": "DISCO DE MOZARELA EMPANADO 150G RECEITA", "origem": "CIDADAO", "sug": ""}, {"item": "DISCO DE QUEIJO VEGANO EMPANADO RECEITA", "custo": "DISCO DE QUEIJO VEGANO EMPANADO 140G RECEITA", "origem": "CIDADAO", "sug": ""}, {"item": "EMBALAGEM BATATA (COLADA) CIDADAO", "custo": "", "origem": "CIDADAO", "sug": ""}, {"item": "EMBALAGEM BATATA (TO GO MINI) LISA", "custo": "", "origem": "CIDADAO", "sug": ""}, {"item": "EMBALAGEM LONDON (TO GO P) CIDADAO", "custo": "", "origem": "CIDADAO", "sug": ""}, {"item": "EMBALAGEM LONDON (TO GO P) LISA", "custo": "", "origem": "CIDADAO", "sug": ""}, {"item": "EMBALAGEM SOS GRANDE CIDADAO", "custo": "EMBALAGEM SOS 20KG GRANDE CIDADAO", "origem": "CIDADAO", "sug": ""}, {"item": "EMBALAGEM SOS GRANDE LISA", "custo": "EMBALAGEM SOS 20KG GRANDE LISA", "origem": "CIDADAO", "sug": ""}, {"item": "EMBALAGEM SOS PEQUENA CIDADAO", "custo": "EMBALAGEM SOS 10KG PEQUENA CIDADAO", "origem": "CIDADAO", "sug": ""}, {"item": "EMBALAGEM SOS PEQUENA LISA", "custo": "EMBALAGEM SOS 10KG PEQUENA LISA", "origem": "CIDADAO", "sug": ""}, {"item": "ESPETINHO DE PTS RECEITA", "custo": "", "origem": "CIDADAO", "sug": ""}, {"item": "FAROFA RECEITA", "custo": "", "origem": "CIDADAO", "sug": ""}, {"item": "FEIJOADA RECEITA", "custo": "", "origem": "CIDADAO", "sug": ""}, {"item": "FRANGO EMPANADO RECEITA", "custo": "", "origem": "CIDADAO", "sug": ""}, {"item": "FRANGO GRELHADO RECEITA", "custo": "", "origem": "CIDADAO", "sug": ""}, {"item": "GELEIA DE ABACAXI COM PIMENTA", "custo": "", "origem": "CIDADAO", "sug": "GELEIA DE ABACAXI COM PIMENTA MP"}, {"item": "GELEIA DE PIMENTA", "custo": "", "origem": "CIDADAO", "sug": "GELEIA DE PIMENTA MP"}, {"item": "GRAMPO", "custo": "", "origem": "CIDADAO", "sug": ""}, {"item": "HAMBURGUER DE CARNE RECEITA", "custo": "HAMBURGUER DE CARNE 150G RECEITA", "origem": "CIDADAO", "sug": ""}, {"item": "HAMBURGUER DE FEIJAO COM PTS RECEITA", "custo": "HAMBURGUER DE FEIJAO COM PTS 125G RECEITA", "origem": "CIDADAO", "sug": ""}, {"item": "ISCAS DE TILAPIA", "custo": "", "origem": "CIDADAO", "sug": ""}, {"item": "LACRE DE SEGURANCA CIDADAO", "custo": "", "origem": "CIDADAO", "sug": "LACRE DE SEGURANCA LANCHES CIDADAO"}, {"item": "LIMAO", "custo": "", "origem": "FORNECEDOR", "sug": "LIMAO MP"}, {"item": "LIMPA FORNO (FORNO GRILL)", "custo": "", "origem": "FORNECEDOR", "sug": ""}, {"item": "MAIONESE DE CEBOLINHA LEITE RECEITA", "custo": "", "origem": "CIDADAO", "sug": ""}, {"item": "MAIONESE HELLMANS", "custo": "", "origem": "FORNECEDOR", "sug": "MAIONESE HELLMANS MP"}, {"item": "MAIONESE VEGANA", "custo": "", "origem": "CIDADAO", "sug": ""}, {"item": "MASSA PARA PASTEL", "custo": "", "origem": "CIDADAO", "sug": "MASSA PARA PASTEL MP"}, {"item": "MOLHO AO SUGO RECEITA", "custo": "", "origem": "CIDADAO", "sug": ""}, {"item": "MOLHO BARBECUE GALAO", "custo": "MOLHO BARBECUE 3,5KG", "origem": "FORNECEDOR", "sug": ""}, {"item": "MOZARELA FATIA", "custo": "", "origem": "CIDADAO", "sug": "MOZARELA FATIA MP"}, {"item": "OREGANO", "custo": "OREGANO 1,01KG", "origem": "CIDADAO", "sug": "OREGANO MP"}, {"item": "OVO", "custo": "", "origem": "FORNECEDOR", "sug": ""}, {"item": "PACOCA", "custo": "", "origem": "FORNECEDOR", "sug": "PACOCA MP"}, {"item": "PAPEL ACOPLADO SEDA CIDADAO", "custo": "", "origem": "CIDADAO", "sug": ""}, {"item": "PASTEL DE QUEIJO RECEITA", "custo": "", "origem": "CIDADAO", "sug": ""}, {"item": "PERNIL DESFIADO", "custo": "PERNIL DESFIADO KG ATACADO", "origem": "CIDADAO", "sug": ""}, {"item": "PERNIL DESFIADO PORCOES", "custo": "PERNIL DESFIADO KG ATACADO", "origem": "CIDADAO", "sug": ""}, {"item": "PIMENTA JALAPENO DRENADO", "custo": "PIMENTA JALAPENO 2KG DRENADO", "origem": "CIDADAO", "sug": ""}, {"item": "PLASTICO FILME MARMITAS", "custo": "", "origem": "FORNECEDOR", "sug": ""}, {"item": "POTE PRATOS 500ML (CANJA)", "custo": "", "origem": "CIDADAO", "sug": ""}, {"item": "PTS CARAMELO GROSSO", "custo": "", "origem": "CIDADAO", "sug": "PTS CARAMELO GROSSO MP"}, {"item": "PTS CARAMELO MEDIO", "custo": "", "origem": "CIDADAO", "sug": "PTS CARAMELO MEDIO MP"}, {"item": "QUEIJO VEGANO DE CASTANHA RECEITA", "custo": "", "origem": "CIDADAO", "sug": ""}, {"item": "QUENTAO DEL REI", "custo": "", "origem": "CIDADAO", "sug": ""}, {"item": "REPOLHO BRANCO", "custo": "", "origem": "FORNECEDOR", "sug": "REPOLHO BRANCO MP"}, {"item": "SMASH BURGER RECEITA", "custo": "SMASH BURGER 60G RECEITA", "origem": "CIDADAO", "sug": ""}, {"item": "STROGONOFF DE CARNE RECEITA", "custo": "", "origem": "CIDADAO", "sug": ""}, {"item": "STROGONOFF DE FRANGO RECEITA", "custo": "", "origem": "CIDADAO", "sug": ""}, {"item": "STROGONOFF DE PTS VEGAN RECEITA", "custo": "", "origem": "CIDADAO", "sug": ""}, {"item": "TOMATE", "custo": "", "origem": "FORNECEDOR", "sug": "TOMATE MP"}, {"item": "TORRESMO DE ROLO RECEITA", "custo": "", "origem": "CIDADAO", "sug": ""}, {"item": "TORRESMO EM CUBOS RECEITA", "custo": "", "origem": "CIDADAO", "sug": ""}], "base": [{"n": "ABACATE MP", "s": "HORTIFRUTI"}, {"n": "ABACAXI MP", "s": "HORTIFRUTI"}, {"n": "ABOBRINHA MP", "s": "HORTIFRUTI"}, {"n": "ABOBRINHA MP", "s": "HORTIFRUTI"}, {"n": "ACEM MP", "s": "CARNES"}, {"n": "ACUCAR MASCAVO MP", "s": "SECOS"}, {"n": "ACUCAR MP", "s": "SECOS"}, {"n": "AGUA COM GAS 500ML", "s": "BEBIDAS"}, {"n": "AGUA SANITARIA", "s": "MATERIAL DE LIMPEZA"}, {"n": "AGUA SEM GAS 500ML", "s": "BEBIDAS"}, {"n": "ALCATRA (ORELHA DE ELEFANTE) MP", "s": "CARNES"}, {"n": "ALCOOL 70%", "s": "MATERIAL DE LIMPEZA"}, {"n": "ALCOOL GEL", "s": "MATERIAL DE LIMPEZA"}, {"n": "ALFACE AMERICANA MP", "s": "HORTIFRUTI"}, {"n": "ALHO DESCASCADO MP", "s": "HORTIFRUTI"}, {"n": "AMACIANTE DE CARNE MP", "s": "SECOS"}, {"n": "AMIDO DE MILHO MP", "s": "SECOS"}, {"n": "ANEIS DE CEBOLA CONGELADO MP", "s": "CONGELADOS"}, {"n": "ARROZ INTEGRAL MP", "s": "SECOS"}, {"n": "ARROZ INTEGRAL RECEITA", "s": ""}, {"n": "ARROZ PARBOILIZADO MP", "s": "SECOS"}, {"n": "AZEITE DE OLIVA MP", "s": "SECOS"}, {"n": "BACARDI PRATA", "s": "BEBIDAS"}, {"n": "BACON EM CUBOS MP", "s": "CARNES"}, {"n": "BANANA MP", "s": ""}, {"n": "BARRIGA SUINA MP", "s": "CARNES"}, {"n": "BATATA CONGELADA MP", "s": "CONGELADOS"}, {"n": "BATATA MONALISA MP", "s": "HORTIFRUTI"}, {"n": "BATATA PALHA MP", "s": "SECOS"}, {"n": "BATATA SALSA MP", "s": "HORTIFRUTI"}, {"n": "BETERRABA MP", "s": "HORTIFRUTI"}, {"n": "BISTECA MP", "s": "CARNES"}, {"n": "BISTECA MP", "s": "CARNES"}, {"n": "BOBINA TERMICA IMPRESSORA", "s": "CONSUMO INTERNO"}, {"n": "BOBINA/FOLHA PICOTADA 40X30", "s": "EMBALAGENS COZINHA"}, {"n": "BOBINA/SACO PICOTADO 16X30", "s": "EMBALAGENS COZINHA"}, {"n": "BOBINA/SACO PICOTADO 35X50", "s": "EMBALAGENS COZINHA"}, {"n": "BOLACHA MAIZENA MP", "s": "SECOS"}, {"n": "BROWNIE TRADICIONAL", "s": "DOCES"}, {"n": "BUDWEISER 600ML", "s": "BEBIDAS"}, {"n": "CACHACA VELHO BARREIRO", "s": "BEBIDAS"}, {"n": "CAFE", "s": "ALIMENTAÇAO FUNCIONARIOS"}, {"n": "CALABRESA MP", "s": "CARNES"}, {"n": "CALDA DE CARAMELO MP", "s": "SECOS"}, {"n": "CALDA DE CHOCOLATE MP", "s": "DOCES"}, {"n": "CALDA DE MORANGO MP", "s": "SECOS"}, {"n": "CALDO DE GALINHA MP", "s": "SECOS"}, {"n": "CALDO DE LEGUMES MP", "s": "SECOS"}, {"n": "CAMPARI", "s": "BEBIDAS"}, {"n": "CANUDO DESCARTAVEL", "s": "DESCARTAVEIS"}, {"n": "CARNE VERMELHA (DESOSSA) MP", "s": "CARNES"}, {"n": "CASTANHA DE CAJU MP", "s": "HORTIFRUTI"}, {"n": "CASTANHA DE CAJU MP", "s": "SECOS"}, {"n": "CATCHUP MP", "s": "SECOS"}, {"n": "CEBOLA CRISPY RECEITA", "s": ""}, {"n": "CEBOLA EM PO MP", "s": "SECOS"}, {"n": "CEBOLA MP", "s": "HORTIFRUTI"}, {"n": "CENOURA MP", "s": "HORTIFRUTI"}, {"n": "CHAMPIGNON FATIADO MP", "s": "HORTIFRUTI"}, {"n": "CHEDDAR CREMOSO MP", "s": "LATICINIOS"}, {"n": "CHEDDAR CREMOSO RECEITA", "s": ""}, {"n": "CHEDDAR FATIADO MP", "s": "LATICINIOS"}, {"n": "CHEDDAR FATIADO MP", "s": "LATICINIOS"}, {"n": "CHEIRO VERDE MP", "s": "HORTIFRUTI"}, {"n": "CHIMICHURRI MP", "s": "SECOS"}, {"n": "CHOCOLATE VEGANO MP", "s": "DOCES"}, {"n": "CHOCOLATE VEGANO MP", "s": "DOCES"}, {"n": "CHOPP AVELA PORTER WAY BEER", "s": "CHOPES"}, {"n": "CHOPP CURITIPA BIRD BEER", "s": "CHOPES"}, {"n": "CHOPP DE VINHO", "s": "CHOPES"}, {"n": "CHOPP IPA LOKA WAY BEER", "s": "BEBIDAS"}, {"n": "CHOPP MUTUM CAVALO IGNORUS", "s": "CHOPES"}, {"n": "CHOPP PILSEN BIRD BEER", "s": "CHOPES"}, {"n": "CHOPP PILSEN BRAHMA", "s": "CHOPES"}, {"n": "CHOPP PILSEN WAY BEER", "s": "BEBIDAS"}, {"n": "CHOPP TROOPER BODEBROWN", "s": "CHOPES"}, {"n": "COLHER DESCARTAVEL", "s": "DESCARTAVEIS"}, {"n": "COPA LOMBO MP", "s": "CARNES"}, {"n": "COPO DESCARTAVEL 300ML", "s": "DESCARTAVEIS"}, {"n": "COPO DESCARTAVEL 500ML", "s": "DESCARTAVEIS"}, {"n": "COPO ISOPOR 300ML", "s": "DESCARTAVEIS"}, {"n": "COPO ISOPOR 473ML", "s": "DESCARTAVEIS"}, {"n": "CORANTE LIQUIDO LARANJA", "s": "SECOS"}, {"n": "CORONA LONG NECK 330ML", "s": "BEBIDAS"}, {"n": "CORONA ZERO LONG NECK 330ML", "s": "BEBIDAS"}, {"n": "COSTELA BOVINA MP", "s": "CARNES"}, {"n": "COSTELINHA SUINA MP", "s": "CARNES"}, {"n": "COUVE MP", "s": "HORTIFRUTI"}, {"n": "CREAM CHEESE MP", "s": "LATICINIOS"}, {"n": "DETERGENTE", "s": "MATERIAL DE LIMPEZA"}, {"n": "EMBALAGEM COLADA CIDADAO (BATATA)", "s": "EMBALAGENS ENVIO"}, {"n": "EMBALAGEM LANCHE 18,5X18X5,8 - UFO BURGER", "s": "EMBALAGENS ENVIO"}, {"n": "EMBALAGEM MARMITA 3 DIVISORIAS - BAIXA GASTRONOMIA", "s": "EMBALAGENS ENVIO"}, {"n": "EMBALAGEM MARMITA 3 DIVISORIAS - CIDADAO", "s": "EMBALAGENS ENVIO"}, {"n": "EMBALAGEM MARMITA 3 DIVISORIAS FAMOSA MARMITA", "s": "EMBALAGENS ENVIO"}, {"n": "EMBALAGEM TO GO MINI LISA (BATATA)", "s": "EMBALAGENS ENVIO"}, {"n": "EMBALAGEM TO GO P CIDADAO (LONDON)", "s": "EMBALAGENS ENVIO"}, {"n": "EMBALAGEM TO GO P LISA (LONDON)", "s": "EMBALAGENS ENVIO"}, {"n": "ESCOVA PARA SANITARIOS COM SUPORTE", "s": "MATERIAL DE LIMPEZA"}, {"n": "ESPETO DE MADEIRA MP", "s": "SECOS"}, {"n": "ESPONJA", "s": "MATERIAL DE LIMPEZA"}, {"n": "ESPUMA DE GENGIBRE", "s": "BEBIDAS"}, {"n": "ESSENCIA DE BAUNILHA MP", "s": "SECOS"}, {"n": "ETIQUETA PRINTEX 60X60 30M", "s": "EMBALAGENS COZINHA"}, {"n": "ETIQUETA VALIDADE", "s": "EMBALAGENS COZINHA"}, {"n": "EXTRATO DE SOJA MP", "s": "VEGANOS"}, {"n": "EXTRATO DE TOMATE MP", "s": "SECOS"}, {"n": "FACA DESCARTAVEL", "s": "DESCARTAVEIS"}, {"n": "FARINHA DE MANDIOCA BIJU MP", "s": "SECOS"}, {"n": "FARINHA DE ROSCA MP", "s": "SECOS"}, {"n": "FARINHA DE TRIGO MP", "s": "SECOS"}, {"n": "FARINHA DE TRIGO MP", "s": "SECOS"}, {"n": "FARINHA PANCO MP", "s": "SECOS"}, {"n": "FEIJAO CARIOCA MP", "s": "SECOS"}, {"n": "FEIJAO PRATOS RECEITA", "s": ""}, {"n": "FEIJAO PRETO MP", "s": "SECOS"}, {"n": "FEIJAO PRETO MP", "s": "SECOS"}, {"n": "FIBRA LIMPEZA PESADA", "s": "MATERIAL DE LIMPEZA"}, {"n": "FILE C MIGNON (T BONE) MP", "s": "CARNES"}, {"n": "FILME PVC 38CM X 1000M", "s": "EMBALAGENS COZINHA"}, {"n": "FILTRO PAPEL", "s": "ALIMENTAÇAO FUNCIONARIOS"}, {"n": "FOSFORO", "s": "CONSUMO INTERNO"}, {"n": "FRANGO A PASSARINHO MP", "s": "CARNES"}, {"n": "FUMACA LIQUIDA MP", "s": "SECOS"}, {"n": "GARFO DESCARTAVEL", "s": "DESCARTAVEIS"}, {"n": "GARRAFA DESCARTAVEL 200ML", "s": "EMBALAGENS ENVIO"}, {"n": "GARRAFA DESCARTAVEL 500ML", "s": "EMBALAGENS ENVIO"}, {"n": "GAS CHOPP CO2", "s": "CONSUMO INTERNO"}, {"n": "GAS CHOPP MISTURA", "s": "CONSUMO INTERNO"}, {"n": "GAS GLP", "s": "GAS COZINHA"}, {"n": "GAS MACARICO", "s": "CONSUMO INTERNO"}, {"n": "GATILHO MACARICO", "s": "CONSUMO INTERNO"}, {"n": "GELEIA DE ABACAXI COM PIMENTA MP", "s": "SECOS"}, {"n": "GELEIA DE PIMENTA MP", "s": "SECOS"}, {"n": "GELO", "s": "BEBIDAS"}, {"n": "GIN SEAGERS", "s": "BEBIDAS"}, {"n": "GLUTAMATO MONOSSODICO MP", "s": "SECOS"}, {"n": "GORGONZOLA MP", "s": "LATICINIOS"}, {"n": "GUARANA ANTARCTICA 2L", "s": "BEBIDAS"}, {"n": "GUARANA ANTARCTICA CACULINHA 200ML", "s": "BEBIDAS"}, {"n": "GUARANA ANTARTICA LATA 350ML", "s": "BEBIDAS"}, {"n": "GUARANA ANTARTICA ZERO LATA 350ML", "s": "BEBIDAS"}, {"n": "GUARDANAPO DESCARTAVEL", "s": "DESCARTAVEIS"}, {"n": "HEINEKEN 600ML", "s": "BEBIDAS"}, {"n": "ISCAS DE TILAPIA EMPANADA MP", "s": "CARNES"}, {"n": "ISOPOR H102 (CHURRASCO)", "s": "DESCARTAVEIS"}, {"n": "LACRE DE SEGURANCA LANCHES CIDADAO", "s": "EMBALAGENS ENVIO"}, {"n": "LACRE DE SEGURANCA MARMITA GENERICO", "s": "EMBALAGENS ENVIO"}, {"n": "LARANJA MP", "s": "HORTIFRUTI"}, {"n": "LEITE INTEGRAL MP", "s": "LATICINIOS"}, {"n": "LEMON PEPPER MP", "s": "SECOS"}, {"n": "LENHA", "s": "CONSUMO INTERNO"}, {"n": "LICOR AMARULA", "s": "BEBIDAS"}, {"n": "LIMAO MP", "s": "HORTIFRUTI"}, {"n": "LINGUICA PAIO MP", "s": "CARNES"}, {"n": "LINGUICA TOSCANA MP", "s": "CARNES"}, {"n": "LOURO MP", "s": "SECOS"}, {"n": "LUVA EMBORRACHADA M/G", "s": "MATERIAL DE LIMPEZA"}, {"n": "LUVA NITRILICA PRETA G SEM PO", "s": "CONSUMO INTERNO"}, {"n": "LUVA VINIL G SEM PO", "s": "CONSUMO INTERNO"}, {"n": "MACARRAO", "s": "ALIMENTAÇAO FUNCIONARIOS"}, {"n": "MAIONESE BRANCA VEGANA NOT MAYO", "s": "VEGANOS"}, {"n": "MAIONESE HELLMANS MP", "s": "SECOS"}, {"n": "MANDIOCA", "s": "HORTIFRUTI"}, {"n": "MANJERICAO MP", "s": "HORTIFRUTI"}, {"n": "MANTEIGA MP", "s": "LATICINIOS"}, {"n": "MARGARINA FUNCIONARIOS", "s": "ALIMENTAÇAO FUNCIONARIOS"}, {"n": "MARGARINA VEGANA MP", "s": "SECOS"}, {"n": "MASCARA DESCARTAVEL", "s": "CONSUMO INTERNO"}, {"n": "MASSA PARA PASTEL MP", "s": "SECOS"}, {"n": "MEXEDOR DE CAFE", "s": "DESCARTAVEIS"}, {"n": "MOLHO BARBECUE MP", "s": "SECOS"}, {"n": "MOLHO DE PIMENTA RECEITA", "s": ""}, {"n": "MOLHO SHOYU MP", "s": "SECOS"}, {"n": "MORANGO CONGELADO", "s": "CONGELADOS"}, {"n": "MORANGO CONGELADO MP", "s": "CONGELADOS"}, {"n": "MOSTARDA AMARELA MP", "s": "SECOS"}, {"n": "MOZARELA FATIA MP", "s": "LATICINIOS"}, {"n": "MOZARELA PECA MP", "s": "LATICINIOS"}, {"n": "NATA (CREME DE LEITE) MP", "s": "LATICINIOS"}, {"n": "OLEO DE ALGODAO", "s": "CONSUMO INTERNO"}, {"n": "OLEO DE SOJA MP", "s": "SECOS"}, {"n": "OREGANO MP", "s": "SECOS"}, {"n": "ORIGINAL 600ML", "s": "BEBIDAS"}, {"n": "OVOS MP", "s": "HORTIFRUTI"}, {"n": "PA DE LIXO", "s": "MATERIAL DE LIMPEZA"}, {"n": "PACOCA MP", "s": "SECOS"}, {"n": "PACOTE A VACUO 15X20X12 (MINI)", "s": "EMBALAGENS ENVIO"}, {"n": "PACOTE A VACUO 24X40X12 (GRANDE)", "s": "EMBALAGENS ENVIO"}, {"n": "PACOTE VACUO 20X30X12 (PEQUENO)", "s": "EMBALAGENS ENVIO"}, {"n": "PACOTE VACUO 24X35X16 (COSTELA BOVINA)", "s": "EMBALAGENS ENVIO"}, {"n": "PALITO DE DENTE", "s": "DESCARTAVEIS"}, {"n": "PANO DE CHAO ALVEJADO", "s": "MATERIAL DE LIMPEZA"}, {"n": "PANO MULTIUSO", "s": "MATERIAL DE LIMPEZA"}, {"n": "PANO MULTIUSO", "s": "MATERIAL DE LIMPEZA"}, {"n": "PAO", "s": ""}, {"n": "PAO FRANCES FUNCIONARIOS", "s": "ALIMENTAÇAO FUNCIONARIOS"}, {"n": "PAO TRADICIONAL", "s": "PAES"}, {"n": "PAO TRADICIONAL", "s": "PAES"}, {"n": "PAO TRADICIONAL", "s": "PAES"}, {"n": "PAO UFO BURGER", "s": "PAES"}, {"n": "PAPEL ALUMINIO", "s": "EMBALAGENS COZINHA"}, {"n": "PAPEL HIGIENICO", "s": "DESCARTAVEIS"}, {"n": "PAPEL TOALHA COZINHAS", "s": "CONSUMO INTERNO"}, {"n": "PAPEL TOALHA SALAO", "s": "DESCARTAVEIS"}, {"n": "PAPRICA DEFUMADA MP", "s": "SECOS"}, {"n": "PAPRICA DOCE MP", "s": "SECOS"}, {"n": "PASTILHA ADESIVA PARA SANITARIOS", "s": "MATERIAL DE LIMPEZA"}, {"n": "PATINHO/ COXAO MOLE MP", "s": "CARNES"}, {"n": "PEITO DE FRANGO MP", "s": "CARNES"}, {"n": "PEPINO AGRIDOCE MP", "s": "HORTIFRUTI"}, {"n": "PEPSI 2L", "s": "BEBIDAS"}, {"n": "PEPSI BLACK ZERO 2L", "s": "BEBIDAS"}, {"n": "PEPSI BLACK ZERO LATA 350ML", "s": "BEBIDAS"}, {"n": "PEPSI CACULINHA 200ML", "s": "BEBIDAS"}, {"n": "PEPSI LATA 350ML", "s": "BEBIDAS"}, {"n": "PET GROWLER 1L", "s": "EMBALAGENS ENVIO"}, {"n": "PET GROWLER 500ML", "s": "EMBALAGENS ENVIO"}, {"n": "PIMENTA DO REINO MP", "s": "SECOS"}, {"n": "PIMENTA JALAPENO MP", "s": "HORTIFRUTI"}, {"n": "PIMENTA MALAGUETA MP", "s": "HORTIFRUTI"}, {"n": "PIMENTA TABASCO", "s": "SECOS"}, {"n": "PIMENTAO AMARELO MP", "s": "HORTIFRUTI"}, {"n": "PIMENTAO VERDE MP", "s": "HORTIFRUTI"}, {"n": "PIMENTAO VERMELHO MP", "s": "HORTIFRUTI"}, {"n": "POLVILHO AZEDO MP", "s": "SECOS"}, {"n": "POTE 1 LITRO", "s": "EMBALAGENS ENVIO"}, {"n": "POTE 250ML BP742 (SOBREMESA)", "s": "EMBALAGENS ENVIO"}, {"n": "POTE 500ML", "s": "EMBALAGENS ENVIO"}, {"n": "POTE MOLHOS 50ML", "s": "EMBALAGENS ENVIO"}, {"n": "POTE MOLHOS G-695 30ML", "s": "EMBALAGENS ENVIO"}, {"n": "POTE MOLHOS G-697 60 ML", "s": "EMBALAGENS ENVIO"}, {"n": "PRATO DESCARTAVEL", "s": "DESCARTAVEIS"}, {"n": "PRE PREPARO MOSCOW MULE", "s": "BEBIDAS"}, {"n": "PREPARADO CHA LIMAO", "s": "BEBIDAS"}, {"n": "PREPARADO CHA LIMAO SICILIANO", "s": "BEBIDAS"}, {"n": "PREPARADO CHA NATURAL", "s": "BEBIDAS"}, {"n": "PREPARADO CHA PESSEGO", "s": "BEBIDAS"}, {"n": "PREPARADO CHA PESSEGO", "s": "BEBIDAS"}, {"n": "PTS CARAMELO GROSSO MP", "s": "VEGANOS"}, {"n": "PTS CARAMELO MEDIO MP", "s": "VEGANOS"}, {"n": "QUENTAO", "s": "BEBIDAS"}, {"n": "REPOLHO BRANCO MP", "s": "HORTIFRUTI"}, {"n": "REPOLHO ROXO MP", "s": "HORTIFRUTI"}, {"n": "REPOLHO ROXO MP", "s": "HORTIFRUTI"}, {"n": "REQUEIJAO CREMOSO (CATUPIRY) MP", "s": "LATICINIOS"}, {"n": "RIBBON 110X74 MISTO", "s": "EMBALAGENS COZINHA"}, {"n": "RODO PLASTICO", "s": "MATERIAL DE LIMPEZA"}, {"n": "SABAO EM PO", "s": "MATERIAL DE LIMPEZA"}, {"n": "SABONETE LIQUIDO", "s": "MATERIAL DE LIMPEZA"}, {"n": "SACHE DE ACUCAR", "s": "DESCARTAVEIS"}, {"n": "SACHE DE AZEITE DE OLIVA", "s": "DESCARTAVEIS"}, {"n": "SACHE DE CATCHUP", "s": "DESCARTAVEIS"}, {"n": "SACHE DE MOSTARDA", "s": "DESCARTAVEIS"}, {"n": "SACHE DE SAL", "s": "DESCARTAVEIS"}, {"n": "SACHE DE VINAGRE", "s": "DESCARTAVEIS"}, {"n": "SACHE DE VINAGRE BALSAMICO MP", "s": "DESCARTAVEIS"}, {"n": "SACO DE LIXO AZUL 100L", "s": "MATERIAL DE LIMPEZA"}, {"n": "SACO DE LIXO PRETO 100L", "s": "MATERIAL DE LIMPEZA"}, {"n": "SACO DE LIXO PRETO 60L", "s": "MATERIAL DE LIMPEZA"}, {"n": "SACO KRAFT SOS 10KG LISA (PEQUENO)", "s": "EMBALAGENS ENVIO"}, {"n": "SACO KRAFT SOS 12KG CIDADAO (PEQUENO)", "s": "EMBALAGENS ENVIO"}, {"n": "SACO KRAFT SOS 12KG CIDADAO (PEQUENO)", "s": "EMBALAGENS ENVIO"}, {"n": "SACO KRAFT SOS 20KG CIDADAO (GRANDE)", "s": "EMBALAGENS ENVIO"}, {"n": "SACO KRAFT SOS 20KG LISA (GRANDE)", "s": "EMBALAGENS ENVIO"}, {"n": "SACO PLASTICO 60 X 100 (ENCOMENDAS)", "s": "EMBALAGENS ENVIO"}, {"n": "SACO PLASTICO TALHER E SACHE", "s": "EMBALAGENS ENVIO"}, {"n": "SACOLA DELIVERY", "s": "EMBALAGENS ENVIO"}, {"n": "SAKE", "s": "BEBIDAS"}, {"n": "SAL GRANULADO MP", "s": "SECOS"}, {"n": "SAL REFINADO MP", "s": "SECOS"}, {"n": "SEDA TERMICA 30X38CM CIDADAO", "s": "EMBALAGENS ENVIO"}, {"n": "SEDA TERMICA 30X38CM VEGANETE", "s": "EMBALAGENS ENVIO"}, {"n": "SORVETE CHOCOLATE BELGA MP", "s": "DOCES"}, {"n": "SORVETE DE CREME MP", "s": "DOCES"}, {"n": "SORVETE DE MORANGO MP", "s": "DOCES"}, {"n": "SORVETE DE MORANGO MP", "s": "DOCES"}, {"n": "SPATEN 600ML", "s": "BEBIDAS"}, {"n": "STEINHAEGER", "s": "BEBIDAS"}, {"n": "SUCO DE PACOTE", "s": "ALIMENTAÇAO FUNCIONARIOS"}, {"n": "TAMPA GROWLER", "s": "EMBALAGENS ENVIO"}, {"n": "TEQUILA JOSE CUERVO", "s": "BEBIDAS"}, {"n": "TOMATE CEREJA MP", "s": "HORTIFRUTI"}, {"n": "TOMATE MP", "s": "HORTIFRUTI"}, {"n": "TONICA LATA 350ML", "s": "BEBIDAS"}, {"n": "TORTA ALEMA", "s": "DOCES"}, {"n": "TOUCA DESCARTAVEL", "s": "CONSUMO INTERNO"}, {"n": "UNTADOR/DESMOLDANTE", "s": "CONSUMO INTERNO"}, {"n": "UNTADOR/DESMOLDANTE", "s": "CONSUMO INTERNO"}, {"n": "VASSOURA", "s": "MATERIAL DE LIMPEZA"}, {"n": "VINAGRE DE ALCOOL MP", "s": "SECOS"}, {"n": "VINAGRE DE MACA MP", "s": "SECOS"}, {"n": "VINHO CONCHA 750ML", "s": "BEBIDAS"}, {"n": "VODKA NYZIA", "s": "BEBIDAS"}, {"n": "WHISKY JACK DANIELS", "s": "BEBIDAS"}, {"n": "WHISKY JACK DANIELS HONEY", "s": "BEBIDAS"}, {"n": "XAROPE MONIN CRANBERRY", "s": "BEBIDAS"}, {"n": "XAROPE MONIN LIMAO SICILIANO", "s": "BEBIDAS"}, {"n": "XAROPE MONIN MACA VERDE", "s": "BEBIDAS"}, {"n": "XAROPE MONIN MORANGO", "s": "BEBIDAS"}, {"n": null, "s": ""}, {"n": null, "s": ""}, {"n": null, "s": ""}, {"n": null, "s": ""}, {"n": null, "s": ""}, {"n": null, "s": "SECOS"}, {"n": null, "s": ""}, {"n": null, "s": ""}, {"n": null, "s": ""}, {"n": null, "s": ""}, {"n": null, "s": ""}, {"n": null, "s": ""}, {"n": null, "s": ""}, {"n": null, "s": ""}, {"n": null, "s": "EMBALAGENS ENVIO"}, {"n": null, "s": ""}, {"n": null, "s": ""}, {"n": null, "s": ""}, {"n": null, "s": ""}, {"n": null, "s": ""}, {"n": null, "s": ""}, {"n": null, "s": ""}, {"n": null, "s": ""}, {"n": null, "s": ""}, {"n": null, "s": ""}, {"n": null, "s": ""}, {"n": null, "s": ""}, {"n": null, "s": ""}, {"n": null, "s": ""}, {"n": null, "s": ""}, {"n": null, "s": ""}, {"n": null, "s": ""}, {"n": null, "s": "EMBALAGENS ENVIO"}, {"n": null, "s": "VEGANOS"}, {"n": null, "s": ""}, {"n": null, "s": ""}, {"n": null, "s": ""}, {"n": null, "s": ""}, {"n": null, "s": ""}, {"n": null, "s": ""}, {"n": null, "s": ""}, {"n": null, "s": ""}, {"n": null, "s": ""}, {"n": null, "s": ""}, {"n": null, "s": ""}, {"n": null, "s": ""}, {"n": null, "s": ""}, {"n": null, "s": ""}, {"n": null, "s": ""}, {"n": null, "s": ""}, {"n": null, "s": ""}, {"n": null, "s": ""}, {"n": null, "s": "CONGELADOS"}, {"n": null, "s": ""}, {"n": null, "s": ""}, {"n": null, "s": ""}, {"n": null, "s": ""}, {"n": null, "s": ""}, {"n": null, "s": ""}, {"n": null, "s": "EMBALAGENS ENVIO"}, {"n": null, "s": ""}, {"n": null, "s": ""}, {"n": null, "s": ""}, {"n": null, "s": ""}, {"n": null, "s": ""}, {"n": null, "s": ""}, {"n": null, "s": ""}, {"n": null, "s": ""}, {"n": null, "s": ""}]};
+const LS='casarBase_v1';
+let dec={}; try{ dec=JSON.parse(localStorage.getItem(LS)||'{}'); }catch(e){}
+let filtroTxt='', filtroModo='todos';
+function salva(){ try{ localStorage.setItem(LS,JSON.stringify(dec)); }catch(e){} }
+function norm(s){ return (s||'').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,''); }
+function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function estadoDe(it){ const d=dec[it.item]||{}; if(d.casar) return 'casado'; if(d.novo) return 'novo'; return ''; }
+function conta(){ const n=DADOS.itens.filter(i=>estadoDe(i)).length;
+  document.getElementById('nDec').textContent=n; }
+function render(){
+  const box=document.getElementById('lista'); box.innerHTML='';
+  DADOS.itens.forEach((it,ix)=>{
+    const est=estadoDe(it), d=dec[it.item]||{};
+    if(filtroTxt && !norm(it.item).includes(norm(filtroTxt))) return;
+    if(filtroModo==='pend'&&est) return;
+    if(filtroModo==='dec'&&!est) return;
+    if(filtroModo==='sug'&&!it.sug) return;
+    const card=document.createElement('div');
+    card.className='card'+(est?' ok':'');
+    let h=`<div class="nome">${esc(it.item)}</div><div class="meta">`;
+    h+=`<span class="tag ${it.origem==='FORNECEDOR'?'forn':'cid'}">${it.origem==='FORNECEDOR'?'🛒 Fornecedor':'🏭 Cidadão'}</span>`;
+    if(it.custo) h+=`custo hoje: ${esc(it.custo)}`;
+    h+=`</div>`;
+    if(it.sug && !est) h+=`<div class="sug">Sugestão: <b>${esc(it.sug)}</b> <span style="color:var(--tinta2)">(só o sufixo difere)</span>
+      <button class="btn confirma" data-ac="sug" data-ix="${ix}">✓ Confirmar</button></div>`;
+    h+=`<div class="linha">
+      <div class="buscaBase"><input type="search" placeholder="Buscar nome oficial na base…" data-busca="${ix}"><div class="dd" hidden></div></div>
+      <button class="btn novo" data-ac="novo" data-ix="${ix}">＋ É novo — entrar na base</button>
+      ${est?`<button class="btn limpa" data-ac="limpa" data-ix="${ix}">limpar</button>`:''}
+    </div>`;
+    if(est==='casado') h+=`<div class="estado casado">✓ Casar com: ${esc(d.casar)}</div>`;
+    if(est==='novo') h+=`<div class="estado novo">＋ Entrar na base como item novo</div>`;
+    h+=`<input class="obs" placeholder="Observação (opcional)" data-obs="${ix}" value="${esc(d.obs||'')}">`;
+    card.innerHTML=h; box.appendChild(card);
+  });
+  conta();
+}
+document.getElementById('lista').addEventListener('click',(e)=>{
+  const b=e.target.closest('button[data-ac]'); if(!b) return;
+  const it=DADOS.itens[+b.dataset.ix], d=dec[it.item]||{};
+  if(b.dataset.ac==='sug'){ d.casar=it.sug; delete d.novo; }
+  if(b.dataset.ac==='novo'){ d.novo=true; delete d.casar; }
+  if(b.dataset.ac==='limpa'){ delete d.casar; delete d.novo; }
+  dec[it.item]=d; salva(); render();
+});
+document.getElementById('lista').addEventListener('input',(e)=>{
+  const t=e.target;
+  if(t.dataset.obs!==undefined){ const it=DADOS.itens[+t.dataset.obs];
+    const d=dec[it.item]||{}; d.obs=t.value; dec[it.item]=d; salva(); conta(); return; }
+  if(t.dataset.busca!==undefined){
+    const dd=t.parentElement.querySelector('.dd'); const q=norm(t.value);
+    if(q.length<2){ dd.hidden=true; dd.innerHTML=''; return; }
+    const hits=DADOS.base.filter(b=>norm(b.n).includes(q)).slice(0,12);
+    dd.innerHTML=hits.map(b=>`<div data-pick="${esc(b.n)}">${esc(b.n)}${b.s?` <small>· ${esc(b.s)}</small>`:''}</div>`).join('')
+      || '<div style="color:var(--tinta2);cursor:default">nenhum nome na base</div>';
+    dd.hidden=false; dd.dataset.ix=t.dataset.busca;
+  }
+});
+document.getElementById('lista').addEventListener('click',(e)=>{
+  const p=e.target.closest('[data-pick]'); if(!p) return;
+  const dd=p.parentElement, it=DADOS.itens[+dd.dataset.ix];
+  const d=dec[it.item]||{}; d.casar=p.dataset.pick; delete d.novo;
+  dec[it.item]=d; salva(); render();
+});
+document.getElementById('filtro').addEventListener('input',(e)=>{ filtroTxt=e.target.value; render(); });
+document.querySelectorAll('.fbtn').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('.fbtn').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on'); filtroModo=b.dataset.f; render();
+}));
+document.getElementById('btnGerar').addEventListener('click',()=>{
+  const linhas=[];
+  DADOS.itens.forEach(it=>{ const d=dec[it.item]||{}; if(!d.casar&&!d.novo&&!d.obs) return;
+    let l=it.item+' | '+(d.casar?('casar: '+d.casar):(d.novo?'NOVO na base':'sem decisão'));
+    if(d.obs) l+=' | obs: '+d.obs;
+    linhas.push(l);
+  });
+  const s=document.getElementById('saida');
+  s.textContent=linhas.length?('RESPOSTAS CASAMENTO BASE ('+linhas.length+' itens):\n'+linhas.join('\n')):'Nenhuma decisão marcada ainda.';
+  s.style.display='block'; s.scrollIntoView({behavior:'smooth'});
+  if(navigator.clipboard&&linhas.length) navigator.clipboard.writeText(s.textContent).catch(()=>{});
+});
+document.getElementById('nTot').textContent=DADOS.itens.length;
+render();
+</script>
+</body>
+</html>
