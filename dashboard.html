@@ -11583,6 +11583,11 @@ function renderLucroUni() {
   const xp = contas.find(c => c.conta === 'XP INVESTIMENTOS');
   const xpIni = (xp ? nu(xp.saldo_inicial) : 0) + (movAntes['XP INVESTIMENTOS'] || 0);
   const xpFim = xpIni + (movAte['XP INVESTIMENTOS'] || 0);
+  // A XP entra no "caixa" desta tela — pode, pela regra do dono de 25/09/2026 ("para todo o
+  // restante dos calculos esse valor pode ser considerado") —, mas o rotulo tem de dizer:
+  // com o cartao "XP · reserva" do lado, quem le contava a XP duas vezes. Jan-ago/26 o cartao
+  // dizia "Caixa da rede inteira +R$ 540 mil"; sem a XP o caixa caiu R$ 101,5 mil.
+  const xpDentro = contas.some(c => c.conta === 'XP INVESTIMENTOS' && (!ctxLoja || c.unidade === ctxLoja));
   const caixaIni = Object.values(caixaU).reduce((s, a) => s + a.ini, 0);
   const caixaFim = Object.values(caixaU).reduce((s, a) => s + a.fim, 0);
 
@@ -11686,9 +11691,9 @@ function renderLucroUni() {
         <div class="card-pct">${rs(xpIni)} → ${rs(xpFim)}${ctxLoja ? ' · a XP não tem dono por loja' : ''}</div>
       </div>
       <div class="card ${sobrouCaixa >= 0 ? 'pos' : 'neg'}">
-        <div class="card-lbl">Caixa ${ctxLoja ? 'de ' + un(ctxLoja) : 'da rede inteira'}</div>
+        <div class="card-lbl">Caixa ${ctxLoja ? 'de ' + un(ctxLoja) : 'da rede inteira'}${xpDentro ? ' + XP' : ''}</div>
         <div class="card-val">${rs(sobrouCaixa)}</div>
-        <div class="card-pct">${rs(caixaIni)} → ${rs(caixaFim)}</div>
+        <div class="card-pct">${rs(caixaIni)} → ${rs(caixaFim)}${xpDentro ? ` · sem a XP: ${rs((caixaFim - xpFim) - (caixaIni - xpIni))}` : ''}</div>
       </div>
       <div class="card neutral">
         <div class="card-lbl">Lucro do período</div>
@@ -11716,7 +11721,7 @@ function renderLucroUni() {
         ${linhaPonte('(+) Rendimento financeiro da XP', rendimentos, 'não é operação: é o dinheiro parado rendendo')}
         ${Math.abs(aporte) > 0.005 ? linhaPonte('(±) Repasse entre as unidades', aporte, 'soma perto de zero na rede — só muda de bolso') : ''}
         <tr class="sub"><td><b>= deveria ter sobrado</b></td><td><b>${rs(chegou)}</b></td></tr>
-        <tr class="liq"><td>Sobrou de verdade no caixa</td><td>${rs(sobrouCaixa)}</td></tr>
+        <tr class="liq"><td>Sobrou de verdade no caixa${xpDentro ? ' + XP' : ''}</td><td>${rs(sobrouCaixa)}</td></tr>
         <tr><td style="color:#8a897e;">Diferença de competência × caixa
               <div style="color:#6f6e64; font-size:10.5px;">nota lançada num mês, dinheiro que andou em outro</div></td>
             <td style="color:#8a897e;">${rs(sobrouCaixa - chegou)}</td></tr>
@@ -15767,7 +15772,7 @@ function renderModuloDFC() {
     <div class="card ${tot(resultOper) >= 0 ? 'pos' : 'neg'}"><div class="card-lbl">Resultado operacional</div><div class="card-val">R$ ${fmt(tot(resultOper))}</div>
       <div class="card-pct">${tot(receitas) ? pct(tot(resultOper) / tot(receitas) * 100) : 0}% da receita</div></div>
     <div class="card ${tot(resultFim) >= 0 ? 'pos' : 'neg'}"><div class="card-lbl">Resultado final (caixa)</div><div class="card-val">R$ ${fmt(tot(resultFim))}</div></div>
-    <div class="card highlight"><div class="card-lbl">Saldo em conta (${rotuloMes(meses[iFim])})</div><div class="card-val">R$ ${fmt(saldoFim[iFim])}</div></div>
+    <div class="card highlight"><div class="card-lbl">${Math.abs(saldoAplicado[iFim]) > 0.005 ? 'Saldo total, com a XP' : 'Saldo'} (${rotuloMes(meses[iFim])})</div><div class="card-val">R$ ${fmt(saldoFim[iFim])}</div>${Math.abs(saldoAplicado[iFim]) > 0.005 ? `<div class="card-pct">em conta R$ ${fmt(saldoEmConta[iFim])} · aplicado R$ ${fmt(saldoAplicado[iFim])}</div>` : ''}</div>
   </div>
   ${nSemClass > 0.005 ? `<div class="contexto" style="border-color:#c8102e;">
     <b>R$ ${fmt(nSemClass)}</b> em lançamentos ainda <b>sem classificação</b> (linha "SEM CLASSIFICAÇÃO" abaixo) —
@@ -16752,26 +16757,49 @@ function projCaixaTabela() {
   const reais = (v) => 'R$ ' + fmt(Number(v || 0));
   const linhas = projCaixaLinhas();
   if (!linhas.length) return '<tbody id="projCaixaCorpo"><tr><td colspan="6" style="opacity:.7">Nenhuma conta com esse filtro.</td></tr></tbody>';
-  const soma = (c) => linhas.reduce((s, r) => s + Number(r[c] || 0), 0);
-  const corpo = linhas.map(r => {
+  // A REGRA DO DONO (25/09/2026): "a XP so nao deve constar como saldo do fluxo projetado,
+  // pois o dinheiro que vai pra la e aplicacao e sai do fluxo de caixa". Ate hoje este Total
+  // somava a XP: dizia R$ 1,45 milhao de sobra hoje e +R$ 1,36 milhao na semana, quando o
+  // caixa que paga conta tinha R$ 27 mil e fechava a semana em -R$ 62 mil.
+  // A linha da XP CONTINUA na tabela, embaixo do total: esta aqui desde 25/08 para a Hellen
+  // ver quanto ha aplicado na hora de decidir uma transferencia (script/caixa_do_dia.sql).
+  // Do cartao entra so o que VENCE (sai do banco no dia da fatura); o saldo dele nao e dinheiro.
+  const aplic = (r) => PROJ_FORA_CAIXA.includes(r.conta);
+  const cartao = (r) => String(r.conta || '').startsWith('CREDITO');
+  const doDia = linhas.filter(r => !aplic(r));
+  const parte = (r, c) => {
+    const v = Number(r[c] || 0);
+    if (!cartao(r)) return v;
+    if (c === 'saldo') return 0;
+    if (c === 'sobra_hoje' || c === 'sobra_7_dias') return v - Number(r.saldo || 0);
+    return v;
+  };
+  const soma = (c) => doDia.reduce((s, r) => s + parte(r, c), 0);
+  const linhaConta = (r, fora) => {
     const falta = r.sobra_hoje < -0.005;
     const venc  = r.vencido > 0.005;
-    return `<tr>
+    return `<tr${fora ? ' style="opacity:.6"' : ''}>
       <td><b>${r.conta_exibida}</b> <span style="opacity:.55;font-size:11px">${r.unidade || ''}</span></td>
       <td style="text-align:right">${reais(r.saldo)}</td>
       <td style="text-align:right;${venc ? 'color:#f85149;font-weight:700' : 'opacity:.55'}">${venc ? reais(r.vencido) + ` <span style="font-weight:400">(${r.qtd_vencida})</span>` : '—'}</td>
       <td style="text-align:right;${r.vence_hoje > 0.005 ? 'color:#e8b04b;font-weight:700' : 'opacity:.55'}">${r.vence_hoje > 0.005 ? reais(r.vence_hoje) + ` <span style="font-weight:400">(${r.qtd_hoje})</span>` : '—'}</td>
       <td style="text-align:right;font-weight:700;${falta ? 'color:#f85149' : (r.sobra_hoje > 0.005 ? 'color:#3fb950' : '')}">${reais(r.sobra_hoje)}</td>
       <td style="text-align:right;${r.sobra_7_dias < -0.005 ? 'color:#f85149' : 'opacity:.8'}">${reais(r.sobra_7_dias)}</td></tr>`;
-  }).join('');
+  };
+  const corpo = doDia.map(r => linhaConta(r, false)).join('');
+  const aplicadas = linhas.filter(aplic);
+  const fora = aplicadas.length
+    ? `<tr><td colspan="6" class="caption-label" style="text-align:left; padding-top:10px;">Aplicação — fora do caixa do dia</td></tr>`
+      + aplicadas.map(r => linhaConta(r, true)).join('')
+    : '';
   return `<tbody id="projCaixaCorpo">${corpo}
     <tr style="border-top:2px solid #45443f">
-      <td><b>Total</b></td>
+      <td><b>Total em conta (paga as contas)</b></td>
       <td style="text-align:right"><b>${reais(soma('saldo'))}</b></td>
       <td style="text-align:right;${soma('vencido') > 0.005 ? 'color:#f85149' : ''}"><b>${reais(soma('vencido'))}</b></td>
       <td style="text-align:right"><b>${reais(soma('vence_hoje'))}</b></td>
       <td style="text-align:right;${soma('sobra_hoje') < -0.005 ? 'color:#f85149' : ''}"><b>${reais(soma('sobra_hoje'))}</b></td>
-      <td style="text-align:right"><b>${reais(soma('sobra_7_dias'))}</b></td></tr></tbody>`;
+      <td style="text-align:right"><b>${reais(soma('sobra_7_dias'))}</b></td></tr>${fora}</tbody>`;
 }
 
 // A LISTA QUE COMPOE OS NUMEROS DE CIMA. O quadro diz "R$ 41.753,76 vencidos";
@@ -16902,6 +16930,7 @@ function blocoCaixaDoDia() {
     ${projCaixaTabela()}</table></div>
   <div class="caption-label" style="text-align:left">
     <b>Sobra hoje</b> = saldo menos o que já venceu e o que vence hoje. É o que pode ir para a XP.
+    O total não soma a XP (aplicação) nem o saldo do cartão — do cartão entra só a fatura que vence.
     <b>Sobra em 7 dias</b> considera também o que vence e o que entra na semana.
   </div>
   ${projListaContas()}`;
