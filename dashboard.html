@@ -14606,10 +14606,13 @@ function fxMesCalc(mes) {
   const benef = FX_M.benef.filter(r => r.mes === mes && L.includes(r.unidade)).reduce((a, r) => a + fxN(r.beneficio_ifood), 0);
   return { mes, canais, recBruta, pedidos, ticket: pedidos ? recBruta / pedidos : 0, outras, outrasDet, taxasCanais, defasagem, temFato, deducoes, irpj, base, grupos, outrasDesp, ebitda, despFin, recFin, semClass, resultado, benef };
 }
-// PONTE SO VALE INTEIRA (12/09/2026). Antes de agosto a ponte ate o caixa so tem a Agua
-// Verde (o caixa das filiais entrou no Saipos em 01/08). Na visao Rede, somar so a AV dava
-// o caixa DELA com o rotulo da Rede. Sem todas as lojas da visao, nao ha ponte — e as
-// telas ja dizem isso ("sem ponte de caixa neste periodo").
+// PONTE SO VALE INTEIRA (12/09/2026). A view pode nao ter uma das lojas da visao num mes;
+// somar o que houver daria o caixa de uma loja com o rotulo da Rede. Sem todas as lojas da
+// visao, nao ha ponte — e as telas ja dizem isso ("sem ponte de caixa neste periodo").
+// 25/09/2026: antes de agosto a ponte era so da Agua Verde, e a razao que estava escrita
+// aqui ("o caixa das filiais entrou no Saipos em 01/08") era FALSA — o jan-jul das filiais
+// existe desde 18/08 (SAIPOS_HIST) e o saldo bate com o extrato. Quem estava errada era a
+// vw_fin_ponte_mensal, que lia a planilha (so AV). Corrigida; jan-jul agora tem as tres.
 function fxPonte(mes) { const L = fxLojas(); const rows = FX_M.ponte.filter(r => r.mes === mes && L.includes(r.unidade)); if (!rows.length || L.some(u => !rows.some(r => r.unidade === u))) return null; const s = c => rows.reduce((a, r) => a + fxN(r[c]), 0); return { res: s('resultado_apurado'), comp: s('ajuste_competencia'), inv: s('investimentos'), ret: s('retiradas'), emp: s('emprestimos'), apo: s('aportes'), rend: s('aplicacoes'), xp: s('transferencias_liquidas'), sem: s('sem_classificacao'), v: s('variacao_caixa') }; }
 // ==================================================================
 // O PLACAR — a camada 1 da revisão dos módulos (12/09/2026)
@@ -15161,14 +15164,14 @@ function renderFechamento() {
       p.res, bateSecao3 ? '' : 'base diferente da seção 3 — veja a nota abaixo'], ['Contas de outros meses pagas no mês, ou do mês ainda por pagar', p.comp, 'negativo = o mês pagou mais do que gerou de conta'],
       ['Investimentos (obras, máquinas, tecnologia)', p.inv, 'vira patrimônio, não some'], ['Retiradas dos sócios', p.ret, ''], ['Dinheiro entre as lojas (lucro e bônus repassados, aportes)', p.apo, ''],
       ['Foi para a XP', p.xp, 'inclui o benefício do iFood enviado à XP'], ['Empréstimos', p.emp, ''], ['Rendimentos', p.rend, ''], ['Sem classificação', p.sem, 'lançamento sem conta — deveria ser zero']].filter(([, x]) => Math.abs(x) > 0.5);
-    h += `<div class="fx-caixa"><div class="fx-rotulo">O caixa do dia a dia em ${fxMesLongo(mes)}</div><div class="fx-valor${p.v < 0 ? ' neg' : ''}">${p.v >= 0 ? 'cresceu' : 'encolheu'} ${fxMil(Math.abs(p.v))}</div><ul>${itens.map(([n, x, s2]) => `<li><span>${n}${s2 ? `<small>${s2}</small>` : ''}</span><b>${x >= 0 ? '+ ' : '− '}${fxMil(Math.abs(x))}</b></li>`).join('')}<li class="res"><span><b>= caixa do dia a dia</b><small>bancos e cofres; XP, Participações e cartões ficam de fora</small></span><b>${p.v >= 0 ? '+ ' : '− '}${fxMil(Math.abs(p.v))}</b></li></ul></div>`;
+    h += `<div class="fx-caixa"><div class="fx-rotulo">O caixa do dia a dia em ${fxMesLongo(mes)}</div><div class="fx-valor${p.v < 0 ? ' neg' : ''}">${p.v >= 0 ? 'cresceu' : 'encolheu'} ${fxMil(Math.abs(p.v))}</div><ul>${itens.map(([n, x, s2]) => `<li><span>${n}${s2 ? `<small>${s2}</small>` : ''}</span><b>${x >= 0 ? '+ ' : '− '}${fxMil(Math.abs(x))}</b></li>`).join('')}<li class="res"><span><b>= caixa do dia a dia</b><small>bancos, cofres e cartões; XP e Participações ficam de fora</small></span><b>${p.v >= 0 ? '+ ' : '− '}${fxMil(Math.abs(p.v))}</b></li></ul></div>`;
     if (!bateSecao3) h += `<div class="fx-nota"><b>Por que a primeira linha não é o número da seção 3.</b>
       A seção 3 diz que sobraram <b>${fxMil(a.resultado)}</b> e esta conta começa em <b>${fxMil(p.res)}</b>.
       As duas contas descontam o que os canais cobraram de formas diferentes. A ponte fecha contra o movimento
       real das contas, então o caixa do fim está certo — mas as duas bases precisam voltar a ser a mesma.</div>`;
     else h += `<div class="fx-nota">Esta conta parte do mesmo resultado da seção 3 e termina na variação real das
       contas e cofres, sem sobra. Cada degrau é o que separa o que a operação gerou do dinheiro que de fato ficou.</div>`;
-  } else h += '<div class="fx-nota">Sem ponte de caixa para esta loja neste mês (o caixa das filiais entrou no Saipos em 01/08).</div>';
+  } else h += '<div class="fx-nota">Sem ponte de caixa para esta loja neste mês.</div>';
   // As contas batem com o banco? (03/09/2026) — o mês só está fechado de verdade
   // se o saldo de cada conta no Saipos bate com o saldo declarado pelo banco no
   // fim do mês (a XP confere pelo saldo informado da corretora). É a conferência
