@@ -6276,7 +6276,7 @@ async function entrarConcbanco() {
   alvo.innerHTML = '<div class="contexto">Carregando a conciliação...</div>';
   try {
     const [placar, pend, saldoDia, pessoas, marcadas, naoConf, saldoConf, aFazer,
-           diaSaldo, duvidas, sresiduo, matur, avisos] = await Promise.all([
+           diaSaldo, duvidas, sresiduo, matur, avisos, conferencia] = await Promise.all([
       consultarTudo('vw_fin_conciliacao_placar?select=*&order=data.desc'),
       consultarTudo('vw_fin_conciliacao_pendencias?select=*&order=dias.desc'),
       consultarTudo('mv_fin_conciliacao_saldo_dia?select=*&order=data.desc'),
@@ -6300,9 +6300,14 @@ async function entrarConcbanco() {
       // grava aqui quando termina cada passada; o banner diz a Hellen a hora de
       // agir. So leitura — quem escreve e a rotina, via conexao do servidor.
       consultarTudo('fin_conciliacao_aviso?select=*&order=criado_em.desc&limit=5'),
+      // O QUE NAO BATE, LINHA A LINHA (dono, 25/09/2026: "vc que tem que nos
+      // informar as diferencas entre banco e Saipos"). A conferencia ja nomeia a
+      // linha que falta ou sobra no Saipos em cada dia em que o saldo nao fecha;
+      // o painel nao lia isso e so mostrava o total.
+      consultarTudo('vw_fin_conciliacao_conferencia?select=*&verificacao=eq.SALDO%20NAO%20FECHA'),
     ]);
     CONCB = { placar, pend, saldoDia, pessoas, marcadas, naoConf, saldoConf, aFazer, sresiduo,
-              diaSaldo, duvidas, matur, avisos };
+              diaSaldo, duvidas, matur, avisos, conferencia };
   } catch (e) {
     alvo.innerHTML = '<div class="contexto">Não consegui carregar a conciliação: ' + e.message + '</div>';
     return;
@@ -6980,6 +6985,7 @@ function renderConcbanco() {
   // com o saldo por extenso —, e o dono cortou: "está mostrando muita
   // informação". O que cada coluna responde é uma pergunta só, e o detalhe longo
   // virou `title` (aparece ao passar o mouse) em vez de ocupar a tela.
+  const saldoNaoBate = new Set();
   const cartao = (conta) => {
     const c = contas[conta];
     const fechou = c.temOntem && c.ontemGap < CONCB_TOL_CENTAVOS;
@@ -7099,6 +7105,12 @@ function renderConcbanco() {
                  + ', R$ ' + rs(Math.abs(sobra))
                  + (temDecomposicao ? ' sem explicação' : ' de diferença') + '</span>'
                : '<span style="color:#2e7d32">conferido</span>');
+        // ✓ SO COM O SALDO BATENDO (25/09/2026): a marca vinha so da fila do banco,
+        // e a ITAU AV aparecia verde com o Saipos R$ 12.400 acima — a linha que
+        // faltava estava marcada como conciliada e a que sobrava era do Saipos.
+        if (!bateu && Math.abs(sobra) >= TOL_SALDO) {
+          marca = '✗'; cor = '#c8102e'; saldoNaoBate.add(conta);
+        }
       }
     }
     const td = 'style="text-align:left;font-size:12px"';
@@ -7153,11 +7165,44 @@ function renderConcbanco() {
         : '');
   }).join('');
 
-  const resumo = naoFecharam.length
-    ? '<b style="color:#c8102e">' + naoFecharam.length
-      + (naoFecharam.length === 1 ? ' conta não fechou ' : ' contas não fecharam ')
+  // A grade roda ANTES do resumo: e ela que descobre as contas com o saldo fora
+  // (saldoNaoBate) — sem isso o topo dizia "Tudo certo" com o saldo vermelho embaixo.
+  const linhasGrade = nomes.map(cartao).join('');
+  const ruins = [...new Set(naoFecharam.concat([...saldoNaoBate]))];
+  const resumo = ruins.length
+    ? '<b style="color:#c8102e">' + ruins.length
+      + (ruins.length === 1 ? ' conta não fechou ' : ' contas não fecharam ')
       + quando + '.</b> Confira as linhas abaixo.'
     : '<b style="color:#2e7d32">Tudo certo ' + quando + '.</b> Nada a fazer nesta loja.';
+
+  // O QUE CORRIGIR NO SAIPOS — uma linha por lancamento, vinda da conferencia
+  // (dono, 25/09/2026). Todos os dias em aberto da loja, nao so o da tela: o
+  // saldo e uma serie, e a linha que falta em 23/09 continua errando o 24/09.
+  const confLoja = (cru.conferencia || [])
+    .filter(r => contas[r.conta])
+    .sort((a, b) => concbOrdem(a.conta, b.conta) || (a.dia_do_fato < b.dia_do_fato ? -1 : 1));
+  const blocoCorrigir = confLoja.length
+    ? '<div class="section-label" style="margin-top:12px">O QUE CORRIGIR NO SAIPOS PARA O SALDO BATER</div>'
+      + '<div id="tabelaConcbCorrigir" style="overflow-x:auto"><table style="width:100%">'
+      + '<thead><tr><th style="text-align:left">Conta</th><th style="text-align:left">Dia</th>'
+      + '<th style="text-align:left">O que fazer</th></tr></thead><tbody>'
+      + confLoja.map(r => {
+          const linhas = String(r.texto || '').split('\n').slice(1)
+            .map(s => s.trim()).filter(Boolean)
+            .map(s => {
+              const cor = /^FALTA/.test(s) ? '#c8102e' : /^SOBRA/.test(s) ? '#b8860b' : '#555';
+              return '<div style="color:' + cor + '">' + esc(s) + '</div>';
+            }).join('');
+          const amarelo = r.gravidade === 'AMARELO';
+          return '<tr><td style="text-align:left;white-space:nowrap"><b>' + esc(nomeConta(r.conta)) + '</b></td>'
+            + '<td style="text-align:left">' + ddmm(r.dia_do_fato) + '</td>'
+            + '<td style="text-align:left;font-size:12px' + (amarelo ? ';opacity:.75' : '') + '">'
+            + (linhas || esc(r.texto)) + '</td></tr>';
+        }).join('')
+      + '</tbody></table></div>'
+      + '<div class="caption-label" style="text-align:left">FALTA = saiu/entrou no banco e não está no Saipos. '
+      + 'SOBRA = está no Saipos e não passou no banco. Atualizada a cada clique em ATUALIZAR.</div>'
+    : '';
 
   // ---- o que conferir, uma conta de cada vez ----
   // Um estado, nao duas acoes. Antes eram dois botoes ("lancei" e "ja estava")
@@ -7395,8 +7440,9 @@ function renderConcbanco() {
       '<th style="text-align:left"></th><th style="text-align:left">Conta</th>' +
       '<th style="text-align:left">Entradas</th><th style="text-align:left">Saídas</th>' +
       '<th style="text-align:left">Saldo</th></tr></thead><tbody>' +
-      nomes.map(cartao).join('') +
+      linhasGrade +
     '</tbody></table></div>' +
+    blocoCorrigir +
     blocoDiferenca +
     trava +
     (blocosConferir
