@@ -6961,7 +6961,16 @@ function renderConcbanco() {
   const porConta = {};
   abertas.forEach(p => (porConta[p.conta] || (porConta[p.conta] = [])).push(p));
 
-  const nomes = Object.keys(contas).sort();
+  // ORDEM FIXA DAS CONTAS (dono, 25/09/2026): por loja, a conta principal primeiro —
+  // AV, FF AV, Santander, Participacoes, Ahu, SB, FF SB. Antes a grade agrupava por
+  // status (nao fecharam / fecharam / sem movimento) e a conta mudava de lugar todo dia.
+  const CONCB_ORDEM = ['ITAU AV', 'ITAU FF AV', 'SANTANDER', 'PARTICIPACOES',
+                       'ITAU AHU', 'ITAU SB', 'ITAU FF SB'];
+  const concbOrdem = (a, b) => {
+    const ia = CONCB_ORDEM.indexOf(a), ib = CONCB_ORDEM.indexOf(b);
+    return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib) || a.localeCompare(b);
+  };
+  const nomes = Object.keys(contas).sort(concbOrdem);
   const fecharam = nomes.filter(c => contas[c].temOntem && contas[c].ontemGap < CONCB_TOL_CENTAVOS);
   const naoFecharam = nomes.filter(c => contas[c].temOntem && contas[c].ontemGap >= CONCB_TOL_CENTAVOS);
   const semMov = nomes.filter(c => !contas[c].temOntem);
@@ -7268,7 +7277,7 @@ function renderConcbanco() {
       (lista.length > 30 ? '<div class="contexto">Mostrando 30 de ' + lista.length + '.</div>' : '');
   };
 
-  const blocosConferir = Object.entries(porConta).sort().map(([conta, lista]) => {
+  const blocosConferir = Object.entries(porConta).sort((a, b) => concbOrdem(a[0], b[0])).map(([conta, lista]) => {
     const ent = lista.filter(p => n(p.valor) > 0);
     const sai = lista.filter(p => n(p.valor) < 0);
     // O nome da conta e o titulo do bloco inteiro: tudo abaixo dele e daquela
@@ -7386,7 +7395,7 @@ function renderConcbanco() {
       '<th style="text-align:left"></th><th style="text-align:left">Conta</th>' +
       '<th style="text-align:left">Entradas</th><th style="text-align:left">Saídas</th>' +
       '<th style="text-align:left">Saldo</th></tr></thead><tbody>' +
-      naoFecharam.map(cartao).join('') + fecharam.map(cartao).join('') + semMov.map(cartao).join('') +
+      nomes.map(cartao).join('') +
     '</tbody></table></div>' +
     blocoDiferenca +
     trava +
