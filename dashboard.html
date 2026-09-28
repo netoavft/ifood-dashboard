@@ -14994,7 +14994,7 @@ function renderPlacar() {
     if (t.id === 'fat') extra = `outras entradas ${fxMil(A.outras)} · tudo que entrou <b>${fxMil(A.base)}</b>`;
     else if (t.id === 'ped') extra = `valor médio do pedido <b>${fxR2(A.ticket)}</b>${B && B.ticket ? ' · ' + fxVar(A.ticket, B.ticket, rotAnt).replace(/<\/?b>/g, '') : ''}`;
     else if (t.id === 'caixa') extra = A.caixa === null ? 'a ponte até o caixa não tem este período'
-      : `operação ${fxMil(A.caixaOper)} · fora da operação ${fxMil(A.caixaFora)} (XP, rendimento, investimento, retirada, aporte)`;
+      : `operação ${fxMil(A.caixaOper)} · fora da operação ${fxMil(A.caixaFora)} (XP, rendimento, investimento, retirada, aporte, empréstimo)`;
     else if (pctBase !== null) extra = `<b>${fxPct1(pctBase)}</b> de cada R$ 100 que entraram`;
     if (meta && pctBase !== null) extra += ' ' + fxPill(fxFarol(pctBase, meta.meta, meta.sentido)) + ` <span style="opacity:.7;">meta ${meta.sentido === 'abaixo' ? 'até' : 'a partir de'} ${fxPct1(meta.meta)}</span>`;
     const vals = serie.map(s => valorDe(t, s.ag)).filter(x => x !== null);
@@ -15144,6 +15144,9 @@ function renderFechamento() {
   const ba = baldes(a), bj = j ? baldes(j) : null;
   const maxv = Math.max(...ba.map(b => Math.abs(b[3])), Math.abs(cem(a.resultado)), 1);
   const reais = v => (v < -0.5 ? '−R$ ' : 'R$ ') + Math.abs(Math.round(v));
+  // O balde REND guarda o rendimento com o sinal dos baldes (entrada = negativo). Na tela ele
+  // aparece com o sinal do dinheiro: + quando entrou, − quando o mes teve rendimento negativo.
+  const reaisB = (id, v) => id === 'REND' ? (v > 0.5 ? '−R$ ' : '+R$ ') + Math.abs(Math.round(v)) : reais(v);
   let somaArr = 0;
   h += `<div class="fx-secao"><h3>2. De cada R$ 100 que entraram, para onde foram</h3><span>${fxMesLongo(mes)}${ant ? `, com ${fxMesLongo(ant)} ao lado` : ''}</span></div><div class="fx-cem">`;
   // QUAL BALDE ESTA MAIS LONGE DA META. A ordem das linhas nao muda (ela e' o tamanho do
@@ -15172,11 +15175,11 @@ function renderFechamento() {
     const attr = (abre ? ` onclick="fxAbrirBalde('${b[0]}')"` : '')
       + ((abre || marca) ? ` style="${abre ? 'cursor:pointer;' : ''}${marca ? ` box-shadow:inset 3px 0 0 ${marca};` : ''}"` : '')
       + (abre ? ` title="${aberto ? 'Clique para fechar a composição deste balde.' : 'Clique para ver do que é feito este balde.'}"` : '');
-    h += `<div class="fx-linha"${attr}><div class="fx-nome">${b[1]}${aberto ? ' ✕' : ''}<small>${b[2]}${m ? ` · meta: até R$ ${m.meta}` : ''}</small></div><div class="fx-num">${b[0] === 'REND' ? '+R$ ' + Math.abs(Math.round(b[3])) : reais(b[3])}</div><div class="fx-barra"><i style="width:${Math.max(0, Math.abs(b[3])) / maxv * 100}%"></i></div><div class="fx-jul">${bj ? `${fxMesRot(ant)}: ${reais(bj[i][3])}` : ''}${f ? ' · ' + fxPill(f) : ''}${pior ? ' · <b style="color:var(--farol-fora);" title="Entre os baldes que têm meta, é o que está mais longe da sua.">o mais fora</b>' : ''}</div></div>`;
+    h += `<div class="fx-linha"${attr}><div class="fx-nome">${b[1]}${aberto ? ' ✕' : ''}<small>${b[2]}${m ? ` · meta: até R$ ${m.meta}` : ''}</small></div><div class="fx-num">${reaisB(b[0], b[3])}</div><div class="fx-barra"><i style="width:${Math.max(0, Math.abs(b[3])) / maxv * 100}%"></i></div><div class="fx-jul">${bj ? `${fxMesRot(ant)}: ${reaisB(b[0], bj[i][3])}` : ''}${f ? ' · ' + fxPill(f) : ''}${pior ? ' · <b style="color:var(--farol-fora);" title="Entre os baldes que têm meta, é o que está mais longe da sua.">o mais fora</b>' : ''}</div></div>`;
   });
   const fs = M.RESULTADO ? fxFarol(cem(a.resultado), M.RESULTADO.meta, M.RESULTADO.sentido) : ['neutro', ''];
   h += `<div class="fx-linha sobrou ${fs[0]}"><div class="fx-nome">Sobrou<small>meta: R$ ${M.RESULTADO ? M.RESULTADO.meta : '—'} ou mais de cada 100</small></div><div class="fx-num">R$ ${100 - somaArr}</div><div class="fx-barra"><i style="width:${Math.max(0, cem(a.resultado)) / maxv * 100}%"></i></div><div class="fx-jul">${j ? `${fxMesRot(ant)}: R$ ${Math.round(j.base ? j.resultado / j.base * 100 : 0)}` : ''} · ${fxPill(fs)}</div></div></div>`;
-  h += `<div class="fx-nota">Valores arredondados para o real, por isso a soma fecha em 100 no "Sobrou".${a.temFato ? ` As taxas dos canais são o que o iFood e a Rede cobraram de fato no mês (cada cobrança com nome), não a diferença entre vendido e recebido — por isso o mês não oscila com o atraso dos repasses.${Math.abs(a.defasagem) > 500 ? ` Conferência: caiu na conta ${fxMil(Math.abs(a.defasagem))} ${a.defasagem > 0 ? 'a menos' : 'a mais'} do que a venda do mês menos essas cobranças — é repasse atravessando a virada do mês (e a taxa dos vales, que ainda não tem fonte).` : ''}` : ''}</div>`;
+  h += `<div class="fx-nota">Valores arredondados para o real, por isso a soma fecha em 100 no "Sobrou" — o rendimento entra somando, as outras linhas saindo.${a.temFato ? ` As taxas dos canais são o que o iFood e a Rede cobraram de fato no mês (cada cobrança com nome), não a diferença entre vendido e recebido — por isso o mês não oscila com o atraso dos repasses.${Math.abs(a.defasagem) > 500 ? ` Conferência: caiu na conta ${fxMil(Math.abs(a.defasagem))} ${a.defasagem > 0 ? 'a menos' : 'a mais'} do que a venda do mês menos essas cobranças — é repasse atravessando a virada do mês (e a taxa dos vales, que ainda não tem fonte).` : ''}` : ''}</div>`;
   // "DO QUE E' FEITO ESTE BALDE" — abre embaixo da secao 2, no mesmo lugar para
   // qualquer balde, e fecha no ✕. A composicao vem de plcComposicao, a MESMA do
   // Placar. O que nao aparece na lista de contas entra numa linha de resto com nome
@@ -15228,7 +15231,9 @@ function renderFechamento() {
     const itens = [[bateSecao3 ? 'Sobrou no papel (o resultado da seção 3)' : 'Resultado por outra base',
       p.res, bateSecao3 ? (a.recFin > 0.5 ? `inclui ${fxMil(a.recFin)} de rendimento aplicações` : '') : 'base diferente da seção 3 — veja a nota abaixo'], ['Contas de outros meses pagas no mês, ou do mês ainda por pagar', p.comp, 'negativo = o mês pagou mais do que gerou de conta'],
       ['Investimentos (obras, máquinas, tecnologia)', p.inv, 'vira patrimônio, não some'], ['Retiradas dos sócios', p.ret, ''], ['Dinheiro entre as lojas (lucro e bônus repassados, aportes)', p.apo, ''],
-      ['Lucro enviado para a XP', p.xp, 'o que sobra nas lojas vai para o Itaú AV, daí para a Participações e para a XP'],
+      p.xp > 0.5
+        ? ['Transferência sem contrapartida — conferir', p.xp, 'entrou como transferência e não saiu de nenhuma outra conta: costuma ser lançamento com categoria errada']
+        : ['Lucro enviado para a XP', p.xp, 'o que sobra nas lojas vai para o Itaú AV, daí para a Participações e para a XP'],
       ['Rendimento aplicações que ficou na XP', p.rendXp, 'rendeu lá dentro e não passou pelas contas do dia a dia'],
       ['Pago direto pela XP', p.pagoXp, 'imposto, retirada ou compra paga da XP — já está nas linhas de cima'], ['Empréstimos', p.emp, ''], ['Sem classificação', p.sem, 'lançamento sem conta — deveria ser zero']].filter(([, x]) => Math.abs(x) > 0.5);
     h += `<div class="fx-caixa"><div class="fx-rotulo">O caixa do dia a dia em ${fxMesLongo(mes)}</div><div class="fx-valor${p.v < 0 ? ' neg' : ''}">${p.v >= 0 ? 'cresceu' : 'encolheu'} ${fxMil(Math.abs(p.v))}</div><ul>${itens.map(([n, x, s2]) => `<li><span>${n}${s2 ? `<small>${s2}</small>` : ''}</span><b>${x >= 0 ? '+ ' : '− '}${fxMil(Math.abs(x))}</b></li>`).join('')}<li class="res"><span><b>= caixa do dia a dia</b><small>bancos, cofres e cartões; XP e Participações ficam de fora</small></span><b>${p.v >= 0 ? '+ ' : '− '}${fxMil(Math.abs(p.v))}</b></li></ul></div>`;
@@ -16634,7 +16639,8 @@ function renderModuloDRE() {
       <b>(−) Administrativas e imóvel</b> — o que mantém a casa aberta: aluguel, energia, gás, manutenção, sistemas, honorários.<br>
       <b>(−) Comerciais</b> — o que gastamos para entregar e vender: motoboys, marketing, fretes.<br>
       <b>(=) Resultado operacional</b> — o que a operação gera sozinha, antes de banco e imposto sobre o lucro.<br>
-      <b>(±) Financeiras</b> — rendimentos das aplicações menos juros e tarifas de banco.<br>
+      <b>(+) Rendimento aplicações</b> — o que a XP e as contas correntes renderam; entrada não operacional.<br>
+      <b>(−) Juros e tarifas</b> — juros, tarifas de banco e a antecipação da Rede.<br>
       <b>(−) Imposto de renda (IRPJ)</b> — imposto sobre o LUCRO (o imposto sobre a venda ficou lá em cima, nas deduções).<br>
       <b>(=) Resultado líquido</b> — o que sobrou no fim do mês: lucro ou prejuízo.<br>
       <b>Abaixo do resultado</b> — o que não é resultado da operação da loja, mas mexe no dinheiro dela: o lucro que as filiais repassam (total enviado menos a lista do mês, com o bônus do iFood dentro), investimentos, retiradas e aportes. A ordem e os nomes seguem o fechamento da MA Consultoria (03/09/2026); os cálculos são nossos.
