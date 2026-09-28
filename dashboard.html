@@ -15759,7 +15759,10 @@ function renderModuloDFC() {
 
   corpo += linha('dfc-resultado', '(=) RESULTADO FINAL', resultFim);
 
-  corpo += linhaSaldo('dfc-saldo', 'SALDO FINAL', saldoFim, 'SALDO_FIM', saldoFim[nM - 1]);
+  // 28/09/2026: o saldo final soma a XP (regra do dono: fora do Fluxo projetado, pode entrar
+  // nos demais calculos) — o rotulo diz, e as linhas logo abaixo separam em conta x aplicado.
+  const temAplic = contas.some(c => c.conta === 'XP INVESTIMENTOS' || c.conta === 'PARTICIPACOES');
+  corpo += linhaSaldo('dfc-saldo', temAplic ? 'SALDO FINAL (com a XP)' : 'SALDO FINAL', saldoFim, 'SALDO_FIM', saldoFim[nM - 1]);
   // Conferência com o extrato (03/09/2026, pedido do dono): a planilha antiga
   // tinha saldo inicial e final por conta batendo com o banco, e isso garantia
   // que todo centavo estava lançado. Cada conta ganha a marca do mês fechado:
@@ -15906,14 +15909,14 @@ function renderModuloDFC() {
     type: 'line',
     data: {
       labels: meses.map(rotuloMes),
-      datasets: [{ label: 'Saldo no fim do mês', data: saldoFim,
+      datasets: [{ label: temAplic ? 'Saldo no fim do mês, com a XP' : 'Saldo no fim do mês', data: saldoFim,
         borderColor: corToken('--tx-creme'), backgroundColor: corToken('--tx-creme'),
         borderWidth: 2, tension: 0.25, pointRadius: 3 }],
     },
     options: {
       responsive: true, maintainAspectRatio: false,
       interaction: { mode: 'index', intersect: false },
-      plugins: { tooltip: { callbacks: { label: (c) => `Saldo no fim do mês: R$ ${fmt(c.parsed.y)}` } } },
+      plugins: { tooltip: { callbacks: { label: (c) => `${c.dataset.label}: R$ ${fmt(c.parsed.y)}` } } },
       scales: { y: { title: { display: true, text: 'Saldo (R$)' } } },
     },
   });
@@ -18372,7 +18375,7 @@ function renderModuloConciliacao() {
       <td class="${c.saldo < -0.005 ? 'negativo' : ''}">R$ ${fmt(c.saldo)}</td>
       <td>${fmtData(c.ultimo_lancamento)}</td>
       <td>${c.lancamentos || '—'}</td></tr>`).join('')}
-    <tr class="liq"><td>TOTAL</td>
+    <tr class="liq"><td>TOTAL<div style="font-size:11px; font-weight:400; opacity:.75;">inclui a XP e a Participações: R$ ${fmt(CONF_SALDOS.filter(c => PROJ_FORA_CAIXA.includes(c.conta)).reduce((s, c) => s + Number(c.saldo || 0), 0))}</div></td>
       <td>R$ ${fmt(CONF_SALDOS.reduce((s, c) => s + Number(c.saldo || 0), 0))}</td>
       <td></td><td>${CONF_SALDOS.reduce((s, c) => s + Number(c.lancamentos || 0), 0).toLocaleString('pt-BR')}</td></tr>
   </table></div>
