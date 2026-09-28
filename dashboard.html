@@ -11773,7 +11773,7 @@ function renderLucroUni() {
         ${linhaPonte('Lucro do período', lucroRede)}
         ${linhaPonte('(−) Investimentos', invest, 'obra, máquina, equipamento — vira ativo, não some')}
         ${linhaPonte('(−) Retiradas dos sócios', retiradas)}
-        ${linhaPonte('(+) Rendimento financeiro da XP', rendimentos, 'não é operação: é o dinheiro parado rendendo')}
+        ${linhaPonte('(+) Rendimento aplicações', rendimentos, 'entrada não operacional: XP e contas correntes')}
         ${Math.abs(aporte) > 0.005 ? linhaPonte('(±) Repasse entre as unidades', aporte, 'soma perto de zero na rede — só muda de bolso') : ''}
         <tr class="sub"><td><b>= deveria ter sobrado</b></td><td><b>${rs(chegou)}</b></td></tr>
         <tr class="liq"><td>Sobrou de verdade no caixa${xpDentro ? ' + XP' : ''}</td><td>${rs(sobrouCaixa)}</td></tr>
@@ -14673,7 +14673,7 @@ function fxMesCalc(mes) {
 // aqui ("o caixa das filiais entrou no Saipos em 01/08") era FALSA — o jan-jul das filiais
 // existe desde 18/08 (SAIPOS_HIST) e o saldo bate com o extrato. Quem estava errada era a
 // vw_fin_ponte_mensal, que lia a planilha (so AV). Corrigida; jan-jul agora tem as tres.
-function fxPonte(mes) { const L = fxLojas(); const rows = FX_M.ponte.filter(r => r.mes === mes && L.includes(r.unidade)); if (!rows.length || L.some(u => !rows.some(r => r.unidade === u))) return null; const s = c => rows.reduce((a, r) => a + fxN(r[c]), 0); return { res: s('resultado_apurado'), comp: s('ajuste_competencia'), inv: s('investimentos'), ret: s('retiradas'), emp: s('emprestimos'), apo: s('aportes'), rend: s('aplicacoes'), xp: s('transferencias_liquidas'), sem: s('sem_classificacao'), v: s('variacao_caixa') }; }
+function fxPonte(mes) { const L = fxLojas(); const rows = FX_M.ponte.filter(r => r.mes === mes && L.includes(r.unidade)); if (!rows.length || L.some(u => !rows.some(r => r.unidade === u))) return null; const s = c => rows.reduce((a, r) => a + fxN(r[c]), 0); return { res: s('resultado_apurado'), comp: s('ajuste_competencia'), inv: s('investimentos'), ret: s('retiradas'), emp: s('emprestimos'), apo: s('aportes'), rend: s('aplicacoes'), xp: s('transferencias_liquidas'), sem: s('sem_classificacao'), v: s('variacao_caixa'), rendXp: s('rendimento_ficou_na_aplicacao'), pagoXp: s('pago_direto_pela_aplicacao') }; }
 // ==================================================================
 // O PLACAR — a camada 1 da revisão dos módulos (12/09/2026)
 // ==================================================================
@@ -14877,8 +14877,10 @@ function plcAgrega(meses) {
     mc: recLiq - grupos.CUSTO, ebitda: som(p => p.ebitda), resultado: som(p => p.resultado),
     benef: som(p => p.benef), temFato: partes.every(p => p.temFato), canais,
     caixa: pontes.length ? ps('v') : null,
-    caixaOper: pontes.length ? ps('res') + ps('comp') : null,
-    caixaFora: pontes.length ? ps('inv') + ps('ret') + ps('emp') + ps('apo') + ps('rend') + ps('xp') + ps('sem') : null,
+    // 28/09/2026: desde que o ajuste de competencia passou a comparar o resultado com
+    // (operacao + rendimentos), res + comp inclui o rendimento; tirando ele, sobra a operacao.
+    caixaOper: pontes.length ? ps('res') + ps('comp') - ps('rend') : null,
+    caixaFora: pontes.length ? ps('rend') + ps('rendXp') + ps('inv') + ps('ret') + ps('emp') + ps('apo') + ps('xp') + ps('pagoXp') + ps('sem') : null,
   };
 }
 
@@ -14992,7 +14994,7 @@ function renderPlacar() {
     if (t.id === 'fat') extra = `outras entradas ${fxMil(A.outras)} · tudo que entrou <b>${fxMil(A.base)}</b>`;
     else if (t.id === 'ped') extra = `valor médio do pedido <b>${fxR2(A.ticket)}</b>${B && B.ticket ? ' · ' + fxVar(A.ticket, B.ticket, rotAnt).replace(/<\/?b>/g, '') : ''}`;
     else if (t.id === 'caixa') extra = A.caixa === null ? 'a ponte até o caixa não tem este período'
-      : `operação ${fxMil(A.caixaOper)} · fora da operação ${fxMil(A.caixaFora)} (XP, investimento, retirada, aporte)`;
+      : `operação ${fxMil(A.caixaOper)} · fora da operação ${fxMil(A.caixaFora)} (XP, rendimento, investimento, retirada, aporte)`;
     else if (pctBase !== null) extra = `<b>${fxPct1(pctBase)}</b> de cada R$ 100 que entraram`;
     if (meta && pctBase !== null) extra += ' ' + fxPill(fxFarol(pctBase, meta.meta, meta.sentido)) + ` <span style="opacity:.7;">meta ${meta.sentido === 'abaixo' ? 'até' : 'a partir de'} ${fxPct1(meta.meta)}</span>`;
     const vals = serie.map(s => valorDe(t, s.ag)).filter(x => x !== null);
@@ -15131,7 +15133,10 @@ function renderFechamento() {
   const baldes = x => [['CUSTO', 'Mercadoria', 'insumos, bebidas, embalagens (inclusive as de envio)', x.grupos.CUSTO], ['PESSOAL', 'Pessoas', 'salários, encargos, pró-labore', x.grupos.PESSOAL],
     ['VENDA', 'Entrega, comercial e marketing', 'motoboys, anúncios, marketing', x.grupos.VENDA], ['ADMIN', 'A casa', 'aluguel, energia, gás, manutenção, sistemas', x.grupos.ADMIN],
     ['TAXAS', 'Taxas dos canais e impostos', 'comissão e taxas do iFood e dos cartões, ICMS', x.taxasCanais + x.deducoes],
-    ['OUTROS', 'Juros, tarifas e outros', '', x.despFin - x.recFin - x.semClass + x.irpj + x.outrasDesp]]
+    ['OUTROS', 'Juros, tarifas e outros', '', x.despFin - x.semClass + x.irpj + x.outrasDesp],
+    // 28/09/2026 (dono): o rendimento vira linha propria, "entrada nao operacional". Antes ele
+    // era descontado de "Juros, tarifas e outros" e deixava o balde negativo.
+    ['REND', 'Rendimento aplicações', 'entrada não operacional: XP e contas correntes', -x.recFin]]
     // b[3] e' o "de cada R$ 100" que a secao mostra; b[4] guarda o mesmo balde em
     // REAIS, que e' o total com que a composicao tem de fechar. Sem ele a abertura
     // refaria a conta do balde — segunda versao do mesmo numero.
@@ -15157,7 +15162,7 @@ function renderFechamento() {
   const podeAbrir = (id) => !!FX_COMPOSICAO[id] && (id !== 'TAXAS' || a.temFato);
   if (FX_BALDE && !podeAbrir(FX_BALDE)) FX_BALDE = null;
   ba.forEach((b, i) => {
-    if (b[0] === 'OUTROS' && Math.abs(b[3]) < 0.5) return;
+    if ((b[0] === 'OUTROS' || b[0] === 'REND') && Math.abs(b[3]) < 0.5) return;
     somaArr += Math.round(b[3]);
     const m = M[b[0]]; const f = m ? fxFarol(b[3], m.meta, m.sentido) : null;
     const pior = b[0] === piorBalde;
@@ -15167,7 +15172,7 @@ function renderFechamento() {
     const attr = (abre ? ` onclick="fxAbrirBalde('${b[0]}')"` : '')
       + ((abre || marca) ? ` style="${abre ? 'cursor:pointer;' : ''}${marca ? ` box-shadow:inset 3px 0 0 ${marca};` : ''}"` : '')
       + (abre ? ` title="${aberto ? 'Clique para fechar a composição deste balde.' : 'Clique para ver do que é feito este balde.'}"` : '');
-    h += `<div class="fx-linha"${attr}><div class="fx-nome">${b[1]}${aberto ? ' ✕' : ''}<small>${b[2]}${m ? ` · meta: até R$ ${m.meta}` : ''}</small></div><div class="fx-num">${reais(b[3])}</div><div class="fx-barra"><i style="width:${Math.max(0, Math.abs(b[3])) / maxv * 100}%"></i></div><div class="fx-jul">${bj ? `${fxMesRot(ant)}: ${reais(bj[i][3])}` : ''}${f ? ' · ' + fxPill(f) : ''}${pior ? ' · <b style="color:var(--farol-fora);" title="Entre os baldes que têm meta, é o que está mais longe da sua.">o mais fora</b>' : ''}</div></div>`;
+    h += `<div class="fx-linha"${attr}><div class="fx-nome">${b[1]}${aberto ? ' ✕' : ''}<small>${b[2]}${m ? ` · meta: até R$ ${m.meta}` : ''}</small></div><div class="fx-num">${b[0] === 'REND' ? '+R$ ' + Math.abs(Math.round(b[3])) : reais(b[3])}</div><div class="fx-barra"><i style="width:${Math.max(0, Math.abs(b[3])) / maxv * 100}%"></i></div><div class="fx-jul">${bj ? `${fxMesRot(ant)}: ${reais(bj[i][3])}` : ''}${f ? ' · ' + fxPill(f) : ''}${pior ? ' · <b style="color:var(--farol-fora);" title="Entre os baldes que têm meta, é o que está mais longe da sua.">o mais fora</b>' : ''}</div></div>`;
   });
   const fs = M.RESULTADO ? fxFarol(cem(a.resultado), M.RESULTADO.meta, M.RESULTADO.sentido) : ['neutro', ''];
   h += `<div class="fx-linha sobrou ${fs[0]}"><div class="fx-nome">Sobrou<small>meta: R$ ${M.RESULTADO ? M.RESULTADO.meta : '—'} ou mais de cada 100</small></div><div class="fx-num">R$ ${100 - somaArr}</div><div class="fx-barra"><i style="width:${Math.max(0, cem(a.resultado)) / maxv * 100}%"></i></div><div class="fx-jul">${j ? `${fxMesRot(ant)}: R$ ${Math.round(j.base ? j.resultado / j.base * 100 : 0)}` : ''} · ${fxPill(fs)}</div></div></div>`;
@@ -15221,9 +15226,11 @@ function renderFechamento() {
     const difPonte = a.resultado - p.res;
     const bateSecao3 = Math.abs(difPonte) <= 500;
     const itens = [[bateSecao3 ? 'Sobrou no papel (o resultado da seção 3)' : 'Resultado por outra base',
-      p.res, bateSecao3 ? '' : 'base diferente da seção 3 — veja a nota abaixo'], ['Contas de outros meses pagas no mês, ou do mês ainda por pagar', p.comp, 'negativo = o mês pagou mais do que gerou de conta'],
+      p.res, bateSecao3 ? (a.recFin > 0.5 ? `inclui ${fxMil(a.recFin)} de rendimento aplicações` : '') : 'base diferente da seção 3 — veja a nota abaixo'], ['Contas de outros meses pagas no mês, ou do mês ainda por pagar', p.comp, 'negativo = o mês pagou mais do que gerou de conta'],
       ['Investimentos (obras, máquinas, tecnologia)', p.inv, 'vira patrimônio, não some'], ['Retiradas dos sócios', p.ret, ''], ['Dinheiro entre as lojas (lucro e bônus repassados, aportes)', p.apo, ''],
-      ['Dinheiro que saiu do operacional', p.xp, 'na Água Verde é o envio para a XP, com o benefício do iFood; nas filiais é quase sempre zero'], ['Empréstimos', p.emp, ''], ['Rendimentos', p.rend, ''], ['Sem classificação', p.sem, 'lançamento sem conta — deveria ser zero']].filter(([, x]) => Math.abs(x) > 0.5);
+      ['Lucro enviado para a XP', p.xp, 'o que sobra nas lojas vai para o Itaú AV, daí para a Participações e para a XP'],
+      ['Rendimento aplicações que ficou na XP', p.rendXp, 'rendeu lá dentro e não passou pelas contas do dia a dia'],
+      ['Pago direto pela XP', p.pagoXp, 'imposto, retirada ou compra paga da XP — já está nas linhas de cima'], ['Empréstimos', p.emp, ''], ['Sem classificação', p.sem, 'lançamento sem conta — deveria ser zero']].filter(([, x]) => Math.abs(x) > 0.5);
     h += `<div class="fx-caixa"><div class="fx-rotulo">O caixa do dia a dia em ${fxMesLongo(mes)}</div><div class="fx-valor${p.v < 0 ? ' neg' : ''}">${p.v >= 0 ? 'cresceu' : 'encolheu'} ${fxMil(Math.abs(p.v))}</div><ul>${itens.map(([n, x, s2]) => `<li><span>${n}${s2 ? `<small>${s2}</small>` : ''}</span><b>${x >= 0 ? '+ ' : '− '}${fxMil(Math.abs(x))}</b></li>`).join('')}<li class="res"><span><b>= caixa do dia a dia</b><small>bancos, cofres e cartões; XP e Participações ficam de fora</small></span><b>${p.v >= 0 ? '+ ' : '− '}${fxMil(Math.abs(p.v))}</b></li></ul></div>`;
     if (!bateSecao3) h += `<div class="fx-nota"><b>Por que a primeira linha não é o número da seção 3.</b>
       A seção 3 diz que sobraram <b>${fxMil(a.resultado)}</b> e esta conta começa em <b>${fxMil(p.res)}</b>.
@@ -16386,10 +16393,12 @@ function renderModuloDRE() {
     corpo += linha('dfc-resultado', '(=) RESULTADO RECORRENTE (pagando comissão cheia)', ebitda.map((v, i) => v - benefVals[i]), { kind: 'ganho' });
   }
 
-  corpo += linha('dfc-bloco', '(±) FINANCEIRAS (rendimentos − juros e tarifas)', resFin, { chave: 'FIN', kind: 'ganho' });
+  // 28/09/2026 (dono): "o rendimento da XP deve entrar em uma linha separada como entradas
+  // nao operacionais chamada rendimento aplicacoes, pode somar com os rendimentos automaticos
+  // das contas correntes". Antes os dois ficavam liquidos num "(±) FINANCEIRAS" so.
+  corpo += linha('dfc-bloco', '(+) RENDIMENTO APLICAÇÕES (entradas não operacionais)', recFin, { kind: 'ganho' });
+  corpo += linha('dfc-bloco', '(−) JUROS E TARIFAS', despFin.map(v => -v), { chave: 'FIN', kind: 'ganho' });
   if (dreAberto.has('FIN')) {
-    corpo += linha('dfc-grupo', 'RENDIMENTOS DE APLICAÇÕES', recFin, { kind: 'ganho' });
-    corpo += linha('dfc-grupo', 'DESPESAS FINANCEIRAS', despFin.map(v => -v), { kind: 'ganho' });
     if (antecipRede.some(v => Math.abs(v) > 0.005)) corpo += linha('dfc-linha', 'sendo antecipação de recebíveis da Rede (descontada no repasse)', antecipRede.map(v => -v), { kind: 'ganho' });
   }
   if (semClass.some(v => Math.abs(v) > 0.005)) {
