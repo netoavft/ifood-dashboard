@@ -12488,12 +12488,24 @@ function trEditHint(idx) {
   const pote = trPotesDe([{ i, q: n }])[i._acomp?.acomp_item];
   el.textContent = partes.join(' = ') + (pote ? ` · + ${pote.n} ${pote.nome.toLowerCase()}` : '');
 }
+// Anotacao da linha de pote: "pedido: N caixa(s)" (o que a filial pediu a mao)
+// + "automático: ..." (o que veio da regra) + texto livre. pedido === undefined
+// mantem o trecho atual; autoExtra soma ao trecho automatico.
+function trObsPote(obs, pedido, autoExtra) {
+  const partes = (obs || '').split(' · ').filter(Boolean);
+  const ped = pedido === undefined ? partes.find(s => s.startsWith('pedido:')) : pedido;
+  const autoAtual = partes.find(s => s.startsWith('automático:'));
+  const auto = autoExtra ? (autoAtual ? autoAtual + ' + ' + autoExtra : 'automático: ' + autoExtra) : autoAtual;
+  const outros = partes.filter(s => !s.startsWith('pedido:') && !s.startsWith('automático:'));
+  return [ped, auto, ...outros].filter(Boolean).join(' · ') || null;
+}
 async function trSalvarEdicao() {
   const msg = document.getElementById('trEditMsg');
   msg.textContent = 'Salvando...'; msg.style.color = '#8a897e';
   const { id, itens, fatores } = window._trEdit;
   // 1. o que mudou nos itens que ja estavam na lista (a anotacao "pedido: N"
   // acompanha a quantidade nova quando o item tem embalagem simples)
+  const gravado = {};  // id -> anotacao e parte automatica como ficaram no banco
   for (const [idx, i] of itens.entries()) {
     const campo = document.getElementById('tre_' + idx);
     if (!campo) continue;
@@ -12501,12 +12513,19 @@ async function trSalvarEdicao() {
     if (v === Number(i.qtd_solicitada)) continue;
     const corpo = { qtd_solicitada: v, editado: true };
     const fx = (fatores || {})[i.item];
-    // linha com pote automatico guarda a anotacao de onde ele veio
-    if (fx && i.qtd_auto == null) corpo.observacao = `pedido: ${Math.round(v / fx.f * 100) / 100} ${fx.n}(s)`;
+    if (i.qtd_auto != null) {
+      // linha mista (caixa pedida a mao + pote automatico): so o trecho "pedido"
+      // acompanha a quantidade nova; a parte automatica fica, limitada ao total
+      const auto = Math.min(Number(i.qtd_auto), v);
+      const manual = Math.round((v - auto) * 1000) / 1000;
+      corpo.qtd_auto = auto;
+      if (fx) corpo.observacao = trObsPote(i.observacao, manual > 0 ? `pedido: ${Math.round(manual / fx.f * 100) / 100} ${fx.n}(s)` : null);
+    } else if (fx) corpo.observacao = `pedido: ${Math.round(v / fx.f * 100) / 100} ${fx.n}(s)`;
     const r = v <= 0
       ? await trFetch(`tr_lista_itens?id=eq.${i.id}`, { method: 'DELETE' })
       : await trFetch(`tr_lista_itens?id=eq.${i.id}`, { method: 'PATCH', body: JSON.stringify(corpo) });
     if (!r.ok) { msg.textContent = `Item ${i.item}: ` + await trErroDe(r); msg.style.color = '#ff6b6b'; return; }
+    gravado[i.id] = { obs: 'observacao' in corpo ? corpo.observacao : i.observacao, auto: corpo.qtd_auto ?? i.qtd_auto };
   }
   // 2. os que faltaram, preenchidos na grade (duas embalagens somam na mesma linha)
   const porItem = {};
@@ -12554,21 +12573,28 @@ async function trSalvarEdicao() {
   if (rows.length) {
     const r = await trFetch('tr_lista_itens', { method: 'POST', body: JSON.stringify(rows) });
     if (!r.ok) { msg.textContent = 'Itens novos falharam: ' + await trErroDe(r); msg.style.color = '#ff6b6b'; return; }
+    // entrou: limpa o que foi incluido, para "salvar de novo" nunca duplicar o prato
+    (window._trEditNovos || []).forEach((_, idx) => { const el = document.getElementById('trn_' + idx); if (el) el.value = ''; });
+    for (let k = 1; k <= trAvulsoN; k++) { const el = document.getElementById('trav_n_' + k); if (el) el.value = ''; }
   }
   // 3. pote automatico somado na linha de pote que ja estava na lista
   for (const { pi, pt, ja } of potesNaLista) {
     const i = itens[ja];
+    const g = gravado[i.id] || { obs: i.observacao, auto: i.qtd_auto };
     const campo = document.getElementById('tre_' + ja);
     const base = Number(campo && campo.value !== '' ? campo.value : i.qtd_solicitada);
-    const auto = 'automático: ' + pt.partes.join(' + ');
+    const auto = pt.partes.join(' + ');
     // base 0 = a linha foi apagada no passo 1: o pote volta como linha nova
     const r = base <= 0
       ? await trFetch('tr_lista_itens', { method: 'POST', body: JSON.stringify([{ id_lista: id, item: pi,
-          un_medida: i.un_medida, qtd_solicitada: pt.n, observacao: auto, editado: true, qtd_auto: pt.n }]) })
+          un_medida: i.un_medida, qtd_solicitada: pt.n, observacao: 'automático: ' + auto, editado: true, qtd_auto: pt.n }]) })
       : await trFetch(`tr_lista_itens?id=eq.${i.id}`, { method: 'PATCH', body: JSON.stringify({
-          qtd_solicitada: Math.round((base + pt.n) * 1000) / 1000, qtd_auto: Number(i.qtd_auto || 0) + pt.n,
-          observacao: [i.observacao, auto].filter(Boolean).join(' · '), editado: true }) });
-    if (!r.ok) { msg.textContent = `Pote ${pi}: ` + await trErroDe(r); msg.style.color = '#ff6b6b'; return; }
+          qtd_solicitada: Math.round((base + pt.n) * 1000) / 1000, qtd_auto: Number(g.auto || 0) + pt.n,
+          observacao: trObsPote(g.obs, undefined, auto), editado: true }) });
+    if (!r.ok) {
+      msg.textContent = `Os itens novos entraram, mas o pote não somou (${await trErroDe(r)}). Some ${pt.n} na linha ${pi} acima e salve de novo.`;
+      msg.style.color = '#ff6b6b'; return;
+    }
   }
   msg.textContent = 'Alterações salvas — a separação já vê a lista corrigida.'; msg.style.color = '#3fb950';
   setTimeout(() => trEditarPedido(id), 900);
@@ -12901,6 +12927,17 @@ async function trReabrirConferencia(id) {
 // Diferenca na hora (12/09/2026): antes so se sabia o que divergiu DEPOIS de
 // fechar a lista, na mensagem final — e ai a lista ja estava fechada. Agora a
 // linha se marca enquanto se digita e o contador fica ao lado do botao.
+// O que a linha GRAVA, na unidade de controle — a mesma conta para a tela e
+// para o banco. Na ordem: (1) o numero que esta na coluna Separado (digitado
+// ou nao) grava o separado EXATO; (2) campo intocado grava o que ja estava;
+// (3) o resto converte pela embalagem. Sem a (1), conferencia reaberta dizia
+// "igual ao separado" e regravava a diferenca-fantasma (4,892 contra 4,89).
+function trConfQtd(i, el) {
+  if (el.value === el.dataset.sep) return Number(i.qtd_separada ?? 0);
+  if (el.value === el.defaultValue) return Number(i.qtd_recebida ?? i.qtd_separada ?? 0);
+  const bruto = Number(el.value || 0);
+  return i._fator ? Math.round(bruto * i._fator * 1000) / 1000 : bruto;
+}
 function trConfRecontar() {
   let difs = 0, total = 0, temValor = false;
   (window._trItensConf || []).forEach((i, idx) => {
@@ -12915,9 +12952,7 @@ function trConfRecontar() {
     if (tr) tr.style.fontWeight = dif ? '700' : '';
     // valor da linha ao vivo (24/09/2026, dono): recebido x preco congelado
     const bruto = Number(el.value || 0);
-    // intocado = o numero que sera gravado (o de origem, sem a volta arredondada)
-    const qtd = el.value === el.defaultValue ? Number(i.qtd_recebida ?? i.qtd_separada ?? 0)
-      : (i._fator ? bruto * i._fator : bruto);
+    const qtd = trConfQtd(i, el);
     const vcel = document.getElementById('trcv_' + idx);
     if (vcel) {
       const partes = [];
@@ -13006,14 +13041,9 @@ async function trFecharConferencia(id) {
   const rs = await trFetch(`tr_listas?id=eq.${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'RECEBIDA' }) });
   if (!rs.ok) { msg.textContent = 'Não deu: ' + await trErroDe(rs); msg.style.color = '#ff6b6b'; return; }
   for (const [idx, i] of (window._trItensConf || []).entries()) {
-    const el = document.getElementById('trc_' + idx);
-    const bruto = Number(el.value || 0);
-    // campo em embalagens -> grava convertido na unidade de controle. Campo
-    // INTOCADO grava o numero de origem: a ida e volta pela embalagem com 2
-    // casas gravava 9,88 no lugar de 10 potes (24 diferencas-fantasma ate 28/09)
-    const v = el.value === el.defaultValue
-      ? Number(i.qtd_recebida ?? i.qtd_separada ?? 0)
-      : (i._fator ? Math.round(bruto * i._fator * 1000) / 1000 : bruto);
+    // campo em embalagens grava convertido na unidade de controle, sem a ida e
+    // volta arredondada que gravava 9,88 no lugar de 10 potes (trConfQtd)
+    const v = trConfQtd(i, document.getElementById('trc_' + idx));
     const r = await trFetch(`tr_lista_itens?id=eq.${i.id}`, { method: 'PATCH', body: JSON.stringify({ qtd_recebida: v }) });
     if (!r.ok) { msg.textContent = `Item ${i.item}: ` + await trErroDe(r); msg.style.color = '#ff6b6b'; return; }
   }
