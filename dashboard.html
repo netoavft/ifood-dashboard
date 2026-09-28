@@ -12149,12 +12149,14 @@ async function trTelaPedido(unidadeEscolhida) {
     return;
   }
   const origemPedido = temEscolha ? trPedidoOrigem : null;
-  const [r, ra] = await Promise.all([
+  const [r, ra, regras] = await Promise.all([
     trFetch(`vw_tr_itens_pedido?unidade=eq.${encodeURIComponent(unidade)}&order=item`),
     trFetch(`tr_listas?fonte=eq.PAINEL&status=eq.SOLICITADA&unidade=eq.${encodeURIComponent(unidade)}&select=id,data_pedido&order=id.desc`),
+    trAcompanhaRegras(),
   ]);
   if (!r.ok) { alvo.innerHTML = `<div class="contexto" style="border-color:#ff6b6b;">${await trErroDe(r)}</div>`; return; }
   let itens = await r.json();
+  const grade = itens;
   if (origemPedido) itens = itens.filter(i => (i.origem || 'CIDADAO') === origemPedido);
   const abertas = ra.ok ? await ra.json() : [];
   const dataCusto = itens.find(i => i.custo_atualizado_em)?.custo_atualizado_em;
@@ -12162,9 +12164,12 @@ async function trTelaPedido(unidadeEscolhida) {
   // uma por pacote — o envio soma tudo numa linha so da lista
   const linhas = [];
   itens.forEach(i => {
-    linhas.push(i);
-    if (i.emb2_fator) linhas.push({ ...i, emb_nome: i.emb2_nome, emb_fator: i.emb2_fator });
+    linhas.push({ ...i, _acomp: trAcompanhaDe(regras, i.item, 1) });
+    if (i.emb2_fator) linhas.push({ ...i, emb_nome: i.emb2_nome, emb_fator: i.emb2_fator, _acomp: trAcompanhaDe(regras, i.item, 2) });
   });
+  // o pote e procurado na grade INTEIRA da filial (preco e unidade), mesmo
+  // quando a tela esta filtrada por origem
+  window._trGradePedido = grade;
   window._trItensPedido = linhas; window._trPedidoUnidade = unidade;
   // tema papel: as cores vem das classes .tr-ilha/.trc-in, nunca inline — a
   // ilha em si e ligada no MODULO inteiro por trRenderOperacao (titulo, abas e
@@ -12183,7 +12188,7 @@ async function trTelaPedido(unidadeEscolhida) {
     <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:0 18px;">
       ${linhas.map((i, idx) => `
         <label data-busca="${i.item.toLowerCase()}" class="tr-linha" style="display:grid; grid-template-columns:1fr 76px; gap:2px 10px; align-items:center; font-size:12.5px; padding:5px 2px;">
-          <span>${i.item} <span class="tr-det">(${i.emb_fator ? 'pede em ' + i.emb_nome + ' de ' + trEmbDesc(i) : (i.un_medida || 'un')}${i.nao_cobrado ? ' · não cobrado' : (i.preco_tabela ? ' · R$ ' + Number(i.preco_tabela).toFixed(2) + '/' + (i.un_medida || 'un').toLowerCase() : '')})${i.sem_custo ? ' ⚠️ sem custo' : ''}</span><br><span id="trqe_${idx}" class="tr-conv" style="font-size:11px;"></span></span>
+          <span>${i.item} <span class="tr-det">(${i.emb_fator ? 'pede em ' + i.emb_nome + ' de ' + trEmbDesc(i) : (i.un_medida || 'un')}${i.nao_cobrado ? ' · não cobrado' : (i.preco_tabela ? ' · R$ ' + Number(i.preco_tabela).toFixed(2) + '/' + (i.un_medida || 'un').toLowerCase() : '')}${i._acomp && i.emb_fator ? ' · leva ' + i._acomp.acomp_nome_base.toLowerCase() : ''})${i.sem_custo ? ' ⚠️ sem custo' : ''}</span><br><span id="trqe_${idx}" class="tr-conv" style="font-size:11px;"></span></span>
           <input type="number" min="0" step="any" id="trq_${idx}" class="trc-in" placeholder="${i.emb_fator ? i.emb_nome + 's' : (i.minimo || i.maximo ? (i.minimo ?? '') + '–' + (i.maximo ?? '') : '')}"
             oninput="trqTem(this); trEmbHint(${idx})"
             style="width:72px; justify-self:end; text-align:right;">
@@ -12213,13 +12218,20 @@ function trPedidoSoma() {
   const el = document.getElementById('trPedidoParcial');
   if (!el) return;
   let total = 0, semPreco = 0, tem = false;
+  const escolhidos = [];
   (window._trItensPedido || []).forEach((i, idx) => {
     const q = Number(document.getElementById('trq_' + idx)?.value || 0);
     if (q <= 0) return;
     tem = true;
+    escolhidos.push({ i, q });
     if (i.preco_tabela == null) { semPreco++; return; }
     const qtd = i.emb_fator ? q * i.emb_fator : q;
     total += qtd * Number(i.preco_tabela);
+  });
+  // o pote que acompanha entra no parcial pelo preco de tabela dele
+  Object.entries(trPotesDe(escolhidos)).forEach(([pi, pt]) => {
+    const pc = (window._trGradePedido || []).find(x => x.item === pi)?.preco_tabela;
+    if (pc != null) total += pt.n * Number(pc);
   });
   el.textContent = !tem || (total === 0 && semPreco === 0) ? ''
     : (total > 0 ? `Parcial: R$ ${fmt(total)}` : '')
@@ -12261,7 +12273,33 @@ function trEmbHint(idx) {
     const qtd = i.emb_fator ? n * i.emb_fator : n;
     partes.push(`R$ ${fmt(qtd * Number(i.preco_tabela))}`);
   }
-  el.textContent = partes.join(' = ');
+  const pote = trPotesDe([{ i, q: n }])[i._acomp?.acomp_item];
+  el.textContent = partes.join(' = ') + (pote ? ` · + ${pote.n} ${pote.nome.toLowerCase()}` : '');
+}
+
+// Pote que acompanha (dono, 28/09/2026): feijoada e canja levam o pote na
+// lista. A regra NAO mora aqui: vem da ft_embalagem_familia (canal
+// TRANSFERENCIA, a fonte unica de embalagem) por vw_tr_embalagem_acompanha,
+// ja resolvida para o item da grade. slot 1 = emb_nome, 2 = emb2_nome.
+async function trAcompanhaRegras() {
+  const r = await trFetch('vw_tr_embalagem_acompanha?select=item,slot,acomp_item,acomp_qtd,acomp_nome_base');
+  return r.ok ? await r.json() : [];
+}
+function trAcompanhaDe(regras, item, slot) {
+  return regras.find(a => a.item === item && (a.slot === slot || a.slot == null)) || null;
+}
+// So conta embalagem inteira (q = numero de porcoes/potes pedidos): item sem
+// embalagem na grade e pedido em kg, e kg nao diz quantos potes sao.
+function trPotesDe(escolhidos) {
+  const potes = {};
+  escolhidos.forEach(({ i, q }) => {
+    if (!i._acomp || !i.emb_fator || q <= 0) return;
+    const n = Math.round(q * Number(i._acomp.acomp_qtd) * 1000) / 1000;
+    const p = potes[i._acomp.acomp_item] = potes[i._acomp.acomp_item] || { n: 0, nome: i._acomp.acomp_nome_base, partes: [] };
+    p.n = Math.round((p.n + n) * 1000) / 1000;
+    p.partes.push(`${n} de ${i.item.replace(/ RECEITA$/, '').toLowerCase()} (${i.emb_nome})`);
+  });
+  return potes;
 }
 
 // itens fora da grade: linhas dinamicas no fim do pedido (03/09/2026)
@@ -12317,13 +12355,24 @@ async function trCriarPedido() {
     p.qtd_solicitada = Math.round((p.qtd_solicitada + qtd) * 1000) / 1000;
     if (x.i.emb_fator) p.obs.push(`${x.q} ${x.i.emb_nome}(s)`);
   });
+  // pote automatico: soma na MESMA linha do pote (uma linha por item — se a
+  // filial tambem pediu caixa, fica tudo junto), com a parte automatica em qtd_auto
+  Object.entries(trPotesDe(escolhidos)).forEach(([pi, pt]) => {
+    const cat = (window._trGradePedido || []).find(x => x.item === pi);
+    const p = porItem[pi] = porItem[pi] ||
+      { id_lista: lista.id, item: pi, un_medida: cat?.un_medida || 'UN', qtd_solicitada: 0, obs: [] };
+    p.qtd_solicitada = Math.round((p.qtd_solicitada + pt.n) * 1000) / 1000;
+    p.auto = pt.n;
+    p.autoObs = 'automático: ' + pt.partes.join(' + ');
+  });
   const ri = await trFetch('tr_lista_itens', {
     method: 'POST',
     body: JSON.stringify(Object.values(porItem).map(p => ({
       id_lista: p.id_lista, item: p.item, un_medida: p.un_medida, qtd_solicitada: p.qtd_solicitada,
-      observacao: p.obs.length ? 'pedido: ' + p.obs.join(' + ') : null,
+      observacao: [p.obs.length ? 'pedido: ' + p.obs.join(' + ') : null, p.autoObs].filter(Boolean).join(' · ') || null,
+      qtd_auto: p.auto ?? null,
     })).concat(avulsos.map(a => ({ id_lista: lista.id, item: a.item, un_medida: a.un_medida,
-      qtd_solicitada: a.qtd_solicitada, observacao: null })))),
+      qtd_solicitada: a.qtd_solicitada, observacao: null, qtd_auto: null })))),
   });
   if (!ri.ok) {
     const erro = await trErroDe(ri);
@@ -12354,9 +12403,10 @@ async function trEditarPedido(id) {
       antes de a separação começar (dono e compras corrigem até ENVIADA). <button class="preset-btn" onclick="trTelaPedido(${lista ? `'${lista.unidade}'` : ''})">← voltar</button></div>`;
     return;
   }
-  const [ri, rc] = await Promise.all([
-    trFetch(`tr_lista_itens?id_lista=eq.${id}&order=item&select=id,item,un_medida,qtd_solicitada,observacao,avulso,editado`),
+  const [ri, rc, regras] = await Promise.all([
+    trFetch(`tr_lista_itens?id_lista=eq.${id}&order=item&select=id,item,un_medida,qtd_solicitada,observacao,avulso,editado,qtd_auto`),
     trFetch(`vw_tr_itens_pedido?unidade=eq.${encodeURIComponent(lista.unidade)}&order=item`),
+    trAcompanhaRegras(),
   ]);
   const itens = await ri.json();
   const catalogo = rc.ok ? await rc.json() : [];
@@ -12365,9 +12415,10 @@ async function trEditarPedido(id) {
   // — item com 2a embalagem vira duas linhas)
   const novos = [];
   catalogo.filter(x => !nomes.has(x.item)).forEach(i => {
-    novos.push(i);
-    if (i.emb2_fator) novos.push({ ...i, emb_nome: i.emb2_nome, emb_fator: i.emb2_fator });
+    novos.push({ ...i, _acomp: trAcompanhaDe(regras, i.item, 1) });
+    if (i.emb2_fator) novos.push({ ...i, emb_nome: i.emb2_nome, emb_fator: i.emb2_fator, _acomp: trAcompanhaDe(regras, i.item, 2) });
   });
+  window._trGradeEdit = catalogo;
   // fatores por item: usados para REESCREVER a anotacao "pedido: N ..." quando
   // a quantidade de um item com embalagem simples e editada (dono viu a #24422
   // com "3 pacotes" no nome e 5 no campo — a obs ficava velha)
@@ -12387,7 +12438,7 @@ async function trEditarPedido(id) {
       os que faltam na grade de baixo e <b>salve uma vez só</b>. Linha mexida ganha o selo ✏️.</div>
     <div id="tabelaTrEdit"><table>
       <tr><th>Item</th><th>Qtd</th></tr>
-      ${itens.map((i, idx) => `<tr><td>${i.item} <span class="dre-av">${i.un_medida || ''}</span>${catMapa[i.item] ? ` <span class="tr-det">(${catMapa[i.item]})</span>` : ''}${i.avulso ? ' <span class="tr-tag">🆕</span>' : ''}${i.observacao ? ` <span class="tr-tag">${i.observacao}</span>` : ''}${i.editado ? ' <span class="tr-tag">✏️</span>' : ''}</td>
+      ${itens.map((i, idx) => `<tr><td>${i.item} <span class="dre-av">${i.un_medida || ''}</span>${i.qtd_auto != null ? ' <span class="tr-tag">🔁 automático — mudou a feijoada/canja? ajuste aqui</span>' : (catMapa[i.item] ? ` <span class="tr-det">(${catMapa[i.item]})</span>` : '')}${i.avulso ? ' <span class="tr-tag">🆕</span>' : ''}${i.observacao ? ` <span class="tr-tag">${i.observacao}</span>` : ''}${i.editado ? ' <span class="tr-tag">✏️</span>' : ''}</td>
         <td><input type="number" min="0" step="any" id="tre_${idx}" class="trc-in" value="${Number(i.qtd_solicitada || 0)}"
           style="width:80px; text-align:right;"></td></tr>`).join('')}
     </table></div>
@@ -12434,7 +12485,8 @@ function trEditHint(idx) {
     const qtd = i.emb_fator ? n * i.emb_fator : n;
     partes.push(`R$ ${fmt(qtd * Number(i.preco_tabela))}`);
   }
-  el.textContent = partes.join(' = ');
+  const pote = trPotesDe([{ i, q: n }])[i._acomp?.acomp_item];
+  el.textContent = partes.join(' = ') + (pote ? ` · + ${pote.n} ${pote.nome.toLowerCase()}` : '');
 }
 async function trSalvarEdicao() {
   const msg = document.getElementById('trEditMsg');
@@ -12449,7 +12501,8 @@ async function trSalvarEdicao() {
     if (v === Number(i.qtd_solicitada)) continue;
     const corpo = { qtd_solicitada: v, editado: true };
     const fx = (fatores || {})[i.item];
-    if (fx) corpo.observacao = `pedido: ${Math.round(v / fx.f * 100) / 100} ${fx.n}(s)`;
+    // linha com pote automatico guarda a anotacao de onde ele veio
+    if (fx && i.qtd_auto == null) corpo.observacao = `pedido: ${Math.round(v / fx.f * 100) / 100} ${fx.n}(s)`;
     const r = v <= 0
       ? await trFetch(`tr_lista_itens?id=eq.${i.id}`, { method: 'DELETE' })
       : await trFetch(`tr_lista_itens?id=eq.${i.id}`, { method: 'PATCH', body: JSON.stringify(corpo) });
@@ -12457,14 +12510,33 @@ async function trSalvarEdicao() {
   }
   // 2. os que faltaram, preenchidos na grade (duas embalagens somam na mesma linha)
   const porItem = {};
+  const escolhidos = [];
   (window._trEditNovos || []).forEach((n, idx) => {
     const q = Number(document.getElementById('trn_' + idx)?.value || 0);
     if (q <= 0) return;
+    escolhidos.push({ i: n, q });
     const qtd = n.emb_fator ? Math.round(q * n.emb_fator * 1000) / 1000 : q;
     const p = porItem[n.item] = porItem[n.item] || { item: n.item, un_medida: n.un_medida, qtd: 0, obs: [] };
     p.qtd = Math.round((p.qtd + qtd) * 1000) / 1000;
     if (n.emb_fator) p.obs.push(`${q} ${n.emb_nome}(s)`);
   });
+  // pote automatico dos itens incluidos: soma na linha de pote que ja esta na
+  // lista (quantidade como ficou depois do passo 1) ou nasce linha nova. O
+  // ajuste da linha existente sai DEPOIS da inclusao dos itens (passo 3):
+  // se a inclusao falhar, o pote nao fica somado sem o prato.
+  const potesNaLista = [];
+  for (const [pi, pt] of Object.entries(trPotesDe(escolhidos))) {
+    const ja = itens.findIndex(x => x.item === pi);
+    if (ja >= 0) {
+      potesNaLista.push({ pi, pt, ja });
+    } else {
+      const cat = (window._trGradeEdit || []).find(x => x.item === pi);
+      const p = porItem[pi] = porItem[pi] || { item: pi, un_medida: cat?.un_medida || 'UN', qtd: 0, obs: [] };
+      p.qtd = Math.round((p.qtd + pt.n) * 1000) / 1000;
+      p.auto = pt.n;
+      p.autoObs = 'automático: ' + pt.partes.join(' + ');
+    }
+  }
   const avulsos = [];
   for (let k = 1; k <= trAvulsoN; k++) {
     const nEl = document.getElementById('trav_n_' + k);
@@ -12475,12 +12547,28 @@ async function trSalvarEdicao() {
   }
   const rows = Object.values(porItem).map(p => ({
     id_lista: id, item: p.item, un_medida: p.un_medida, qtd_solicitada: p.qtd,
-    observacao: p.obs.length ? 'pedido: ' + p.obs.join(' + ') : null, editado: true,
+    observacao: [p.obs.length ? 'pedido: ' + p.obs.join(' + ') : null, p.autoObs].filter(Boolean).join(' · ') || null,
+    editado: true, qtd_auto: p.auto ?? null,
   })).concat(avulsos.map(a => ({ id_lista: id, item: a.item, un_medida: a.un_medida,
-    qtd_solicitada: a.qtd_solicitada, observacao: null, editado: true })));
+    qtd_solicitada: a.qtd_solicitada, observacao: null, editado: true, qtd_auto: null })));
   if (rows.length) {
     const r = await trFetch('tr_lista_itens', { method: 'POST', body: JSON.stringify(rows) });
     if (!r.ok) { msg.textContent = 'Itens novos falharam: ' + await trErroDe(r); msg.style.color = '#ff6b6b'; return; }
+  }
+  // 3. pote automatico somado na linha de pote que ja estava na lista
+  for (const { pi, pt, ja } of potesNaLista) {
+    const i = itens[ja];
+    const campo = document.getElementById('tre_' + ja);
+    const base = Number(campo && campo.value !== '' ? campo.value : i.qtd_solicitada);
+    const auto = 'automático: ' + pt.partes.join(' + ');
+    // base 0 = a linha foi apagada no passo 1: o pote volta como linha nova
+    const r = base <= 0
+      ? await trFetch('tr_lista_itens', { method: 'POST', body: JSON.stringify([{ id_lista: id, item: pi,
+          un_medida: i.un_medida, qtd_solicitada: pt.n, observacao: auto, editado: true, qtd_auto: pt.n }]) })
+      : await trFetch(`tr_lista_itens?id=eq.${i.id}`, { method: 'PATCH', body: JSON.stringify({
+          qtd_solicitada: Math.round((base + pt.n) * 1000) / 1000, qtd_auto: Number(i.qtd_auto || 0) + pt.n,
+          observacao: [i.observacao, auto].filter(Boolean).join(' · '), editado: true }) });
+    if (!r.ok) { msg.textContent = `Pote ${pi}: ` + await trErroDe(r); msg.style.color = '#ff6b6b'; return; }
   }
   msg.textContent = 'Alterações salvas — a separação já vê a lista corrigida.'; msg.style.color = '#3fb950';
   setTimeout(() => trEditarPedido(id), 900);
@@ -12583,11 +12671,14 @@ async function trAbrirSeparacao(id) {
   const alvo = document.getElementById('trTelaConteudo');
   const [rl, ri] = await Promise.all([
     trFetch(`tr_listas?id=eq.${id}&select=id,unidade,status,data_pedido`),
-    trFetch(`tr_lista_itens?id_lista=eq.${id}&order=item&select=id,item,un_medida,qtd_solicitada,qtd_separada,avulso,observacao,editado`),
+    trFetch(`tr_lista_itens?id_lista=eq.${id}&order=item&select=id,item,un_medida,qtd_solicitada,qtd_separada,avulso,observacao,editado,qtd_auto`),
   ]);
   const lista = (await rl.json())[0];
   const itens = await ri.json();
   const mapa = await trEmbMapa(lista.unidade);
+  // linha com pote automatico e contada em UNIDADES: o rotulo "caixa de 26"
+  // do pote induzia a separar em caixas (a #24411 gravou 78 no lugar de 3)
+  itens.forEach(i => { i._semEmb = i.qtd_auto != null; });
   window._trItensSep = itens; window._trListaSep = lista; window._trEmbMapaSep = mapa;
   alvo.innerHTML = `
     <div class="caption-label"><button class="preset-btn" onclick="trListaAberta=null; trTelaSeparacao();">← fila</button>
@@ -12596,7 +12687,7 @@ async function trAbrirSeparacao(id) {
       ${lista.status === 'SOLICITADA' || (['SEPARADA', 'ENVIADA'].includes(lista.status) && ['DONO', 'SEPARACAO'].includes(TR_OP.papel)) ? `<button class="preset-btn" onclick="trListaAberta=null; trEditarPedido(${id})">✏️ corrigir pedido</button>` : ''}</div>
     <div id="tabelaTrOpSep"><table>
       <tr><th>Item</th><th>Solicitado</th><th>Separado</th></tr>
-      ${itens.map((i, idx) => `<tr><td>${i.item} <span class="dre-av">${i.un_medida || ''}</span>${trEmbRotulo(mapa, i.item)}${i.avulso ? ' <span class="tr-tag">🆕 fora da grade</span>' : ''}${i.observacao ? ` <span class="tr-tag">${i.observacao}</span>` : ''}${i.editado ? ' <span class="tr-tag">✏️ editado</span>' : ''}</td>
+      ${itens.map((i, idx) => `<tr><td>${i.item} <span class="dre-av">${i.un_medida || ''}</span>${i._semEmb ? '' : trEmbRotulo(mapa, i.item)}${i.avulso ? ' <span class="tr-tag">🆕 fora da grade</span>' : ''}${i.observacao ? ` <span class="tr-tag">${i.observacao}</span>` : ''}${i.editado ? ' <span class="tr-tag">✏️ editado</span>' : ''}</td>
         <td>${Number(i.qtd_solicitada || 0)}</td>
         <td><input type="number" min="0" step="any" id="trs_${idx}" class="trc-in" value="${i.qtd_separada ?? i.qtd_solicitada ?? ''}"
           style="width:80px; text-align:right;"></td></tr>`).join('')}
@@ -12676,7 +12767,7 @@ async function trImprimirSeparacao(id) {
     <div class="sub">pedida em ${ddmm(lista.data_pedido)} · ${itens.length} itens · impressa em ${ddmm(trHoje())} · marque ☑ ao separar e anote a quantidade separada</div>
     ${Object.keys(porGrupo).sort().map(g => `<h2>${g}</h2><table>
       <tr><th class="cx"></th><th>Item</th><th>Un</th><th class="q">Solicitado</th><th class="risco">Separado</th></tr>
-      ${porGrupo[g].map(i => `<tr><td class="cx">☐</td><td>${i.item}${i.editado ? ' ✏️' : ''}${(window._trEmbMapaSep || {})[i.item] ? ` <span style="font-size:10.5px; color:#45443f;">(${window._trEmbMapaSep[i.item]})</span>` : ''}${i.observacao ? `<br><span style="font-size:10.5px; color:#45443f;">${i.observacao}</span>` : ''}</td><td>${i.un_medida || ''}</td>
+      ${porGrupo[g].map(i => `<tr><td class="cx">☐</td><td>${i.item}${i.editado ? ' ✏️' : ''}${!i._semEmb && (window._trEmbMapaSep || {})[i.item] ?` <span style="font-size:10.5px; color:#45443f;">(${window._trEmbMapaSep[i.item]})</span>` : ''}${i.observacao ? `<br><span style="font-size:10.5px; color:#45443f;">${i.observacao}</span>` : ''}</td><td>${i.un_medida || ''}</td>
         <td class="q"><b>${Number(i.qtd_solicitada || 0)}</b></td><td class="risco"><span></span></td></tr>`).join('')}
     </table>`).join('')}
   </body></html>`);
@@ -12824,7 +12915,9 @@ function trConfRecontar() {
     if (tr) tr.style.fontWeight = dif ? '700' : '';
     // valor da linha ao vivo (24/09/2026, dono): recebido x preco congelado
     const bruto = Number(el.value || 0);
-    const qtd = i._fator ? bruto * i._fator : bruto;
+    // intocado = o numero que sera gravado (o de origem, sem a volta arredondada)
+    const qtd = el.value === el.defaultValue ? Number(i.qtd_recebida ?? i.qtd_separada ?? 0)
+      : (i._fator ? bruto * i._fator : bruto);
     const vcel = document.getElementById('trcv_' + idx);
     if (vcel) {
       const partes = [];
@@ -12852,7 +12945,7 @@ async function trAbrirConferencia(id) {
   const alvo = document.getElementById('trTelaConteudo');
   const [rl, ri, rv] = await Promise.all([
     trFetch(`tr_listas?id=eq.${id}&select=id,unidade`),
-    trFetch(`tr_lista_itens?id_lista=eq.${id}&order=item&select=id,item,un_medida,qtd_separada,qtd_recebida,avulso,observacao,editado`),
+    trFetch(`tr_lista_itens?id_lista=eq.${id}&order=item&select=id,item,un_medida,qtd_separada,qtd_recebida,avulso,observacao,editado,qtd_auto`),
     trFetch(`vw_tr_conferencia_valores?id_lista=eq.${id}&select=id,preco_efetivo`),
   ]);
   const lista = (await rl.json())[0] || {};
@@ -12860,13 +12953,15 @@ async function trAbrirConferencia(id) {
   // preco CONGELADO por linha (mascarado por login) — o valor ao vivo da conferencia
   const precos = {};
   if (rv.ok) (await rv.json()).forEach(v => { precos[v.id] = v.preco_efetivo; });
-  const rc = await trFetch(`vw_tr_itens_pedido?unidade=eq.${encodeURIComponent(lista.unidade || '')}&select=item,un_medida,emb_nome,emb_fator,emb2_fator`);
+  const rc = await trFetch(`vw_tr_itens_pedido?unidade=eq.${encodeURIComponent(lista.unidade || '')}&select=item,un_medida,emb_nome,emb_fator,emb2_nome,emb2_fator`);
   const cat = {};
   if (rc.ok) (await rc.json()).forEach(x => { cat[x.item] = x; });
   const arred = (x) => Math.round(x * 100) / 100;
   itens.forEach(i => {
-    const cx = cat[i.item];
-    i._desc = cx && cx.emb_fator ? cx.emb_nome + ' de ' + trEmbDesc(cx) : null;
+    // pote automatico confere em UNIDADES: em caixa de 26, 10 potes viravam 0,38 cx
+    const cx = i.qtd_auto != null ? null : cat[i.item];
+    i._desc = cx && cx.emb_fator ? cx.emb_nome + ' de ' + trEmbDesc(cx)
+      + (cx.emb2_fator ? ' ou ' + cx.emb2_nome + ' de ' + trEmbDesc({ un_medida: cx.un_medida, emb_fator: cx.emb2_fator }) : '') : null;
     i._fator = cx && cx.emb_fator && !cx.emb2_fator ? Number(cx.emb_fator) : null;
     i._emb = i._fator ? cx.emb_nome : null;
     i._pe = precos[i.id] != null ? Number(precos[i.id]) : null;
@@ -12886,7 +12981,7 @@ async function trAbrirConferencia(id) {
         <td><input type="number" min="0" step="any" id="trc_${idx}" class="trc-in" oninput="trConfRecontar()"
           data-sep="${i._fator ? arred(Number(i.qtd_separada || 0) / i._fator) : Number(i.qtd_separada || 0)}"
           value="${i._fator ? arred(Number(i.qtd_recebida ?? i.qtd_separada ?? 0) / i._fator) : (i.qtd_recebida ?? i.qtd_separada ?? 0)}"
-          style="width:80px; text-align:right;">${i._fator ? ` <span class="tr-det">${i._emb}s</span>` : ''}
+          style="width:80px; text-align:right;"> <span class="tr-det">${i._fator ? i._emb + 's' : (i.un_medida || '').toLowerCase()}</span>
           <span class="tr-tag" id="trdif_${idx}" hidden>≠ diferente do separado</span>
           <br><span class="tr-conv" id="trcv_${idx}" style="font-size:11px;"></span></td></tr>`).join('')}
     </table></div>
@@ -12911,9 +13006,14 @@ async function trFecharConferencia(id) {
   const rs = await trFetch(`tr_listas?id=eq.${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'RECEBIDA' }) });
   if (!rs.ok) { msg.textContent = 'Não deu: ' + await trErroDe(rs); msg.style.color = '#ff6b6b'; return; }
   for (const [idx, i] of (window._trItensConf || []).entries()) {
-    const bruto = Number(document.getElementById('trc_' + idx).value || 0);
-    // campo em embalagens -> grava convertido na unidade de controle
-    const v = i._fator ? Math.round(bruto * i._fator * 1000) / 1000 : bruto;
+    const el = document.getElementById('trc_' + idx);
+    const bruto = Number(el.value || 0);
+    // campo em embalagens -> grava convertido na unidade de controle. Campo
+    // INTOCADO grava o numero de origem: a ida e volta pela embalagem com 2
+    // casas gravava 9,88 no lugar de 10 potes (24 diferencas-fantasma ate 28/09)
+    const v = el.value === el.defaultValue
+      ? Number(i.qtd_recebida ?? i.qtd_separada ?? 0)
+      : (i._fator ? Math.round(bruto * i._fator * 1000) / 1000 : bruto);
     const r = await trFetch(`tr_lista_itens?id=eq.${i.id}`, { method: 'PATCH', body: JSON.stringify({ qtd_recebida: v }) });
     if (!r.ok) { msg.textContent = `Item ${i.item}: ` + await trErroDe(r); msg.style.color = '#ff6b6b'; return; }
   }
