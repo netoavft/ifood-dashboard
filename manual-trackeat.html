@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Manual do TrackEat</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@600;700&family=Barlow:wght@400;500;600&display=swap">
+<style>
+/* Layout: uma coluna de leitura no celular, índice no topo e botão fixo para voltar a ele. */
+:root {
+  --bg: #f7f4f1;
+  --surface: #ffffff;
+  --ink: #1f1b18;
+  --muted: #6d645c;
+  --line: #e7e0d8;
+  --accent: #d9480f;
+  --accent-ink: #ffffff;
+  --accent-soft: #fdebe1;
+  --ok: #2f7d4f;
+  --ok-soft: #e4f3ea;
+  --warn: #9a5b00;
+  --warn-soft: #fbf0dc;
+  --bad: #b8322a;
+  --bad-soft: #fbe5e3;
+  --font-display: "Barlow Semi Condensed", "Arial Narrow", system-ui, sans-serif;
+  --font-body: "Barlow", "Segoe UI", system-ui, -apple-system, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #161412; --surface: #201d1a; --ink: #f2ede7; --muted: #a99f95; --line: #36312c;
+    --accent: #ff7a3d; --accent-ink: #1a0f08; --accent-soft: #3b2418;
+    --ok: #62c68f; --ok-soft: #1c3226; --warn: #f0b252; --warn-soft: #3a2c14;
+    --bad: #ff8277; --bad-soft: #3d1f1c; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #161412; --surface: #201d1a; --ink: #f2ede7; --muted: #a99f95; --line: #36312c;
+  --accent: #ff7a3d; --accent-ink: #1a0f08; --accent-soft: #3b2418;
+  --ok: #62c68f; --ok-soft: #1c3226; --warn: #f0b252; --warn-soft: #3a2c14;
+  --bad: #ff8277; --bad-soft: #3d1f1c; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 16px; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font-family: var(--font-body); font-size: 17px; line-height: 1.6;
+  padding: 0 16px; padding-block: 0 96px;
+}
+.wrap { max-width: 760px; margin: 0 auto; }
+img { max-width: 100%; height: auto; display: block; }
+a { color: var(--accent); text-underline-offset: 3px; }
+a:focus-visible, button:focus-visible, summary:focus-visible, input:focus-visible {
+  outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 6px;
+}
+h1, h2, h3 { font-family: var(--font-display); line-height: 1.15; text-wrap: balance; margin: 0; }
+p { margin: 0; }
+b, strong { font-weight: 600; }
+
+/* Cabeçalho */
+.topo { padding-block: 28px 20px; border-bottom: 1px solid var(--line); display: grid; gap: 10px; }
+.marca { font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.topo h1 { font-size: clamp(34px, 8vw, 48px); font-weight: 700; }
+.topo h1 span { color: var(--accent); }
+.topo .sub { color: var(--muted); max-width: 60ch; }
+.versao { display: flex; flex-wrap: wrap; gap: 8px; font-size: 14px; color: var(--muted); }
+.versao span { background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; }
+
+/* Papéis */
+.papel { display: inline-block; font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
+  border-radius: 4px; padding: 1px 7px; vertical-align: middle; white-space: nowrap; }
+.p-atend { background: var(--accent-soft); color: var(--accent); }
+.p-ger { background: var(--warn-soft); color: var(--warn); }
+.p-moto { background: var(--ok-soft); color: var(--ok); }
+
+/* Como usar */
+.comousar { display: grid; gap: 10px; padding-block: 20px; }
+.comousar ul { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
+
+/* Índice */
+.indice { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px 18px 8px; }
+.indice h2 { font-size: 24px; margin-bottom: 10px; }
+.indice .parte { font-family: var(--font-display); font-weight: 600; font-size: 14px; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--muted); margin-top: 12px; }
+.indice ol { list-style: none; margin: 4px 0 8px; padding: 0; display: grid; gap: 2px; }
+.indice li a { display: flex; gap: 10px; align-items: baseline; padding: 6px 4px; text-decoration: none; color: var(--ink);
+  border-radius: 6px; }
+.indice li a:hover { background: var(--accent-soft); }
+.indice .num { font-family: var(--font-display); font-weight: 700; color: var(--accent); min-width: 2ch; font-variant-numeric: tabular-nums; }
+.indice .dica { color: var(--muted); font-size: 14px; }
+
+/* Seções */
+section { padding-block: 36px 8px; display: grid; gap: 14px; }
+.parte-titulo { font-family: var(--font-display); font-weight: 700; font-size: 15px; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--accent); padding-top: 28px; border-top: 2px solid var(--accent); margin-top: 28px; }
+section h2 { font-size: clamp(26px, 6vw, 32px); font-weight: 700; display: flex; gap: 12px; align-items: baseline; }
+section h2 .n { font-size: .8em; color: var(--accent); font-variant-numeric: tabular-nums; }
+section h3 { font-size: 20px; font-weight: 600; margin-top: 8px; }
+.quem { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 14px; color: var(--muted); }
+.resumo { font-size: 18px; }
+
+/* Passo a passo */
+.passos { list-style: none; margin: 0; padding: 0; counter-reset: p; display: grid; gap: 0;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+.passos li { counter-increment: p; display: grid; grid-template-columns: 30px 1fr; gap: 12px; padding: 12px 14px;
+  border-bottom: 1px solid var(--line); }
+.passos li:last-child { border-bottom: 0; }
+.passos li::before { content: counter(p); width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: var(--accent-ink);
+  font-weight: 600; font-size: 14px; display: flex; align-items: center; justify-content: center; margin-top: 1px; }
+.passos li > div { min-width: 0; }
+
+ul.lista { margin: 0; padding-left: 22px; display: grid; gap: 6px; }
+
+/* Avisos */
+.aviso { border-radius: 10px; padding: 12px 14px; display: grid; gap: 4px; }
+.aviso .t { font-weight: 600; }
+.aviso.atencao { background: var(--warn-soft); }
+.aviso.atencao .t { color: var(--warn); }
+.aviso.nunca { background: var(--bad-soft); }
+.aviso.nunca .t { color: var(--bad); }
+.aviso.certo { background: var(--ok-soft); }
+.aviso.certo .t { color: var(--ok); }
+
+/* Figuras */
+figure { margin: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+figure img { width: 100%; background: #fff; }
+figcaption { font-size: 14px; color: var(--muted); padding: 8px 12px; border-top: 1px solid var(--line); }
+figure.estreita { max-width: 460px; }
+
+/* Tabelas */
+.tabela { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 15px; }
+th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-family: var(--font-display); font-weight: 600; font-size: 14px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+tr:last-child td { border-bottom: 0; }
+td:first-child { font-weight: 600; white-space: nowrap; }
+
+/* Linha dos status */
+.status { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; background: var(--surface);
+  border: 1px solid var(--line); border-radius: 12px; }
+.status li { display: grid; grid-template-columns: 14px 1fr; gap: 12px; padding: 10px 14px; position: relative; }
+.status li::before { content: ""; width: 12px; height: 12px; border-radius: 50%; border: 3px solid var(--accent); background: var(--surface); margin-top: 6px; z-index: 1; }
+.status li::after { content: ""; position: absolute; left: 19px; top: 22px; bottom: -10px; width: 2px; background: var(--line); }
+.status li:last-child::after { display: none; }
+.status li.fim::before { background: var(--accent); }
+.status b { display: block; }
+.status span { color: var(--muted); font-size: 15px; }
+
+/* Problemas comuns */
+.busca { display: grid; gap: 6px; }
+.busca label { font-weight: 600; font-size: 15px; }
+.busca input { font: inherit; font-size: 16px; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--surface); color: var(--ink); width: 100%; }
+.faq { display: grid; gap: 8px; }
+.faq details { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+.faq summary { cursor: pointer; padding: 12px 14px; font-weight: 600; list-style: none; display: flex; gap: 10px; }
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary::before { content: "+"; color: var(--accent); font-weight: 700; width: 1ch; flex: none; }
+.faq details[open] summary::before { content: "–"; }
+.faq .corpo { padding: 0 14px 14px 38px; display: grid; gap: 8px; }
+.faq .vazio { color: var(--muted); padding: 8px 2px; }
+
+/* Botão fixo */
+.voltar { position: fixed; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); background: var(--accent); color: var(--accent-ink);
+  text-decoration: none; font-weight: 600; font-size: 15px; padding: 10px 16px; border-radius: 999px;
+  box-shadow: 0 4px 14px rgba(0,0,0,.18); }
+
+.rodape { margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; display: grid; gap: 6px; }
+code, .tela { font-family: var(--font-body); font-weight: 600; background: var(--accent-soft); color: var(--ink); border-radius: 4px; padding: 0 5px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="topo" id="topo">
+  <div class="marca">Cidadão do Mundo · Delivery</div>
+  <h1>Manual do <span>TrackEat</span></h1>
+  <p class="sub">O sistema que recebe os pedidos do Saipos, monta as rotas e manda para o celular do motoboy. Aqui está o que cada um precisa saber para usar no dia a dia, em linguagem simples.</p>
+  <div class="versao"><span>App do motoboy: versão 1.13</span><span>Atualizado em 29/09/2026</span></div>
+</header>
+
+<div class="comousar">
+  <p><b>Como usar este manual:</b> não precisa ler tudo de uma vez. Procure no índice o que você vai fazer agora. Cada parte diz para quem ela serve:</p>
+  <ul>
+    <li><span class="papel p-atend">Atendimento</span> quem opera o painel no computador da loja (mapa, rotas, fila)</li>
+    <li><span class="papel p-ger">Gerente</span> quem ajusta configurações, cadastra motoboy e confere o fechamento</li>
+    <li><span class="papel p-moto">Motoboy</span> quem usa o aplicativo no celular</li>
+  </ul>
+  <p>Deu problema? Vá direto para <a href="#problemas">Problemas comuns</a>.</p>
+</div>
+
+<nav class="indice" aria-label="Índice">
+  <h2>Índice</h2>
+  <div class="parte">Parte 1 · Primeiros passos</div>
+  <ol>
+    <li><a href="#o-que-e"><span class="num">1</span><span>O que é o TrackEat</span></a></li>
+    <li><a href="#entrar"><span class="num">2</span><span>Como entrar no painel</span></a></li>
+    <li><a href="#tela"><span class="num">3</span><span>A tela principal: mapa, pedidos e fila</span></a></li>
+    <li><a href="#status"><span class="num">4</span><span>O que quer dizer cada status</span></a></li>
+  </ol>
+  <div class="parte">Parte 2 · Rotas no dia a dia</div>
+  <ol>
+    <li><a href="#automatico"><span class="num">5</span><span>Modo automático: como ele monta a rota</span></a></li>
+    <li><a href="#mexer"><span class="num">6</span><span>Mexer numa rota (a engrenagem)</span></a></li>
+    <li><a href="#trocar-motoboy"><span class="num">7</span><span>Passar entregas para outro motoboy</span></a></li>
+    <li><a href="#fila"><span class="num">8</span><span>A fila dos motoboys e o reset</span></a></li>
+    <li><a href="#pedido-interno"><span class="num">9</span><span>Criar pedido manual (INT)</span></a></li>
+    <li><a href="#trajeto"><span class="num">10</span><span>Ver o trajeto das rotas</span></a></li>
+  </ol>
+  <div class="parte">Parte 3 · Consultas</div>
+  <ol>
+    <li><a href="#consulta"><span class="num">11</span><span>Consulta de pedidos</span></a></li>
+    <li><a href="#detalhe"><span class="num">12</span><span>Detalhes do pedido e linha do tempo</span></a></li>
+    <li><a href="#historico"><span class="num">13</span><span>Histórico por motoboy</span></a></li>
+  </ol>
+  <div class="parte">Parte 4 · Dinheiro do motoboy</div>
+  <ol>
+    <li><a href="#fechamento"><span class="num">14</span><span>Fechamento financeiro</span></a></li>
+  </ol>
+  <div class="parte">Parte 5 · Aplicativo do motoboy</div>
+  <ol>
+    <li><a href="#instalar"><span class="num">15</span><span>Instalar e atualizar o app</span></a></li>
+    <li><a href="#usar-app"><span class="num">16</span><span>Usando o app na entrega</span></a></li>
+    <li><a href="#app-travou"><span class="num">17</span><span>O app travou: o que fazer</span></a></li>
+  </ol>
+  <div class="parte">Parte 6 · Para o gerente</div>
+  <ol>
+    <li><a href="#cadastro"><span class="num">18</span><span>Cadastrar motoboy e pausar entregas</span></a></li>
+    <li><a href="#parametros"><span class="num">19</span><span>As configurações de rota, explicadas</span></a></li>
+  </ol>
+  <div class="parte">Parte 7 · Quando der problema</div>
+  <ol>
+    <li><a href="#problemas"><span class="num">20</span><span>Problemas comuns e o que fazer</span></a></li>
+    <li><a href="#suporte"><span class="num">21</span><span>Como pedir ajuda ao suporte</span></a></li>
+  </ol>
+</nav>
+
+<!-- ================= PARTE 1 ================= -->
+<div class="parte-titulo">Parte 1 · Primeiros passos</div>
+
+<section id="o-que-e">
+  <h2><span class="n">1</span>O que é o TrackEat</h2>
+  <div class="quem">Para: <span class="papel p-atend">Atendimento</span><span class="papel p-ger">Gerente</span><span class="papel p-moto">Motoboy</span></div>
+  <p class="resumo">É o sistema de entregas que substituiu o Foody. Ele faz três coisas:</p>
+  <ul class="lista">
+    <li><b>Recebe os pedidos do Saipos.</b> Quando o pedido fica pronto no Saipos, ele aparece no mapa do TrackEat.</li>
+    <li><b>Monta as rotas.</b> Junta os pedidos que dá para levar juntos e escolhe a ordem de entrega.</li>
+    <li><b>Manda para o celular do motoboy</b> e acompanha a entrega até o fim. Cada entrega finalizada vira um lançamento no fechamento do motoboy.</li>
+  </ul>
+  <p>Existem dois tipos de pedido no mapa:</p>
+  <ul class="lista">
+    <li><b>Pedido normal:</b> vem do Saipos. O número é o mesmo da comanda.</li>
+    <li><b>Pedido interno:</b> criado à mão dentro do TrackEat. O número começa com <code>INT-</code>. Veja <a href="#pedido-interno">Criar pedido manual</a>.</li>
+  </ul>
+  <p>Quem fez o sistema é a empresa <b>NVi</b>. O suporte deles atende no grupo de WhatsApp <b>Suporte TrackEat Cidadão do Mundo</b>.</p>
+</section>
+
+<section id="entrar">
+  <h2><span class="n">2</span>Como entrar no painel</h2>
+  <div class="quem">Para: <span class="papel p-atend">Atendimento</span><span class="papel p-ger">Gerente</span></div>
+  <ol class="passos">
+    <li><div>Abra no Chrome: <b>projetonvi19.sgoas.nvi.com.br/UI/login</b></div></li>
+    <li><div>Entre com o <b>login da sua loja</b>. Cada loja tem o seu. Se você não tem, peça ao gerente.</div></li>
+    <li><div>No topo da tela, confira se o campo <span class="tela">Lojista</span> está na sua loja. Quem tem acesso a mais de uma loja troca por ali.</div></li>
+  </ol>
+  <div class="aviso nunca"><span class="t">Senha não vai para grupo</span><p>Não mande login nem senha em grupo de WhatsApp, nem em print. Se o suporte precisar, o gerente passa no privado.</p></div>
+</section>
+
+<section id="tela">
+  <h2><span class="n">3</span>A tela principal: mapa, pedidos e fila</h2>
+  <div class="quem">Para: <span class="papel p-atend">Atendimento</span></div>
+  <p class="resumo">A tela inicial é um mapa. Nele aparecem os pedidos do dia e os motoboys. Cada rota tem uma cor.</p>
+  <ul class="lista">
+    <li><b>Painel "Pedidos" (à direita):</b> um cartão por pedido. O cartão mostra o número, a hora em que o pedido entrou, há quanto tempo ele está no sistema, o grupo (rota) em que está, o status, o cliente, o motoboy e o endereço.</li>
+    <li><b>Ícones do cartão:</b> a <b>engrenagem</b> abre o gerenciamento da rota (<a href="#mexer">item 6</a>). "Ver no mapa" mostra onde o pedido está. Os ícones de copiar e de lixeira, só use com orientação do gerente.</li>
+    <li><b>"Sem agrupamento":</b> o pedido ainda não entrou em nenhuma rota.</li>
+    <li><b>Filtros "Todos" e "Cancelados"</b> no alto do painel de pedidos.</li>
+    <li><b>Quadro "Fila":</b> a ordem dos motoboys que estão na loja esperando rota. O primeiro da fila recebe a próxima rota. Veja <a href="#fila">item 8</a>.</li>
+    <li><b>Menu da esquerda (faixa laranja):</b> leva às outras telas, como o menu <b>Pedidos</b> com as consultas (<a href="#consulta">Parte 3</a>) e o fechamento financeiro.</li>
+  </ul>
+  <p>O mapa se atualiza sozinho a cada poucos segundos. Não precisa ficar apertando F5.</p>
+</section>
+
+<section id="status">
+  <h2><span class="n">4</span>O que quer dizer cada status</h2>
+  <div class="quem">Para: <span class="papel p-atend">Atendimento</span><span class="papel p-ger">Gerente</span><span class="papel p-moto">Motoboy</span></div>
+  <p>Todo pedido anda por estas etapas, nesta ordem:</p>
+  <ol class="status">
+    <li><div><b>Pendente</b><span>O pedido entrou, mas ainda não ficou pronto. Pedido interno (INT) nasce assim.</span></div></li>
+    <li><div><b>Pronto para retirada</b><span>A cozinha liberou no Saipos. A partir daqui o sistema pode colocar o pedido numa rota.</span></div></li>
+    <li><div><b>Aceito</b><span>O motoboy aceitou a rota no app.</span></div></li>
+    <li><div><b>Retirada em andamento</b><span>O motoboy está vindo buscar.</span></div></li>
+    <li><div><b>Chegou ao estabelecimento</b><span>Ele está na loja.</span></div></li>
+    <li><div><b>Pedido retirado</b><span>Pegou o pedido na loja.</span></div></li>
+    <li><div><b>Entrega em andamento</b><span>Saiu para entregar.</span></div></li>
+    <li><div><b>Chegou ao cliente</b><span>Está perto do endereço do cliente.</span></div></li>
+    <li><div><b>Pedido entregue</b><span>O motoboy tocou em "Entregue" no app.</span></div></li>
+    <li class="fim"><div><b>Entrega finalizada</b><span>Acabou. A entrega entra no fechamento financeiro do motoboy.</span></div></li>
+  </ol>
+  <div class="aviso atencao"><span class="t">O pedido só entra no TrackEat quando fica pronto</span><p>No Saipos, é o status <b>Aguardando entrega</b> que manda o pedido para o TrackEat como "Pronto para retirada". Se o pedido não for marcado assim no Saipos, ele não entra em rota.</p></div>
+</section>
+
+<!-- ================= PARTE 2 ================= -->
+<div class="parte-titulo">Parte 2 · Rotas no dia a dia</div>
+
+<section id="automatico">
+  <h2><span class="n">5</span>Modo automático: como ele monta a rota</h2>
+  <div class="quem">Para: <span class="papel p-atend">Atendimento</span><span class="papel p-ger">Gerente</span></div>
+  <div class="aviso certo"><span class="t">A regra é deixar no automático</span><p>Quanto menos mão na rota, melhor o sistema funciona. Muitos travamentos do app aconteceram depois de alguém mexer na rota à mão. Mexa só quando for preciso.</p></div>
+  <p>O que o sistema faz, passo a passo:</p>
+  <ol class="passos">
+    <li><div>O pedido fica <b>pronto</b> no Saipos e aparece no mapa.</div></li>
+    <li><div>O sistema procura outros pedidos <b>prontos</b> que dá para levar junto: pedidos perto um do outro (pelas ruas, não em linha reta) e sem desvio grande.</div></li>
+    <li><div><b>Achou companheiro?</b> Monta a rota na hora e manda. Ele não espera a rota encher até o máximo.</div></li>
+    <li><div><b>Não achou?</b> Segura o pedido até o <b>tempo máximo de espera</b>, contado a partir de quando ele ficou pronto. Se ninguém aparecer, manda o pedido sozinho.</div></li>
+    <li><div>A rota vai para o <b>primeiro motoboy da fila</b>.</div></li>
+    <li><div>A ordem de entrega começa pelo <b>pedido mais antigo</b> ou pelo <b>mais próximo da loja</b> (depende da configuração da loja). Depois dele, o sistema segue o menor caminho.</div></li>
+  </ol>
+  <h3>"Por que ele mandou um pedido sozinho, se tinha outros prontos?"</h3>
+  <p>Quase sempre é distância. Cada loja tem um limite de distância entre um endereço e o próximo. Se os outros pedidos prontos estão além desse limite, o sistema não junta. Aconteceu em 21/09: o pedido 1804 saiu sozinho porque os outros estavam a mais de 3 km dele pelas ruas.</p>
+  <p>Se parecer erro, mande no suporte o <b>número do pedido</b> e um print do mapa. A NVi reconstrói o que o sistema pensou e explica.</p>
+  <h3>Ligar e desligar o automático</h3>
+  <p>O botão fica no cabeçalho do painel <b>Pedidos</b>, ao lado do título. Com o automático desligado, ninguém monta rota sozinho: motoboy fica parado na loja esperando e o pedido mais antigo pode ficar para trás.</p>
+  <div class="aviso atencao"><span class="t">Desligar é exceção</span><p>Se precisar desligar, avise o gerente e o grupo do delivery com o motivo. E religue assim que passar.</p></div>
+</section>
+
+<section id="mexer">
+  <h2><span class="n">6</span>Mexer numa rota (a engrenagem)</h2>
+  <div class="quem">Para: <span class="papel p-atend">Atendimento</span></div>
+  <p>Clique na <b>engrenagem</b> do cartão do pedido. Abre a janela <span class="tela">Gerenciamento de rota</span>, com quatro abas:</p>
+  <div class="tabela"><table>
+    <thead><tr><th>Aba</th><th>Para que serve</th></tr></thead>
+    <tbody>
+      <tr><td>Transferência de rota</td><td>Passar a rota inteira para outro motoboy. Use também quando uma rota ficou <b>sem motoboy</b>.</td></tr>
+      <tr><td>Troca de status</td><td>Mudar o status à mão. Exemplo: finalizar um pedido de teste, ou dar baixa numa entrega que o motoboy fez mas não conseguiu finalizar no app.</td></tr>
+      <tr><td>Adicionar pedido</td><td>Colocar mais um pedido numa rota que já existe.</td></tr>
+      <tr><td>Ordem de entrega</td><td><b>Novo (29/09).</b> Arraste os cartões para mudar a ordem (1º, 2º, 3º) e clique em <b>Salvar</b>. Use depois de adicionar um pedido, que sempre entra por último.</td></tr>
+    </tbody>
+  </table></div>
+  <figure>
+    <img src="img/trackeat/ordem-entrega.jpg" alt="Janela Gerenciamento de rota na aba Ordem de entrega, com três pedidos lado a lado numerados 1º, 2º e 3º e o botão Salvar." loading="lazy">
+    <figcaption>Aba "Ordem de entrega": arraste os pedidos para a ordem certa e salve. (Exemplo da NVi, dados de teste.)</figcaption>
+  </figure>
+  <div class="aviso atencao"><span class="t">Depois de mexer, confira o celular do motoboy</span><p>Se ele não conseguir iniciar a rota depois que você adicionou um pedido, tire todos os pedidos da rota e mande de novo.</p></div>
+</section>
+
+<section id="trocar-motoboy">
+  <h2><span class="n">7</span>Passar entregas para outro motoboy</h2>
+  <div class="quem">Para: <span class="papel p-atend">Atendimento</span></div>
+  <p class="resumo">O jeito certo, segundo a NVi: <b>desfaça o grupo e monte de novo manualmente</b> com o outro motoboy. Ou use a aba <b>Transferência de rota</b> da engrenagem.</p>
+  <div class="aviso nunca"><span class="t">Não use o reset da fila para tirar entregas</span><p>O reset força o motoboy a largar os pedidos, <b>fecha as entregas dele como se estivessem feitas</b> e ele perde o lugar na fila. Em 22/09 três pedidos (1995, 1997 e 1998) apareceram como entregues sem terem sido, por causa de um reset. Reset é último caso. Veja o <a href="#fila">item 8</a>.</p></div>
+  <p>Depois de trocar, confira no fechamento se a entrega ficou para quem entregou de verdade. Já aconteceu de a entrega aparecer para o motoboy errado (<a href="#problemas">Problemas comuns</a>).</p>
+</section>
+
+<section id="fila">
+  <h2><span class="n">8</span>A fila dos motoboys e o reset</h2>
+  <div class="quem">Para: <span class="papel p-atend">Atendimento</span><span class="papel p-ger">Gerente</span></div>
+  <p>O motoboy entra na fila sozinho quando chega perto da loja com o app aberto. Quem chegou primeiro é o <b>1º</b> e recebe a próxima rota.</p>
+  <h3>Resetar a fila</h3>
+  <p>No quadro <b>Fila</b> tem um ícone de <b>lixeira</b>. Ele abre a janela <span class="tela">Resetar fila de entregadores</span>, com duas opções:</p>
+  <ul class="lista">
+    <li><b>Resetar toda a fila:</b> tira todo mundo. Os motoboys precisam entrar de novo.</li>
+    <li><b>Resetar um entregador específico:</b> escolha o motoboy e salve. É o que se usa quando o app de um motoboy trava, ou quando ele precisa trocar de versão do app.</li>
+  </ul>
+  <p>O reset pede uma <b>senha</b>. Quem tem é o gerente. A loja também pode ter horários de reset automático (configurados pelo gerente).</p>
+  <figure class="estreita">
+    <img src="img/trackeat/reset-fila.jpg" alt="Janela Confirmar reset de fila pedindo a senha de confirmação, com botões Cancelar e Confirmar." loading="lazy">
+    <figcaption>O reset pede senha para evitar reset sem querer.</figcaption>
+  </figure>
+  <div class="aviso atencao"><span class="t">Antes de resetar, veja se o motoboy tem entrega com ele</span><p>Se tiver, as entregas dele serão fechadas. Primeiro passe as entregas para outro (<a href="#trocar-motoboy">item 7</a>), depois resete.</p></div>
+</section>
+
+<section id="pedido-interno">
+  <h2><span class="n">9</span>Criar pedido manual (INT)</h2>
+  <div class="quem">Para: <span class="papel p-atend">Atendimento</span></div>
+  <p>Serve para entrega que não veio do Saipos: reenvio, troca, item esquecido. O número dele começa com <code>INT-</code>.</p>
+  <ol class="passos">
+    <li><div>No painel <b>Pedidos</b>, clique em <b>Criar pedido</b>.</div></li>
+    <li><div>Preencha o endereço (CEP, rua, número, bairro, complemento, referência) e clique em <b>Validar endereço</b>.</div></li>
+    <li><div>Em <b>Grupo de entrega</b>, escolha: ligar <b>Distribuir pedido agora</b> (entra em rota já) ou deixar desligado para distribuir depois.</div></li>
+    <li><div>Informe o <b>Horário original do pedido</b>. É ele que coloca o pedido na ordem certa da fila.</div></li>
+    <li><div>Clique em <b>Salvar</b>. Para o sistema colocar o pedido numa rota, ele precisa estar como <b>Aguardando entrega</b>.</div></li>
+  </ol>
+  <div class="aviso nunca"><span class="t">Pedido interno tem que ser finalizado</span><p>Pedido INT que fica aberto passa para o dia seguinte e cai para o <b>primeiro motoboy da manhã</b>. Foi o que aconteceu com o pedido 7067 em 03/09. Entregou? Finalize na hora.</p></div>
+</section>
+
+<section id="trajeto">
+  <h2><span class="n">10</span>Ver o trajeto das rotas</h2>
+  <div class="quem">Para: <span class="papel p-atend">Atendimento</span></div>
+  <p>Para ver a ordem e o caminho de cada rota (o que o Foody chamava de traçar a rota):</p>
+  <ol class="passos">
+    <li><div>No painel de pedidos, abra <b>Mais ações</b> e escolha <b>Visualizar distribuição dos pedidos</b>.</div></li>
+    <li><div>Escolha a aba: <b>Em andamento</b>, <b>Entregues</b>, <b>Cancelado</b> ou <b>Todos</b>, e as datas.</div></li>
+    <li><div>Na coluna <b>Mapa</b>, clique na setinha do pedido para ver o trajeto.</div></li>
+  </ol>
+</section>
+
+<!-- ================= PARTE 3 ================= -->
+<div class="parte-titulo">Parte 3 · Consultas</div>
+
+<section id="consulta">
+  <h2><span class="n">11</span>Consulta de pedidos</h2>
+  <div class="quem">Para: <span class="papel p-atend">Atendimento</span><span class="papel p-ger">Gerente</span></div>
+  <p class="resumo">Use quando precisar achar um pedido: cliente reclamou, motoboy diz que entregou, pedido sumiu do mapa.</p>
+  <ol class="passos">
+    <li><div>No menu da esquerda, abra <b>Pedidos</b> e clique em <b>Consulta de Pedidos</b>.</div></li>
+    <li><div>Preencha <b>Data e hora inicial</b> e <b>final</b> (obrigatórias).</div></li>
+    <li><div>Se quiser, filtre por <b>motoboy</b>, <b>status atual</b>, <b>nome do cliente</b>, <b>número da comanda</b> ou <b>endereço</b>.</div></li>
+    <li><div>Clique na <b>lupa</b> para buscar. A <b>borracha</b> limpa os filtros.</div></li>
+  </ol>
+  <figure>
+    <img src="img/trackeat/menu-pedidos.jpg" alt="Menu lateral laranja aberto em Pedidos, com as opções Consulta de Pedidos e Histórico de pedidos por entregador." loading="lazy">
+    <figcaption>Menu Pedidos: Consulta de Pedidos e Histórico de pedidos por entregador.</figcaption>
+  </figure>
+  <figure>
+    <img src="img/trackeat/consulta-resultado.jpg" alt="Tabela de resultado com colunas Id, Número da comanda, Cliente, Bairro, Criado em, Status atual, Entregador, Grupo de entrega, Tempo total e Mais informações." loading="lazy">
+    <figcaption>O resultado mostra comanda, cliente, bairro, hora, status, motoboy, grupo e tempo total. O ícone "i" abre os detalhes.</figcaption>
+  </figure>
+  <p>Dá para exportar o resultado (<b>Exportar arquivo</b>) e agrupar arrastando o cabeçalho de uma coluna para a faixa de cima (por exemplo, agrupar por motoboy).</p>
+</section>
+
+<section id="detalhe">
+  <h2><span class="n">12</span>Detalhes do pedido e linha do tempo</h2>
+  <div class="quem">Para: <span class="papel p-atend">Atendimento</span><span class="papel p-ger">Gerente</span></div>
+  <p>No resultado da consulta, clique no <b>"i"</b> (Mais informações). Abre uma janela com três partes:</p>
+  <ul class="lista">
+    <li><b>Informações do pedido:</b> comanda, cliente, endereço completo, forma de pagamento, motoboy e os outros pedidos da mesma rota.</li>
+    <li><b>Linha do tempo dos status:</b> cada mudança de status com a hora, quanto tempo durou e quem fez (o motoboy, o Saipos ou alguém do painel).</li>
+    <li><b>Rota realizada:</b> o mapa do caminho, com distância e tempo.</li>
+  </ul>
+  <figure>
+    <img src="img/trackeat/detalhe-linha-tempo.jpg" alt="Linha do tempo com Pronto para Retirada, Aceito e Retirada em andamento, cada um com data, hora, responsável e duração." loading="lazy">
+    <figcaption>A linha do tempo responde "quem mexeu e quando". É a primeira coisa a olhar quando um pedido some ou aparece finalizado sem ter sido entregue.</figcaption>
+  </figure>
+</section>
+
+<section id="historico">
+  <h2><span class="n">13</span>Histórico por motoboy</h2>
+  <div class="quem">Para: <span class="papel p-atend">Atendimento</span><span class="papel p-ger">Gerente</span></div>
+  <p>Mostra o dia de um motoboy, rota por rota. Serve para responder "eu fiz essa entrega?" e para conferir o fechamento.</p>
+  <ol class="passos">
+    <li><div>Menu <b>Pedidos</b> → <b>Histórico de pedidos por entregador</b>.</div></li>
+    <li><div>Escolha o <b>motoboy</b> e o período (data e hora inicial e final). O número da comanda é opcional.</div></li>
+    <li><div>Clique na lupa. As entregas aparecem separadas por dia e por grupo (rota).</div></li>
+  </ol>
+  <figure>
+    <img src="img/trackeat/historico-status.jpg" alt="Sequência de status de uma entrega em linha, de Pronto para Retirada até Entrega Finalizada, com hora e responsável em cada etapa." loading="lazy">
+    <figcaption>Cada entrega mostra a sequência real dos status, com hora e quem fez cada passo.</figcaption>
+  </figure>
+</section>
+
+<!-- ================= PARTE 4 ================= -->
+<div class="parte-titulo">Parte 4 · Dinheiro do motoboy</div>
+
+<section id="fechamento">
+  <h2><span class="n">14</span>Fechamento financeiro</h2>
+  <div class="quem">Para: <span class="papel p-ger">Gerente</span><span class="papel p-atend">Atendimento</span><span class="papel p-moto">Motoboy</span></div>
+  <p class="resumo">A entrega entra no fechamento <b>quando o motoboy toca em "Entregue"</b> no app. Não é quando a rota sai da loja. Por isso, entrega em andamento ainda não aparece para ele.</p>
+  <h3>Na tela de fechamento</h3>
+  <ol class="passos">
+    <li><div>Abra a <b>Tela de Fechamento Financeiro de Entregadores</b>.</div></li>
+    <li><div>Filtre por <b>motoboy</b>, <b>data inicial</b>, <b>data final</b> e <b>status</b>. A "Data" de cada linha é a hora da entrega.</div></li>
+    <li><div>Confira cada linha: grupo, comanda, endereço, distância, <b>tabela de cobrança</b>, valor, valor adicional e total.</div></li>
+    <li><div>Marque cada entrega como <b>Aprovado</b> ou <b>Reprovado</b>. Enquanto ninguém confere, ela fica <b>Pendente</b>.</div></li>
+    <li><div>Embaixo, o <b>Resumo por entregador</b> soma entregas, pendente, aprovado e reprovado. Ele obedece aos filtros: mostra só o que está na tela.</div></li>
+  </ol>
+  <figure>
+    <img src="img/trackeat/financeiro-detalhado.jpg" alt="Tabela do fechamento financeiro detalhado com grupo, id, comanda, entregador, endereço, distância, tabela de cobrança, valor e status Pendente, Aprovado ou Reprovado." loading="lazy">
+    <figcaption>Fechamento detalhado: cada entrega com o valor e o status da conferência.</figcaption>
+  </figure>
+  <h3>Regras que valem</h3>
+  <ul class="lista">
+    <li><b>Entrega duplicada:</b> reprove a cópia. Se acontecer de novo com o mesmo motoboy, confira a versão do app dele (versão velha duplicava).</li>
+    <li><b>Pedido cancelado</b> não gera lançamento.</li>
+    <li><b>Tabela de cobrança:</b> use a padrão da loja. Ela se escolhe no topo da tela inicial do sistema.</li>
+    <li><b>Motoboy vê o que foi reprovado</b> no app, na tela de ganhos, com filtro por data.</li>
+    <li><b>Código do iFood e do 99:</b> desde 22/09, quando o motoboy digita o código de entrega do iFood ou do 99, o pedido se finaliza sozinho e já gera o lançamento. Está em teste; se der diferença, avise o suporte.</li>
+  </ul>
+  <div class="aviso atencao"><span class="t">Entrega no nome do motoboy errado</span><p>Acontece quando a rota foi trocada de um motoboy para outro. Confira quem entregou de verdade no <a href="#historico">Histórico por motoboy</a> ou na linha do tempo do pedido, e mande o caso no suporte com os números dos pedidos.</p></div>
+</section>
+
+<!-- ================= PARTE 5 ================= -->
+<div class="parte-titulo">Parte 5 · Aplicativo do motoboy</div>
+
+<section id="instalar">
+  <h2><span class="n">15</span>Instalar e atualizar o app</h2>
+  <div class="quem">Para: <span class="papel p-moto">Motoboy</span><span class="papel p-atend">Atendimento</span></div>
+  <div class="aviso atencao"><span class="t">Só funciona em Android</span><p>O app não instala em iPhone.</p></div>
+  <h3>Instalar</h3>
+  <ol class="passos">
+    <li><div>Abra no celular: <b>trackeat.com.br/media/download.html</b> (tem QR code). Ou use o arquivo do app que a NVi manda no grupo de suporte.</div></li>
+    <li><div>Instale e <b>dê todas as permissões</b> que o app pedir (localização, rodar em segundo plano, notificação).</div></li>
+    <li><div>Na mesma página, embaixo do QR code, tem o que configurar em cada marca de celular. Siga a da marca do seu.</div></li>
+    <li><div>Entre com o e-mail cadastrado pela loja.</div></li>
+  </ol>
+  <h3>Atualizar para uma versão nova</h3>
+  <ol class="passos">
+    <li><div>Fique <b>offline</b> no app antigo.</div></li>
+    <li><div><b>Desinstale</b> o app antigo.</div></li>
+    <li><div>Instale o novo e dê as permissões de novo.</div></li>
+    <li><div>Se o app disser que precisa <b>desconectar da loja</b>, o atendimento reseta esse motoboy na fila (<a href="#fila">item 8</a>) e ele entra de novo.</div></li>
+  </ol>
+  <p><b>Qual versão estou usando?</b> No app, abra <b>Informações do app</b> e role até o final. A versão atual é a <b>1.13</b> (29/09/2026). Motoboy com versão antiga tem mais travamento e entrega duplicada.</p>
+  <p>Na última aba do app, perto de "Sair", existe a opção <b>Atualizar versão</b>. Quando ela estiver apagada, use a página de download.</p>
+</section>
+
+<section id="usar-app">
+  <h2><span class="n">16</span>Usando o app na entrega</h2>
+  <div class="quem">Para: <span class="papel p-moto">Motoboy</span></div>
+  <ol class="passos">
+    <li><div><b>Chegou na loja:</b> abra o app. Você entra na fila sozinho quando está perto da loja.</div></li>
+    <li><div><b>Recebeu rota:</b> aceite. O número de cada pedido aparece quando você confirma.</div></li>
+    <li><div><b>Siga a ordem do app.</b> Se fizer fora da ordem, o sistema se perde e a entrega pode não aparecer no seu fechamento.</div></li>
+    <li><div><b>Ligar para o cliente:</b> use o botão <b>Ligar para o cliente</b> dentro do pedido. <b>Ver rota</b> abre o caminho.</div></li>
+    <li><div><b>Entregou:</b> toque em <b>Entregue</b> <b>na porta do cliente</b>. Se for pedido do iFood ou do 99, digite o código de entrega.</div></li>
+    <li><div>Acabou a rota: volte para a loja para entrar na fila de novo.</div></li>
+  </ol>
+  <figure class="estreita">
+    <img src="img/trackeat/app-ligar.jpg" alt="Tela do app com um pedido Em entrega, dados do cliente e os botões Ver rota e Ligar para o cliente." loading="lazy">
+    <figcaption>Botões "Ver rota" e "Ligar para o cliente" dentro do pedido.</figcaption>
+  </figure>
+  <div class="aviso nunca"><span class="t">Dê baixa na hora, perto do cliente</span><p>O "Entregue" só funciona perto do endereço do cliente. Se você deixar para dar baixa depois, na loja o app não deixa, e você não entra na fila. Aí o atendimento precisa dar a baixa manual. E a corrida pode sumir do seu relatório.</p></div>
+  <p><b>Onde vejo o que já fiz?</b> Na aba <b>Ganhos</b>: o histórico de entregas, com filtro por data e o que foi reprovado.</p>
+  <p><b>A tela parou de atualizar?</b> Arraste a tela do app para baixo. Isso força a atualização.</p>
+</section>
+
+<section id="app-travou">
+  <h2><span class="n">17</span>O app travou: o que fazer</h2>
+  <div class="quem">Para: <span class="papel p-moto">Motoboy</span><span class="papel p-atend">Atendimento</span></div>
+  <p>Tente nesta ordem. Parou de travar, pare de seguir a lista.</p>
+  <ol class="passos">
+    <li><div><b>Arraste a tela do app para baixo</b> para atualizar.</div></li>
+    <li><div>Confira se o <b>GPS</b> está ligado e se a internet está funcionando.</div></li>
+    <li><div>Ligue e desligue o <b>modo avião</b>.</div></li>
+    <li><div>Atendimento: confira se o motoboy está <b>na fila</b>.</div></li>
+    <li><div>Confira se o app está na <b>versão mais nova</b> (<a href="#instalar">item 15</a>). Se não, atualize.</div></li>
+    <li><div>Continuou? <b>Tire o log</b> e mande no grupo de suporte (abaixo).</div></li>
+  </ol>
+  <h3>Como tirar o log do app</h3>
+  <p>O log é o arquivo que conta para a NVi o que aconteceu no celular. Sem ele, eles não conseguem descobrir o defeito.</p>
+  <ol class="passos">
+    <li><div>No app, toque no botão de <b>log</b>, na parte de cima da tela.</div></li>
+    <li><div>O arquivo vai para a pasta <b>Download</b> do celular, com nome parecido com <code>trackeat_logs_20260929_1030.txt</code>.</div></li>
+    <li><div>Mande o arquivo no grupo <b>Suporte TrackEat Cidadão do Mundo</b>, com o nome do motoboy e o que aconteceu.</div></li>
+  </ol>
+</section>
+
+<!-- ================= PARTE 6 ================= -->
+<div class="parte-titulo">Parte 6 · Para o gerente</div>
+
+<section id="cadastro">
+  <h2><span class="n">18</span>Cadastrar motoboy e pausar entregas</h2>
+  <div class="quem">Para: <span class="papel p-ger">Gerente</span></div>
+  <h3>Cadastrar motoboy</h3>
+  <p>Menu <b>Sistema</b> → <b>Entregadores da Loja</b>. Precisa de: nome, apelido, e-mail, CPF, telefone e chave Pix (opcional).</p>
+  <ul class="lista">
+    <li><b>Confira a loja antes de salvar.</b> Motoboy cadastrado na loja errada não aparece na fila certa.</li>
+    <li><b>Confira o e-mail.</b> O e-mail é a chave do login: depois de salvo, só o suporte da NVi consegue trocar ou apagar.</li>
+  </ul>
+  <h3>Pausar as entregas de um motoboy</h3>
+  <p>Menu <b>Sistema</b> → <b>Pausa de Entregas por Entregador</b>. Escolha o motoboy e pause. Serve para o intervalo dele: enquanto estiver pausado, ele não recebe rota.</p>
+</section>
+
+<section id="parametros">
+  <h2><span class="n">19</span>As configurações de rota, explicadas</h2>
+  <div class="quem">Para: <span class="papel p-ger">Gerente</span></div>
+  <p>Ficam em <b>Sistema</b> → <b>Parâmetros da Loja</b>. Cada loja tem os seus. Os números mudam com os testes, então esta tabela explica o que cada um faz, não o valor certo.</p>
+  <div class="tabela"><table>
+    <thead><tr><th>Configuração</th><th>O que faz</th></tr></thead>
+    <tbody>
+      <tr><td>Qtde. máx. de pedidos</td><td>Quantos pedidos a rota pode ter quando é montada.</td></tr>
+      <tr><td>Distância máx. entre pontos</td><td>O máximo pelas ruas entre um endereço e o próximo: da loja ao 1º, do 1º ao 2º, e assim por diante. É o que mais faz pedido sair sozinho.</td></tr>
+      <tr><td>Desvio máx.</td><td>Quanto a rota pode esticar para pegar um pedido a mais.</td></tr>
+      <tr><td>Qtde. máx. pedidos por desvio</td><td>Quantos pedidos podem entrar <b>além do máximo</b>, pelo desvio. Zero quer dizer nenhum.</td></tr>
+      <tr><td>Km máx. viagem</td><td>O tamanho máximo da rota inteira.</td></tr>
+      <tr><td>Tempo máx. de espera</td><td>Quanto tempo o sistema segura um pedido que iria sozinho, esperando um companheiro. Conta a partir de quando o pedido fica pronto. Em segundos (900 = 15 minutos).</td></tr>
+      <tr><td>Roteirizar quando</td><td>Quando o pedido pode entrar em rota: ao ser criado ou só quando fica pronto para retirada.</td></tr>
+      <tr><td>Primeiro pedido da rota</td><td>Por onde a rota começa: <b>pedido mais antigo</b> ou <b>mais próximo da loja</b>. Depois dele, vale o menor caminho.</td></tr>
+      <tr><td>Raio prox. loja</td><td>A que distância da loja o motoboy entra na fila.</td></tr>
+      <tr><td>Raio prox. cliente</td><td>A que distância do cliente o motoboy consegue dar "Entregue".</td></tr>
+      <tr><td>Entregador pode recusar pedidos</td><td>Se o motoboy pode recusar uma rota oferecida.</td></tr>
+      <tr><td>Período dashboard</td><td>De quantos em quantos segundos o mapa se atualiza (10 a 30).</td></tr>
+      <tr><td>Senha e horários de reset da fila</td><td>A senha que o reset pede e os horários em que a fila zera sozinha.</td></tr>
+    </tbody>
+  </table></div>
+  <div class="aviso atencao"><span class="t">Mexeu, anote</span><p>Não mude configuração no meio do pico. Quando mudar, anote no grupo o que era, o que ficou e por quê. Assim dá para saber se melhorou e voltar atrás se piorou.</p></div>
+  <div class="aviso nunca"><span class="t">A tela de parâmetros mostra chaves da integração</span><p>No topo ficam o Merchant ID, o Client ID e o Client Secret da ligação com o Saipos. Não tire print dessa parte nem mande em grupo.</p></div>
+</section>
+
+<!-- ================= PARTE 7 ================= -->
+<div class="parte-titulo">Parte 7 · Quando der problema</div>
+
+<section id="problemas">
+  <h2><span class="n">20</span>Problemas comuns e o que fazer</h2>
+  <div class="quem">Para: <span class="papel p-atend">Atendimento</span><span class="papel p-ger">Gerente</span><span class="papel p-moto">Motoboy</span></div>
+  <p>São os casos que já aconteceram nas nossas lojas desde agosto. Digite uma palavra para achar o seu.</p>
+  <div class="busca">
+    <label for="filtro-problemas">Buscar problema</label>
+    <input id="filtro-problemas" type="search" placeholder="Ex.: duplicado, travou, sumiu, senha" autocomplete="off">
+  </div>
+  <div class="faq" id="lista-problemas">
+    <details><summary>O pedido imprime no Saipos, mas não aparece no TrackEat</summary>
+      <div class="corpo"><p>Pode ser a ligação entre Saipos e TrackEat. Em 25/09 a Saipos ficou fora do ar por quase meia hora e nenhum pedido entrou.</p>
+      <p><b>Faça:</b> confira se o pedido está como <b>Aguardando entrega</b> no Saipos. Se estiver e mesmo assim não entrou, avise o suporte com o <b>número do último pedido que entrou</b> e a hora. Enquanto isso, crie o pedido à mão (<a href="#pedido-interno">item 9</a>).</p></div></details>
+    <details><summary>Mandei a rota e ela não aparece no celular do motoboy</summary>
+      <div class="corpo"><p><b>Faça:</b> confira se ele está na fila. Peça para arrastar a tela para baixo, ou ligar e desligar o modo avião. Confira GPS e a versão do app. Se nada der certo, resete só ele na fila e mande de novo. A NVi disse em 28/09 que a versão nova corrige a demora.</p></div></details>
+    <details><summary>O app do motoboy travou ou fecha sozinho</summary>
+      <div class="corpo"><p><b>Faça:</b> siga a lista do <a href="#app-travou">item 17</a>. Se for um motoboy só, costuma ser versão velha do app. Se forem <b>todos ao mesmo tempo</b>, é o sistema: avise o suporte na hora.</p></div></details>
+    <details><summary>Motoboy não consegue entrar no app (senha inválida)</summary>
+      <div class="corpo"><p><b>Faça:</b> confira se o e-mail está certo no cadastro e se o app está na versão nova. Se o app pedir para desconectar da loja, resete ele na fila. Se não resolver, avise o suporte com o nome do motoboy (sem mandar a senha no grupo).</p></div></details>
+    <details><summary>Adicionei um pedido na rota e o motoboy não consegue iniciar</summary>
+      <div class="corpo"><p><b>Faça:</b> tire todos os pedidos da rota e mande de novo. Para mudar a ordem depois de adicionar, use a aba <b>Ordem de entrega</b> (<a href="#mexer">item 6</a>).</p></div></details>
+    <details><summary>Tirei as entregas de um motoboy e ele ficou "indisponível"</summary>
+      <div class="corpo"><p>Acontece quando se tira entrega dele à mão. <b>Faça:</b> com ele <b>sem nenhuma entrega</b>, resete só ele na fila e peça para entrar de novo no app. Da próxima vez, prefira desfazer o grupo e montar de novo (<a href="#trocar-motoboy">item 7</a>).</p></div></details>
+    <details><summary>Pedido que já foi entregue voltou como "Pronto para retirada"</summary>
+      <div class="corpo"><p>É um pedido fantasma. Se o sistema mandar, o motoboy sai com um pedido que não existe. <b>Faça:</b> não despache. Finalize pela aba <b>Troca de status</b> e mande o número do pedido no suporte.</p></div></details>
+    <details><summary>Apareceu para o motoboy um pedido de ontem</summary>
+      <div class="corpo"><p>Quase sempre é pedido interno (INT) que ficou aberto. <b>Faça:</b> finalize o pedido e avise o motoboy. Para não repetir: todo INT se finaliza assim que é entregue (<a href="#pedido-interno">item 9</a>).</p></div></details>
+    <details><summary>Os pedidos sumiram do mapa depois da meia-noite</summary>
+      <div class="corpo"><p>Era um filtro do dia, corrigido pela NVi em 10/09. <b>Faça:</b> se voltar a acontecer, procure os pedidos na <a href="#consulta">Consulta de pedidos</a> e avise o suporte.</p></div></details>
+    <details><summary>O motoboy entregou, mas o pedido continua no mapa</summary>
+      <div class="corpo"><p>O sinal do celular pode ter demorado para chegar. <b>Faça:</b> peça para ele arrastar a tela para baixo. Se continuar, dê baixa pela <b>Troca de status</b> e peça o log do app dele.</p></div></details>
+    <details><summary>O motoboy esqueceu de dar "Entregue" e agora está na loja</summary>
+      <div class="corpo"><p>Longe do cliente o app não deixa dar baixa, e ele não volta para a fila. <b>Faça:</b> dê a baixa manual pela <b>Troca de status</b>. Oriente: baixa sempre na porta do cliente.</p></div></details>
+    <details><summary>Entrega duplicada no fechamento</summary>
+      <div class="corpo"><p><b>Faça:</b> reprove a cópia. Confira a versão do app do motoboy (versão velha duplicava). Se continuar, mande os números no suporte.</p></div></details>
+    <details><summary>Entrega aparece no fechamento do motoboy errado</summary>
+      <div class="corpo"><p>Aconteceu quando a rota foi passada de um motoboy para outro. <b>Faça:</b> veja quem entregou no <a href="#historico">Histórico por motoboy</a> e mande o caso no suporte com os números.</p></div></details>
+    <details><summary>A corrida não aparece no relatório do motoboy</summary>
+      <div class="corpo"><p>A entrega só entra quando ele toca em "Entregue". Se ele fez fora da ordem ou deixou para baixar depois, ela fica de fora. <b>Faça:</b> confira o status do pedido na consulta. Se foi entregue e não está no fechamento, avise o suporte.</p></div></details>
+    <details><summary>A rota ficou sem motoboy</summary>
+      <div class="corpo"><p><b>Faça:</b> engrenagem → <b>Transferência de rota</b> e escolha o motoboy.</p></div></details>
+    <details><summary>O sistema mandou um pedido sozinho tendo outros prontos</summary>
+      <div class="corpo"><p>Normalmente os outros estavam além da distância máxima (<a href="#automatico">item 5</a>). <b>Faça:</b> se parecer erro, mande o número do pedido e um print do mapa no suporte.</p></div></details>
+    <details><summary>A rota saiu numa ordem estranha</summary>
+      <div class="corpo"><p><b>Faça:</b> mude a ordem na aba <b>Ordem de entrega</b> e salve. Se acontecer muito, mande os números no suporte para eles ajustarem.</p></div></details>
+    <details><summary>Não consigo entrar no painel da loja</summary>
+      <div class="corpo"><p><b>Faça:</b> confira o endereço e o login da loja com o gerente. Se estiver certo e não entrar, avise o suporte.</p></div></details>
+    <details><summary>Cadastrei motoboy com e-mail errado ou na loja errada</summary>
+      <div class="corpo"><p>Só a NVi consegue corrigir, porque o e-mail é a chave do login. <b>Faça:</b> cadastre de novo na loja certa com o e-mail certo e peça no suporte para apagar o cadastro errado.</p></div></details>
+    <p class="vazio" id="faq-vazio" hidden>Nada encontrado com essa palavra. Tente outra, ou chame o suporte.</p>
+  </div>
+</section>
+
+<section id="suporte">
+  <h2><span class="n">21</span>Como pedir ajuda ao suporte</h2>
+  <div class="quem">Para: <span class="papel p-atend">Atendimento</span><span class="papel p-ger">Gerente</span></div>
+  <p>Grupo de WhatsApp: <b>Suporte TrackEat Cidadão do Mundo</b>. A NVi responde por lá.</p>
+  <p>Mande tudo numa mensagem só, para eles não precisarem perguntar de volta:</p>
+  <ol class="passos">
+    <li><div><b>Qual loja</b> (Água Verde, Ahú ou São Braz).</div></li>
+    <li><div><b>Número do pedido</b> ou da comanda.</div></li>
+    <li><div><b>Nome do motoboy</b>, se envolver motoboy.</div></li>
+    <li><div><b>Que horas</b> aconteceu.</div></li>
+    <li><div><b>Print</b> da tela ou do mapa.</div></li>
+    <li><div>Se for o app: o <b>log</b> do celular (<a href="#app-travou">item 17</a>).</div></li>
+  </ol>
+  <div class="aviso atencao"><span class="t">Fim de semana e feriado</span><p>A equipe da NVi fica menor nesses dias. Problema grande no pico: avise o gerente além do grupo.</p></div>
+  <div class="aviso nunca"><span class="t">Nunca no grupo</span><p>Senha, login, CPF de motoboy e as chaves da tela de parâmetros.</p></div>
+</section>
+
+<footer class="rodape">
+  <p>Feito a partir das telas do sistema, das explicações da NVi e das conversas do grupo de suporte, de agosto a 29/09/2026.</p>
+  <p>O sistema muda com frequência. Viu algo diferente do que está aqui? Avise o gerente para atualizar o manual.</p>
+</footer>
+
+</div>
+
+<a class="voltar" href="#topo">↑ Índice</a>
+
+<script>
+(function () {
+  var campo = document.getElementById('filtro-problemas');
+  var itens = document.querySelectorAll('#lista-problemas details');
+  var vazio = document.getElementById('faq-vazio');
+  function tirarAcento(s) { return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); }
+  campo.addEventListener('input', function () {
+    var q = tirarAcento(campo.value.trim());
+    var achou = 0;
+    itens.forEach(function (d) {
+      var ok = !q || tirarAcento(d.textContent).indexOf(q) !== -1;
+      d.hidden = !ok;
+      if (ok) achou++;
+      d.open = !!q && ok && q.length > 2;
+    });
+    vazio.hidden = achou !== 0;
+  });
+})();
+</script>
+</body>
+</html>
