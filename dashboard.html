@@ -7175,34 +7175,8 @@ function renderConcbanco() {
       + quando + '.</b> Confira as linhas abaixo.'
     : '<b style="color:#2e7d32">Tudo certo ' + quando + '.</b> Nada a fazer nesta loja.';
 
-  // O QUE CORRIGIR NO SAIPOS — uma linha por lancamento, vinda da conferencia
-  // (dono, 25/09/2026). Todos os dias em aberto da loja, nao so o da tela: o
-  // saldo e uma serie, e a linha que falta em 23/09 continua errando o 24/09.
-  const confLoja = (cru.conferencia || [])
-    .filter(r => contas[r.conta])
-    .sort((a, b) => concbOrdem(a.conta, b.conta) || (a.dia_do_fato < b.dia_do_fato ? -1 : 1));
-  const blocoCorrigir = confLoja.length
-    ? '<div class="section-label" style="margin-top:12px">O QUE CORRIGIR NO SAIPOS PARA O SALDO BATER</div>'
-      + '<div id="tabelaConcbCorrigir" style="overflow-x:auto"><table style="width:100%">'
-      + '<thead><tr><th style="text-align:left">Conta</th><th style="text-align:left">Dia</th>'
-      + '<th style="text-align:left">O que fazer</th></tr></thead><tbody>'
-      + confLoja.map(r => {
-          const linhas = String(r.texto || '').split('\n').slice(1)
-            .map(s => s.trim()).filter(Boolean)
-            .map(s => {
-              const cor = /^FALTA/.test(s) ? '#c8102e' : /^SOBRA/.test(s) ? '#b8860b' : '#555';
-              return '<div style="color:' + cor + '">' + esc(s) + '</div>';
-            }).join('');
-          const amarelo = r.gravidade === 'AMARELO';
-          return '<tr><td style="text-align:left;white-space:nowrap"><b>' + esc(nomeConta(r.conta)) + '</b></td>'
-            + '<td style="text-align:left">' + ddmm(r.dia_do_fato) + '</td>'
-            + '<td style="text-align:left;font-size:12px' + (amarelo ? ';opacity:.75' : '') + '">'
-            + (linhas || esc(r.texto)) + '</td></tr>';
-        }).join('')
-      + '</tbody></table></div>'
-      + '<div class="caption-label" style="text-align:left">FALTA = saiu/entrou no banco e não está no Saipos. '
-      + 'SOBRA = está no Saipos e não passou no banco. Atualizada a cada clique em ATUALIZAR.</div>'
-    : '';
+  // O quadro "O QUE CORRIGIR NO SAIPOS" (25/09) saiu em 29/09 a pedido do dono:
+  // era redundante com as tabelas de ensinar/conciliar abaixo, e confundia.
 
   // ---- o que conferir, uma conta de cada vez ----
   // Um estado, nao duas acoes. Antes eram dois botoes ("lancei" e "ja estava")
@@ -7442,7 +7416,6 @@ function renderConcbanco() {
       '<th style="text-align:left">Saldo</th></tr></thead><tbody>' +
       linhasGrade +
     '</tbody></table></div>' +
-    blocoCorrigir +
     blocoDiferenca +
     trava +
     (blocosConferir
