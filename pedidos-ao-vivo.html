@@ -13,7 +13,8 @@
 <!--
   PEDIDOS AO VIVO — fase 1 do "app reserva" (decisão do dono, 30/09/2026).
   Fica aberta no computador que opera o delivery. Lê o banco a cada 20 s (vw_pedidos_ao_vivo e
-  vw_vigia_pulso) e NUNCA fala com o iFood: quem lê o iFood é o vigia do mini PC
+  vw_vigia_pulso; vw_pedidos_casos_avaliar a cada 5 min — são 3 views) e NUNCA fala com o iFood:
+  quem lê o iFood é o vigia do mini PC
   (script/vigia_pedidos_ifood.py). Nada é confirmado por aqui.
   Login com e-mail e senha, em sessão PRÓPRIA desta tela ('pedidosAoVivoSessao', não a
   'rmbSessao' do painel): no computador da loja entra uma conta da loja, nunca a do dono
@@ -24,8 +25,13 @@
   por decisão do dono de 30/09, antes 5), SEM_IFOOD (o vigia não fala com o iFood: a tela avisa
   que está cega). Aviso que não funciona (vigia parado, sem iFood, esta tela sem internet —
   inclusive leitura pendurada, que tem teto —, tela caída no login) dá um bip grave a cada 90 s.
-  "Casos para avaliar" (fim da tela, só leitura): pedidos dos últimos 30 dias confirmados com mais
-  de 6 min (vw_pedidos_casos_avaliar) — o Saipos aceita sozinho, isso não deveria acontecer.
+  "Casos para avaliar" (fim da tela, só leitura; atalho "Casos para avaliar (N)" no topo): pedidos
+  dos últimos 30 dias confirmados com mais de 6 min E os que o iFood cancelou porque ninguém
+  confirmou (902 — o caso mais grave; rodada 3) (vw_pedidos_casos_avaliar) — o Saipos aceita
+  sozinho, isso não deveria acontecer.
+  Rodada 3 (30/09 noite): o botão de som larga o foco depois do clique e o teclado (Espaço/Enter)
+  nunca DESLIGA o som — só o clique do mouse; a faixa "lojas sem aviso" diz QUAIS lojas; ícone da
+  aba com desenho próprio (vermelho = triângulo, laranja = relógio, aviso sem funcionar = X).
   Rodada 2 da reconferência (30/09): ritmo dos sons e "sem internet" pelo relógio que só anda para
   frente (a hora do Windows mudando não cala a sirene); "Sair" no rodapé, com 2º clique deliberado
   (o duplo clique no botão de som caía nele); botão de som de largura fixa; com -SemSom não há botão
@@ -72,6 +78,17 @@
      do cursor no meio de um duplo clique (rodada 2 da reconferência de 30/09) */
   #btnSom { min-width:15.5em; text-align:center; white-space:nowrap; }
   .sair-linha { margin-top:10px; }
+  /* atalho para "Casos para avaliar": linha própria ACIMA da faixa de som (o texto muda de largura
+     com a contagem; no topo ele empurraria o botão de som para o lado — rodada 3) */
+  .atalhos { margin:-4px 0 12px; font-size:13px; }
+  .link-casos { color:var(--tx-2); font-weight:700; }
+  .link-casos:hover { color:var(--tx-1); }
+  .link-casos .grave { color:var(--farol-fora); }
+  #casos { scroll-margin-top:90px; }
+  /* recado curto (ex.: "para desligar, clique com o mouse"): flutua, não empurra nada na tela */
+  .recado { position:fixed; left:50%; bottom:22px; transform:translateX(-50%); z-index:60; background:var(--surface-2);
+    border:1px solid var(--farol-perto); color:var(--tx-1); border-radius:10px; padding:10px 16px; font-size:14px;
+    font-weight:700; max-width:calc(100% - 32px); text-align:center; }
   .faixa-teste { border:1px dashed var(--info); color:var(--info); border-radius:8px; padding:8px 12px;
     font-size:13px; font-weight:700; margin-bottom:12px; }
 
@@ -197,10 +214,11 @@
     <div class="marca"><b>Pedidos ao vivo</b><span>iFood · Cidadão do Mundo</span></div>
     <div class="relogio" id="relogio">--:--</div>
     <span class="chip" id="statusVigia"><span class="ponto"></span><span id="statusTexto">lendo…</span></span>
-    <button class="btn" id="btnSom" onpointerdown="tocouBotaoSom()" onclick="cliqueBotaoSom()">Som</button>
+    <button class="btn" id="btnSom" onpointerdown="tocouBotaoSom()" onclick="cliqueBotaoSom(event)">Som</button>
     <!-- o "Sair" NÃO fica aqui: ao ligar o som o botão mudava de largura e o 2º clique de um duplo
          clique caía no "Sair" vizinho (rodada 2 da reconferência de 30/09). Ele está no rodapé. -->
   </header>
+  <div class="atalhos"><a id="linkCasos" class="link-casos" href="#casos">Casos para avaliar (…)</a></div>
 
   <button id="faixaSom" class="faixa-som" hidden onclick="cliqueFaixaSom()"></button>
   <div id="notaMudo" class="nota-mudo" hidden>Som do aviso desligado nestes primeiros dias (período de teste). A tela avisa, mas não toca.</div>
@@ -236,14 +254,15 @@
   <h2 class="section-label">Pedidos de hoje <span id="chipLoja"></span></h2>
   <div class="tabela" id="tabelaPedidos"></div>
 
-  <h2 class="section-label">Casos para avaliar <small id="casosLegenda">pedidos confirmados com mais de 6 min — últimos 30 dias</small></h2>
-  <p class="nota">O Saipos confirma os pedidos sozinho: isto não deveria acontecer. Vários na mesma unidade, com pouco tempo de diferença, indicam que o Saipos ficou instável.</p>
+  <h2 class="section-label" id="casos">Casos para avaliar <small id="casosLegenda">pedidos confirmados com mais de 6 min ou cancelados porque ninguém confirmou — últimos 30 dias</small></h2>
+  <p class="nota">O Saipos confirma os pedidos sozinho: isto não deveria acontecer. O mais grave é o pedido que o iFood cancelou porque ninguém confirmou. Vários na mesma unidade, com pouco tempo de diferença, indicam que o Saipos ficou instável.</p>
   <div class="tabela" id="tabelaCasos"></div>
 
   <footer><div id="rodape"></div>
     <div class="sair-linha"><button class="btn" id="btnSair" onclick="sair()">Sair desta conta</button></div>
   </footer>
 </main>
+<div id="recado" class="recado" hidden></div>
 
 <script>
 // ------------------------------------------------------------------ conexão (a mesma do painel)
@@ -500,21 +519,36 @@ function ligarSomAgora() {                       // escolha explícita de ligar:
   destravarAudio().then(() => tocar('lembrete'));
 }
 function tocouBotaoSom() { ESTADO_NO_TOQUE = document.getElementById('btnSom').dataset.estado || estadoSom(); }
-function cliqueBotaoSom() {
-  const viu = ESTADO_NO_TOQUE || document.getElementById('btnSom').dataset.estado || estadoSom();
+function cliqueBotaoSom(ev) {
+  const b = document.getElementById('btnSom');
+  // teclado (Espaço/Enter no botão com foco): o clique chega sem o toque do mouse — detail 0 e sem
+  // pointerdown antes. Rodada 3: depois de ligar o som pelo mouse o foco ficava no botão, e um Espaço
+  // ou Enter (alguém digitando com esta janela na frente) DESLIGAVA o som sem ninguém ver.
+  const teclado = !!ev && ev.detail === 0 && ESTADO_NO_TOQUE === null;
+  const viu = ESTADO_NO_TOQUE || b.dataset.estado || estadoSom();
   ESTADO_NO_TOQUE = null;
+  b.blur();                                      // o foco NÃO fica no botão depois do clique
   // o 2º clique de um duplo clique chega ~30 ms depois de o 1º LIGAR — e já encontrava "Som ligado"
   // na tela, e desligava (reconferência de 30/09). Clique logo depois de o botão mudar é do mesmo
   // gesto: não vale. Só quem VIU "Som ligado" por um instante desliga.
   if (mono() - S.somMudouEm < SOM_CONFIRMA_MS) { desenharSom(); return; }
+  // desligar só com o clique do mouse (a confirmação é o clique); pelo teclado, só o recado
+  if (viu === 'ligado' && teclado) { mostrarRecado('Para desligar o som do aviso, clique no botão com o mouse.'); desenharSom(); return; }
   if (viu === 'ligado') gravarLocal('pedidosAoVivoSom', 'off');
   else ligarSomAgora();
   desenharSom();
 }
 function cliqueFaixaSom() {
+  document.getElementById('faixaSom').blur();   // o foco não fica na faixa (rodada 3)
   if (mono() < S.faixaOkAte) return;            // já ligou: a faixa só absorve o 2º clique
   ligarSomAgora();
   desenharSom();
+}
+let RECADO_ATE = null;
+function mostrarRecado(texto) {                  // flutua no pé da tela por 4 s; não mexe no resto
+  const r = document.getElementById('recado');
+  r.textContent = texto; r.hidden = false;
+  clearTimeout(RECADO_ATE); RECADO_ATE = setTimeout(() => { r.hidden = true; }, 4000);
 }
 // clique que atravessou a faixa de som no instante em que ela sumiu (o conteúdo sobe): não vale
 function cliqueAtravessou() { return mono() - S.faixaSumiuEm < 700; }
@@ -585,22 +619,36 @@ function tocar(qual) {
 // numa janela própria, visível (ver o guia).
 const ICONE_NORMAL = (document.querySelector('link[rel="icon"]') || {}).href || 'icon-192.png';
 const ICONES = {};
-// cada aviso com o seu ícone: o "aviso sem funcionar" era idêntico ao laranja do CONFIRMAR
-// (reconferência de 30/09) — agora é cinza com um X (aviso desligado)
-const ICONE_SIMBOLO = { alarme: ['--farol-fora', '!'], lembrete: ['--farol-perto', '!'], falha: ['--tx-5', '×'] };
+// cada aviso com o seu ícone, e com DESENHO próprio (não só a cor — rodada 3: vermelho e laranja eram
+// o mesmo "!" e só a cor mudava): vermelho = triângulo de perigo com "!"; laranja = relógio; aviso sem
+// funcionar = círculo cinza com X (era idêntico ao laranja até a reconferência de 30/09)
+const ICONE_SIMBOLO = { alarme: ['--farol-fora', 'triangulo'], lembrete: ['--farol-perto', 'relogio'], falha: ['--tx-5', 'x'] };
 function mudarIcone(tipo) {
   const link = document.querySelector('link[rel="icon"]');
   if (!link) return;
   if (!tipo) { if (link.href !== ICONE_NORMAL) link.href = ICONE_NORMAL; return; }
   if (!ICONES[tipo]) {
     try {
-      const [token, simbolo] = ICONE_SIMBOLO[tipo] || ICONE_SIMBOLO.falha;
+      const [token, desenho] = ICONE_SIMBOLO[tipo] || ICONE_SIMBOLO.falha;
       const css = getComputedStyle(document.documentElement);
+      const cor = css.getPropertyValue(token).trim(), fundo = css.getPropertyValue('--bg').trim();
       const c = document.createElement('canvas'); c.width = c.height = 64;
       const x = c.getContext('2d');
-      x.fillStyle = css.getPropertyValue(token).trim(); x.beginPath(); x.arc(32, 32, 30, 0, 2 * Math.PI); x.fill();
-      x.fillStyle = css.getPropertyValue('--bg').trim();
-      x.font = 'bold 44px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(simbolo, 32, 35);
+      x.fillStyle = cor; x.beginPath();
+      if (desenho === 'triangulo') {               // vermelho: triângulo de perigo com "!"
+        x.moveTo(32, 2); x.lineTo(63, 60); x.lineTo(1, 60); x.closePath(); x.fill();
+        x.fillStyle = fundo; x.font = 'bold 38px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+        x.fillText('!', 32, 42);
+      } else {
+        x.arc(32, 32, 30, 0, 2 * Math.PI); x.fill();
+        if (desenho === 'relogio') {               // laranja: relógio (dois ponteiros)
+          x.strokeStyle = fundo; x.lineWidth = 7; x.lineCap = 'round'; x.beginPath();
+          x.moveTo(32, 32); x.lineTo(32, 12); x.moveTo(32, 32); x.lineTo(47, 41); x.stroke();
+        } else if (desenho === 'x') {              // cinza: X (o aviso não está funcionando)
+          x.fillStyle = fundo; x.font = 'bold 44px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+          x.fillText('×', 32, 35);
+        }
+      }
       ICONES[tipo] = c.toDataURL('image/png');
     } catch (e) { return; }
   }
@@ -643,8 +691,9 @@ async function atualizar() {
 async function lerCasos() {
   if (S.naLogin) return;
   try {
-    S.casos = await ler(`vw_pedidos_casos_avaliar?ambiente=eq.${AMBIENTE}&select=dia,hora,unidade,loja,numero,` +
-                        `segundos_ate_aceitar,cancelado_depois,outros_na_meia_hora,criado_em&order=criado_em.desc&limit=300`);
+    // select=* (e não a lista de colunas): a tela funciona com a view antiga e com a nova (rodada 3 —
+    // colunas `caso` e `minutos_ate_cancelar`); coluna que falta só não aparece
+    S.casos = await ler(`vw_pedidos_casos_avaliar?ambiente=eq.${AMBIENTE}&select=*&order=criado_em.desc&limit=300`);
     S.casosErro = null;
   } catch (e) { if (e.message !== 'sessão vencida') S.casosErro = e.message; }
   if (!S.naLogin) desenharCasos();
@@ -780,8 +829,13 @@ function desenharAviso() {
   else if (v.tipo === 'SEM_IFOOD') html = `<b>O aviso não consegue falar com o iFood${v.semIfood != null ? ' há ' + duracao(v.semIfood) : ''}.</b> Pedidos parados NÃO serão avisados agora. ${onde} Avise o Neto.`;
   else if (S.pulso && ((S.pulso.lojas_sem_permissao || []).length || (S.pulso.lojas_sem_detalhe || []).length)) {
     const n = (S.pulso.lojas_sem_permissao || []).length, m = (S.pulso.lojas_sem_detalhe || []).length;
+    // QUAIS lojas (rodada 3): nome e unidade vêm da view (lojas_sem_aviso); sem ela, só a contagem
+    const nomes = (S.pulso.lojas_sem_aviso || []).map(x => x.loja +
+      (x.unidade && x.unidade !== 'LOJA DE TESTE' ? ' (' + nomeUnidade(x.unidade) + ')' : ''));
     const partes = [];
-    if (n) partes.push(`<b>${n} loja${n > 1 ? 's estão' : ' está'} sem aviso</b> (falta permissão no iFood). Nas outras o aviso funciona.`);
+    if (n) partes.push(`<b>${n} loja${n > 1 ? 's estão' : ' está'} sem aviso${nomes.length ? ': ' + esc(nomes.join(', ')) : ''}</b> ` +
+                       `(o iFood não deixou ler ${n > 1 ? 'essas lojas' : 'essa loja'}; o aviso tenta de novo a cada 5 min). ` +
+                       `Nas outras o aviso funciona.`);
     if (m) partes.push(`<b>${m} loja${m > 1 ? 's' : ''} sem o número do pedido</b> na tela (falta permissão no iFood). ` +
                        `O aviso funciona ${m > 1 ? 'nelas' : 'nela'}; o pedido aparece pelo nome da loja.`);
     html = partes.join(' ') + ' Avise o Neto.';
@@ -902,28 +956,39 @@ function desenharPedidos() {
     : '<div class="vazio" style="padding:10px 12px">Nenhum pedido hoje.</div>';
 }
 
-// "Casos para avaliar" (decisão do dono, 30/09): pedidos confirmados com mais de 6 min nos últimos
-// 30 dias. Só leitura. "Outros na unidade" = outros casos da mesma unidade com menos de 30 min de
-// diferença — vários juntos apontam instabilidade do Saipos.
+// "Casos para avaliar" (decisão do dono, 30/09): nos últimos 30 dias, pedidos confirmados com mais de
+// 6 min e (rodada 3) os que o iFood CANCELOU porque ninguém confirmou (902, caso NAO_CONFIRMADO — o
+// mais grave). Só leitura. "Outros na unidade" = outros casos da mesma unidade com menos de 30 min de
+// diferença — vários juntos apontam instabilidade do Saipos. O atalho do topo mostra a contagem.
 function desenharCasos() {
-  const el = document.getElementById('tabelaCasos');
+  const el = document.getElementById('tabelaCasos'), link = document.getElementById('linkCasos');
   if (S.casos == null) {
+    porHtml(link, S.casosErro ? 'Casos para avaliar' : 'Casos para avaliar (…)');
     porHtml(el, `<div class="vazio" style="padding:10px 12px">${S.casosErro
       ? 'Não consegui ler esta lista agora. Tento de novo em alguns minutos.' : 'Lendo…'}</div>`);
     return;
   }
   const cs = S.casos.filter(c => naUnidade(c.unidade));
+  // view antiga (sem a coluna `caso`): tudo era "confirmado tarde"
+  const naoConf = c => c.caso === 'NAO_CONFIRMADO';
+  const n902 = cs.filter(naoConf).length;
   const juntos = cs.filter(c => c.outros_na_meia_hora > 0).length;
-  document.getElementById('casosLegenda').textContent = 'pedidos confirmados com mais de 6 min — últimos 30 dias' +
+  porHtml(link, `Casos para avaliar (${cs.length})` + (n902 ? ` · <span class="grave">${n902} ` +
+    `cancelado${n902 > 1 ? 's' : ''} porque ninguém confirmou</span>` : ''));
+  document.getElementById('casosLegenda').textContent =
+    'pedidos confirmados com mais de 6 min ou cancelados porque ninguém confirmou — últimos 30 dias' +
     (cs.length ? ` · ${cs.length} caso${cs.length > 1 ? 's' : ''}` +
                  (juntos ? `, ${juntos} com outro na mesma unidade perto` : cs.length > 1 ? ', todos isolados' : ', isolado') : '');
   const dia = s => s ? String(s).slice(8, 10) + '/' + String(s).slice(5, 7) : '—';
+  const oque = c => naoConf(c)
+    ? '<span class="sit cancelado">Ninguém confirmou — o iFood cancelou' +
+      (c.minutos_ate_cancelar != null ? ' aos ' + esc(duracao(Number(c.minutos_ate_cancelar) * 60)) : '') + '</span>'
+    : 'Confirmado aos ' + esc(duracao(c.segundos_ate_aceitar)) +
+      (c.cancelado_depois ? ' · <span class="sit cancelado">cancelado depois</span>' : '');
   porHtml(el, cs.length ? `<table><thead><tr><th>Dia</th><th>Hora</th><th>Unidade</th><th>Loja</th><th>Nº</th>
-    <th class="num">Tempo até confirmar</th><th>Cancelado depois?</th><th>Outros na unidade (30 min)</th></tr></thead><tbody>` +
+    <th>O que aconteceu</th><th>Outros na unidade (30 min)</th></tr></thead><tbody>` +
     cs.map(c => `<tr><td>${dia(c.dia)}</td><td>${esc(c.hora || '—')}</td><td>${esc(nomeUnidade(c.unidade))}</td>` +
-      `<td>${esc(c.loja || '—')}</td><td>#${esc(c.numero || '—')}</td>` +
-      `<td class="num">${esc(duracao(c.segundos_ate_aceitar))}</td>` +
-      `<td>${c.cancelado_depois ? '<span class="sit cancelado">Sim</span>' : '<span class="nao">Não</span>'}</td>` +
+      `<td>${esc(c.loja || '—')}</td><td>#${esc(c.numero || '—')}</td><td>${oque(c)}</td>` +
       `<td>${c.outros_na_meia_hora > 0 ? '<span class="sit esperando">' + c.outros_na_meia_hora +
              (c.outros_na_meia_hora > 1 ? ' outros' : ' outro') + '</span>' : '<span class="nao">nenhum</span>'}</td></tr>`).join('') +
     '</tbody></table>'
