@@ -11933,7 +11933,7 @@ async function trFinVerLista(id) {
       trPrecosDaLista(id, consultarTudo),
     ]);
     const comValor = Object.keys(precos).length > 0;
-    const somaItens = itens.reduce((s, i) => s + (precos[i.id] != null ? Number(i.qtd_separada || 0) * precos[i.id] : 0), 0);
+    const somaItens = itens.reduce((s, i) => s + (precos[i.id] != null ? trQtdCobrada(i) * precos[i.id] : 0), 0);
     el.innerHTML = `<table style="border-collapse:collapse;">
       <tr><th style="text-align:left; padding:2px 10px 2px 0;">Item</th><th style="padding:2px 8px;">Pedido</th><th style="padding:2px 8px;">Separado</th><th style="padding:2px 8px;">Recebido</th>${comValor ? '<th style="padding:2px 8px;">Valor unit.</th><th style="padding:2px 8px;">Total cobrado</th>' : ''}</tr>
       ${itens.map(i => { const dif = Number(i.qtd_recebida ?? 0) !== Number(i.qtd_separada ?? 0); return `<tr>
@@ -12846,7 +12846,9 @@ async function trTelaConferencia() {
 // Valor por item da lista (dono, 30/09/2026: "conferir por item" — a #24411
 // tinha um item puxando o total). Preco CONGELADO da linha x (1 + producao) x
 // fator, pela view mascarada: login sem valores recebe nulo e nao ve as colunas.
-// Total = SEPARADO x unitario, que e o que a lista cobra.
+// Total = RECEBIDO (conferido) x unitario — a lista cobra o recebido desde
+// 30/09/2026 (dono); enquanto nao ha conferencia, o separado estima.
+function trQtdCobrada(i) { return Number(i.qtd_recebida ?? i.qtd_separada ?? 0); }
 async function trPrecosDaLista(id, busca) {
   const r = await busca(`vw_tr_conferencia_valores?id_lista=eq.${id}&select=id,preco_efetivo`);
   const p = {};
@@ -12857,7 +12859,7 @@ function trColunasValor(i, precos) {
   const u = precos[i.id];
   if (u == null) return '<td>—</td><td>—</td>';
   return `<td style="text-align:right; white-space:nowrap;">R$ ${fmt(u)}<span class="tr-det">/${(i.un_medida || 'un').toLowerCase()}</span></td>
-    <td style="text-align:right; white-space:nowrap;"><b>R$ ${fmt(Number(i.qtd_separada || 0) * u)}</b></td>`;
+    <td style="text-align:right; white-space:nowrap;"><b>R$ ${fmt(trQtdCobrada(i) * u)}</b></td>`;
 }
 async function trVerFinalizada(id) {
   const alvo = document.getElementById('trTelaConteudo');
@@ -12872,7 +12874,7 @@ async function trVerFinalizada(id) {
   const valor = rv.ok ? (await rv.json())[0] : null;
   const mapa = await trEmbMapa(lista.unidade);
   const comValor = Object.keys(precos).length > 0;
-  const somaItens = itens.reduce((s, i) => s + (precos[i.id] != null ? Number(i.qtd_separada || 0) * precos[i.id] : 0), 0);
+  const somaItens = itens.reduce((s, i) => s + (precos[i.id] != null ? trQtdCobrada(i) * precos[i.id] : 0), 0);
   const difs = itens.filter(i => Number(i.qtd_recebida ?? 0) !== Number(i.qtd_separada ?? 0));
   alvo.innerHTML = `
     <div class="caption-label"><button class="preset-btn" onclick="trListaAberta=null; trTelaConferencia();">← finalizadas</button>
@@ -12891,7 +12893,7 @@ async function trVerFinalizada(id) {
         <td${d ? ' style="color:#b3261e; font-weight:700;"' : ''}>${d ? (d > 0 ? '+' : '') + Math.round(d * 1000) / 1000 : '—'}</td>
         ${comValor ? trColunasValor(i, precos) : ''}
       </tr>`; }).join('')}
-      ${comValor ? `<tr><td colspan="6" style="text-align:right;"><b>Total dos itens</b> <span class="tr-det">(separado × unitário)</span></td>
+      ${comValor ? `<tr><td colspan="6" style="text-align:right;"><b>Total dos itens</b> <span class="tr-det">(recebido × unitário)</span></td>
         <td style="text-align:right; white-space:nowrap;"><b>R$ ${fmt(somaItens)}</b></td></tr>` : ''}
     </table></div>`;
 }
