@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Pedidos ao vivo</title>
+<meta name="theme-color" content="#111110">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap">
+<!--
+  PEDIDOS AO VIVO — fase 1 do "app reserva" (decisão do dono, 30/09/2026).
+  Fica aberta no computador que opera o delivery. Lê o banco a cada 20 s (vw_pedidos_ao_vivo e
+  vw_vigia_pulso) e NUNCA fala com o iFood: quem lê o iFood é o vigia do mini PC
+  (script/vigia_pedidos_ifood.py). Nada é confirmado por aqui.
+  Login com e-mail e senha, em sessão PRÓPRIA desta tela ('pedidosAoVivoSessao', não a
+  'rmbSessao' do painel): no computador da loja entra uma conta da loja, nunca a do dono
+  (conferência de 30/09 — qualquer conta do painel lê muito mais que esta tela precisa).
+  ?teste=1 mostra a loja de teste do iFood (sandbox).
+  Níveis do aviso (gravados pelo vigia no pulso): ALARME (2+ parados na unidade: "o Saipos pode
+  ter caído", vermelho + sirene), CONFIRMAR (1 pedido > 5 min: lembrete laranja, som curto),
+  SEM_IFOOD (o vigia não fala com o iFood: a tela avisa que está cega). Aviso que não funciona
+  (vigia parado, sem iFood, esta tela sem internet, tela caída no login) dá um bip grave a cada
+  90 s — antes era só uma faixa sem som.
+  Cores: os tokens do :root do docs/dashboard.html (mesmos nomes e valores), sem cor nova.
+  Instalação e o que fazer quando algo falha: rotinas/VIGIA-PEDIDOS-IFOOD.md.
+-->
+<style>
+  :root {
+    --bg:#111110; --surface:#1e1e1c; --surface-2:#2a2a27; --zebra:#171716;
+    --line:#34332f; --line-2:#45443f;
+    --tx-1:#fff; --tx-2:#c3c2b7; --tx-3:#a5a49a; --tx-4:#9c9b90; --tx-5:#82817a; --tx-6:#6b6a61;
+    --brand:#c8102e; --brand-dark:#a80d26; --brand-wine:#250f13;
+    --farol-ok:#3fb950; --farol-perto:#f5a623; --farol-fora:#ff6b6b;
+    --info:#58a6ff;
+    --marca-amarelo:#f6c63e; --marca-laranja:#ee8a3c; --marca-laranja-q:#e2622b; --marca-creme:#f7edd8;
+  }
+  * { box-sizing:border-box; }
+  body::before { content:''; position:fixed; top:0; left:0; right:0; height:3px; z-index:50;
+    background:linear-gradient(90deg,var(--marca-amarelo),var(--marca-laranja),var(--marca-laranja-q)); }
+  body { margin:0; background:var(--bg); color:var(--tx-1);
+    font-family:'Inter','Segoe UI',system-ui,-apple-system,sans-serif; min-height:100vh; }
+  [hidden] { display:none !important; }
+  main { max-width:1180px; margin:0 auto; padding:22px 20px 60px; }
+  @media (max-width:700px) { main { padding:18px 16px 50px; } }
+
+  /* topo */
+  .topo { display:flex; flex-wrap:wrap; align-items:center; gap:10px 14px; margin-bottom:14px; }
+  .marca b { display:block; font-size:24px; font-weight:800; }
+  .marca span { color:var(--tx-4); font-size:12.5px; }
+  .relogio { font-size:28px; font-weight:800; margin-left:auto; font-variant-numeric:tabular-nums; }
+  .chip { display:inline-flex; align-items:center; gap:7px; border:1px solid var(--line); background:var(--surface);
+    color:var(--tx-2); border-radius:999px; padding:6px 12px; font-size:12.5px; font-weight:600; }
+  .ponto { width:9px; height:9px; border-radius:50%; background:var(--tx-6); flex:0 0 9px; }
+  .chip.ok .ponto { background:var(--farol-ok); } .chip.ok { border-color:var(--farol-ok); }
+  .chip.perto .ponto { background:var(--farol-perto); } .chip.perto { border-color:var(--farol-perto); color:var(--tx-1); }
+  .chip.fora .ponto { background:var(--farol-fora); } .chip.fora { border-color:var(--farol-fora); color:var(--tx-1); }
+  .btn { background:var(--surface-2); border:1px solid var(--line); color:var(--tx-2); border-radius:8px;
+    padding:7px 12px; font-size:12.5px; font-weight:700; cursor:pointer; font-family:inherit; }
+  .btn:hover { border-color:var(--marca-laranja); color:var(--tx-1); }
+  .btn.chama { border-color:var(--farol-perto); color:var(--tx-1); }
+  .faixa-teste { border:1px dashed var(--info); color:var(--info); border-radius:8px; padding:8px 12px;
+    font-size:13px; font-weight:700; margin-bottom:12px; }
+
+  /* unidades (filtro) */
+  .unidades { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px; }
+  .unidades button { background:var(--surface-2); border:1px solid var(--line); color:var(--tx-2);
+    border-radius:8px; padding:7px 13px; font-size:13px; font-weight:700; cursor:pointer; font-family:inherit; }
+  .unidades button:hover { border-color:var(--marca-laranja); color:var(--tx-1); }
+  .unidades button.active { color:var(--tx-1); border-color:var(--marca-amarelo); }
+  .unidades button .n { color:var(--tx-5); font-weight:600; margin-left:4px; }
+
+  /* AVISO */
+  .aviso { background:var(--brand); border:3px solid var(--farol-fora); border-radius:14px; padding:18px 20px;
+    margin-bottom:16px; animation:pisca 1.2s ease-in-out infinite; }
+  .aviso.calado { animation:none; }
+  @keyframes pisca { 50% { border-color:var(--tx-1); } }
+  .aviso-titulo { font-size:28px; font-weight:800; line-height:1.15; }
+  .aviso-texto { font-size:19px; font-weight:700; margin-top:8px; line-height:1.4; }
+  .aviso-acao { font-size:17px; margin-top:10px; padding-top:10px; border-top:1px solid var(--farol-fora); }
+  .aviso-acao b { font-weight:800; }
+  .aviso-rodape { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-top:12px; }
+  .btn-ouvi { background:var(--tx-1); color:var(--bg); border:none; border-radius:10px; padding:11px 18px;
+    font-size:15px; font-weight:800; cursor:pointer; font-family:inherit; }
+  .aviso-calado { font-size:13px; opacity:.9; }
+  /* lembrete (1 pedido > 5 min): laranja, sem falar de Saipos */
+  .aviso.lembrete { background:color-mix(in srgb, var(--farol-perto) 22%, var(--bg)); border-color:var(--farol-perto); }
+  .aviso.lembrete .aviso-acao { border-top-color:var(--farol-perto); }
+  .fora { border:2px solid var(--farol-perto); background:color-mix(in srgb, var(--farol-perto) 14%, var(--bg));
+    border-radius:12px; padding:14px 18px; margin-bottom:16px; font-size:16px; line-height:1.45; }
+  .fora b { font-weight:800; }
+  .fora.grave { border-color:var(--farol-fora); background:color-mix(in srgb, var(--farol-fora) 14%, var(--bg)); }
+  .fora .btn { margin-left:8px; }
+  /* som desligado ou ainda bloqueado pelo Chrome: faixa grande, fixa no topo */
+  .faixa-som { position:sticky; top:6px; z-index:40; display:block; width:100%; text-align:center; cursor:pointer;
+    border:2px solid var(--farol-perto); background:color-mix(in srgb, var(--farol-perto) 20%, var(--bg));
+    color:var(--tx-1); border-radius:12px; padding:13px 16px; margin-bottom:14px; font-size:18px; font-weight:800;
+    font-family:inherit; }
+  .faixa-som:hover { border-color:var(--tx-1); }
+  .nota-mudo { border:1px dashed var(--line-2); color:var(--tx-3); border-radius:8px; padding:8px 12px;
+    font-size:13px; margin-bottom:12px; }
+
+  /* cards (mesmo desenho do painel) */
+  .cards { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin-bottom:22px; }
+  @media (max-width:760px) { .cards { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+  .card { background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:14px 16px; }
+  .card.neg { border-color:var(--farol-fora); } .card.perto { border-color:var(--farol-perto); }
+  .card-lbl { color:var(--tx-4); font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; }
+  .card-val { font-size:30px; font-weight:800; margin-top:4px; font-variant-numeric:tabular-nums; }
+  .card-pct { color:var(--tx-3); font-size:12.5px; margin-top:2px; }
+
+  .section-label { font-size:16px; font-weight:800; color:var(--tx-1); margin:26px 0 10px;
+    padding-top:14px; border-top:1px solid var(--line); display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; }
+  .section-label small { color:var(--tx-5); font-weight:600; font-size:12.5px; }
+  .vazio { color:var(--tx-5); font-size:13.5px; padding:6px 0; }
+  .nota { color:var(--tx-3); font-size:13px; margin:0 0 8px; }
+  .nota.perto { color:var(--farol-perto); font-weight:700; }
+
+  /* esperando confirmação */
+  .esperando { display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:10px; }
+  .esp { background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:10px 13px; }
+  .esp.perto { border-color:var(--farol-perto); } .esp.fora { border-color:var(--farol-fora); border-width:2px; }
+  .esp-num { font-size:18px; font-weight:800; }
+  .esp-loja { color:var(--tx-3); font-size:12.5px; margin-top:1px; }
+  .esp .esp-tempo { font-size:22px; font-weight:800; margin-top:4px; font-variant-numeric:tabular-nums; }
+  .esp.perto .esp-tempo { color:var(--farol-perto); } .esp.fora .esp-tempo { color:var(--farol-fora); }
+  .esp-sub { color:var(--tx-5); font-size:11.5px; }
+
+  /* tabelas (grade padrão do painel) */
+  .tabela { overflow-x:auto; border:1px solid var(--line); border-radius:10px; }
+  table { border-collapse:collapse; width:100%; font-size:13px; }
+  th, td { padding:7px 10px; border-bottom:1px solid var(--line); text-align:left; white-space:nowrap; }
+  th { background:var(--surface-2); color:var(--tx-3); font-size:11.5px; text-transform:uppercase; letter-spacing:.3px; }
+  tbody tr:nth-child(even) { background:var(--zebra); }
+  tbody tr:last-child td { border-bottom:none; }
+  td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; }
+  td.quebra { white-space:normal; min-width:180px; }
+  tr.clica { cursor:pointer; } tr.clica:hover td { background:var(--surface-2); }
+  tr.escolhida td { background:var(--surface-2); box-shadow:inset 0 0 0 0 transparent; }
+  tr.escolhida td:first-child { box-shadow:inset 3px 0 0 var(--marca-amarelo); }
+  .sit { font-weight:700; }
+  .sit.esperando { color:var(--farol-perto); } .sit.cancelado { color:var(--farol-fora); }
+  .sit.ok { color:var(--farol-ok); } .sit.andamento { color:var(--tx-1); }
+  .sim { color:var(--farol-ok); font-weight:700; } .nao { color:var(--tx-4); }
+  .filtro-chip { display:inline-flex; align-items:center; gap:6px; background:var(--surface-2); border:1px solid var(--marca-amarelo);
+    color:var(--tx-1); border-radius:999px; padding:3px 10px; font-size:12px; font-weight:700; cursor:pointer; }
+  footer { color:var(--tx-5); font-size:12px; margin-top:26px; }
+
+  /* login (igual ao painel) */
+  .login-gate { position:fixed; inset:0; z-index:100; display:flex; align-items:center; justify-content:center; padding:20px;
+    background:linear-gradient(135deg,var(--marca-amarelo) 0%,var(--marca-laranja) 55%,var(--marca-laranja-q) 100%); }
+  .login-box { background:var(--marca-creme); border:2px solid var(--bg); border-radius:16px; padding:30px 26px; text-align:center;
+    max-width:340px; width:100%; box-shadow:6px 6px 0 color-mix(in srgb, var(--bg) 35%, transparent); }
+  .login-box img { height:80px; width:auto; margin-bottom:8px; }
+  .login-box h2 { color:var(--bg); font-size:18px; font-weight:800; margin:0 0 6px; }
+  .login-box p { color:var(--tx-6); font-size:12.5px; margin:0 0 16px; }
+  .login-box input { width:100%; background:var(--tx-1); border:1px solid var(--bg); color:var(--bg); border-radius:10px;
+    padding:12px 14px; font-size:14px; margin-bottom:12px; outline:none; text-align:center; font-family:inherit; }
+  .login-box button { width:100%; background:var(--bg); border:none; color:var(--marca-amarelo); font-size:14px; font-weight:800;
+    padding:12px; border-radius:10px; cursor:pointer; font-family:inherit; }
+  .login-erro { color:var(--brand); font-size:12.5px; margin-top:10px; }
+</style>
+</head>
+<body>
+
+<div id="loginGate" class="login-gate" hidden>
+  <div class="login-box">
+    <img src="logo-preta.png" alt="Cidadão do Mundo" onerror="this.style.display='none'">
+    <h2>PEDIDOS AO VIVO</h2>
+    <p id="loginAjuda">Entre com o e-mail e a senha da loja.</p>
+    <input type="email" id="loginEmail" placeholder="seu e-mail" autocomplete="username">
+    <input type="password" id="loginSenha" placeholder="Senha" autocomplete="current-password">
+    <button id="loginBtn" onclick="entrar()">Entrar</button>
+    <div id="loginErro" class="login-erro" hidden></div>
+  </div>
+</div>
+
+<main id="app" hidden>
+  <header class="topo">
+    <div class="marca"><b>Pedidos ao vivo</b><span>iFood · Cidadão do Mundo</span></div>
+    <div class="relogio" id="relogio">--:--</div>
+    <span class="chip" id="statusVigia"><span class="ponto"></span><span id="statusTexto">lendo…</span></span>
+    <button class="btn" id="btnSom" onpointerdown="tocouBotaoSom()" onclick="cliqueBotaoSom()">Som</button>
+    <button class="btn" onclick="sair()">Sair</button>
+  </header>
+
+  <button id="faixaSom" class="faixa-som" hidden onclick="ligarSomAgora()"></button>
+  <div id="notaMudo" class="nota-mudo" hidden>Som do aviso desligado nestes primeiros dias (período de teste). A tela avisa, mas não toca.</div>
+
+  <div id="faixaTeste" class="faixa-teste" hidden>MODO TESTE — loja de teste do iFood. Não são pedidos de verdade.</div>
+
+  <nav class="unidades" id="unidades"></nav>
+
+  <section id="aviso" class="aviso" hidden>
+    <div class="aviso-titulo" id="avisoTitulo"></div>
+    <div class="aviso-texto" id="avisoTexto"></div>
+    <div class="aviso-acao" id="avisoAcao"></div>
+    <div class="aviso-rodape">
+      <button class="btn-ouvi" id="btnOuvi" onclick="ouvi()">Ouvi — parar o som</button>
+      <span class="aviso-calado" id="avisoCalado" hidden>Som parado. Volta a tocar se outro pedido parar.</span>
+    </div>
+  </section>
+
+  <section id="foraDoAr" class="fora" hidden></section>
+
+  <div class="cards" id="cards"></div>
+
+  <h2 class="section-label">Esperando confirmação <small id="espLegenda"></small></h2>
+  <div id="notaAtencao" class="nota perto" hidden></div>
+  <div id="listaEsperando" class="esperando"></div>
+
+  <h2 class="section-label">Por loja <small>clique numa loja para ver só os pedidos dela</small></h2>
+  <div class="tabela" id="tabelaLojas"></div>
+
+  <h2 class="section-label">Cancelamentos de hoje</h2>
+  <div class="tabela" id="tabelaCancelados"></div>
+
+  <h2 class="section-label">Pedidos de hoje <span id="chipLoja"></span></h2>
+  <div class="tabela" id="tabelaPedidos"></div>
+
+  <footer id="rodape"></footer>
+</main>
+
+<script>
+// ------------------------------------------------------------------ conexão (a mesma do painel)
+const SUPABASE_URL = "https://rtmgzsikwglsvpopbfbw.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ0bWd6c2lrd2dsc3Zwb3BiZmJ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU4NDgwMjcsImV4cCI6MjEwMTQyNDAyN30.-vwbQkcuAbbonmBVCeUWXjTg54uB5MNN94QmMlBxTA4";
+const AMBIENTE = new URLSearchParams(location.search).get('teste') === '1' ? 'sandbox' : 'producao';
+const LER_A_CADA_MS = 20000;
+const PULSO_VELHO_S = 120;        // vigia sem pulso há mais que isto = fora do ar
+const SEM_IFOOD_S = 90;           // vigia sem polling OK há mais que isto = cego (o vigia marca aos 60)
+const SEM_INTERNET_S = 45;        // leituras desta tela falhando há mais que isto = tela sem internet
+const SIRENE_A_CADA_S = 6;        // ALARME (Saipos pode ter caído)
+const LEMBRETE_A_CADA_S = 15;     // CONFIRMAR (1 pedido > 5 min)
+const FALHA_A_CADA_S = 90;        // o aviso não está funcionando (bip grave)
+const CHAVE_SESSAO = 'pedidosAoVivoSessao';
+
+const UNIDADE_NOME = { 'AGUA VERDE': 'Água Verde', 'AHU': 'Ahú', 'BOQUEIRAO': 'Boqueirão',
+                       'SÃO BRAZ': 'São Braz', 'SAO BRAZ': 'São Braz', 'LOJA DE TESTE': 'Loja de teste' };
+const ORDEM_UNIDADE = ['AGUA VERDE', 'AHU', 'BOQUEIRAO', 'SÃO BRAZ', 'LOJA DE TESTE'];
+const SITUACAO = { PLACED: 'Esperando confirmar', CONFIRMED: 'Confirmado', PREPARATION_STARTED: 'Em preparo',
+                   SEPARATION_STARTED: 'Separando', SEPARATION_ENDED: 'Separado', READY_TO_PICKUP: 'Pronto',
+                   DISPATCHED: 'Saiu para entrega', CONCLUDED: 'Concluído', CANCELLED: 'Cancelado' };
+const QUEM_CANCELOU = { RESTAURANT: 'A loja', MERCHANT: 'A loja', SCHEDULER: 'iFood (ninguém confirmou)',
+                        CONSUMER: 'O cliente', CUSTOMER: 'O cliente', IFOOD: 'iFood', LOGISTIC: 'Entrega do iFood',
+                        LOGISTICS: 'Entrega do iFood' };
+const ETAPA = { PRE_CONFIRMED: 'Antes de confirmar', PREPARATION_TIME: 'No preparo', PREPARATION: 'No preparo',
+                READY_TO_PICKUP: 'Pronto', DISPATCHED: 'Na entrega', DELIVERY: 'Na entrega' };
+
+const S = { pulso: null, pedidos: [], lidoEm: 0, erro: null, erroDesde: 0, primeiraLeitura: false,
+            unidade: lerLocal('pedidosAoVivoUnidade') || 'TODAS', loja: null,
+            silenciados: new Set(), ultimoSom: 0, ultimaFalha: 0, falhaCalada: null,
+            naLogin: false, jaEntrou: false, notificados: new Set() };
+
+function lerLocal(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+function gravarLocal(k, v) { try { v === null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) {} }
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function nomeUnidade(u) { return UNIDADE_NOME[u] || u || '?'; }
+function horaBR(iso) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' });
+}
+function duracao(seg) {
+  if (seg == null) return '—';
+  seg = Math.max(0, Math.round(seg));
+  if (seg < 60) return seg + ' s';
+  const m = Math.floor(seg / 60), s = seg % 60;
+  return m < 60 ? m + ' min' + (s ? ' ' + s + ' s' : '') : Math.floor(m / 60) + ' h ' + (m % 60) + ' min';
+}
+function relogioTexto(seg) { seg = Math.max(0, Math.floor(seg)); return Math.floor(seg / 60) + ':' + String(seg % 60).padStart(2, '0'); }
+function decorrido() { return S.lidoEm ? (Date.now() - S.lidoEm) / 1000 : 0; }
+
+// ------------------------------------------------------------------ sessão (chave PRÓPRIA desta tela)
+// Não é a 'rmbSessao' do painel (conferência de 30/09): quem entrou no painel neste Chrome NÃO
+// entra aqui sem senha, e o que se faz aqui não mexe na sessão do painel. No computador da loja,
+// a conta é a da loja — nunca a do dono. Ver rotinas/VIGIA-PEDIDOS-IFOOD.md.
+function sessao() { try { return JSON.parse(lerLocal(CHAVE_SESSAO) || 'null'); } catch (e) { return null; } }
+function guardarSessao(d, email) {
+  gravarLocal(CHAVE_SESSAO, JSON.stringify({ access_token: d.access_token, refresh_token: d.refresh_token,
+    email: (d.user && d.user.email) || email, expira_em: Date.now() + ((d.expires_in || 3600) * 1000) }));
+}
+let RENOVANDO = null;
+// -> 'ok' | 'recusada' (o servidor disse não: precisa da senha) | 'falhou' (rede ou 5xx: tenta
+// de novo na próxima leitura, SEM deslogar — antes uma queda de rede na hora da renovação levava
+// a tela para o login e apagava um refresh_token que ainda valia)
+async function renovar() {                       // uma renovação por vez: o refresh_token é de uso único
+  if (RENOVANDO) return RENOVANDO;
+  RENOVANDO = (async () => {
+    const s = sessao();
+    if (!s || !s.refresh_token) return 'recusada';
+    let r;
+    try {
+      r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, { method: 'POST',
+        headers: { apikey: SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: s.refresh_token }) });
+    } catch (e) { return 'falhou'; }
+    let d = {};
+    try { d = await r.json(); } catch (e) {}
+    if (r.ok && d.access_token) { guardarSessao(d, s.email); return 'ok'; }
+    if (r.status === 400 || r.status === 401) { gravarLocal(CHAVE_SESSAO, null); return 'recusada'; }
+    return 'falhou';
+  })();
+  try { return await RENOVANDO; } finally { RENOVANDO = null; }
+}
+async function garantirToken() {                 // a tela fica aberta o dia todo: renova antes de vencer
+  const s = sessao();
+  if (s && s.expira_em && Date.now() > s.expira_em - 5 * 60000) await renovar();
+}
+function cabecalho() {
+  const s = sessao();
+  return { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${(s && s.access_token) || SUPABASE_ANON_KEY}` };
+}
+async function ler(caminho) {
+  await garantirToken();
+  const url = `${SUPABASE_URL}/rest/v1/${caminho}`;
+  let r = await fetch(url, { headers: cabecalho() });
+  if (r.status === 401) {
+    const ren = await renovar();
+    if (ren === 'falhou') throw new Error('sem conexão para renovar a sessão');   // não desloga
+    if (ren === 'ok') r = await fetch(url, { headers: cabecalho() });
+    if (ren === 'recusada' || r.status === 401) {
+      pedirLogin('Sua sessão venceu. Entre de novo.'); throw new Error('sessão vencida');
+    }
+  }
+  if (!r.ok) throw new Error(`erro ${r.status} ao ler ${caminho.split('?')[0]}`);
+  return r.json();
+}
+
+function pedirLogin(recado) {
+  gravarLocal(CHAVE_SESSAO, null);
+  S.naLogin = true;
+  document.getElementById('app').hidden = true;
+  document.getElementById('loginGate').hidden = false;
+  const e = document.getElementById('loginErro');
+  e.textContent = recado || ''; e.hidden = !recado;
+  mudarIcone(S.jaEntrou ? 'falha' : null);
+  document.title = S.jaEntrou ? '⚠ AVISO DESLIGADO — entre de novo' : 'Pedidos ao vivo';
+}
+async function entrar() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const senha = document.getElementById('loginSenha').value;
+  const erro = document.getElementById('loginErro'), btn = document.getElementById('loginBtn');
+  if (!email || !senha) { erro.textContent = 'Preencha e-mail e senha.'; erro.hidden = false; return; }
+  btn.disabled = true; btn.textContent = 'Entrando...';
+  try {
+    const r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, { method: 'POST',
+      headers: { apikey: SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password: senha }) });
+    const d = await r.json();
+    if (!r.ok || !d.access_token) {
+      erro.textContent = (d.error_description || d.msg || 'E-mail ou senha errados.') + ' Se não tem conta, peça ao Neto.';
+      erro.hidden = false; document.getElementById('loginSenha').value = ''; return;
+    }
+    guardarSessao(d, email);
+    document.getElementById('loginGate').hidden = true;
+    destravarAudio();                              // o clique em "Entrar" já libera o som
+    iniciar();
+  } catch (e) {
+    erro.textContent = 'Não consegui falar com o servidor: ' + e.message; erro.hidden = false;
+  } finally { btn.disabled = false; btn.textContent = 'Entrar'; }
+}
+['loginEmail', 'loginSenha'].forEach(id => document.getElementById(id)
+  .addEventListener('keydown', e => { if (e.key === 'Enter') entrar(); }));
+function sair() { gravarLocal(CHAVE_SESSAO, null); location.reload(); }
+
+// ------------------------------------------------------------------ som
+// Três sons, cada um com um sentido:
+//   sirene   ALARME — 2+ pedidos parados na unidade: o Saipos pode ter caído (a cada 6 s)
+//   lembrete CONFIRMAR — 1 pedido há mais de 5 min: confirme no Gestor (2 toques suaves a cada 15 s)
+//   falha    o aviso NÃO está funcionando: tela sem internet, vigia parado, sem iFood, tela caída
+//            no login (1 toque grave a cada 90 s)
+// O botão de som só DESLIGA quando a pessoa viu "Som ligado" ao apertar. A conferência de 30/09
+// mostrou a corrida: o clique que devia LIGAR (botão "Clique para ligar") encontrava o som já
+// liberado pelo próprio toque e gravava 'off' — calando o aviso, inclusive depois de recarregar.
+let AUDIO = null;
+let ESTADO_NO_TOQUE = null;
+function somQuerido() { return lerLocal('pedidosAoVivoSom') !== 'off'; }
+function somLiberado() { return !!AUDIO && AUDIO.state === 'running'; }
+function somAtivo() { return somQuerido() && somLiberado(); }
+function estadoSom() { return !somQuerido() ? 'desligado' : (somLiberado() ? 'ligado' : 'bloqueado'); }
+function mudoPeloNeto() { return !!(S.pulso && S.pulso.regra && S.pulso.regra.som === false); }
+function destravarAudio() {
+  let p = Promise.resolve();
+  try {
+    if (!AUDIO) { AUDIO = new (window.AudioContext || window.webkitAudioContext)(); AUDIO.onstatechange = desenharSom; }
+    if (AUDIO.state === 'suspended') p = AUDIO.resume().catch(() => {});
+  } catch (e) { AUDIO = null; }
+  p.then(desenharSom);
+  desenharSom();
+  return p;
+}
+function ligarSomAgora() {                       // escolha explícita de ligar: nunca desliga
+  gravarLocal('pedidosAoVivoSom', null);
+  destravarAudio().then(() => tocar('lembrete'));
+}
+function tocouBotaoSom() { ESTADO_NO_TOQUE = document.getElementById('btnSom').dataset.estado || estadoSom(); }
+function cliqueBotaoSom() {
+  const viu = ESTADO_NO_TOQUE || document.getElementById('btnSom').dataset.estado || estadoSom();
+  ESTADO_NO_TOQUE = null;
+  if (viu === 'ligado') gravarLocal('pedidosAoVivoSom', 'off');   // só quem VIU "Som ligado" desliga
+  else ligarSomAgora();
+  desenharSom();
+}
+function desenharSom() {
+  const b = document.getElementById('btnSom'), est = estadoSom();
+  b.dataset.estado = est;
+  b.textContent = est === 'desligado' ? '🔇 Som desligado' : est === 'bloqueado' ? '🔈 Clique para ligar o som' : '🔊 Som ligado';
+  b.className = est === 'ligado' ? 'btn' : 'btn chama';
+  const mudo = mudoPeloNeto(), f = document.getElementById('faixaSom');
+  document.getElementById('notaMudo').hidden = !mudo;
+  f.hidden = est === 'ligado' || mudo;
+  f.textContent = est === 'desligado' ? '🔇 SOM DESLIGADO — clique aqui para ligar o som do aviso'
+                                      : '🔈 O SOM DO AVISO AINDA NÃO ESTÁ LIGADO — clique aqui uma vez';
+}
+function tom(freq, tipo, ini, dur, vol) {
+  const o = AUDIO.createOscillator(), g = AUDIO.createGain(), t = AUDIO.currentTime + 0.02 + ini;
+  o.type = tipo; o.frequency.value = freq;
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(vol, t + 0.02);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g).connect(AUDIO.destination); o.start(t); o.stop(t + dur + 0.02);
+}
+function tocar(qual) {
+  if (!somAtivo()) return;
+  try {
+    if (qual === 'sirene') for (let i = 0; i < 3; i++) tom(i % 2 ? 660 : 880, 'square', i * 0.4, 0.3, 0.35);
+    else if (qual === 'lembrete') { tom(620, 'sine', 0, 0.25, 0.35); tom(620, 'sine', 0.35, 0.25, 0.35); }
+    else tom(330, 'triangle', 0, 0.6, 0.4);
+  } catch (e) {}
+}
+// o Chrome só deixa tocar som depois de um gesto na página: qualquer clique/tecla libera — menos
+// o botão de som, que decide sozinho pelo que a pessoa viu (ver cliqueBotaoSom)
+['pointerdown', 'keydown'].forEach(tipo => document.addEventListener(tipo, e => {
+  if (e.target && e.target.closest && e.target.closest('#btnSom')) return;
+  if (somQuerido() && !somLiberado()) destravarAudio();
+}, { capture: true }));
+
+// ------------------------------------------------------------------ ícone e aviso do Windows
+// Aba fixada só mostra o ícone: no aviso ele fica vermelho (e o título muda). Melhor ainda: a tela
+// numa janela própria, visível (ver o guia).
+const ICONE_NORMAL = (document.querySelector('link[rel="icon"]') || {}).href || 'icon-192.png';
+const ICONES = {};
+function mudarIcone(tipo) {
+  const link = document.querySelector('link[rel="icon"]');
+  if (!link) return;
+  if (!tipo) { if (link.href !== ICONE_NORMAL) link.href = ICONE_NORMAL; return; }
+  if (!ICONES[tipo]) {
+    try {
+      const cor = getComputedStyle(document.documentElement)
+        .getPropertyValue(tipo === 'alarme' ? '--farol-fora' : '--farol-perto').trim();
+      const c = document.createElement('canvas'); c.width = c.height = 64;
+      const x = c.getContext('2d');
+      x.fillStyle = cor; x.beginPath(); x.arc(32, 32, 30, 0, 2 * Math.PI); x.fill();
+      x.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+      x.font = 'bold 44px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('!', 32, 35);
+      ICONES[tipo] = c.toDataURL('image/png');
+    } catch (e) { return; }
+  }
+  if (link.href !== ICONES[tipo]) link.href = ICONES[tipo];
+}
+function podeNotificar() { return 'Notification' in window && window.isSecureContext; }
+function pedirNotificacao() {
+  if (!podeNotificar()) return;
+  Notification.requestPermission().then(desenharRodape, desenharRodape);
+}
+function notificar(chave, titulo, texto) {
+  if (!podeNotificar() || Notification.permission !== 'granted' || mudoPeloNeto() || S.notificados.has(chave)) return;
+  S.notificados.add(chave);
+  try { new Notification(titulo, { body: texto, tag: 'pedidos-ao-vivo', requireInteraction: true }); } catch (e) {}
+}
+
+// ------------------------------------------------------------------ leitura
+async function atualizar() {
+  if (S.naLogin) return;                         // na tela de login não há o que ler
+  try {
+    const [pulsos, pedidos] = await Promise.all([
+      ler(`vw_vigia_pulso?ambiente=eq.${AMBIENTE}&select=*`),
+      ler(`vw_pedidos_ao_vivo?ambiente=eq.${AMBIENTE}&select=*&order=criado_em.desc&limit=2000`),
+    ]);
+    S.pulso = pulsos[0] || null; S.pedidos = pedidos; S.lidoEm = Date.now(); S.erro = null; S.erroDesde = 0;
+    S.primeiraLeitura = true;
+  } catch (e) {
+    if (e.message !== 'sessão vencida') { S.erro = e.message; S.erroDesde = S.erroDesde || Date.now(); }
+  }
+  if (!S.naLogin) desenhar();
+}
+
+// ------------------------------------------------------------------ estado derivado
+// tipo: NO_AR | SEM_IFOOD (vigia de pé, iFood sem responder) | PARADO (vigia sem pulso) |
+//       DESLIGADO | NUNCA | SEM_INTERNET (ESTA tela não lê o banco — não é culpa do vigia:
+//       antes a idade do pulso crescia com o tempo sem ler e a tela culpava o vigia)
+function estado() {
+  if (S.erro && (!S.primeiraLeitura || (Date.now() - S.erroDesde) / 1000 > SEM_INTERNET_S))
+    return { tipo: 'SEM_INTERNET', seg: (Date.now() - (S.erroDesde || Date.now())) / 1000 };
+  const p = S.pulso, d = decorrido();
+  if (!p) return { tipo: 'NUNCA' };
+  const semPulso = (p.segundos_sem_pulso || 0) + d;
+  if (p.desligado_em) return { tipo: 'DESLIGADO', semPulso };
+  if (semPulso > PULSO_VELHO_S) return { tipo: 'PARADO', semPulso };
+  const semIfood = p.segundos_sem_ifood == null ? null : p.segundos_sem_ifood + d;
+  if (p.aviso_nivel === 'SEM_IFOOD' || semIfood == null || semIfood > SEM_IFOOD_S)
+    return { tipo: 'SEM_IFOOD', semPulso, semIfood };
+  return { tipo: 'NO_AR', semPulso, semIfood };
+}
+function naUnidade(u) { return S.unidade === 'TODAS' || u === S.unidade; }
+function pedidosFiltrados() { return S.pedidos.filter(p => naUnidade(p.unidade)); }
+function nivelDo(x) { return x.aviso || (x.alarme ? 'ALARME' : 'ATENCAO'); }
+// pedidos do aviso num nível (ALARME ou CONFIRMAR), só da unidade escolhida e só com o vigia no ar
+function avisos(nivel) {
+  const p = S.pulso;
+  if (!p || estado().tipo !== 'NO_AR') return [];
+  return (p.aviso_pedidos || []).filter(x => nivelDo(x) === nivel && naUnidade(x.unidade));
+}
+function chaveSom(x) { return x.id + ':' + nivelDo(x); }       // subir de nível toca de novo
+function situacaoDe(p) {
+  if (p.cancel_situacao === 'CANCELADO' || p.situacao === 'CANCELLED') return ['Cancelado', 'cancelado'];
+  let t = SITUACAO[p.situacao] || p.situacao || '—';
+  if (p.segundos_esperando != null) return [t, 'esperando'];
+  const cls = p.situacao === 'CONCLUDED' ? 'ok' : 'andamento';
+  if (p.cancel_situacao === 'EM_ANALISE') t += ' · cancelamento pedido';
+  if (p.cancel_situacao === 'NEGADO') t += ' · cancelamento negado';
+  if (p.negociacao) t += ' · negociação ' + (p.negociacao.startsWith('ABERTA') ? 'aberta' : 'encerrada');
+  return [t, cls];
+}
+// média simples, nunca mediana (regra do dono para tela de operador, 13/08/2026: "palavra que
+// precisa de legenda é palavra errada")
+function media(xs) {
+  const v = xs.filter(x => x != null);
+  return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null;
+}
+
+// ------------------------------------------------------------------ desenho
+function desenhar() {
+  document.getElementById('faixaTeste').hidden = AMBIENTE !== 'sandbox';
+  desenharStatus(); desenharUnidades(); desenharAviso(); desenharCards();
+  desenharEsperando(); desenharLojas(); desenharCancelados(); desenharPedidos(); desenharRodape(); desenharSom();
+}
+
+function desenharStatus() {
+  const chip = document.getElementById('statusVigia'), t = document.getElementById('statusTexto');
+  const v = estado();
+  if (v.tipo === 'SEM_INTERNET') { chip.className = 'chip fora'; t.textContent = 'Esta tela está sem internet'; }
+  else if (v.tipo === 'NO_AR') { chip.className = 'chip ok'; t.textContent = 'Aviso ligado · iFood conferido há ' + duracao(v.semIfood); }
+  else if (v.tipo === 'SEM_IFOOD') { chip.className = 'chip perto'; t.textContent = 'Aviso sem resposta do iFood' + (v.semIfood != null ? ' há ' + duracao(v.semIfood) : ''); }
+  else { chip.className = 'chip fora'; t.textContent = 'Aviso desligado'; }
+  if (S.erro && v.tipo !== 'SEM_INTERNET') t.textContent += ' · leitura falhou, tentando de novo';
+}
+
+function desenharUnidades() {
+  const cont = {};
+  S.pedidos.forEach(p => { cont[p.unidade] = (cont[p.unidade] || 0) + 1; });
+  const us = Object.keys(cont).sort((a, b) => ORDEM_UNIDADE.indexOf(a) - ORDEM_UNIDADE.indexOf(b));
+  if (S.unidade !== 'TODAS' && !us.includes(S.unidade)) us.push(S.unidade);
+  const botoes = [['TODAS', 'Todas as unidades', S.pedidos.length]].concat(us.map(u => [u, nomeUnidade(u), cont[u] || 0]));
+  document.getElementById('unidades').innerHTML = botoes.map(([u, nome, n]) =>
+    `<button class="${S.unidade === u ? 'active' : ''}" onclick="escolherUnidade('${esc(u)}')">${esc(nome)}<span class="n">${n}</span></button>`).join('');
+}
+function escolherUnidade(u) { S.unidade = u; S.loja = null; gravarLocal('pedidosAoVivoUnidade', u === 'TODAS' ? null : u); desenhar(); }
+
+function nomePedido(x) { return x.numero ? '#' + x.numero : 'da ' + x.loja; }
+function desenharAviso() {
+  const v = estado(), box = document.getElementById('aviso'), fora = document.getElementById('foraDoAr');
+  const alarme = avisos('ALARME'), lembrete = avisos('CONFIRMAR');
+  // idade do pulso + tempo desde a leitura: o "há X min" bate com o cartão do pedido
+  const d = S.pulso ? (S.pulso.segundos_sem_pulso || 0) + decorrido() : 0;
+  if (!alarme.length && !lembrete.length) box.hidden = true;
+  else {
+    const linhas = [];
+    const porUnidade = {};
+    alarme.forEach(x => { (porUnidade[x.unidade] = porUnidade[x.unidade] || []).push(x); });
+    Object.keys(porUnidade).forEach(u => {
+      const xs = porUnidade[u].sort((a, b) => b.segundos - a.segundos);
+      const lojas = [...new Set(xs.map(x => x.loja))].join(', ');
+      linhas.push(`${esc(nomeUnidade(u))}: ${xs.length} pedidos sem confirmar — o mais antigo há ` +
+                  `${duracao(xs[0].segundos + d)} (${esc(lojas)})`);
+    });
+    lembrete.forEach(x => linhas.push(`Pedido ${esc(nomePedido(x))} (${esc(x.loja)}) sem confirmar há ` +
+                                      `${duracao(x.segundos + d)}`));
+    document.getElementById('avisoTexto').innerHTML = linhas.join('<br>');
+    const grave = alarme.length > 0;
+    box.classList.toggle('lembrete', !grave);
+    document.getElementById('avisoTitulo').textContent = grave
+      ? '⚠ PEDIDOS PARADOS — o Saipos pode ter caído'
+      : '⏱ CONFIRME ' + (lembrete.length > 1 ? 'ESTES PEDIDOS' : 'ESTE PEDIDO') + ' NO GESTOR DO iFOOD';
+    document.getElementById('avisoAcao').innerHTML = grave
+      ? '<b>O que fazer:</b> abra o Gestor de Pedidos do iFood e confirme/imprima os pedidos. Confira se o Saipos está imprimindo.'
+      : '<b>O que fazer:</b> confirme no Gestor de Pedidos do iFood. O iFood cancela sozinho perto de 8 minutos.';
+    const todos = alarme.concat(lembrete);
+    const calado = todos.every(x => S.silenciados.has(chaveSom(x)));
+    box.classList.toggle('calado', calado);
+    document.getElementById('avisoCalado').hidden = !calado;
+    document.getElementById('btnOuvi').hidden = calado;
+    box.hidden = false;
+    todos.forEach(x => notificar(chaveSom(x), grave ? 'PEDIDOS PARADOS — o Saipos pode ter caído' : 'Confirme o pedido no Gestor do iFood',
+                                 `${nomePedido(x)} (${x.loja}) sem confirmar há ${duracao(x.segundos + d)}`));
+  }
+  // faixa "o aviso não está funcionando" — cada caso com o que fazer
+  const onde = 'Se o Saipos parar de imprimir, abra o Gestor de Pedidos do iFood.';
+  let html = '', grave = true;
+  if (v.tipo === 'SEM_INTERNET') html = `<b>Esta tela está sem internet há ${duracao(v.seg)}.</b> Os pedidos e o aviso não chegam aqui. Confira a internet deste computador. ${onde}`;
+  else if (v.tipo === 'PARADO') html = `<b>O aviso de pedidos parados está desligado há ${duracao(v.semPulso)}</b> (o programa no computador das rotinas parou). ${onde} Avise o Neto.`;
+  else if (v.tipo === 'DESLIGADO') html = `<b>O aviso de pedidos parados foi desligado às ${horaBR(S.pulso.desligado_em)}.</b> ${onde} Avise o Neto.`;
+  else if (v.tipo === 'NUNCA') html = `<b>O aviso de pedidos parados ainda não foi ligado.</b> ${onde}`;
+  else if (v.tipo === 'SEM_IFOOD') html = `<b>O aviso não consegue falar com o iFood${v.semIfood != null ? ' há ' + duracao(v.semIfood) : ''}.</b> Pedidos parados NÃO serão avisados agora. ${onde} Avise o Neto.`;
+  else if (S.pulso && (S.pulso.lojas_sem_permissao || []).length) {
+    const n = S.pulso.lojas_sem_permissao.length;
+    html = `<b>${n} loja${n > 1 ? 's estão' : ' está'} sem aviso</b> (falta permissão no iFood). Nas outras o aviso funciona. Avise o Neto.`;
+    grave = false;
+  }
+  fora.hidden = !html;
+  fora.classList.toggle('grave', grave);
+  if (html) {
+    const podeCalar = v.tipo !== 'NO_AR' && S.falhaCalada !== v.tipo && somAtivo() && !mudoPeloNeto();
+    fora.innerHTML = html + (podeCalar ? ' <button class="btn" onclick="calarFalha()">Ouvi — parar o bip</button>' : '');
+  }
+  // título e ícone da aba (aba fixada só mostra o ícone)
+  if (alarme.length) { document.title = '⚠ PEDIDOS PARADOS'; mudarIcone('alarme'); }
+  else if (lembrete.length) { document.title = '⏱ CONFIRMAR PEDIDO'; mudarIcone('lembrete'); }
+  else if (v.tipo !== 'NO_AR') { document.title = '⚠ AVISO SEM FUNCIONAR'; mudarIcone('falha'); }
+  else { document.title = 'Pedidos ao vivo'; mudarIcone(null); }
+}
+function ouvi() { avisos('ALARME').concat(avisos('CONFIRMAR')).forEach(x => S.silenciados.add(chaveSom(x))); desenharAviso(); }
+function calarFalha() { S.falhaCalada = estado().tipo; desenharAviso(); }
+
+function desenharCards() {
+  const ps = pedidosFiltrados(), d = decorrido();
+  const canc = ps.filter(p => situacaoDe(p)[1] === 'cancelado').length;
+  const esp = ps.filter(p => p.segundos_esperando != null);
+  const parados = esp.filter(p => p.segundos_esperando + d >= 180).length;
+  const conf = ps.map(p => p.segundos_ate_confirmar).filter(x => x != null);
+  const med = media(conf), lentos = conf.filter(x => x > 60).length;
+  document.getElementById('cards').innerHTML = [
+    ['', 'Pedidos hoje', ps.length, 'desde as 05:00'],
+    [parados ? 'perto' : '', 'Esperando confirmar', esp.length, parados ? parados + ' há mais de 3 min' : 'agora'],
+    [canc ? 'neg' : '', 'Cancelados hoje', canc, ps.length ? Math.round(100 * canc / ps.length) + '% dos pedidos' : ''],
+    [lentos ? 'perto' : '', 'Tempo até confirmar', duracao(med),
+     'média de hoje' + (lentos ? ' · ' + lentos + (lentos > 1 ? ' passaram' : ' passou') + ' de 1 min' : '')],
+  ].map(([c, l, v, s]) => `<div class="card ${c}"><div class="card-lbl">${l}</div><div class="card-val">${esc(v)}</div><div class="card-pct">${esc(s)}</div></div>`).join('');
+}
+
+function desenharEsperando() {
+  const d = decorrido(), v = estado(), r = (S.pulso && S.pulso.regra) || {};
+  const lim = (r.minutos_parado || 3) * 60, max = (r.minutos_qualquer || 5) * 60;
+  const esp = pedidosFiltrados().filter(p => p.segundos_esperando != null)
+    .sort((a, b) => b.segundos_esperando - a.segundos_esperando);
+  document.getElementById('espLegenda').textContent = v.tipo === 'NO_AR' ? '' : 'o aviso não está funcionando: estes tempos podem estar errados';
+  const atencao = v.tipo === 'NO_AR' && !avisos('ALARME').length && !avisos('CONFIRMAR').length &&
+    (S.pulso.aviso_pedidos || []).some(x => nivelDo(x) === 'ATENCAO' && naUnidade(x.unidade));
+  const nota = document.getElementById('notaAtencao');
+  nota.hidden = !atencao;
+  nota.textContent = 'Pedido esperando há mais de 3 min. Acontece algumas vezes por dia; se aparecer outro, confira o Saipos.';
+  document.getElementById('listaEsperando').innerHTML = esp.length ? esp.map(p => {
+    const s = p.segundos_esperando + d, c = s >= max ? 'fora' : (s >= lim ? 'perto' : '');
+    return `<div class="esp ${c}"><div class="esp-num">#${esc(p.numero || '—')}</div>` +
+      `<div class="esp-loja">${esc(p.loja)} · ${esc(nomeUnidade(p.unidade))}</div>` +
+      `<div class="esp-tempo" data-base="${p.segundos_esperando}">${relogioTexto(s)}</div>` +
+      `<div class="esp-sub">chegou ${horaBR(p.criado_em)}${p.agendado ? ' · agendado' : ''}` +
+      `${p.detalhe_status != null && p.detalhe_status !== 200 ? ' · sem detalhe do iFood' : ''}</div></div>`;
+  }).join('') : '<div class="vazio">Nenhum pedido esperando confirmação.</div>';
+}
+
+function desenharLojas() {
+  const porLoja = {};
+  pedidosFiltrados().forEach(p => {
+    const k = p.id_loja;
+    const L = porLoja[k] = porLoja[k] || { id: k, loja: p.loja, unidade: p.unidade, n: 0, and: 0, esp: 0, canc: 0, conf: [] };
+    const cls = situacaoDe(p)[1];
+    L.n++; if (cls === 'andamento') L.and++; if (cls === 'esperando') L.esp++; if (cls === 'cancelado') L.canc++;
+    L.conf.push(p.segundos_ate_confirmar);
+  });
+  const linhas = Object.values(porLoja).sort((a, b) =>
+    ORDEM_UNIDADE.indexOf(a.unidade) - ORDEM_UNIDADE.indexOf(b.unidade) || b.n - a.n);
+  document.getElementById('tabelaLojas').innerHTML = linhas.length ? `<table><thead><tr><th>Loja</th><th>Unidade</th>
+    <th class="num">Pedidos</th><th class="num">Em andamento</th><th class="num">Esperando</th><th class="num">Cancelados</th>
+    <th class="num">Tempo até confirmar (média)</th></tr></thead><tbody>` + linhas.map(L =>
+    `<tr class="clica ${S.loja === L.id ? 'escolhida' : ''}" onclick="escolherLoja(${Number(L.id)})"><td>${esc(L.loja)}</td>` +
+    `<td>${esc(nomeUnidade(L.unidade))}</td><td class="num">${L.n}</td><td class="num">${L.and}</td>` +
+    `<td class="num">${L.esp ? '<span class="sit esperando">' + L.esp + '</span>' : 0}</td>` +
+    `<td class="num">${L.canc ? '<span class="sit cancelado">' + L.canc + '</span>' : 0}</td>` +
+    `<td class="num">${duracao(media(L.conf))}</td></tr>`).join('') + '</tbody></table>'
+    : '<div class="vazio" style="padding:10px 12px">Nenhum pedido hoje.</div>';
+}
+function escolherLoja(id) { S.loja = S.loja === id ? null : id; desenharLojas(); desenharPedidos(); }
+
+function desenharCancelados() {
+  const cs = pedidosFiltrados().filter(p => p.cancelado_em || ['EM_ANALISE', 'NEGADO', 'CANCELADO'].includes(p.cancel_situacao))
+    .sort((a, b) => String(b.cancelado_em || b.cancel_pedido_em || '').localeCompare(String(a.cancelado_em || a.cancel_pedido_em || '')));
+  document.getElementById('tabelaCancelados').innerHTML = cs.length ? `<table><thead><tr><th>Hora</th><th>Nº</th><th>Loja</th>
+    <th>Motivo</th><th>Quem cancelou</th><th>Em que etapa</th><th>Dá para contestar?</th></tr></thead><tbody>` + cs.map(p => {
+      const sit = p.cancel_situacao === 'EM_ANALISE' ? ' (pedido de cancelamento em análise)' :
+                  p.cancel_situacao === 'NEGADO' ? ' (cancelamento negado)' : '';
+      const cont = p.cancel_contestavel === true ? '<span class="sim">Sim</span>' :
+                   p.cancel_contestavel === false ? '<span class="nao">Não</span>' : '—';
+      return `<tr><td>${horaBR(p.cancelado_em || p.cancel_pedido_em)}</td><td>#${esc(p.numero || '—')}</td><td>${esc(p.loja)}</td>` +
+        `<td class="quebra">${esc(p.cancel_motivo || (p.cancel_codigo ? 'código ' + p.cancel_codigo : '—'))}${sit}</td>` +
+        `<td>${esc(QUEM_CANCELOU[p.cancel_origem] || p.cancel_origem || '—')}</td>` +
+        `<td>${esc(ETAPA[p.cancel_etapa] || (p.cancel_etapa || '—').toLowerCase())}</td><td>${cont}</td></tr>`;
+    }).join('') + '</tbody></table>' : '<div class="vazio" style="padding:10px 12px">Nenhum cancelamento hoje.</div>';
+}
+
+function desenharPedidos() {
+  let ps = pedidosFiltrados();
+  const escolhida = S.loja != null ? ps.find(p => p.id_loja === S.loja) : null;
+  if (S.loja != null) ps = ps.filter(p => p.id_loja === S.loja);
+  document.getElementById('chipLoja').innerHTML = escolhida ?
+    `<span class="filtro-chip" onclick="escolherLoja(${Number(S.loja)})">${esc(escolhida.loja)} ✕</span>` : '';
+  const LIM = 300, d = decorrido();
+  const mostra = ps.slice(0, LIM);
+  document.getElementById('tabelaPedidos').innerHTML = mostra.length ? `<table><thead><tr><th>Chegou</th><th>Nº</th><th>Loja</th>
+    <th>Situação</th><th class="num">Confirmou em</th><th>Última etapa</th></tr></thead><tbody>` + mostra.map(p => {
+      const [t, c] = situacaoDe(p);
+      const conf = p.segundos_esperando != null
+        ? `<span class="esp-tempo" data-base="${p.segundos_esperando}" data-prefixo="esperando ">esperando ${relogioTexto(p.segundos_esperando + d)}</span>`
+        : esc(duracao(p.segundos_ate_confirmar));
+      return `<tr><td>${horaBR(p.criado_em)}</td><td>#${esc(p.numero || '—')}</td><td>${esc(p.loja)}</td>` +
+        `<td><span class="sit ${c}">${esc(t)}</span></td><td class="num">${conf}</td><td>${horaBR(p.situacao_em)}</td></tr>`;
+    }).join('') + '</tbody></table>' + (ps.length > LIM ? `<div class="vazio" style="padding:8px 12px">Mostrando os ${LIM} mais recentes de ${ps.length}.</div>` : '')
+    : '<div class="vazio" style="padding:10px 12px">Nenhum pedido hoje.</div>';
+}
+
+function desenharRodape() {
+  const r = (S.pulso && S.pulso.regra) || { pedidos_mesma_unidade: 2, minutos_parado: 3, minutos_qualquer: 5 };
+  const s = sessao();
+  const notif = podeNotificar() && Notification.permission === 'default'
+    ? ' <button class="btn" onclick="pedirNotificacao()">Avisar também no canto da tela do Windows</button>' : '';
+  document.getElementById('rodape').innerHTML = esc(
+    `Vermelho: ${r.pedidos_mesma_unidade} ou mais pedidos da mesma unidade sem confirmar há ${r.minutos_parado} min ` +
+    `(o Saipos pode ter caído). Laranja: 1 pedido sem confirmar há ${r.minutos_qualquer} min (confirme no Gestor; ` +
+    `o iFood cancela sozinho perto de 8 min). Esta tela lê a cada ${LER_A_CADA_MS / 1000} s e não confirma nada.` +
+    (S.lidoEm ? ` Última leitura ${new Date(S.lidoEm).toLocaleTimeString('pt-BR')}.` : '') +
+    (s && s.email ? ` Conta: ${s.email}.` : '')) + notif;
+}
+
+// a cada segundo: relógio, contadores e os sons (sem ler o banco). Roda também na tela de login:
+// tela que caiu para o login depois de ter entrado = aviso desligado, e isso também apita.
+function tique() {
+  const agora = Date.now();
+  if (S.naLogin) {
+    if (S.jaEntrou && !mudoPeloNeto() && agora - S.ultimaFalha > FALHA_A_CADA_S * 1000) { S.ultimaFalha = agora; tocar('falha'); }
+    return;
+  }
+  document.getElementById('relogio').textContent = new Date().toLocaleTimeString('pt-BR',
+    { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' });
+  if (!S.primeiraLeitura && !S.erro) return;
+  const d = decorrido();
+  document.querySelectorAll('.esp-tempo[data-base]').forEach(el => {
+    el.textContent = (el.dataset.prefixo || '') + relogioTexto(Number(el.dataset.base) + d);
+  });
+  desenharStatus();
+  if (Math.floor(d) % 5 === 0) desenharAviso();
+  if (mudoPeloNeto()) return;
+  const v = estado();
+  if (S.falhaCalada && v.tipo !== S.falhaCalada) S.falhaCalada = null;   // mudou a falha: volta a apitar
+  const soar = x => !S.silenciados.has(chaveSom(x));
+  if (avisos('ALARME').some(soar)) {
+    if (agora - S.ultimoSom > SIRENE_A_CADA_S * 1000) { S.ultimoSom = agora; tocar('sirene'); }
+  } else if (avisos('CONFIRMAR').some(soar)) {
+    if (agora - S.ultimoSom > LEMBRETE_A_CADA_S * 1000) { S.ultimoSom = agora; tocar('lembrete'); }
+  } else if (v.tipo !== 'NO_AR' && v.tipo !== S.falhaCalada) {
+    if (agora - S.ultimaFalha > FALHA_A_CADA_S * 1000) { S.ultimaFalha = agora; tocar('falha'); }
+  }
+}
+
+let INICIADO = false;
+function iniciar() {
+  S.naLogin = false; S.jaEntrou = true;
+  document.getElementById('loginGate').hidden = true;
+  document.getElementById('app').hidden = false;
+  if (somQuerido()) destravarAudio();
+  atualizar();
+  if (INICIADO) return;
+  INICIADO = true;
+  setInterval(atualizar, LER_A_CADA_MS);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && !S.naLogin) atualizar(); });
+}
+
+desenharSom();
+setInterval(tique, 1000);
+if (sessao() && sessao().access_token) iniciar(); else pedirLogin();
+</script>
+</body>
+</html>
