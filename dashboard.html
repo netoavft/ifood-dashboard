@@ -916,6 +916,7 @@
     <div class="sidebar-grupo" id="gFinanceiro">
       <button class="sidebar-btn" id="navBtnFluxo" onclick="mostrarModulo('fluxo')"><span class="mico">💵</span>Fluxo de caixa</button>
       <button class="sidebar-btn" id="navBtnProjecao" onclick="mostrarModulo('projecao')"><span class="mico">🔮</span>Fluxo projetado</button>
+      <button class="sidebar-btn" id="navBtnContaspagar" onclick="mostrarModulo('contaspagar')"><span class="mico">📑</span>Contas a pagar</button>
       <button class="sidebar-btn" id="navBtnConcbanco" onclick="mostrarModulo('concbanco')"><span class="mico">🏦</span>Conciliação bancária</button>
       <button class="sidebar-btn" id="navBtnCaixa" onclick="mostrarModulo('caixa')"><span class="mico">🗃️</span>Fechamento de Caixas</button>
       <button class="sidebar-btn" id="navBtnRede" onclick="mostrarModulo('rede')"><span class="mico">🏧</span>Taxas da maquininha</button>
@@ -1164,6 +1165,10 @@
 
     <div id="modulo-projecao" class="modulo" style="display:none;">
       <div id="view-projecao"></div>
+    </div>
+
+    <div id="modulo-contaspagar" class="modulo" style="display:none;">
+      <div id="view-contaspagar"></div>
     </div>
 
     <div id="modulo-despesas" class="modulo" style="display:none;">
@@ -1807,6 +1812,7 @@ function mostrarModulo(nome) {
     semana: ['modulo-semana', 'navBtnSemana'],
     fechamento: ['modulo-fechamento', 'navBtnFechamento'],
     projecao: ['modulo-projecao', 'navBtnProjecao'],
+    contaspagar: ['modulo-contaspagar', 'navBtnContaspagar'],
     despesas: ['modulo-despesas', 'navBtnDespesas'],
     conciliacao: ['modulo-conciliacao', 'navBtnConciliacao'],
     indicadores: ['modulo-indicadores', 'navBtnIndicadores'],
@@ -1926,6 +1932,7 @@ function mostrarModulo(nome) {
   if (nome === 'rateio') entrarRateio();
   if (nome === 'lucrouni') entrarLucroUni();
   if (nome === 'projecao') entrarProjecao();
+  if (nome === 'contaspagar') entrarContasPagar();
   if (nome === 'despesas') entrarDespesas();
   if (nome === 'conciliacao') entrarConciliacao();
   if (nome === 'indicadores') entrarIndicadores();
@@ -1952,7 +1959,8 @@ function moduloAtivo() {
                               ['modulo-fichas','fichas'], ['modulo-engcard','engcard'],
                               ['modulo-plano','plano'],
                               ['modulo-reembolsos','reembolsos'], ['modulo-rh','rh'],
-                              ['modulo-forafolha','forafolha'], ['modulo-cargos','cargos']]) {
+                              ['modulo-forafolha','forafolha'], ['modulo-cargos','cargos'],
+                              ['modulo-contaspagar','contaspagar']]) {
     const el = document.getElementById(idm);
     if (el && el.style.display !== 'none') return nomem;
   }
@@ -7473,16 +7481,21 @@ async function entrarForaFolha() {
   const alvo = document.getElementById('view-forafolha');
   if (!alvo) return;
   if (!FF) alvo.innerHTML = '<div class="contexto">Carregando o pagamento fora da folha...</div>';
-  const [rp, rm] = await Promise.all([
+  // Baixa automatica (30/09/2026): o que o Saipos ja pagou AO CENTAVO fecha antes
+  // de a tela abrir. Tambem roda no fim de toda carga do import_saipos.py; aqui e'
+  // so para nao esperar a proxima carga. Falhar nao impede a tela.
+  try { await trRpc('rh_ff_baixa_automatica', {}); } catch (e) {}
+  const [rp, rm, rc] = await Promise.all([
     trFetch('rh_ff_pessoas?select=*&order=nome'),
     trFetch('vw_rh_ff_meses?select=*&order=nome,mes.desc'),
+    trFetch('vw_rh_ff_casamento_saipos?select=*'),
   ]);
   if (!rp.ok || !rm.ok) {
     alvo.innerHTML = `<div class="contexto" style="border-color:#ff6b6b;">Não consegui carregar: ${await trErroDe(rp.ok ? rm : rp)}.
       Esta tela precisa de login (Neto, Fabio ou Hellen).</div>`;
     return;
   }
-  FF = { pessoas: await rp.json(), meses: await rm.json(), editando: FF ? FF.editando : null };
+  FF = { pessoas: await rp.json(), meses: await rm.json(), saipos: rc.ok ? await rc.json() : [], editando: FF ? FF.editando : null };
   renderForaFolha();
 }
 function ffDdmm(d) { return d ? d.slice(8, 10) + '/' + d.slice(5, 7) : '—'; }
@@ -7512,7 +7525,8 @@ function renderForaFolha() {
     vale alimentação (vai pelo cartão da Flash) nem consumo (não se marca mais).
     O <b>adiantamento</b> sai no dia 20 e é descontado do <b>saldo</b>, pago no <b>5º dia útil</b> do mês seguinte
     (o 5º dia útil conta o sábado; se cair no fim de semana ou feriado, antecipa para o dia útil anterior).
-    As duas parcelas aparecem no Fluxo projetado até serem marcadas como pagas aqui.
+    As duas parcelas aparecem no Fluxo projetado e em Contas a pagar até serem pagas. <b>A baixa é automática</b>: quando o
+    pagamento chega do Saipos com o valor exato, a parcela fecha sozinha; se o valor for diferente, aparece o botão "confirmar".
     <span id="ffMsg" style="margin-left:6px;"></span></div>`;
 
   // O TAMANHO DA SEMANA ANTES DAS PESSOAS (12/09/2026). O loop abaixo mostra uma
@@ -7568,6 +7582,7 @@ function renderForaFolha() {
         <div class="card neutral"><div class="card-lbl">Parâmetros</div>
           <div class="card-pct" style="line-height:1.6;">Salário R$ ${fmt(Number(p.salario_base))} · Gratificação fixa R$ ${fmt(Number(p.gratificacao))} ·
             Adiantamento R$ ${fmt(Number(p.adiantamento))}<br>Desconto consumo: ${ffDecidir(p.desconto_consumo)} · Vale transporte: ${ffDecidir(p.vale_transporte)}<br>
+            ${Number(p.desconto_divida) ? `<span title="${p.desconto_divida_motivo || ''}">Desconto dívida: R$ ${fmt(Number(p.desconto_divida))}/mês</span><br>` : ''}
             Fora da folha desde ${ffDdmm(p.inicio)}/${p.inicio.slice(0, 4)}${p.fim ? ' até ' + ffDdmm(p.fim) + '/' + p.fim.slice(0, 4) : ''}</div></div>
       </div>
       ${p.observacao ? `<div class="caption-label" style="margin-top:6px;">${p.observacao}</div>` : ''}`;
@@ -7597,11 +7612,12 @@ function renderForaFolha() {
     // com baixa e recibo). Tudo junto dava 11 colunas e linhas de 3 andares.
     const inp = (id, v, ph, w, borda) => `<input id="${id}" value="${v ?? ''}" placeholder="${ph}" style="background:#232321; border:1px solid ${borda || '#34332f'}; border-radius:6px; color:#fff; padding:4px 6px; width:${w}px; text-align:right;">`;
     const temConsumo = meses.some(m => m.desconto_consumo === null || Number(m.desconto_consumo) > 0);
+    const temDivida = meses.some(m => Number(m.desconto_divida) > 0);
     const desc = (v) => v === null ? '<i style="color:#e3b341;">a decidir</i>' : (Number(v) ? '−' + fmt(Number(v)) : '—');
     h += `<div class="caption-label" style="margin-top:14px;"><b>Cálculo do mês</b> — informe o salão (e um ajuste, se houver) e clique em salvar; o saldo recalcula na hora.</div>
       <div style="overflow-x:auto;"><table style="white-space:nowrap;">
       <tr><th>Mês</th><th style="text-align:right;">Salário</th><th style="text-align:right;">Grat. fixa</th><th style="text-align:right;">Salão do mês</th>
-          <th style="text-align:right;">Ajuste (+/−)</th><th>Motivo</th><th></th>${temConsumo ? '<th style="text-align:right;">Consumo</th>' : ''}<th style="text-align:right;">VT</th>
+          <th style="text-align:right;">Ajuste (+/−)</th><th>Motivo</th><th></th>${temConsumo ? '<th style="text-align:right;">Consumo</th>' : ''}<th style="text-align:right;">VT</th>${temDivida ? `<th style="text-align:right;" title="${p.desconto_divida_motivo || ''}">Dívida</th>` : ''}
           <th style="text-align:right;">Bruto</th><th style="text-align:right;">Adiantamento</th><th style="text-align:right;">Saldo</th></tr>`;
     for (const m of meses) {
       const key = `${p.id}_${m.mes.slice(0, 7)}`;
@@ -7616,6 +7632,7 @@ function renderForaFolha() {
         <td><button class="preset-btn" onclick="ffInformar(${p.id}, '${m.mes}')">salvar</button></td>
         ${temConsumo ? `<td style="text-align:right;">${desc(m.desconto_consumo)}</td>` : ''}
         <td style="text-align:right;">${desc(m.vale_transporte)}</td>
+        ${temDivida ? `<td style="text-align:right;">${desc(m.desconto_divida)}</td>` : ''}
         <td style="text-align:right;"><b>${fmt(Number(m.bruto))}</b></td>
         <td style="text-align:right;">−${fmt(Number(m.adiantamento))}</td>
         <td style="text-align:right;"><b>${fmt(Number(m.saldo))}</b>${(m.pendencias || []).length ? '<br><small style="color:#e3b341;">' + m.pendencias.join('<br>') + '</small>' : ''}</td>
@@ -7640,13 +7657,20 @@ function renderForaFolha() {
       const key = `${p.id}_${x.m.mes.slice(0, 7)}`;
       const vencida = !x.pagoEm && x.venc < hoje;
       const hojeVence = !x.pagoEm && x.venc === hoje;
+      const origem = x.nome === 'SALDO' ? x.m.saldo_origem : x.m.adiantamento_origem;
+      const doSaipos = origem && origem.startsWith('SAIPOS');
+      // pagamento do Saipos que NAO bateu ao centavo: so baixa com o "confirmar" (regra do dono, 30/09)
+      const cand = !x.pagoEm && (FF.saipos || []).find(c => c.pessoa_id === p.id && c.mes === x.m.mes && c.parcela === x.nome);
       h += `<tr>
         <td>${ffMesTxt(x.m.mes)}</td><td>${x.rot}</td>
         <td style="color:${vencida ? '#ff6b6b' : hojeVence ? '#e3b341' : 'inherit'}; font-weight:${vencida || hojeVence ? 'bold' : 'normal'};">${ffDdmm(x.venc)}/${x.venc.slice(0, 4)}${vencida ? ' · VENCIDA' : hojeVence ? ' · HOJE' : ''}</td>
         <td style="text-align:right;"><b>R$ ${fmt(x.valor)}</b></td>
-        <td>${x.pagoEm ? `<span style="color:#3fb950;">paga em ${ffDdmm(x.pagoEm)} (R$ ${fmt(Number(x.valorPago))})</span>` : 'em aberto'}</td>
+        <td>${x.pagoEm ? `<span style="color:#3fb950;">paga em ${ffDdmm(x.pagoEm)} (R$ ${fmt(Number(x.valorPago))})</span>${doSaipos ? ` <small style="color:#a5a49a;" title="baixa pelo pagamento lançado no Saipos">· ${origem === 'SAIPOS_AUTO' ? 'Saipos, automática' : 'Saipos, confirmada'}</small>` : ''}` : 'em aberto'}</td>
         <td>${x.pagoEm
             ? `<a href="javascript:void(0)" style="color:#a5a49a;" onclick="ffDesfazer(${p.id}, '${x.m.mes}', '${x.nome}')">desfazer</a>`
+            : cand
+            ? `<span style="color:#e3b341;" title="${cand.saipos_descricao}">Saipos pagou R$ ${fmt(Number(cand.saipos_valor))} em ${ffDdmm(cand.saipos_data)} · ${Number(cand.diferenca) > 0 ? '+' : '−'}${fmt(Math.abs(Number(cand.diferenca)))}</span>
+               <button class="preset-btn" onclick="ffConfirmarSaipos(${p.id}, '${x.m.mes}', '${x.nome}')">confirmar</button>`
             : `<input type="date" id="ffDt_${key}_${x.nome}" value="${hoje}" style="background:#232321; border:1px solid #34332f; border-radius:6px; color:#fff; padding:3px 5px;">
                <button class="preset-btn" onclick="ffBaixar(${p.id}, '${x.m.mes}', '${x.nome}', ${x.valor})">marcar paga</button>`}</td>
         <td><a href="javascript:void(0)" style="color:#a5a49a;" title="abre o recibo pronto para imprimir ou salvar em PDF" onclick="ffRecibo(${p.id}, '${x.m.mes}', '${x.nome}')">🧾 recibo</a></td>
@@ -7655,7 +7679,7 @@ function renderForaFolha() {
     h += `</table></div>
     </div>`;
   }
-  h += `<div class="caption-label" style="max-width:820px; margin-top:10px;" title="O 5º dia útil conta de segunda a sábado, fora de feriado — tabela feriados: nacional, Paraná e Curitiba.">Saldo = salário + gratificação fixa + salão + ajuste − consumo − VT − adiantamento.
+  h += `<div class="caption-label" style="max-width:820px; margin-top:10px;" title="O 5º dia útil conta de segunda a sábado, fora de feriado — tabela feriados: nacional, Paraná e Curitiba.">Saldo = salário + gratificação fixa + salão + ajuste − consumo − VT − dívida − adiantamento.
     Mês em que a pessoa entra ou sai no meio é proporcional em trintavos.</div>`;
   alvo.innerHTML = h;
 }
@@ -7723,6 +7747,7 @@ function ffRecibo(pessoaId, mes, parcela) {
       ${n(m.ajuste) < 0 ? linha('Ajuste' + (m.ajuste_motivo ? ' — ' + m.ajuste_motivo : ''), n(m.ajuste), true) : ''}
       ${linha('Desconto consumo', n(m.desconto_consumo), true)}
       ${linha('Vale transporte', n(m.vale_transporte), true)}
+      ${linha('Desconto dívida' + (m.desconto_divida_motivo ? ' — ' + m.desconto_divida_motivo : ''), n(m.desconto_divida), true)}
       ${linha('Adiantamento salarial' + (m.adiantamento_pago_em ? ' (pago em ' + ffDdmm(m.adiantamento_pago_em) + ')' : ''), n(m.adiantamento), true)}
       <tr class="tot"><td>Valor líquido</td><td class="v">${fmt(valor)}</td></tr>
     </table>` : '';
@@ -7780,6 +7805,12 @@ async function ffBaixar(pessoa, mes, parcela, valor) {
   if (!r.ok) { ffAviso('Não deu: ' + await trErroDe(r), false); return; }
   await entrarForaFolha();
   ffAviso('Marcada como paga — saiu do Fluxo projetado.', true);
+}
+async function ffConfirmarSaipos(pessoa, mes, parcela) {
+  const r = await trRpc('rh_ff_confirmar_saipos', { p_pessoa: pessoa, p_mes: mes, p_parcela: parcela });
+  if (!r.ok) { ffAviso('Não deu: ' + await trErroDe(r), false); return; }
+  await entrarForaFolha();
+  ffAviso('Baixa confirmada com o valor do Saipos. Se a diferença tem motivo, lance como ajuste do mês.', true);
 }
 async function ffDesfazer(pessoa, mes, parcela) {
   const r = await trRpc('rh_ff_desfazer_baixa', { p_pessoa: pessoa, p_mes: mes, p_parcela: parcela });
@@ -16862,6 +16893,106 @@ async function entrarProjecao() {
   PROJ_RECEB = receb;
   PROJ_RECEB.forEach(r => { r.recebido = Number(r.recebido); });
   renderModuloProjecao();
+}
+
+// ------------------------------------------------------------------
+// Modulo CONTAS A PAGAR (30/09/2026, pedido do dono) — UMA lista de tudo que esta
+// em aberto, da mesma base que o Fluxo projetado le (vw_fin_contas_pagar): Saipos,
+// Pagamento fora da folha, cobrancas das listas e boletos do ePadoca. O projetado
+// continua sendo o saldo dia a dia; aqui e' a lista para agir. A baixa de cada
+// origem continua onde sempre foi (coluna "Baixa" diz onde) — o fora da folha
+// baixa sozinho quando o Saipos traz o valor exato.
+// ------------------------------------------------------------------
+let CP = null;
+const CP_ORIGEM = {
+  'SAIPOS':        { rot: 'Saipos',        baixa: 'no Saipos' },
+  'FORA DA FOLHA': { rot: 'Fora da folha', baixa: 'automática pelo Saipos', tela: 'forafolha' },
+  'LISTAS':        { rot: 'Listas',        baixa: 'Listas · Financeiro', tela: 'listasfin' },
+  'EPADOCA':       { rot: 'ePadoca',       baixa: 'automática (portal)' },
+};
+async function entrarContasPagar() {
+  await carregarApelidos();
+  const alvo = document.getElementById('view-contaspagar');
+  if (!alvo) return;
+  if (!CP) alvo.innerHTML = '<div class="contexto">Carregando contas a pagar...</div>';
+  try { await trRpc('rh_ff_baixa_automatica', {}); } catch (e) {}   // sem acesso a pessoal: ignora
+  const [itens, venc] = await Promise.all([
+    consultarTudo('vw_fin_contas_pagar?select=vencimento,conta_exibida,unidade,situacao,dias_vencida,sentido,subtipo,descricao,credito,debito,origem&order=vencimento'),
+    consultarTudo('vw_fin_vencidas_status?select=vencimento,descricao,debito,data_debito_banco,achou_no_banco').catch(() => []),
+  ]);
+  const saiu = {};
+  (venc || []).filter(v => v.achou_no_banco).forEach(v => { saiu[`${v.vencimento}|${Number(v.debito)}|${v.descricao || ''}`] = v.data_debito_banco; });
+  (itens || []).forEach(r => {
+    r.credito = Number(r.credito); r.debito = Number(r.debito);
+    r.valor = r.sentido === 'PAGAR' ? r.debito : r.credito;
+    r.saiuBanco = r.situacao === 'VENCIDA' ? saiu[`${r.vencimento}|${r.debito}|${r.descricao || ''}`] : undefined;
+  });
+  CP = { itens: itens || [], filtro: CP ? CP.filtro : { sentido: 'PAGAR', situacao: '', origem: '', unidade: '' }, tudo: CP ? CP.tudo : false };
+  renderContasPagar();
+}
+function cpFiltro(campo, valor) { CP.filtro[campo] = CP.filtro[campo] === valor ? '' : valor; renderContasPagar(); }
+function cpSentido(s) { CP.filtro = { sentido: s, situacao: '', origem: '', unidade: '' }; renderContasPagar(); }
+function cpTudo() { CP.tudo = !CP.tudo; renderContasPagar(); }
+
+function renderContasPagar() {
+  const alvo = document.getElementById('view-contaspagar');
+  if (!alvo || !CP) return;
+  const f = CP.filtro;
+  const hoje = trHoje();
+  const lim = new Date(hoje + 'T12:00:00'); lim.setDate(lim.getDate() + 45);
+  const limIso = lim.toLocaleDateString('en-CA');
+  const doSentido = CP.itens.filter(r => r.sentido === f.sentido && r.valor > 0 && (CP.tudo || r.vencimento <= limIso));
+  // cada dimensao conta com os OUTROS filtros aplicados (padrao da Evolucao)
+  const passa = (r, sem) => (sem === 'situacao' || !f.situacao || r.situacao === f.situacao)
+                         && (sem === 'origem' || !f.origem || r.origem === f.origem)
+                         && (sem === 'unidade' || !f.unidade || (r.unidade || '—') === f.unidade);
+  const soma = (l) => l.reduce((s, r) => s + r.valor, 0);
+  const verbo = f.sentido === 'PAGAR' ? 'a pagar' : 'a receber';
+
+  const SIT = [['VENCIDA', 'Vencidas', 'neg'], ['VENCE HOJE', 'Vence hoje', 'highlight'], ['PROXIMOS 7 DIAS', 'Próximos 7 dias', 'blue'], ['DEPOIS', CP.tudo ? 'Depois' : 'Até 45 dias', 'neutral']];
+  const baseSit = doSentido.filter(r => passa(r, 'situacao'));
+  let h = `<div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-bottom:10px;">
+      <button class="preset-btn ${f.sentido === 'PAGAR' ? 'active' : ''}" onclick="cpSentido('PAGAR')">A pagar</button>
+      <button class="preset-btn ${f.sentido === 'RECEBER' ? 'active' : ''}" onclick="cpSentido('RECEBER')">A receber</button>
+      <button class="preset-btn ${CP.tudo ? 'active' : ''}" onclick="cpTudo()" title="por padrão a lista vai até 45 dias à frente">${CP.tudo ? 'até 45 dias' : 'ver tudo'}</button>
+    </div><div class="cards">`;
+  for (const [k, rot, cls] of SIT) {
+    const l = baseSit.filter(r => r.situacao === k);
+    const saiuBanco = k === 'VENCIDA' ? l.filter(r => r.saiuBanco) : [];
+    h += `<div class="card ${cls}" style="cursor:pointer; ${f.situacao === k ? 'outline:2px solid var(--brand);' : ''}" onclick="cpFiltro('situacao','${k}')">
+      <div class="card-lbl">${rot}</div><div class="card-val">R$ ${fmt(soma(l))}</div>
+      <div class="card-pct">${l.length} conta(s)${saiuBanco.length ? ` · <span style="color:var(--amber-2);">${saiuBanco.length} já ${saiuBanco.length === 1 ? 'saiu' : 'saíram'} do banco, falta a baixa</span>` : ''}</div></div>`;
+  }
+  h += '</div>';
+
+  // origem e unidade: chips clicaveis com o total de cada uma
+  const chips = (campo, chave, rotulo) => {
+    const g = {};
+    doSentido.filter(r => passa(r, campo)).forEach(r => { const c = chave(r); g[c] = (g[c] || 0) + r.valor; });
+    return Object.entries(g).sort((a, b) => b[1] - a[1]).map(([c, v]) =>
+      `<button class="preset-btn ${f[campo] === c ? 'active' : ''}" onclick="cpFiltro('${campo}', '${c.replace(/'/g, "\\'")}')">${rotulo(c)} · R$ ${fmt(v)}${f[campo] === c ? ' ✕' : ''}</button>`).join(' ');
+  };
+  h += `<div style="display:flex; gap:6px; flex-wrap:wrap; margin:10px 0 4px;"><span class="caption-label" style="margin:0 4px 0 0;">Origem</span>${chips('origem', r => r.origem, c => (CP_ORIGEM[c] || { rot: c }).rot)}</div>
+    <div style="display:flex; gap:6px; flex-wrap:wrap; margin:4px 0 10px;"><span class="caption-label" style="margin:0 4px 0 0;">Unidade</span>${chips('unidade', r => r.unidade || '—', c => c)}</div>`;
+
+  const lista = doSentido.filter(r => passa(r));
+  h += `<div class="caption-label"><b>R$ ${fmt(soma(lista))} ${verbo}</b> em ${lista.length} conta(s) no recorte · vencida primeiro; a coluna Baixa diz onde a conta fecha.</div>
+    <div id="tabelaContasPagar" style="overflow-x:auto;"><table>
+    <tr><th>Vencimento</th><th style="text-align:left;">Descrição</th><th style="text-align:left;">Origem</th><th style="text-align:left;">Conta</th><th style="text-align:left;">Categoria</th><th>Valor</th><th style="text-align:left;">Baixa</th></tr>`;
+  const esq = 'text-align:left;', txt = 'text-align:left; white-space:normal; min-width:260px;';
+  for (const r of lista.slice(0, 400)) {
+    const o = CP_ORIGEM[r.origem] || { rot: r.origem || '—', baixa: '—' };
+    const cor = r.situacao === 'VENCIDA' ? 'var(--farol-fora)' : r.situacao === 'VENCE HOJE' ? 'var(--amber-2)' : 'inherit';
+    const baixa = r.saiuBanco
+      ? `<span style="color:var(--amber-2);" title="o débito já apareceu no extrato do banco">saiu do banco em ${ffDdmm(r.saiuBanco)} — dar baixa no Saipos</span>`
+      : o.tela ? `<a href="javascript:void(0)" style="color:var(--tx-3);" onclick="mostrarModulo('${o.tela}')">${o.baixa} ›</a>`
+      : `<span style="color:var(--tx-3);">${o.baixa}</span>`;
+    h += `<tr><td style="color:${cor}; white-space:nowrap;">${ffDdmm(r.vencimento)}/${r.vencimento.slice(0, 4)}${r.situacao === 'VENCIDA' ? ` · ${r.dias_vencida}d` : ''}</td>
+      <td style="${txt}">${r.descricao || ''}</td><td style="${esq}">${o.rot}</td><td style="${esq}">${r.conta_exibida || ''}</td><td style="${esq}">${r.subtipo || ''}</td>
+      <td><b>${fmt(r.valor)}</b></td><td style="${esq}">${baixa}</td></tr>`;
+  }
+  h += `</table></div>${lista.length > 400 ? `<div class="caption-label">Mostrando as 400 primeiras de ${lista.length} — filtre por origem ou unidade.</div>` : ''}`;
+  alvo.innerHTML = h;
 }
 
 // Quadro semanal do benefício do iFood (comissão zero) — feito para a Hellen:
