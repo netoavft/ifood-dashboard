@@ -20,10 +20,17 @@
   (conferência de 30/09 — qualquer conta do painel lê muito mais que esta tela precisa).
   ?teste=1 mostra a loja de teste do iFood (sandbox).
   Níveis do aviso (gravados pelo vigia no pulso): ALARME (2+ parados na unidade: "o Saipos pode
-  ter caído", vermelho + sirene), CONFIRMAR (1 pedido > 5 min: lembrete laranja, som curto),
-  SEM_IFOOD (o vigia não fala com o iFood: a tela avisa que está cega). Aviso que não funciona
-  (vigia parado, sem iFood, esta tela sem internet, tela caída no login) dá um bip grave a cada
-  90 s — antes era só uma faixa sem som.
+  ter caído", vermelho + sirene), CONFIRMAR (1 pedido > 6 min: lembrete laranja, som curto — 6 min
+  por decisão do dono de 30/09, antes 5), SEM_IFOOD (o vigia não fala com o iFood: a tela avisa
+  que está cega). Aviso que não funciona (vigia parado, sem iFood, esta tela sem internet —
+  inclusive leitura pendurada, que tem teto —, tela caída no login) dá um bip grave a cada 90 s.
+  "Casos para avaliar" (fim da tela, só leitura): pedidos dos últimos 30 dias confirmados com mais
+  de 6 min (vw_pedidos_casos_avaliar) — o Saipos aceita sozinho, isso não deveria acontecer.
+  Rodada 2 da reconferência (30/09): ritmo dos sons e "sem internet" pelo relógio que só anda para
+  frente (a hora do Windows mudando não cala a sirene); "Sair" no rodapé, com 2º clique deliberado
+  (o duplo clique no botão de som caía nele); botão de som de largura fixa; com -SemSom não há botão
+  de som nem som nenhum (e o -SemSom é lembrado sem internet); unidade escolhida guardada POR
+  ambiente (a do ?teste=1 não filtra mais a tela da loja).
   Cores: os tokens do :root do docs/dashboard.html (mesmos nomes e valores), sem cor nova.
   Instalação e o que fazer quando algo falha: rotinas/VIGIA-PEDIDOS-IFOOD.md.
 -->
@@ -61,6 +68,10 @@
     padding:7px 12px; font-size:12.5px; font-weight:700; cursor:pointer; font-family:inherit; }
   .btn:hover { border-color:var(--marca-laranja); color:var(--tx-1); }
   .btn.chama { border-color:var(--farol-perto); color:var(--tx-1); }
+  /* largura FIXA: "Clique para ligar o som" -> "Som ligado" encolhia o botão e o topo se mexia embaixo
+     do cursor no meio de um duplo clique (rodada 2 da reconferência de 30/09) */
+  #btnSom { min-width:15.5em; text-align:center; white-space:nowrap; }
+  .sair-linha { margin-top:10px; }
   .faixa-teste { border:1px dashed var(--info); color:var(--info); border-radius:8px; padding:8px 12px;
     font-size:13px; font-weight:700; margin-bottom:12px; }
 
@@ -85,7 +96,7 @@
   .btn-ouvi { background:var(--tx-1); color:var(--bg); border:none; border-radius:10px; padding:11px 18px;
     font-size:15px; font-weight:800; cursor:pointer; font-family:inherit; }
   .aviso-calado { font-size:13px; opacity:.9; }
-  /* lembrete (1 pedido > 5 min): laranja, sem falar de Saipos */
+  /* lembrete (1 pedido > 6 min): laranja, sem falar de Saipos */
   .aviso.lembrete { background:color-mix(in srgb, var(--farol-perto) 22%, var(--bg)); border-color:var(--farol-perto); }
   .aviso.lembrete .aviso-acao { border-top-color:var(--farol-perto); }
   .fora { border:2px solid var(--farol-perto); background:color-mix(in srgb, var(--farol-perto) 14%, var(--bg));
@@ -99,6 +110,10 @@
     color:var(--tx-1); border-radius:12px; padding:13px 16px; margin-bottom:14px; font-size:18px; font-weight:800;
     font-family:inherit; }
   .faixa-som:hover { border-color:var(--tx-1); }
+  /* depois do clique a faixa FICA um instante dizendo "Som ligado": o 2º clique de um duplo clique
+     cai nela, e não no botão de unidade que estava embaixo (reconferência de 30/09) */
+  .faixa-som.feito { border-color:var(--farol-ok); background:color-mix(in srgb, var(--farol-ok) 16%, var(--bg)); cursor:default;
+    display:flex; align-items:center; justify-content:center; }
   .nota-mudo { border:1px dashed var(--line-2); color:var(--tx-3); border-radius:8px; padding:8px 12px;
     font-size:13px; margin-bottom:12px; }
 
@@ -183,10 +198,11 @@
     <div class="relogio" id="relogio">--:--</div>
     <span class="chip" id="statusVigia"><span class="ponto"></span><span id="statusTexto">lendo…</span></span>
     <button class="btn" id="btnSom" onpointerdown="tocouBotaoSom()" onclick="cliqueBotaoSom()">Som</button>
-    <button class="btn" onclick="sair()">Sair</button>
+    <!-- o "Sair" NÃO fica aqui: ao ligar o som o botão mudava de largura e o 2º clique de um duplo
+         clique caía no "Sair" vizinho (rodada 2 da reconferência de 30/09). Ele está no rodapé. -->
   </header>
 
-  <button id="faixaSom" class="faixa-som" hidden onclick="ligarSomAgora()"></button>
+  <button id="faixaSom" class="faixa-som" hidden onclick="cliqueFaixaSom()"></button>
   <div id="notaMudo" class="nota-mudo" hidden>Som do aviso desligado nestes primeiros dias (período de teste). A tela avisa, mas não toca.</div>
 
   <div id="faixaTeste" class="faixa-teste" hidden>MODO TESTE — loja de teste do iFood. Não são pedidos de verdade.</div>
@@ -203,7 +219,7 @@
     </div>
   </section>
 
-  <section id="foraDoAr" class="fora" hidden></section>
+  <section id="foraDoAr" class="fora" hidden><span id="foraTexto"></span> <button class="btn" id="btnCalarFalha" onclick="calarFalha()" hidden>Ouvi — parar o bip</button></section>
 
   <div class="cards" id="cards"></div>
 
@@ -220,7 +236,13 @@
   <h2 class="section-label">Pedidos de hoje <span id="chipLoja"></span></h2>
   <div class="tabela" id="tabelaPedidos"></div>
 
-  <footer id="rodape"></footer>
+  <h2 class="section-label">Casos para avaliar <small id="casosLegenda">pedidos confirmados com mais de 6 min — últimos 30 dias</small></h2>
+  <p class="nota">O Saipos confirma os pedidos sozinho: isto não deveria acontecer. Vários na mesma unidade, com pouco tempo de diferença, indicam que o Saipos ficou instável.</p>
+  <div class="tabela" id="tabelaCasos"></div>
+
+  <footer><div id="rodape"></div>
+    <div class="sair-linha"><button class="btn" id="btnSair" onclick="sair()">Sair desta conta</button></div>
+  </footer>
 </main>
 
 <script>
@@ -232,10 +254,30 @@ const LER_A_CADA_MS = 20000;
 const PULSO_VELHO_S = 120;        // vigia sem pulso há mais que isto = fora do ar
 const SEM_IFOOD_S = 90;           // vigia sem polling OK há mais que isto = cego (o vigia marca aos 60)
 const SEM_INTERNET_S = 45;        // leituras desta tela falhando há mais que isto = tela sem internet
+const LEITURA_TETO_MS = 15000;    // leitura que não responde em 15 s conta como falha (fetch pendurado
+                                  // nunca falhava e a tela nunca dizia "sem internet" — reconferência 30/09)
 const SIRENE_A_CADA_S = 6;        // ALARME (Saipos pode ter caído)
-const LEMBRETE_A_CADA_S = 15;     // CONFIRMAR (1 pedido > 5 min)
+const LEMBRETE_A_CADA_S = 15;     // CONFIRMAR (1 pedido > 6 min)
 const FALHA_A_CADA_S = 90;        // o aviso não está funcionando (bip grave)
+const SOM_CONFIRMA_MS = 1500;     // clique no botão de som logo depois de ele mudar = 2º clique do mesmo gesto
+const FAIXA_CONFIRMA_MS = 2500;   // a faixa de som fica dizendo "Som ligado" por isto antes de sumir
+const CASOS_A_CADA_MS = 5 * 60000;          // "Casos para avaliar": muda devagar, lê a cada 5 min
+const RENOVAR_TENTATIVAS = [0, 1000, 2000]; // esperas (ms) entre tentativas de renovar a sessão: tudo
+const RENOVAR_TETO_MS = 2500;               // dentro dos ~10 s em que o Supabase aceita o token velho
+const SAIR_CLIQUE_MIN_MS = 800;   // "Sair" pede um 2º clique, que só vale depois disto (duplo clique nunca sai)...
+const SAIR_CONFIRMA_MS = 8000;    // ...e até isto; depois o botão volta ao normal
 const CHAVE_SESSAO = 'pedidosAoVivoSessao';
+const CHAVE_ENTROU = 'pedidosAoVivoEntrou';          // já entrou neste computador: login = aviso desligado
+// uma chave POR AMBIENTE (rodada 2): "Loja de teste" escolhida no ?teste=1 deixava a tela da loja
+// filtrada numa unidade que não existe — vermelho de verdade na Água Verde e a tela calma, sem som
+const CHAVE_UNIDADE = 'pedidosAoVivoUnidade_' + AMBIENTE;
+const CHAVE_MUDO = 'pedidosAoVivoMudo_' + AMBIENTE;  // último -SemSom lido (vale enquanto não há pulso)
+const UNIDADES_DO_AMBIENTE = AMBIENTE === 'sandbox' ? ['LOJA DE TESTE']
+                                                     : ['AGUA VERDE', 'AHU', 'BOQUEIRAO', 'SÃO BRAZ', 'SAO BRAZ'];
+// relógio que só anda para frente: o Windows acertando a hora de uma vez não pode calar a sirene nem
+// inventar "sem internet" (rodada 2: voltar 2 min deu 125 s de silêncio com o vermelho na tela;
+// adiantar 150 s escondeu o vermelho). A hora do Windows (Date.now) fica só para a validade da sessão.
+function mono() { return performance.now(); }
 
 const UNIDADE_NOME = { 'AGUA VERDE': 'Água Verde', 'AHU': 'Ahú', 'BOQUEIRAO': 'Boqueirão',
                        'SÃO BRAZ': 'São Braz', 'SAO BRAZ': 'São Braz', 'LOJA DE TESTE': 'Loja de teste' };
@@ -249,13 +291,19 @@ const QUEM_CANCELOU = { RESTAURANT: 'A loja', MERCHANT: 'A loja', SCHEDULER: 'iF
 const ETAPA = { PRE_CONFIRMED: 'Antes de confirmar', PREPARATION_TIME: 'No preparo', PREPARATION: 'No preparo',
                 READY_TO_PICKUP: 'Pronto', DISPATCHED: 'Na entrega', DELIVERY: 'Na entrega' };
 
-const S = { pulso: null, pedidos: [], lidoEm: 0, erro: null, erroDesde: 0, primeiraLeitura: false,
-            unidade: lerLocal('pedidosAoVivoUnidade') || 'TODAS', loja: null,
-            silenciados: new Set(), ultimoSom: 0, ultimaFalha: 0, falhaCalada: null,
-            naLogin: false, jaEntrou: false, notificados: new Set() };
-
 function lerLocal(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
 function gravarLocal(k, v) { try { v === null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) {} }
+// unidade guardada só vale se for DESTE ambiente; qualquer outra coisa = todas as unidades
+function unidadeGuardada() { const u = lerLocal(CHAVE_UNIDADE); return UNIDADES_DO_AMBIENTE.includes(u) ? u : 'TODAS'; }
+gravarLocal('pedidosAoVivoUnidade', null);           // a chave velha, a mesma para teste e produção
+
+// tempos em mono() (ms desde que a página abriu); -Infinity = nunca
+const S = { pulso: null, pedidos: [], lidoEm: 0, lidoHora: null, erro: null, erroDesde: 0, primeiraLeitura: false,
+            unidade: unidadeGuardada(), loja: null,
+            silenciados: new Set(), ultimoSom: -Infinity, ultimaFalha: -Infinity, falhaCalada: null,
+            naLogin: false, jaEntrou: lerLocal(CHAVE_ENTROU) === '1', notificados: new Set(), lendo: false,
+            somEstado: null, somMudouEm: -Infinity, faixaOkAte: -Infinity, faixaSumiuEm: -Infinity, faixaVisivel: false,
+            ultimoGesto: -Infinity, refreshMorto: false, casos: null, casosErro: null, sairArmadoEm: -Infinity };
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function nomeUnidade(u) { return UNIDADE_NOME[u] || u || '?'; }
 function horaBR(iso) {
@@ -270,7 +318,23 @@ function duracao(seg) {
   return m < 60 ? m + ' min' + (s ? ' ' + s + ' s' : '') : Math.floor(m / 60) + ' h ' + (m % 60) + ' min';
 }
 function relogioTexto(seg) { seg = Math.max(0, Math.floor(seg)); return Math.floor(seg / 60) + ':' + String(seg % 60).padStart(2, '0'); }
-function decorrido() { return S.lidoEm ? (Date.now() - S.lidoEm) / 1000 : 0; }
+function decorrido() { return S.lidoEm ? (mono() - S.lidoEm) / 1000 : 0; }
+// troca o HTML só quando muda: botão recriado a cada 5 s perdia o clique que cruzava a troca
+function porHtml(el, html) { if (el._html !== html) { el.innerHTML = html; el._html = html; } }
+// fetch com TETO (o fetch do navegador não tem timeout: pendurado, nunca falhava). Lê o corpo
+// dentro do mesmo teto. -> { status, ok, dados }; falha -> Error com mensagem em português.
+async function buscarJson(url, opcoes, teto) {
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), teto || LEITURA_TETO_MS);
+  try {
+    const r = await fetch(url, Object.assign({}, opcoes, { signal: ctl.signal }));
+    let dados = null;
+    try { dados = await r.json(); } catch (e) { if (ctl.signal.aborted) throw e; }
+    return { status: r.status, ok: r.ok, dados };
+  } catch (e) {
+    throw new Error(ctl.signal.aborted ? 'o servidor não respondeu a tempo' : 'sem conexão com o servidor');
+  } finally { clearTimeout(t); }
+}
 
 // ------------------------------------------------------------------ sessão (chave PRÓPRIA desta tela)
 // Não é a 'rmbSessao' do painel (conferência de 30/09): quem entrou no painel neste Chrome NÃO
@@ -282,31 +346,36 @@ function guardarSessao(d, email) {
     email: (d.user && d.user.email) || email, expira_em: Date.now() + ((d.expires_in || 3600) * 1000) }));
 }
 let RENOVANDO = null;
-// -> 'ok' | 'recusada' (o servidor disse não: precisa da senha) | 'falhou' (rede ou 5xx: tenta
-// de novo na próxima leitura, SEM deslogar — antes uma queda de rede na hora da renovação levava
-// a tela para o login e apagava um refresh_token que ainda valia)
-async function renovar() {                       // uma renovação por vez: o refresh_token é de uso único
+// -> 'ok' | 'recusada' (o servidor disse não) | 'falhou' (rede ou 5xx: tenta de novo na próxima
+// leitura, SEM deslogar). O refresh_token é de uso único: se a rede cai DEPOIS de o Supabase trocar
+// o token, a resposta com o token novo se perde. Por isso a renovação repete na hora, dentro dos
+// ~10 s em que o Supabase ainda aceita o token velho e devolve o novo (reconferência de 30/09).
+// 'recusada' NÃO apaga a sessão: o token de acesso atual ainda vale alguns minutos; quem pede a
+// senha é o ler(), quando uma leitura for recusada de verdade.
+async function renovar() {                       // uma renovação por vez
   if (RENOVANDO) return RENOVANDO;
   RENOVANDO = (async () => {
     const s = sessao();
     if (!s || !s.refresh_token) return 'recusada';
-    let r;
-    try {
-      r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, { method: 'POST',
-        headers: { apikey: SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refresh_token: s.refresh_token }) });
-    } catch (e) { return 'falhou'; }
-    let d = {};
-    try { d = await r.json(); } catch (e) {}
-    if (r.ok && d.access_token) { guardarSessao(d, s.email); return 'ok'; }
-    if (r.status === 400 || r.status === 401) { gravarLocal(CHAVE_SESSAO, null); return 'recusada'; }
+    for (const espera of RENOVAR_TENTATIVAS) {
+      if (espera) await new Promise(ok => setTimeout(ok, espera));
+      let r;
+      try {
+        r = await buscarJson(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, { method: 'POST',
+          headers: { apikey: SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refresh_token: s.refresh_token }) }, RENOVAR_TETO_MS);
+      } catch (e) { continue; }                  // resposta perdida: repete já, com o mesmo token
+      if (r.ok && r.dados && r.dados.access_token) { guardarSessao(r.dados, s.email); S.refreshMorto = false; return 'ok'; }
+      if (r.status === 400 || r.status === 401) { S.refreshMorto = true; return 'recusada'; }
+      return 'falhou';
+    }
     return 'falhou';
   })();
   try { return await RENOVANDO; } finally { RENOVANDO = null; }
 }
 async function garantirToken() {                 // a tela fica aberta o dia todo: renova antes de vencer
   const s = sessao();
-  if (s && s.expira_em && Date.now() > s.expira_em - 5 * 60000) await renovar();
+  if (s && s.expira_em && !S.refreshMorto && Date.now() > s.expira_em - 5 * 60000) await renovar();
 }
 function cabecalho() {
   const s = sessao();
@@ -315,17 +384,17 @@ function cabecalho() {
 async function ler(caminho) {
   await garantirToken();
   const url = `${SUPABASE_URL}/rest/v1/${caminho}`;
-  let r = await fetch(url, { headers: cabecalho() });
+  let r = await buscarJson(url, { headers: cabecalho() });
   if (r.status === 401) {
-    const ren = await renovar();
+    const ren = S.refreshMorto ? 'recusada' : await renovar();
     if (ren === 'falhou') throw new Error('sem conexão para renovar a sessão');   // não desloga
-    if (ren === 'ok') r = await fetch(url, { headers: cabecalho() });
+    if (ren === 'ok') r = await buscarJson(url, { headers: cabecalho() });
     if (ren === 'recusada' || r.status === 401) {
       pedirLogin('Sua sessão venceu. Entre de novo.'); throw new Error('sessão vencida');
     }
   }
-  if (!r.ok) throw new Error(`erro ${r.status} ao ler ${caminho.split('?')[0]}`);
-  return r.json();
+  if (!r.ok) throw new Error(`o servidor respondeu ${r.status} ao ler ${caminho.split('?')[0]}`);
+  return r.dados;
 }
 
 function pedirLogin(recado) {
@@ -338,6 +407,20 @@ function pedirLogin(recado) {
   mudarIcone(S.jaEntrou ? 'falha' : null);
   document.title = S.jaEntrou ? '⚠ AVISO DESLIGADO — entre de novo' : 'Pedidos ao vivo';
 }
+// o Supabase responde em inglês ('Invalid login credentials', 'Failed to fetch'...): a tela da loja
+// nunca mostra a mensagem crua (reconferência de 30/09)
+function traduzirErroLogin(status, d) {
+  const cod = String((d && (d.error_code || d.error || d.code)) || '').toLowerCase();
+  const msg = String((d && (d.error_description || d.msg || d.message)) || '').toLowerCase();
+  if (status === 429 || cod.includes('rate') || msg.includes('rate limit'))
+    return 'Muitas tentativas seguidas. Espere 1 minuto e tente de novo.';
+  if (cod.includes('not_confirmed') || msg.includes('not confirmed'))
+    return 'Este e-mail ainda não foi liberado. Avise o Neto.';
+  if (status === 400 || status === 401 || cod.includes('invalid') || msg.includes('invalid'))
+    return 'E-mail ou senha errados. Se não tem conta, peça ao Neto.';
+  if (status >= 500) return 'O servidor está com problema agora. Tente de novo em alguns minutos.';
+  return 'Não deu para entrar agora. Tente de novo; se continuar, avise o Neto.';
+}
 async function entrar() {
   const email = document.getElementById('loginEmail').value.trim();
   const senha = document.getElementById('loginSenha').value;
@@ -345,30 +428,45 @@ async function entrar() {
   if (!email || !senha) { erro.textContent = 'Preencha e-mail e senha.'; erro.hidden = false; return; }
   btn.disabled = true; btn.textContent = 'Entrando...';
   try {
-    const r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, { method: 'POST',
+    const r = await buscarJson(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, { method: 'POST',
       headers: { apikey: SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password: senha }) });
-    const d = await r.json();
+    const d = r.dados || {};
     if (!r.ok || !d.access_token) {
-      erro.textContent = (d.error_description || d.msg || 'E-mail ou senha errados.') + ' Se não tem conta, peça ao Neto.';
+      erro.textContent = traduzirErroLogin(r.status, d);
       erro.hidden = false; document.getElementById('loginSenha').value = ''; return;
     }
     guardarSessao(d, email);
+    S.refreshMorto = false;
     document.getElementById('loginGate').hidden = true;
     destravarAudio();                              // o clique em "Entrar" já libera o som
     iniciar();
   } catch (e) {
-    erro.textContent = 'Não consegui falar com o servidor: ' + e.message; erro.hidden = false;
+    erro.textContent = 'Sem conexão com o servidor. Confira a internet deste computador e tente de novo.';
+    erro.hidden = false;
   } finally { btn.disabled = false; btn.textContent = 'Entrar'; }
 }
 ['loginEmail', 'loginSenha'].forEach(id => document.getElementById(id)
   .addEventListener('keydown', e => { if (e.key === 'Enter') entrar(); }));
-function sair() { gravarLocal(CHAVE_SESSAO, null); location.reload(); }
+// Sair = o aviso para de funcionar neste computador. Fica no rodapé (longe do botão de som) e pede
+// um 2º clique DELIBERADO: o 2º clique de um duplo clique (< 0,8 s) não vale. Rodada 2 da
+// reconferência de 30/09: no topo, o duplo clique em "Clique para ligar o som" caía no "Sair".
+function sair() {
+  const b = document.getElementById('btnSair'), agora = mono(), desde = agora - S.sairArmadoEm;
+  if (desde < SAIR_CLIQUE_MIN_MS) return;                 // mesmo gesto do 1º clique
+  if (desde < SAIR_CONFIRMA_MS) { gravarLocal(CHAVE_SESSAO, null); location.reload(); return; }
+  S.sairArmadoEm = agora;
+  b.textContent = 'Clique de novo para sair — o aviso para de funcionar neste computador';
+  b.classList.add('chama');
+  setTimeout(() => {
+    if (mono() - S.sairArmadoEm >= SAIR_CONFIRMA_MS - 50) { b.textContent = 'Sair desta conta'; b.classList.remove('chama'); }
+  }, SAIR_CONFIRMA_MS);
+}
 
 // ------------------------------------------------------------------ som
 // Três sons, cada um com um sentido:
 //   sirene   ALARME — 2+ pedidos parados na unidade: o Saipos pode ter caído (a cada 6 s)
-//   lembrete CONFIRMAR — 1 pedido há mais de 5 min: confirme no Gestor (2 toques suaves a cada 15 s)
+//   lembrete CONFIRMAR — 1 pedido há mais de 6 min: confirme no Gestor (2 toques suaves a cada 15 s)
 //   falha    o aviso NÃO está funcionando: tela sem internet, vigia parado, sem iFood, tela caída
 //            no login (1 toque grave a cada 90 s)
 // O botão de som só DESLIGA quando a pessoa viu "Som ligado" ao apertar. A conferência de 30/09
@@ -380,7 +478,13 @@ function somQuerido() { return lerLocal('pedidosAoVivoSom') !== 'off'; }
 function somLiberado() { return !!AUDIO && AUDIO.state === 'running'; }
 function somAtivo() { return somQuerido() && somLiberado(); }
 function estadoSom() { return !somQuerido() ? 'desligado' : (somLiberado() ? 'ligado' : 'bloqueado'); }
-function mudoPeloNeto() { return !!(S.pulso && S.pulso.regra && S.pulso.regra.som === false); }
+// -SemSom do instalador (regra.som = false no pulso). Sem pulso lido (tela abrindo sem internet) vale o
+// último lido neste computador — antes a tela sem pulso pedia "clique para ligar o som" e apitava.
+function mudoPeloNeto() {
+  const r = S.pulso && S.pulso.regra;
+  if (r) return r.som === false;
+  return lerLocal(CHAVE_MUDO) === '1';
+}
 function destravarAudio() {
   let p = Promise.resolve();
   try {
@@ -399,19 +503,54 @@ function tocouBotaoSom() { ESTADO_NO_TOQUE = document.getElementById('btnSom').d
 function cliqueBotaoSom() {
   const viu = ESTADO_NO_TOQUE || document.getElementById('btnSom').dataset.estado || estadoSom();
   ESTADO_NO_TOQUE = null;
-  if (viu === 'ligado') gravarLocal('pedidosAoVivoSom', 'off');   // só quem VIU "Som ligado" desliga
+  // o 2º clique de um duplo clique chega ~30 ms depois de o 1º LIGAR — e já encontrava "Som ligado"
+  // na tela, e desligava (reconferência de 30/09). Clique logo depois de o botão mudar é do mesmo
+  // gesto: não vale. Só quem VIU "Som ligado" por um instante desliga.
+  if (mono() - S.somMudouEm < SOM_CONFIRMA_MS) { desenharSom(); return; }
+  if (viu === 'ligado') gravarLocal('pedidosAoVivoSom', 'off');
   else ligarSomAgora();
   desenharSom();
 }
+function cliqueFaixaSom() {
+  if (mono() < S.faixaOkAte) return;            // já ligou: a faixa só absorve o 2º clique
+  ligarSomAgora();
+  desenharSom();
+}
+// clique que atravessou a faixa de som no instante em que ela sumiu (o conteúdo sobe): não vale
+function cliqueAtravessou() { return mono() - S.faixaSumiuEm < 700; }
 function desenharSom() {
-  const b = document.getElementById('btnSom'), est = estadoSom();
+  const b = document.getElementById('btnSom'), est = estadoSom(), agora = mono();
+  if (S.somEstado !== null && S.somEstado !== est) {
+    S.somMudouEm = agora;
+    // passou a tocar com a faixa na tela: ela FICA um instante dizendo "Som ligado" (o 2º clique de
+    // um duplo clique cai nela, não no botão de unidade que estava embaixo)
+    if (est === 'ligado' && S.faixaVisivel && agora - S.ultimoGesto < 2000) {
+      S.faixaOkAte = agora + FAIXA_CONFIRMA_MS;
+      setTimeout(desenharSom, FAIXA_CONFIRMA_MS + 50);
+    }
+  }
+  S.somEstado = est;
   b.dataset.estado = est;
   b.textContent = est === 'desligado' ? '🔇 Som desligado' : est === 'bloqueado' ? '🔈 Clique para ligar o som' : '🔊 Som ligado';
   b.className = est === 'ligado' ? 'btn' : 'btn chama';
   const mudo = mudoPeloNeto(), f = document.getElementById('faixaSom');
+  // -SemSom: nada de "Clique para ligar o som" nem "Som ligado" — a tela não toca (rodada 2: o botão
+  // seguia chamando, tocava o bip de teste e dizia "Som ligado" ao lado de "a tela não toca")
+  b.hidden = mudo;
   document.getElementById('notaMudo').hidden = !mudo;
-  f.hidden = est === 'ligado' || mudo;
-  f.textContent = est === 'desligado' ? '🔇 SOM DESLIGADO — clique aqui para ligar o som do aviso'
+  const confirmando = est === 'ligado' && agora < S.faixaOkAte;
+  const mostrar = !mudo && (est !== 'ligado' || confirmando);
+  if (S.faixaVisivel && !mostrar) S.faixaSumiuEm = agora;
+  // enquanto diz "Som ligado" a faixa GUARDA a altura que tinha: em tela estreita o texto longo ocupa
+  // 3 linhas e o curto 1 — a faixa encolhia, o conteúdo subia embaixo do cursor e o 2º clique do
+  // duplo clique caía no botão de unidade (rodada 2, medido a 375 px)
+  if (confirmando && !f.classList.contains('feito')) f.style.minHeight = f.offsetHeight + 'px';
+  if (!confirmando) f.style.minHeight = '';
+  S.faixaVisivel = mostrar;
+  f.hidden = !mostrar;
+  f.classList.toggle('feito', confirmando);
+  f.textContent = confirmando ? '🔊 Som do aviso ligado'
+                : est === 'desligado' ? '🔇 SOM DESLIGADO — clique aqui para ligar o som do aviso'
                                       : '🔈 O SOM DO AVISO AINDA NÃO ESTÁ LIGADO — clique aqui uma vez';
 }
 function tom(freq, tipo, ini, dur, vol) {
@@ -422,17 +561,21 @@ function tom(freq, tipo, ini, dur, vol) {
   g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
   o.connect(g).connect(AUDIO.destination); o.start(t); o.stop(t + dur + 0.02);
 }
+// -> true se tocou. Quem marca o ritmo só conta o som que TOCOU: antes o som bloqueado "gastava" a vez
+// e, depois do clique que libera o som, a sirene esperava até 6 s e o bip da tela no login até 90 s.
 function tocar(qual) {
-  if (!somAtivo()) return;
+  if (mudoPeloNeto() || !somAtivo()) return false;   // -SemSom: nenhum som, nem o bip de teste
   try {
     if (qual === 'sirene') for (let i = 0; i < 3; i++) tom(i % 2 ? 660 : 880, 'square', i * 0.4, 0.3, 0.35);
     else if (qual === 'lembrete') { tom(620, 'sine', 0, 0.25, 0.35); tom(620, 'sine', 0.35, 0.25, 0.35); }
     else tom(330, 'triangle', 0, 0.6, 0.4);
-  } catch (e) {}
+  } catch (e) { return false; }
+  return true;
 }
 // o Chrome só deixa tocar som depois de um gesto na página: qualquer clique/tecla libera — menos
 // o botão de som, que decide sozinho pelo que a pessoa viu (ver cliqueBotaoSom)
 ['pointerdown', 'keydown'].forEach(tipo => document.addEventListener(tipo, e => {
+  S.ultimoGesto = mono();
   if (e.target && e.target.closest && e.target.closest('#btnSom')) return;
   if (somQuerido() && !somLiberado()) destravarAudio();
 }, { capture: true }));
@@ -442,19 +585,22 @@ function tocar(qual) {
 // numa janela própria, visível (ver o guia).
 const ICONE_NORMAL = (document.querySelector('link[rel="icon"]') || {}).href || 'icon-192.png';
 const ICONES = {};
+// cada aviso com o seu ícone: o "aviso sem funcionar" era idêntico ao laranja do CONFIRMAR
+// (reconferência de 30/09) — agora é cinza com um X (aviso desligado)
+const ICONE_SIMBOLO = { alarme: ['--farol-fora', '!'], lembrete: ['--farol-perto', '!'], falha: ['--tx-5', '×'] };
 function mudarIcone(tipo) {
   const link = document.querySelector('link[rel="icon"]');
   if (!link) return;
   if (!tipo) { if (link.href !== ICONE_NORMAL) link.href = ICONE_NORMAL; return; }
   if (!ICONES[tipo]) {
     try {
-      const cor = getComputedStyle(document.documentElement)
-        .getPropertyValue(tipo === 'alarme' ? '--farol-fora' : '--farol-perto').trim();
+      const [token, simbolo] = ICONE_SIMBOLO[tipo] || ICONE_SIMBOLO.falha;
+      const css = getComputedStyle(document.documentElement);
       const c = document.createElement('canvas'); c.width = c.height = 64;
       const x = c.getContext('2d');
-      x.fillStyle = cor; x.beginPath(); x.arc(32, 32, 30, 0, 2 * Math.PI); x.fill();
-      x.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
-      x.font = 'bold 44px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('!', 32, 35);
+      x.fillStyle = css.getPropertyValue(token).trim(); x.beginPath(); x.arc(32, 32, 30, 0, 2 * Math.PI); x.fill();
+      x.fillStyle = css.getPropertyValue('--bg').trim();
+      x.font = 'bold 44px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(simbolo, 32, 35);
       ICONES[tipo] = c.toDataURL('image/png');
     } catch (e) { return; }
   }
@@ -473,18 +619,35 @@ function notificar(chave, titulo, texto) {
 
 // ------------------------------------------------------------------ leitura
 async function atualizar() {
-  if (S.naLogin) return;                         // na tela de login não há o que ler
+  if (S.naLogin || S.lendo) return;              // na tela de login não há o que ler; uma leitura por vez
+  S.lendo = true;
+  const inicio = mono();
   try {
     const [pulsos, pedidos] = await Promise.all([
       ler(`vw_vigia_pulso?ambiente=eq.${AMBIENTE}&select=*`),
       ler(`vw_pedidos_ao_vivo?ambiente=eq.${AMBIENTE}&select=*&order=criado_em.desc&limit=2000`),
     ]);
-    S.pulso = pulsos[0] || null; S.pedidos = pedidos; S.lidoEm = Date.now(); S.erro = null; S.erroDesde = 0;
+    S.pulso = pulsos[0] || null; S.pedidos = pedidos; S.lidoEm = mono(); S.lidoHora = new Date();
+    S.erro = null; S.erroDesde = 0;
     S.primeiraLeitura = true;
+    if (S.pulso && S.pulso.regra) gravarLocal(CHAVE_MUDO, S.pulso.regra.som === false ? '1' : null);
   } catch (e) {
-    if (e.message !== 'sessão vencida') { S.erro = e.message; S.erroDesde = S.erroDesde || Date.now(); }
-  }
+    // "sem internet desde" = quando começou a leitura que falhou (com o teto de 15 s, contar do fim
+    // atrasava o aviso)
+    if (e.message !== 'sessão vencida') { S.erro = e.message; S.erroDesde = S.erroDesde || inicio; }
+  } finally { S.lendo = false; }
   if (!S.naLogin) desenhar();
+}
+// "Casos para avaliar": leitura à parte, a cada 5 min. Falhar aqui NÃO mexe no aviso nem no
+// "sem internet" — a lista é só para consulta.
+async function lerCasos() {
+  if (S.naLogin) return;
+  try {
+    S.casos = await ler(`vw_pedidos_casos_avaliar?ambiente=eq.${AMBIENTE}&select=dia,hora,unidade,loja,numero,` +
+                        `segundos_ate_aceitar,cancelado_depois,outros_na_meia_hora,criado_em&order=criado_em.desc&limit=300`);
+    S.casosErro = null;
+  } catch (e) { if (e.message !== 'sessão vencida') S.casosErro = e.message; }
+  if (!S.naLogin) desenharCasos();
 }
 
 // ------------------------------------------------------------------ estado derivado
@@ -492,8 +655,12 @@ async function atualizar() {
 //       DESLIGADO | NUNCA | SEM_INTERNET (ESTA tela não lê o banco — não é culpa do vigia:
 //       antes a idade do pulso crescia com o tempo sem ler e a tela culpava o vigia)
 function estado() {
-  if (S.erro && (!S.primeiraLeitura || (Date.now() - S.erroDesde) / 1000 > SEM_INTERNET_S))
-    return { tipo: 'SEM_INTERNET', seg: (Date.now() - (S.erroDesde || Date.now())) / 1000 };
+  if (S.erro && (!S.primeiraLeitura || (mono() - S.erroDesde) / 1000 > SEM_INTERNET_S))
+    return { tipo: 'SEM_INTERNET', seg: (mono() - (S.erroDesde || mono())) / 1000 };
+  // rede presa de um jeito que nem o teto pega (ou leituras que pararam de sair): sem leitura boa
+  // há muito tempo também é "esta tela sem internet"
+  if (S.primeiraLeitura && decorrido() > 2 * SEM_INTERNET_S + LER_A_CADA_MS / 1000)
+    return { tipo: 'SEM_INTERNET', seg: decorrido() };
   const p = S.pulso, d = decorrido();
   if (!p) return { tipo: 'NUNCA' };
   const semPulso = (p.segundos_sem_pulso || 0) + d;
@@ -535,7 +702,8 @@ function media(xs) {
 function desenhar() {
   document.getElementById('faixaTeste').hidden = AMBIENTE !== 'sandbox';
   desenharStatus(); desenharUnidades(); desenharAviso(); desenharCards();
-  desenharEsperando(); desenharLojas(); desenharCancelados(); desenharPedidos(); desenharRodape(); desenharSom();
+  desenharEsperando(); desenharLojas(); desenharCancelados(); desenharPedidos(); desenharCasos();
+  desenharRodape(); desenharSom();
 }
 
 function desenharStatus() {
@@ -554,12 +722,16 @@ function desenharUnidades() {
   const us = Object.keys(cont).sort((a, b) => ORDEM_UNIDADE.indexOf(a) - ORDEM_UNIDADE.indexOf(b));
   if (S.unidade !== 'TODAS' && !us.includes(S.unidade)) us.push(S.unidade);
   const botoes = [['TODAS', 'Todas as unidades', S.pedidos.length]].concat(us.map(u => [u, nomeUnidade(u), cont[u] || 0]));
-  document.getElementById('unidades').innerHTML = botoes.map(([u, nome, n]) =>
-    `<button class="${S.unidade === u ? 'active' : ''}" onclick="escolherUnidade('${esc(u)}')">${esc(nome)}<span class="n">${n}</span></button>`).join('');
+  porHtml(document.getElementById('unidades'), botoes.map(([u, nome, n]) =>
+    `<button class="${S.unidade === u ? 'active' : ''}" onclick="escolherUnidade('${esc(u)}')">${esc(nome)}<span class="n">${n}</span></button>`).join(''));
 }
-function escolherUnidade(u) { S.unidade = u; S.loja = null; gravarLocal('pedidosAoVivoUnidade', u === 'TODAS' ? null : u); desenhar(); }
+function escolherUnidade(u) {
+  if (cliqueAtravessou()) return;                // clique que era para a faixa de som que sumiu
+  S.unidade = u; S.loja = null; gravarLocal(CHAVE_UNIDADE, u === 'TODAS' ? null : u); desenhar();
+}
 
-function nomePedido(x) { return x.numero ? '#' + x.numero : 'da ' + x.loja; }
+// "Pedido #1234 (Loja)" — sem número, "Pedido da Loja" (sem repetir a loja entre parênteses)
+function pedidoELoja(x) { return x.numero ? `Pedido #${x.numero} (${x.loja})` : `Pedido da ${x.loja}`; }
 function desenharAviso() {
   const v = estado(), box = document.getElementById('aviso'), fora = document.getElementById('foraDoAr');
   const alarme = avisos('ALARME'), lembrete = avisos('CONFIRMAR');
@@ -576,9 +748,10 @@ function desenharAviso() {
       linhas.push(`${esc(nomeUnidade(u))}: ${xs.length} pedidos sem confirmar — o mais antigo há ` +
                   `${duracao(xs[0].segundos + d)} (${esc(lojas)})`);
     });
-    lembrete.forEach(x => linhas.push(`Pedido ${esc(nomePedido(x))} (${esc(x.loja)}) sem confirmar há ` +
-                                      `${duracao(x.segundos + d)}`));
-    document.getElementById('avisoTexto').innerHTML = linhas.join('<br>');
+    lembrete.forEach(x => linhas.push(`${esc(pedidoELoja(x))} sem confirmar há ` +
+                                      `${duracao(x.segundos + d)}` +
+                                      (x.sem_detalhe ? ' — o iFood não mandou o número; se for agendado, pode ignorar' : '')));
+    porHtml(document.getElementById('avisoTexto'), linhas.join('<br>'));
     const grave = alarme.length > 0;
     box.classList.toggle('lembrete', !grave);
     document.getElementById('avisoTitulo').textContent = grave
@@ -589,12 +762,13 @@ function desenharAviso() {
       : '<b>O que fazer:</b> confirme no Gestor de Pedidos do iFood. O iFood cancela sozinho perto de 8 minutos.';
     const todos = alarme.concat(lembrete);
     const calado = todos.every(x => S.silenciados.has(chaveSom(x)));
+    const mudo = mudoPeloNeto();                   // tela sem som (-SemSom): não há som para parar
     box.classList.toggle('calado', calado);
-    document.getElementById('avisoCalado').hidden = !calado;
-    document.getElementById('btnOuvi').hidden = calado;
+    document.getElementById('avisoCalado').hidden = !calado || mudo;
+    document.getElementById('btnOuvi').hidden = calado || mudo;
     box.hidden = false;
     todos.forEach(x => notificar(chaveSom(x), grave ? 'PEDIDOS PARADOS — o Saipos pode ter caído' : 'Confirme o pedido no Gestor do iFood',
-                                 `${nomePedido(x)} (${x.loja}) sem confirmar há ${duracao(x.segundos + d)}`));
+                                 `${pedidoELoja(x)} sem confirmar há ${duracao(x.segundos + d)}`));
   }
   // faixa "o aviso não está funcionando" — cada caso com o que fazer
   const onde = 'Se o Saipos parar de imprimir, abra o Gestor de Pedidos do iFood.';
@@ -604,17 +778,22 @@ function desenharAviso() {
   else if (v.tipo === 'DESLIGADO') html = `<b>O aviso de pedidos parados foi desligado às ${horaBR(S.pulso.desligado_em)}.</b> ${onde} Avise o Neto.`;
   else if (v.tipo === 'NUNCA') html = `<b>O aviso de pedidos parados ainda não foi ligado.</b> ${onde}`;
   else if (v.tipo === 'SEM_IFOOD') html = `<b>O aviso não consegue falar com o iFood${v.semIfood != null ? ' há ' + duracao(v.semIfood) : ''}.</b> Pedidos parados NÃO serão avisados agora. ${onde} Avise o Neto.`;
-  else if (S.pulso && (S.pulso.lojas_sem_permissao || []).length) {
-    const n = S.pulso.lojas_sem_permissao.length;
-    html = `<b>${n} loja${n > 1 ? 's estão' : ' está'} sem aviso</b> (falta permissão no iFood). Nas outras o aviso funciona. Avise o Neto.`;
+  else if (S.pulso && ((S.pulso.lojas_sem_permissao || []).length || (S.pulso.lojas_sem_detalhe || []).length)) {
+    const n = (S.pulso.lojas_sem_permissao || []).length, m = (S.pulso.lojas_sem_detalhe || []).length;
+    const partes = [];
+    if (n) partes.push(`<b>${n} loja${n > 1 ? 's estão' : ' está'} sem aviso</b> (falta permissão no iFood). Nas outras o aviso funciona.`);
+    if (m) partes.push(`<b>${m} loja${m > 1 ? 's' : ''} sem o número do pedido</b> na tela (falta permissão no iFood). ` +
+                       `O aviso funciona ${m > 1 ? 'nelas' : 'nela'}; o pedido aparece pelo nome da loja.`);
+    html = partes.join(' ') + ' Avise o Neto.';
     grave = false;
   }
   fora.hidden = !html;
   fora.classList.toggle('grave', grave);
-  if (html) {
-    const podeCalar = v.tipo !== 'NO_AR' && S.falhaCalada !== v.tipo && somAtivo() && !mudoPeloNeto();
-    fora.innerHTML = html + (podeCalar ? ' <button class="btn" onclick="calarFalha()">Ouvi — parar o bip</button>' : '');
-  }
+  // o botão "Ouvi — parar o bip" é FIXO no HTML: antes era recriado a cada 5 s e o clique que
+  // cruzava a troca se perdia (reconferência de 30/09)
+  const podeCalar = !!html && v.tipo !== 'NO_AR' && S.falhaCalada !== v.tipo && somAtivo() && !mudoPeloNeto();
+  porHtml(document.getElementById('foraTexto'), html);
+  document.getElementById('btnCalarFalha').hidden = !podeCalar;
   // título e ícone da aba (aba fixada só mostra o ícone)
   if (alarme.length) { document.title = '⚠ PEDIDOS PARADOS'; mudarIcone('alarme'); }
   else if (lembrete.length) { document.title = '⏱ CONFIRMAR PEDIDO'; mudarIcone('lembrete'); }
@@ -642,7 +821,7 @@ function desenharCards() {
 
 function desenharEsperando() {
   const d = decorrido(), v = estado(), r = (S.pulso && S.pulso.regra) || {};
-  const lim = (r.minutos_parado || 3) * 60, max = (r.minutos_qualquer || 5) * 60;
+  const lim = (r.minutos_parado || 3) * 60, max = (r.minutos_qualquer || 6) * 60;
   const esp = pedidosFiltrados().filter(p => p.segundos_esperando != null)
     .sort((a, b) => b.segundos_esperando - a.segundos_esperando);
   document.getElementById('espLegenda').textContent = v.tipo === 'NO_AR' ? '' : 'o aviso não está funcionando: estes tempos podem estar errados';
@@ -672,7 +851,7 @@ function desenharLojas() {
   });
   const linhas = Object.values(porLoja).sort((a, b) =>
     ORDEM_UNIDADE.indexOf(a.unidade) - ORDEM_UNIDADE.indexOf(b.unidade) || b.n - a.n);
-  document.getElementById('tabelaLojas').innerHTML = linhas.length ? `<table><thead><tr><th>Loja</th><th>Unidade</th>
+  porHtml(document.getElementById('tabelaLojas'), linhas.length ? `<table><thead><tr><th>Loja</th><th>Unidade</th>
     <th class="num">Pedidos</th><th class="num">Em andamento</th><th class="num">Esperando</th><th class="num">Cancelados</th>
     <th class="num">Tempo até confirmar (média)</th></tr></thead><tbody>` + linhas.map(L =>
     `<tr class="clica ${S.loja === L.id ? 'escolhida' : ''}" onclick="escolherLoja(${Number(L.id)})"><td>${esc(L.loja)}</td>` +
@@ -680,9 +859,12 @@ function desenharLojas() {
     `<td class="num">${L.esp ? '<span class="sit esperando">' + L.esp + '</span>' : 0}</td>` +
     `<td class="num">${L.canc ? '<span class="sit cancelado">' + L.canc + '</span>' : 0}</td>` +
     `<td class="num">${duracao(media(L.conf))}</td></tr>`).join('') + '</tbody></table>'
-    : '<div class="vazio" style="padding:10px 12px">Nenhum pedido hoje.</div>';
+    : '<div class="vazio" style="padding:10px 12px">Nenhum pedido hoje.</div>');
 }
-function escolherLoja(id) { S.loja = S.loja === id ? null : id; desenharLojas(); desenharPedidos(); }
+function escolherLoja(id) {
+  if (cliqueAtravessou()) return;
+  S.loja = S.loja === id ? null : id; desenharLojas(); desenharPedidos();
+}
 
 function desenharCancelados() {
   const cs = pedidosFiltrados().filter(p => p.cancelado_em || ['EM_ANALISE', 'NEGADO', 'CANCELADO'].includes(p.cancel_situacao))
@@ -704,8 +886,8 @@ function desenharPedidos() {
   let ps = pedidosFiltrados();
   const escolhida = S.loja != null ? ps.find(p => p.id_loja === S.loja) : null;
   if (S.loja != null) ps = ps.filter(p => p.id_loja === S.loja);
-  document.getElementById('chipLoja').innerHTML = escolhida ?
-    `<span class="filtro-chip" onclick="escolherLoja(${Number(S.loja)})">${esc(escolhida.loja)} ✕</span>` : '';
+  porHtml(document.getElementById('chipLoja'), escolhida ?
+    `<span class="filtro-chip" onclick="escolherLoja(${Number(S.loja)})">${esc(escolhida.loja)} ✕</span>` : '');
   const LIM = 300, d = decorrido();
   const mostra = ps.slice(0, LIM);
   document.getElementById('tabelaPedidos').innerHTML = mostra.length ? `<table><thead><tr><th>Chegou</th><th>Nº</th><th>Loja</th>
@@ -720,8 +902,36 @@ function desenharPedidos() {
     : '<div class="vazio" style="padding:10px 12px">Nenhum pedido hoje.</div>';
 }
 
+// "Casos para avaliar" (decisão do dono, 30/09): pedidos confirmados com mais de 6 min nos últimos
+// 30 dias. Só leitura. "Outros na unidade" = outros casos da mesma unidade com menos de 30 min de
+// diferença — vários juntos apontam instabilidade do Saipos.
+function desenharCasos() {
+  const el = document.getElementById('tabelaCasos');
+  if (S.casos == null) {
+    porHtml(el, `<div class="vazio" style="padding:10px 12px">${S.casosErro
+      ? 'Não consegui ler esta lista agora. Tento de novo em alguns minutos.' : 'Lendo…'}</div>`);
+    return;
+  }
+  const cs = S.casos.filter(c => naUnidade(c.unidade));
+  const juntos = cs.filter(c => c.outros_na_meia_hora > 0).length;
+  document.getElementById('casosLegenda').textContent = 'pedidos confirmados com mais de 6 min — últimos 30 dias' +
+    (cs.length ? ` · ${cs.length} caso${cs.length > 1 ? 's' : ''}` +
+                 (juntos ? `, ${juntos} com outro na mesma unidade perto` : cs.length > 1 ? ', todos isolados' : ', isolado') : '');
+  const dia = s => s ? String(s).slice(8, 10) + '/' + String(s).slice(5, 7) : '—';
+  porHtml(el, cs.length ? `<table><thead><tr><th>Dia</th><th>Hora</th><th>Unidade</th><th>Loja</th><th>Nº</th>
+    <th class="num">Tempo até confirmar</th><th>Cancelado depois?</th><th>Outros na unidade (30 min)</th></tr></thead><tbody>` +
+    cs.map(c => `<tr><td>${dia(c.dia)}</td><td>${esc(c.hora || '—')}</td><td>${esc(nomeUnidade(c.unidade))}</td>` +
+      `<td>${esc(c.loja || '—')}</td><td>#${esc(c.numero || '—')}</td>` +
+      `<td class="num">${esc(duracao(c.segundos_ate_aceitar))}</td>` +
+      `<td>${c.cancelado_depois ? '<span class="sit cancelado">Sim</span>' : '<span class="nao">Não</span>'}</td>` +
+      `<td>${c.outros_na_meia_hora > 0 ? '<span class="sit esperando">' + c.outros_na_meia_hora +
+             (c.outros_na_meia_hora > 1 ? ' outros' : ' outro') + '</span>' : '<span class="nao">nenhum</span>'}</td></tr>`).join('') +
+    '</tbody></table>'
+    : '<div class="vazio" style="padding:10px 12px">Nenhum caso nos últimos 30 dias.</div>');
+}
+
 function desenharRodape() {
-  const r = (S.pulso && S.pulso.regra) || { pedidos_mesma_unidade: 2, minutos_parado: 3, minutos_qualquer: 5 };
+  const r = (S.pulso && S.pulso.regra) || { pedidos_mesma_unidade: 2, minutos_parado: 3, minutos_qualquer: 6 };
   const s = sessao();
   const notif = podeNotificar() && Notification.permission === 'default'
     ? ' <button class="btn" onclick="pedirNotificacao()">Avisar também no canto da tela do Windows</button>' : '';
@@ -729,16 +939,16 @@ function desenharRodape() {
     `Vermelho: ${r.pedidos_mesma_unidade} ou mais pedidos da mesma unidade sem confirmar há ${r.minutos_parado} min ` +
     `(o Saipos pode ter caído). Laranja: 1 pedido sem confirmar há ${r.minutos_qualquer} min (confirme no Gestor; ` +
     `o iFood cancela sozinho perto de 8 min). Esta tela lê a cada ${LER_A_CADA_MS / 1000} s e não confirma nada.` +
-    (S.lidoEm ? ` Última leitura ${new Date(S.lidoEm).toLocaleTimeString('pt-BR')}.` : '') +
+    (S.lidoHora ? ` Última leitura ${S.lidoHora.toLocaleTimeString('pt-BR')}.` : '') +
     (s && s.email ? ` Conta: ${s.email}.` : '')) + notif;
 }
 
 // a cada segundo: relógio, contadores e os sons (sem ler o banco). Roda também na tela de login:
 // tela que caiu para o login depois de ter entrado = aviso desligado, e isso também apita.
 function tique() {
-  const agora = Date.now();
+  const agora = mono();                          // ritmo dos sons: relógio que só anda para frente
   if (S.naLogin) {
-    if (S.jaEntrou && !mudoPeloNeto() && agora - S.ultimaFalha > FALHA_A_CADA_S * 1000) { S.ultimaFalha = agora; tocar('falha'); }
+    if (S.jaEntrou && agora - S.ultimaFalha > FALHA_A_CADA_S * 1000 && tocar('falha')) S.ultimaFalha = agora;
     return;
   }
   document.getElementById('relogio').textContent = new Date().toLocaleTimeString('pt-BR',
@@ -755,24 +965,28 @@ function tique() {
   if (S.falhaCalada && v.tipo !== S.falhaCalada) S.falhaCalada = null;   // mudou a falha: volta a apitar
   const soar = x => !S.silenciados.has(chaveSom(x));
   if (avisos('ALARME').some(soar)) {
-    if (agora - S.ultimoSom > SIRENE_A_CADA_S * 1000) { S.ultimoSom = agora; tocar('sirene'); }
+    if (agora - S.ultimoSom > SIRENE_A_CADA_S * 1000 && tocar('sirene')) S.ultimoSom = agora;
   } else if (avisos('CONFIRMAR').some(soar)) {
-    if (agora - S.ultimoSom > LEMBRETE_A_CADA_S * 1000) { S.ultimoSom = agora; tocar('lembrete'); }
+    if (agora - S.ultimoSom > LEMBRETE_A_CADA_S * 1000 && tocar('lembrete')) S.ultimoSom = agora;
   } else if (v.tipo !== 'NO_AR' && v.tipo !== S.falhaCalada) {
-    if (agora - S.ultimaFalha > FALHA_A_CADA_S * 1000) { S.ultimaFalha = agora; tocar('falha'); }
+    if (agora - S.ultimaFalha > FALHA_A_CADA_S * 1000 && tocar('falha')) S.ultimaFalha = agora;
   }
 }
 
 let INICIADO = false;
 function iniciar() {
-  S.naLogin = false; S.jaEntrou = true;
+  // lembrado neste computador: depois de um "Sair" (ou de a página recarregar na tela de login) a aba
+  // continua dizendo "⚠ AVISO DESLIGADO" e o bip volta (antes S.jaEntrou zerava no reload — rodada 2)
+  S.naLogin = false; S.jaEntrou = true; gravarLocal(CHAVE_ENTROU, '1');
   document.getElementById('loginGate').hidden = true;
   document.getElementById('app').hidden = false;
   if (somQuerido()) destravarAudio();
   atualizar();
+  lerCasos();
   if (INICIADO) return;
   INICIADO = true;
   setInterval(atualizar, LER_A_CADA_MS);
+  setInterval(lerCasos, CASOS_A_CADA_MS);
   document.addEventListener('visibilitychange', () => { if (!document.hidden && !S.naLogin) atualizar(); });
 }
 
