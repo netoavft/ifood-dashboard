@@ -13339,7 +13339,9 @@ async function trTelaContas() {
   alvo.innerHTML = `
     <div class="caption-label">Só entra aqui o fechamento que a Rita já validou.
       ${TR_OP.papel === 'SEPARACAO' || dono ? 'O que está esperando validação fica em <b>Fechamento do mês</b>.' : ''}
-      ${dono ? 'A filial pode pagar aos poucos: lance cada pagamento com o valor e a data.' : ''}
+      A filial pode pagar aos poucos. <b>O pagamento entra sozinho pelo Saipos</b>: a entrada lançada na Água Verde como
+      “LISTA AHU 09/2026” (filial e mês da lista) baixa a cobrança na carga seguinte, e o que falta é calculado aqui.
+      ${dono ? 'Lance à mão só o que não passar pelo Saipos — nos dois lugares conta em dobro.' : ''}
       <span id="trContasMsg" style="font-size:12px; margin-left:6px;"></span></div>
     <div id="tabelaTrOpContas"><table>
       <tr><th>Quem deve</th><th>Para quem</th><th>Tipo</th><th>Referência</th><th>Itens</th><th>Frete</th><th>Royalty</th><th>Total</th><th>Já pago</th><th>Falta</th><th>Vencimento</th><th>Status</th><th>Validou</th>${dono ? '<th>Lançar pagamento</th>' : ''}</tr>
