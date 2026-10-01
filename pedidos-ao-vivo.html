@@ -32,6 +32,10 @@
   Rodada 3 (30/09 noite): o botão de som larga o foco depois do clique e o teclado (Espaço/Enter)
   nunca DESLIGA o som — só o clique do mouse; a faixa "lojas sem aviso" diz QUAIS lojas; ícone da
   aba com desenho próprio (vermelho = triângulo, laranja = relógio, aviso sem funcionar = X).
+  Rodada 5 (30/09 noite): queda do iFood, reinício do vigia ou lacuna NUNCA tiram pedido do aviso. Nos
+  5 min depois de o vigia voltar (pulso vigia_voltou_em), o aviso vermelho/laranja ganha a linha "O
+  vigia acabou de voltar — alguns desses pedidos podem já ter sido aceitos. Confira no Gestor de
+  Pedidos." Som e cores iguais. View sem a coluna (SQL antigo): a linha só não aparece.
   Rodada 2 da reconferência (30/09): ritmo dos sons e "sem internet" pelo relógio que só anda para
   frente (a hora do Windows mudando não cala a sirene); "Sair" no rodapé, com 2º clique deliberado
   (o duplo clique no botão de som caía nele); botão de som de largura fixa; com -SemSom não há botão
@@ -113,6 +117,9 @@
   .btn-ouvi { background:var(--tx-1); color:var(--bg); border:none; border-radius:10px; padding:11px 18px;
     font-size:15px; font-weight:800; cursor:pointer; font-family:inherit; }
   .aviso-calado { font-size:13px; opacity:.9; }
+  /* "o vigia acabou de voltar" (rodada 5): só texto, na cor do próprio aviso — som e cores iguais */
+  .aviso-volta { font-size:16px; font-weight:700; margin-top:10px; padding:8px 12px; line-height:1.35;
+    border:1px dashed currentColor; border-radius:8px; }
   /* lembrete (1 pedido > 6 min): laranja, sem falar de Saipos */
   .aviso.lembrete { background:color-mix(in srgb, var(--farol-perto) 22%, var(--bg)); border-color:var(--farol-perto); }
   .aviso.lembrete .aviso-acao { border-top-color:var(--farol-perto); }
@@ -231,6 +238,7 @@
     <div class="aviso-titulo" id="avisoTitulo"></div>
     <div class="aviso-texto" id="avisoTexto"></div>
     <div class="aviso-acao" id="avisoAcao"></div>
+    <div class="aviso-volta" id="avisoVolta" hidden>O vigia acabou de voltar — alguns desses pedidos podem já ter sido aceitos. Confira no Gestor de Pedidos.</div>
     <div class="aviso-rodape">
       <button class="btn-ouvi" id="btnOuvi" onclick="ouvi()">Ouvi — parar o som</button>
       <span class="aviso-calado" id="avisoCalado" hidden>Som parado. Volta a tocar se outro pedido parar.</span>
@@ -272,6 +280,7 @@ const AMBIENTE = new URLSearchParams(location.search).get('teste') === '1' ? 'sa
 const LER_A_CADA_MS = 20000;
 const PULSO_VELHO_S = 120;        // vigia sem pulso há mais que isto = fora do ar
 const SEM_IFOOD_S = 90;           // vigia sem polling OK há mais que isto = cego (o vigia marca aos 60)
+const VOLTA_ANOTACAO_S = 300;     // "o vigia acabou de voltar" vale por isto (o vigia grava por 5 min — rodada 5)
 const SEM_INTERNET_S = 45;        // leituras desta tela falhando há mais que isto = tela sem internet
 const LEITURA_TETO_MS = 15000;    // leitura que não responde em 15 s conta como falha (fetch pendurado
                                   // nunca falhava e a tela nunca dizia "sem internet" — reconferência 30/09)
@@ -730,6 +739,16 @@ function avisos(nivel) {
   return (p.aviso_pedidos || []).filter(x => nivelDo(x) === nivel && naUnidade(x.unidade));
 }
 function chaveSom(x) { return x.id + ':' + nivelDo(x); }       // subir de nível toca de novo
+// o vigia acabou de voltar (reinício ou 90 s ou mais sem ler o iFood) — rodada 5: NADA sai do aviso por
+// isso; a tela só diz que alguns pedidos podem já ter sido aceitos. A idade vem do banco (segundos_desde_volta)
+// + o tempo desde a leitura. View sem a coluna (SQL antigo): undefined -> não mostra (e nada quebra)
+function vigiaAcabouDeVoltar() {
+  const p = S.pulso;
+  if (!p || !p.vigia_voltou_em) return false;
+  const s = p.segundos_desde_volta;
+  return s == null || s + decorrido() < VOLTA_ANOTACAO_S;
+}
+const TEXTO_VOLTA = 'O vigia acabou de voltar — alguns desses pedidos podem já ter sido aceitos. Confira no Gestor de Pedidos.';
 function situacaoDe(p) {
   if (p.cancel_situacao === 'CANCELADO' || p.situacao === 'CANCELLED') return ['Cancelado', 'cancelado'];
   let t = SITUACAO[p.situacao] || p.situacao || '—';
@@ -812,12 +831,15 @@ function desenharAviso() {
     const todos = alarme.concat(lembrete);
     const calado = todos.every(x => S.silenciados.has(chaveSom(x)));
     const mudo = mudoPeloNeto();                   // tela sem som (-SemSom): não há som para parar
+    const voltou = vigiaAcabouDeVoltar();          // só uma linha a mais: som, cores e título iguais
     box.classList.toggle('calado', calado);
     document.getElementById('avisoCalado').hidden = !calado || mudo;
     document.getElementById('btnOuvi').hidden = calado || mudo;
+    document.getElementById('avisoVolta').hidden = !voltou;
     box.hidden = false;
     todos.forEach(x => notificar(chaveSom(x), grave ? 'PEDIDOS PARADOS — o Saipos pode ter caído' : 'Confirme o pedido no Gestor do iFood',
-                                 `${pedidoELoja(x)} sem confirmar há ${duracao(x.segundos + d)}`));
+                                 `${pedidoELoja(x)} sem confirmar há ${duracao(x.segundos + d)}` +
+                                 (voltou ? '. ' + TEXTO_VOLTA : '')));
   }
   // faixa "o aviso não está funcionando" — cada caso com o que fazer
   const onde = 'Se o Saipos parar de imprimir, abra o Gestor de Pedidos do iFood.';
