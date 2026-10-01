@@ -753,6 +753,27 @@
   .tr-ilha div[id^="tabela"] th:first-child { background:#f3eee3; }
   .tr-tag { color:#f5a623; font-size:11px; }
   .tr-ilha .tr-tag { color:#a05c00; }
+  /* Tabela de precos das listas (dono, 01/10/2026): cabe na largura da area, sem rolar
+     de lado. "Como vem" e "Custo" sao colunas no computador; em area estreita descem
+     para baixo do nome do item. A medida e a largura da AREA (container), nao a da
+     janela — o menu lateral come largura; o @media cobre navegador sem @container. */
+  .trp { container-type:inline-size; }
+  .trp td.trp-d, .trp th.trp-d { white-space:normal; text-align:left; }
+  .trp td .tr-det { font-size:12.5px; font-weight:400; }
+  .trp .trp-m, .trp .trp-mc { display:none; }
+  @container (max-width:640px) { .trp .trp-d { display:none; } .trp .trp-m { display:block; } }
+  @container (max-width:440px) { .trp .trp-c { display:none; } .trp .trp-mc { display:block; } }
+  @media (max-width:640px) { .trp .trp-d, .trp .trp-c { display:none; } .trp .trp-m, .trp .trp-mc { display:block; } }
+  /* celular: no painel de verdade a area util e de uns 310 px (a pagina tem margem) —
+     celula mais justa e o preco da embalagem pode quebrar de linha, senao a tabela
+     passa 5 px e rola de lado */
+  @container (max-width:440px) { .trp div[id^="tabela"] th, .trp div[id^="tabela"] td { padding:6px 7px; } .trp td:last-child, .trp td .tr-det { white-space:normal; } }
+  @media (max-width:480px) { .trp div[id^="tabela"] th, .trp div[id^="tabela"] td { padding:6px 7px; } .trp td:last-child, .trp td .tr-det { white-space:normal; } }
+  /* as duas tabelas do bloco Reajustes (so o dono ve): em area estreita o texto quebra
+     de linha em vez de a tabela rolar de lado */
+  .trp-r { container-type:inline-size; }
+  .trp-r div[id^="tabela"] th, .trp-r div[id^="tabela"] td { white-space:normal; }
+  @container (max-width:640px) { .trp-r div[id^="tabela"] th, .trp-r div[id^="tabela"] td { padding:6px; } }
 
   /* ==================================================================
      TIPOGRAFIA NOVA (dono, 05/09/2026 — amostra aprovada): Inter no painel
@@ -11836,7 +11857,7 @@ async function entrarListas() {   // Listas · Pedidos
   TR_MODULO = 'pedidos';
   alvo.innerHTML = `
     <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Listas · Pedidos</div>
-    <div class="caption-label" style="text-align:center;" title="Tudo por peso (kg), menos embalagens. Preço de tabela = CMV + 19% de custo de produção, congelado no ato do pedido (no Boqueirão vale a tabela do mês). Fechamento e contas ficam em Listas · Financeiro.">
+    <div class="caption-label" style="text-align:center;" title="Tudo por peso (kg), menos embalagens. Fechamento e contas ficam em Listas · Financeiro.">
       A filial pede, a Água Verde separa, quem recebe confere.
     </div>
     <div id="trOperacao"><div class="contexto">Carregando a operação...</div></div>`;
@@ -12930,46 +12951,174 @@ async function trSalvarEdicao() {
   setTimeout(() => trEditarPedido(id), 900);
 }
 
-// ---- tela: tabela de precos (todos os papeis, so leitura) ----
-// O cardapio vivo: CMV da Formacao de precos x (1 + custo de producao) x
-// fator da unidade, pela regra vigente HOJE (vw_tr_tabela_precos). O que
-// vale na cobranca e sempre o congelado na lista — isto aqui e consulta.
+// ---- tela: tabela de precos (so leitura) ----
+// Dono, 01/10/2026: "cabe em uma pagina so, sem precisar rolar embaixo" e, para a
+// filial, "uma tabela de preco que um cliente deve ver: o nome do item, como ele vem
+// e o valor que esta pagando ... somente os itens dela".
+// - A LISTA e a grade da filial (vw_tr_itens_pedido: o que esta ativo para ela em
+//   tr_item_unidade) e o PRECO e o preco_tabela dessa view — a mesma coluna do Novo
+//   pedido, o preco com que a linha do pedido nasce. Na cobranca vale o congelado
+//   na lista; isto aqui e consulta.
+// - Papel FILIAL (cliente da central): item, como vem e preco. Sem custo, sem
+//   percentual, sem reajustes — a tela dela nem pede essas colunas ao banco. Login
+//   sem valores: so item e como vem.
+// - Quem e da casa (dono, compras, financeiro): o mesmo, mais a coluna Custo (lida de
+//   vw_tr_tabela_precos), o seletor de filial e, no Boqueirao, o quadro da tabela do
+//   mes e os reajustes.
+// - Item sem cobranca sai da tabela e vai para um bloco curto no fim.
+// Titulo das secoes = a classe do cadastro (tr_itens.classe) escrita por extenso. A
+// ordem desta lista e a ordem na tela; classe nova entra no fim, com o nome do cadastro.
+const TR_PRECOS_SECOES = [
+  ['CARNE', 'Carnes'], ['CARNES DEFUMADAS', 'Carnes defumadas'], ['PREP PRODUCAO', 'Preparos da produção'],
+  ['PREP PRATOS', 'Preparos de pratos'], ['PREP LANCHES', 'Preparos de lanches'], ['CONGELADOS', 'Congelados'],
+  ['LATICINEOS', 'Laticínios'], ['SOBREMESAS', 'Sobremesas'], ['PAES', 'Pães'], ['HORTIFRUTI', 'Hortifrúti'],
+  ['SECOS', 'Secos'], ['BEBIDAS', 'Bebidas'], ['EMBALAGENS', 'Embalagens'], ['DESCARTAVEIS', 'Descartáveis'],
+  ['MATERIAL DE LIMPEZA', 'Material de limpeza'], ['UTENSILIOS', 'Utensílios'], ['ESCRITORIO', 'Escritório'],
+  ['FUNCIONARIOS', 'Funcionários'],
+];
+// Como o item vem, em frase inteira, para quem le a tabela como cliente: "pacote de
+// 450 g", "caixa com 26 unidades", "garrafa de 5 litros", "pacote com 20 de 130 g
+// (2,6 kg)", "por unidade (150 g cada)". Sem sigla (un, rl, lt), sem repetir a medida
+// ("pacote 300 g de 300 g") e, sem embalagem no cadastro, "por quilo" / "por unidade"
+// — nunca um traco. Le so o que a grade diz (emb_nome/emb_fator): nao inventa embalagem.
+function trComoVem(i) {
+  const un = (i.un_medida || 'un').toLowerCase();
+  const medida = (f) => un === 'kg' ? trEmbDesc({ un_medida: 'KG', emb_fator: f }) : `${trNum(f, 3)} ${trUnNome(un, f)}`;
+  const uma = (nome, f) => {
+    const m = /^(.*?)\s*\((\d+)x(\d+) g\)$/.exec(nome);                       // "pacote (20x130 g)"
+    if (m) return `${m[1]} com ${m[2]} de ${m[3]} g (${medida(f)})`;
+    if (nome === 'unidade') return `por unidade (${medida(f)} cada)`;
+    if (/\d/.test(nome)) return String(nome).replace(/ (\d+ g)$/, ' de $1');     // "pacote 300 g" -> "pacote de 300 g"
+    return `${nome} ${un === 'kg' || un === 'lt' ? 'de' : 'com'} ${medida(f)}`;
+  };
+  if (!i.emb_fator) return un === 'kg' ? 'por quilo' : 'por ' + trUnNome(un, 1);
+  let t = uma(i.emb_nome, i.emb_fator) + (i.emb2_fator ? ' ou ' + uma(i.emb2_nome, i.emb2_fator) : '');
+  // item pesado na separacao (hoje so o T-bone): o peso do pacote e aproximado
+  if (i.peso_variavel) t = t.replace(' de ', ' de cerca de ') + ' · pesado na separação';
+  return t;
+}
+// Preco em reais, sempre em pt-BR. Abaixo de R$ 1 mostra 4 casas: o centavo
+// quebrado pesa (lacre a R$ 0,0589 — o rolo de 250 sai R$ 14,73, nao 250 x R$ 0,06).
+function trPrecoRs(v) {
+  const n = Number(v);
+  // espaco que nao quebra: em celula estreita o "R$" nao se separa do numero
+  return 'R$\u00a0' + (Math.abs(n) < 1 && Math.abs(n) >= 0.00005
+    ? n.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 }) : fmt(n));
+}
+// a unidade junto do preco: "R$ 12,51/kg", "R$ 4,04 a unidade", "R$ 4,84 o rolo"
+function trPrecoPor(un) {
+  const u = String(un || 'un').toLowerCase();
+  return { kg: '/kg', un: ' a unidade', rl: ' o rolo', lt: ' o litro', cx: ' a caixa' }[u] || '/' + u;
+}
+// "R$ 5,63 o pacote": o preco da embalagem inteira — a mesma conta do Novo pedido
+// (preco de tabela x o que vem na embalagem)
+function trPrecoEmb(preco, nome, fator, aprox) {
+  const curto = String(nome).split(' (')[0].replace(/\s+\d.*$/, '');
+  return `${aprox ? 'cerca de ' : ''}${trPrecoRs(Number(preco) * Number(fator))} ${/(a|ade|ção)$/.test(curto.split(' ')[0]) ? 'a' : 'o'} ${curto}`;
+}
+// a frase do alto para a filial com tabela mensal: de que mes e, ate quando vale
+function trTabelaFraseCliente(sit) {
+  const mes = trMesNome(sit.mes), prox = trMesNome(sit.proximo_mes), fim = trTabelaValeAte(sit);
+  const n = Number(sit.reajustados || 0);
+  if (!sit.tem_tabela) return `<b>Tabela de ${mes}</b> · abre no primeiro pedido do mês e vale até <b>${fim}</b>. Até lá, os preços abaixo são os de hoje.`;
+  return `<b>Tabela de ${mes}</b> · vale para todos os pedidos até <b>${fim}</b>.`
+    + (n ? ` ${n === 1 ? '1 item mudou' : n + ' itens mudaram'} neste mês (marcado na lista).` : '')
+    + (sit.proximo_tem_tabela ? ` A tabela de ${prox} já está fechada e entra no dia 1º.` : '');
+}
 async function trTelaPrecos(unidadeEscolhida) {
   const alvo = document.getElementById('trTelaConteudo');
   let unidade = TR_OP.unidade || unidadeEscolhida || window._trPrecosUnidade;
-  if (!unidade) unidade = 'AHU'; // desde 01/09/2026 as tres pagam a mesma tabela
+  if (!unidade) unidade = 'AHU';
   window._trPrecosUnidade = unidade;
+  // quem e da casa pode abrir a tabela do jeito que a filial ve (botao "ver como a filial vê")
+  const previa = TR_OP.papel !== 'FILIAL' && !TR_OP.unidade && !!window._trPrecosComoFilial;
+  const cliente = TR_OP.papel === 'FILIAL' || previa;
+  const comValor = TR_OP.veValores !== false;
+  const daCasa = !cliente && comValor;   // pede o custo ao banco
   // 01/10/2026 (dono): o Boqueirao tem TABELA MENSAL — o preco congela por mes; Ahu e
-  // Sao Braz seguem pelo custo do dia. Quem diz e o banco (vw_tr_tabela_mes_situacao);
-  // sem resposta dele a tela se comporta como antes.
+  // Sao Braz seguem pelo custo do dia. Quem diz e o banco (vw_tr_tabela_mes_situacao).
   const sit = await trTabelaSituacao(unidade);
   const mensal = !!(sit && sit.tabela_mensal);
   window._trTabelaSit = sit;
-  const r = await trFetch(`vw_tr_tabela_precos?unidade=eq.${encodeURIComponent(unidade)}&order=grupo_separacao,item&select=item,classe,grupo_separacao,un,cmv,pct_producao,preco,cmv_atualizado_em,emb_nome,emb_fator,emb2_nome,emb2_fator,nao_cobrado,origem${mensal ? ',tabela_mes,tabela_reajuste' : ''}`);
-  if (!r.ok) { alvo.innerHTML = `<div class="contexto" style="border-color:#ff6b6b;">${await trErroDe(r)}</div>`; return; }
-  const itens = await r.json();
-  const pct = itens.length ? Math.round(Number(itens[0].pct_producao) * 100) : 0;
-  const dataCusto = itens.find(i => i.cmv_atualizado_em)?.cmv_atualizado_em;
+  const filial = `unidade=eq.${encodeURIComponent(unidade)}`;
+  // o que so vw_tr_tabela_precos tem: o custo (so para quem e da casa) e as marcas da
+  // tabela do mes. Se essa leitura falhar, a tabela abre do mesmo jeito, sem elas.
+  const extras = [daCasa ? 'cmv,pct_producao' : '', mensal ? 'tabela_mes,tabela_reajuste' : ''].filter(Boolean).join(',');
+  const [r, rx, rp] = await Promise.all([
+    trFetch(`vw_tr_itens_pedido?${filial}&order=item&select=item,classe,un_medida,emb_nome,emb_fator,emb2_nome,emb2_fator,nao_cobrado,origem,preco_tabela,peso_variavel`),
+    extras ? trFetch(`vw_tr_tabela_precos?${filial}&select=item,${extras}`).catch(() => null) : null,
+    cliente ? trFetch(`vw_tr_itens_filial_pega?${filial}&select=item`).catch(() => null) : null,
+  ]);
+  // a tela pode ter trocado de filial enquanto a resposta vinha
+  if (window._trPrecosUnidade !== unidade || window._trTabelaSit !== sit) return;
+  if (!r.ok) { alvo.innerHTML = `<div class="contexto" style="border-color:var(--farol-fora);">${await trErroDe(r)}</div>`; return; }
+  const extra = {}, temExtra = !!(rx && rx.ok);
+  if (temExtra) (await rx.json()).forEach(x => { extra[x.item] = x; });
+  const comCusto = daCasa && temExtra;   // a coluna Custo so existe se o custo chegou
+  // "somente os itens dela" (dono, 01/10/2026): a filial ve o que pediu nos ultimos 12
+  // meses (vw_tr_itens_filial_pega, que casa tambem o nome antigo do item). Sem essa
+  // resposta, ou com ela vazia (filial sem historico), a tabela mostra a grade inteira.
+  let pega = null;
+  if (rp && rp.ok) { const nomes = (await rp.json()).map(x => x.item); if (nomes.length) pega = new Set(nomes); }
+  const grade = (await r.json()).map(i => ({ ...(extra[i.item] || {}), ...i }));
+  const itens = pega ? grade.filter(i => pega.has(i.item)) : grade;
+  const cobrados = itens.filter(i => !i.nao_cobrado), semCob = itens.filter(i => i.nao_cobrado);
+  const un = (i) => (i.un_medida || 'un').toLowerCase();
+  const titulo = Object.fromEntries(TR_PRECOS_SECOES), ordem = TR_PRECOS_SECOES.map(s => s[0]);
+  const lugar = (c) => ordem.indexOf(c) < 0 ? 999 : ordem.indexOf(c);
+  const classes = [...new Set(cobrados.map(i => i.classe || 'OUTROS'))].sort((a, b) => lugar(a) - lugar(b) || a.localeCompare(b));
+  const custoTxt = (i) => Number(i.cmv) > 0 ? trPrecoRs(i.cmv) + trPrecoPor(un(i)) : '<span class="tr-tag">sem custo</span>';
+  const precoTxt = (i) => !(Number(i.preco_tabela) > 0) ? '<span class="tr-tag">sem preço</span>'
+    : `<b>${trPrecoRs(i.preco_tabela)}</b>${trPrecoPor(un(i))}`
+      + (i.emb_fator ? `<div class="tr-det">${trPrecoEmb(i.preco_tabela, i.emb_nome, i.emb_fator, i.peso_variavel)}</div>` : '')
+      + (i.emb2_fator ? `<div class="tr-det">${trPrecoEmb(i.preco_tabela, i.emb2_nome, i.emb2_fator, i.peso_variavel)}</div>` : '');
+  const colunas = 2 + (comCusto ? 1 : 0) + (comValor ? 1 : 0);
+  const linha = (i, c) => {
+    const vem = trComoVem(i);
+    return `<tr data-sec="${c}" data-busca="${(i.item + ' ' + (titulo[c] || c) + ' ' + c).toLowerCase()}">
+        <td>${i.item}${i.origem === 'FORNECEDOR' ? ' <span class="tr-det">· fornecedor</span>' : ''}${temExtra ? trTabelaMarca(i, sit) : ''}
+          <div class="trp-m tr-det">${vem}</div>${comCusto ? `<div class="trp-mc tr-det">custo ${custoTxt(i)}</div>` : ''}</td>
+        <td class="trp-d">${vem}</td>${comCusto ? `<td class="trp-c">${custoTxt(i)}</td>` : ''}${comValor ? `<td>${precoTxt(i)}</td>` : ''}
+      </tr>`;
+  };
+  const pct = comCusto ? itens.find(i => i.pct_producao != null)?.pct_producao : null;
   const seletor = TR_OP.unidade ? '' : ['AHU', 'BOQUEIRAO', 'SÃO BRAZ'].map(u =>
     `<button class="preset-btn ${u === unidade ? 'active' : ''}" onclick="trTelaPrecos('${u}')">${u}</button>`).join(' ');
-  alvo.innerHTML = `
-    <div class="caption-label">Preço de transferência de <b>${unidade}</b> = CMV + <b>${pct}%</b> de custo de produção
-      (rateio da central, revisado por vigência)${!mensal && dataCusto ? ` · CMV da Formação de preços de ${dataCusto.slice(8,10)}/${dataCusto.slice(5,7)}` : ''}.
-      ${mensal ? 'Na cobrança vale o preço desta tabela, pelo mês em que o pedido foi feito.' : 'Na cobrança vale o preço congelado no ato do pedido.'} ${seletor}</div>
+  // A data que a tela antiga mostrava ("CMV da Formacao de precos de dd/mm") saiu: era a
+  // data da carga da planilha (ft_insumos.importado_em), nao a do custo, que hoje vem da
+  // ultima nota — em 01/10 dizia 24/08 para 115 dos 116 itens.
+  // o alto da tela: quem e da casa le a conta do preco; a filial le so de quando e a tabela
+  const frase = !comValor ? 'O que a sua loja pede da central e como cada item vem.'
+    : !sit ? '' : mensal ? trTabelaFraseCliente(sit) : 'Vale o preço do dia em que o pedido é feito.';
+  const alto = cliente
+    ? (previa ? `<div class="caption-label">Assim <b>${unidade}</b> vê a tabela.
+        <button class="preset-btn" onclick="window._trPrecosComoFilial = false; trTelaPrecos()">voltar para a minha</button> ${seletor}</div>` : '')
+      + (frase ? `<div class="contexto" style="margin:8px 0; text-align:left;">${frase}</div>` : '')
+    : `<div class="caption-label">Preço de <b>${unidade}</b>${pct != null ? ` = custo + <b>${Math.round(Number(pct) * 100)}%</b> de custo de produção` : ''}.
+      ${mensal ? 'Na cobrança vale o preço desta tabela, pelo mês em que o pedido foi feito.' : 'Na cobrança vale o preço congelado no ato do pedido.'} ${seletor}
+      ${daCasa ? `<button class="preset-btn" onclick="window._trPrecosComoFilial = true; trTelaPrecos()">ver como a filial vê</button>` : ''}</div>
     ${mensal ? trTabelaCabecalho(sit) : ''}
-    ${mensal && TR_OP.papel === 'DONO' ? '<div id="trTabelaReajustes"></div>' : ''}
+    ${mensal && TR_OP.papel === 'DONO' ? '<div id="trTabelaReajustes" class="trp-r"></div>' : ''}`;
+  alvo.innerHTML = `
+    ${alto}
     <input id="trPrecosBusca" type="search" class="trc-in" placeholder="buscar item..." oninput="trPrecosFiltra()"
       style="width:100%; max-width:340px; margin:8px 0; border-radius:8px; padding:8px 10px;">
-    <div id="tabelaTrPrecos"><table>
-      <tr><th>Item</th><th>Origem</th><th>Grupo</th><th>Un</th><th>Como se pede</th><th>CMV</th><th>Preço</th></tr>
-      ${itens.map(i => `<tr data-busca="${(i.item + ' ' + (i.grupo_separacao || '') + ' ' + (i.classe || '') + ' ' + (i.origem || '')).toLowerCase()}">
-        <td>${i.item}${trTabelaMarca(i, sit)}</td><td>${i.origem === 'FORNECEDOR' ? '<span style="color:#4a90d9; font-weight:700;">fornecedor</span>' : 'Cidadão'}</td><td>${i.grupo_separacao || i.classe || '—'}</td><td>${i.un || '—'}</td>
-        <td>${i.emb_fator ? i.emb_nome + ' de ' + trEmbDesc({ un_medida: i.un, emb_fator: i.emb_fator })
-              + (i.emb2_fator ? ' ou ' + i.emb2_nome + ' de ' + trEmbDesc({ un_medida: i.un, emb_fator: i.emb2_fator }) : '') : '—'}</td>
-        <td>R$ ${Number(i.cmv).toFixed(2)}</td><td><b>${i.nao_cobrado ? 'não cobrado' : 'R$ ' + Number(i.preco).toFixed(2)}</b></td>
-      </tr>`).join('')}
-    </table></div>`;
-  if (mensal && TR_OP.papel === 'DONO') trTabelaReajustes(unidade);
+    <span class="tr-det" style="font-size:12.5px; margin-left:6px;">${cobrados.length} ${cobrados.length === 1 ? 'item' : 'itens'}${comValor && semCob.length ? ` com preço · ${semCob.length} sem cobrança, no fim` : ''}</span>
+    <div class="trp">
+    <div id="trPrecosVazio" class="contexto" style="text-align:left;" hidden>Nenhum item com esse nome.</div>
+    ${cobrados.length ? `<div id="tabelaTrPrecos"><table>
+      <tr><th>Item</th><th class="trp-d">Como vem</th>${comCusto ? '<th class="trp-c">Custo</th>' : ''}${comValor ? '<th>Preço</th>' : ''}</tr>
+      ${classes.map(c => { const grupo = cobrados.filter(i => (i.classe || 'OUTROS') === c); return `
+      <tr data-titulo="${c}"><th colspan="${colunas}">${titulo[c] || c} <span style="font-weight:400;">· ${grupo.length}</span></th></tr>
+      ${grupo.map(i => linha(i, c)).join('')}`; }).join('')}
+    </table></div>` : `<div class="contexto">Nenhum item com preço na grade de ${unidade}.</div>`}
+    ${semCob.length ? `<div id="trPrecosSemCob" class="contexto" style="margin:12px 0 0; text-align:left;">
+      <b>Vão na lista sem cobrança</b> <span class="tr-det">· ${semCob.length}</span><br>
+      ${semCob.map(i => `<span data-busca="${i.item.toLowerCase()}" style="display:inline-block; margin:2px 14px 2px 0; font-size:12.5px;">${i.item}${i.emb_fator ? ` <span class="tr-det">(${trComoVem(i)})</span>` : ''}</span>`).join('')}
+    </div>` : ''}
+    ${cliente && pega ? `<div class="tr-det" style="margin:12px 0 0; font-size:12.5px;">Aqui estão os itens que ${previa ? 'a loja' : 'a sua loja'} pediu nos últimos 12 meses. Qualquer outro item da central pode ser pedido em Novo pedido — e passa a aparecer aqui.</div>` : ''}
+    </div>`;
+  if (mensal && TR_OP.papel === 'DONO' && !previa) trTabelaReajustes(unidade);
 }
 
 // ---- TABELA MENSAL (dono, 01/10/2026) ----
@@ -13149,10 +13298,34 @@ async function trTabelaFechar(mes) {
   trTelaPrecos(sit.unidade);
 }
 function trPrecosFiltra() {
-  const q = (document.getElementById('trPrecosBusca')?.value || '').toLowerCase();
+  // sem acento dos dois lados: os nomes da base nao tem acento ("PAO", "FEIJAO",
+  // "MACARICO") e quem busca digita "pão", "feijão", "maçarico"
+  const sem = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const q = sem(document.getElementById('trPrecosBusca')?.value).trim();
+  const comLinha = {};
+  let achou = 0;
   document.querySelectorAll('#tabelaTrPrecos tr[data-busca]').forEach(tr => {
-    tr.style.display = !q || tr.dataset.busca.includes(q) ? '' : 'none';
+    const ok = !q || sem(tr.dataset.busca).includes(q);
+    tr.style.display = ok ? '' : 'none';
+    if (ok) { comLinha[tr.dataset.sec] = true; achou++; }
   });
+  // secao sem nenhuma linha a mostrar esconde o titulo junto
+  document.querySelectorAll('#tabelaTrPrecos tr[data-titulo]').forEach(tr => {
+    tr.style.display = comLinha[tr.dataset.titulo] ? '' : 'none';
+  });
+  // o bloco dos itens sem cobranca tambem responde a busca
+  let sobra = 0;
+  document.querySelectorAll('#trPrecosSemCob [data-busca]').forEach(el => {
+    const ok = !q || sem(el.dataset.busca).includes(q);
+    el.style.display = ok ? 'inline-block' : 'none';
+    if (ok) sobra++;
+  });
+  const bloco = document.getElementById('trPrecosSemCob');
+  if (bloco) bloco.style.display = sobra ? '' : 'none';
+  // busca que nao acha nada diz isso, em vez de deixar a tela em branco
+  const tabela = document.getElementById('tabelaTrPrecos'), vazio = document.getElementById('trPrecosVazio');
+  if (tabela) tabela.style.display = achou || !q ? '' : 'none';
+  if (vazio) vazio.hidden = !q || achou + sobra > 0;
 }
 
 // ---- tela: fila de separacao (SEPARACAO/DONO) ----
