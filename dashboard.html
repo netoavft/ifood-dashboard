@@ -13949,6 +13949,8 @@ async function trTelaFechamento() {
       <div id="trFechMsg" style="font-size:12px; margin-top:8px;"></div>
     </div>
 
+    <div id="trFechGeral"></div>
+
     ${avulsos.length ? `<div class="contexto" style="border-color:#f5a623; margin-top:12px;">
       <b>⚠️ ${avulsos.length} item(ns) sem preço esperando vínculo na base</b> — o mês não fecha com item sem preço.
       Avise o Neto para vincular:<br>
@@ -13974,6 +13976,334 @@ async function trTelaFechamento() {
             : 'bateu 100%'}</td>
         <td><button class="preset-btn" onclick="trValidarFechamento(${f.id})">validar</button></td></tr>`).join('')}
     </table></div>`}`;
+  trFechGeralMontar();
+}
+
+// ---- CONFERENCIA ANTES DE FECHAR + DOCUMENTO DE FECHAMENTO (dono, 01/10/2026) ----
+// "seria legal eu conseguir ver um geral antes de bater o martelo no fechamento" e
+// "coloca na fila a geracao de um PDF com o fechamento final" — o documento que ele
+// monta a mao todo mes para a Loana (Boqueirao); Ahu e Sao Braz ganham o delas.
+// A TELA NAO FAZ CONTA: os numeros vem prontos do banco (vw_tr_fech_doc_resumo, _itens e
+// _listas — script/fechamento_documento_listas.sql), que le da mesma fonte de
+// tr_fechar_mes. Antes de fechar (PREVIA) e exatamente o que o fechamento vai gravar;
+// depois de fechado e o que esta gravado na cobranca (o mesmo de Contas a pagar).
+// O documento na tela e o PDF sao o MESMO html (trFechDocHtml): na tela ele entra num
+// iframe, no PDF numa janela de impressao (mesmo mecanismo de trImprimirSeparacao).
+// Sem as views no banco (arquivo ainda nao aplicado) o quadro nao aparece e a tela
+// fica como era.
+function trEscH(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+function trFechData(d) { return d ? String(d).slice(8, 10) + '/' + String(d).slice(5, 7) + '/' + String(d).slice(0, 4) : '—'; }
+function trFechMesTxt(mes) { return trMesNome(mes + '-01') + '/' + String(mes).slice(0, 4); }   // "setembro/2026"
+// o estado de uma filial no mes, em palavra de operador + a borda do cartao
+function trFechSituacao(r) {
+  if (!r) return { txt: 'sem lista neste mês', cls: 'neutral', cor: 'var(--tx-3)' };
+  if (r.situacao === 'PREVIA') return r.pode_fechar
+    ? { txt: 'pronto para fechar', cls: 'pos', cor: 'var(--farol-ok)' }
+    : { txt: 'não fecha ainda', cls: 'neg', cor: 'var(--farol-fora)' };
+  if (r.cobranca_status === 'EM VALIDACAO') return { txt: 'fechado — falta validar', cls: 'neutral', cor: 'var(--farol-perto)' };
+  if (r.cobranca_status === 'PAGA') return { txt: 'fechado e pago', cls: 'neutral', cor: 'var(--farol-ok)' };
+  if (r.cobranca_status === 'EM ABERTO') return { txt: Number(r.valor_pago) > 0 ? 'fechado — pago em parte' : 'fechado — a receber', cls: 'neutral', cor: 'var(--tx-2)' };
+  return { txt: 'fechado', cls: 'neutral', cor: 'var(--tx-2)' };
+}
+// chamada no fim de trTelaFechamento: o quadro acompanha o mes do seletor de cima
+function trFechGeralMontar() {
+  const inp = document.getElementById('trFechMes');
+  if (!inp || !document.getElementById('trFechGeral')) return;
+  if (window._trFechMesSel) inp.value = window._trFechMesSel;   // a tela e redesenhada depois de fechar/validar
+  inp.addEventListener('change', trFechGeral);
+  trFechGeral();
+}
+// O QUADRO: as filiais lado a lado no mes escolhido — listas, itens, frete, royalty,
+// total, o que trava — e, em cada uma, ver o documento, gerar o PDF e fechar.
+async function trFechGeral() {
+  const inp = document.getElementById('trFechMes');
+  const sel = document.getElementById('trFechUn');
+  if (!inp || !inp.value || !document.getElementById('trFechGeral')) return;
+  const mes = inp.value;                       // AAAA-MM
+  window._trFechMesSel = mes;
+  let r;
+  try { r = await trFetch(`vw_tr_fech_doc_resumo?mes=eq.${mes}-01&order=unidade`); } catch (e) { return; }
+  const alvo = document.getElementById('trFechGeral');
+  if (!alvo || window._trFechMesSel !== mes) return;   // trocou de mes (ou de tela) enquanto a resposta vinha
+  if (!r.ok) {
+    // 404 = as views ainda nao existem no banco: a tela fica como era
+    alvo.innerHTML = r.status === 404 ? '' : `<div class="contexto" style="border-color:var(--farol-fora);">Não consegui montar a conferência do mês: ${trEscH(await trErroDe(r))}</div>`;
+    return;
+  }
+  const linhas = await r.json();
+  const filiais = [...new Set([...(sel ? [...sel.options].map(o => o.value) : []), ...linhas.map(x => x.unidade)])].filter(Boolean);
+  window._trFechGeral = { mes, filiais, linhas };
+  const nu = (v) => Number(v) || 0;
+  const linha = (rot, val) => `<div style="display:flex; justify-content:space-between; gap:10px; padding:4px 0; border-bottom:1px solid var(--line);"><span style="white-space:nowrap;">${rot}</span><span style="text-align:right; color:var(--tx-1);">${val}</span></div>`;
+  const cinza = (t) => `<span style="color:var(--tx-3);">${t}</span>`;
+  const cartoes = filiais.map((u, ix) => {
+    const x = linhas.find(l => l.unidade === u);
+    const s = trFechSituacao(x);
+    const cab = `<div class="card-lbl">${trEscH(u)} · <b style="color:${s.cor};">${s.txt}</b></div>`;
+    if (!x) return `<div class="card neutral" style="text-align:left;">${cab}</div>`;
+    const comValor = x.valor_total != null;      // login sem valores recebe os R$ vazios
+    const abertas = nu(x.listas_abertas), entregas = nu(x.frete_entregas), diretas = nu(x.frete_direto_entregas);
+    const frete = x.frete_na_conta || nu(x.frete)
+      ? `R$ ${fmt(nu(x.frete))}${entregas ? ' ' + cinza(`(${entregas} ${entregas === 1 ? 'entrega' : 'entregas'})`) : ''}`
+      : (diretas ? `<span style="color:var(--tx-3);" title="${diretas} ${diretas === 1 ? 'entrega' : 'entregas'} do Michiro que a própria loja paga — não entra neste total.">loja paga direto: R$ ${fmt(nu(x.frete_direto))}</span>` : '—');
+    return `<div class="card ${s.cls}" style="text-align:left;">
+      ${cab}
+      <div class="card-val">${comValor ? 'R$ ' + fmt(nu(x.valor_total)) : '—'}</div>
+      <div class="card-pct" style="font-size:12.5px;">${x.vencimento ? 'vence em ' + trFechData(x.vencimento) : '&nbsp;'}</div>
+      <div style="margin-top:10px; font-size:12.5px; color:var(--tx-2);">
+        ${linha('Listas', `${x.listas}${abertas ? ` · <span style="color:var(--farol-fora);">${abertas} sem conferir</span>` : (x.situacao === 'PREVIA' && nu(x.listas) ? ' · todas conferidas' : '')}`)}
+        ${comValor ? linha('Itens', `R$ ${fmt(nu(x.valor_itens))}`) : ''}
+        ${comValor ? linha('Frete Michiro', frete) : ''}
+        ${comValor ? linha('Royalty', nu(x.royalty) ? `R$ ${fmt(nu(x.royalty))}` : '—') : ''}
+        ${comValor && nu(x.ajustes) ? linha('Ajustes', `R$ ${fmt(nu(x.ajustes))}`) : ''}
+        ${comValor && x.origem === 'COBRANCA' && x.cobranca_status !== 'EM VALIDACAO' ? linha('Já pago · falta', `R$ ${fmt(nu(x.valor_pago))} · <b>R$ ${fmt(nu(x.saldo))}</b>`) : ''}
+      </div>
+      ${(x.trava || []).length ? `<div style="margin-top:8px; font-size:12.5px; color:var(--farol-fora);"><b>O que trava:</b>${x.trava.map(t => '<br>• ' + trEscH(t)).join('')}</div>` : ''}
+      ${comValor && nu(x.valor_itens_abertas) ? `<div style="margin-top:6px; font-size:12.5px; color:var(--farol-perto);">R$ ${fmt(nu(x.valor_itens_abertas))} dos itens vêm de lista ainda não conferida — pode mudar.</div>` : ''}
+      ${(x.avisos || []).length ? `<div style="margin-top:6px; font-size:12.5px; color:var(--farol-perto);">${x.avisos.map(t => '• ' + trEscH(t)).join('<br>')}</div>` : ''}
+      ${comValor ? `<div style="margin-top:10px; display:flex; flex-wrap:wrap; gap:6px;">
+        <button class="preset-btn" onclick="trFechDocVer(${ix})">ver o documento</button>
+        <button class="preset-btn" onclick="trFechDocPdf(${ix})">Gerar PDF</button>
+        ${x.pode_fechar ? `<button class="preset-btn" style="border-color:var(--farol-ok); color:var(--tx-1);" onclick="trFechFecharDaqui(${ix})">fechar o mês</button>` : ''}
+      </div>` : ''}
+    </div>`;
+  });
+  const comTotal = linhas.filter(x => x.valor_total != null);
+  const soma = comTotal.length > 1
+    ? `<div class="caption-label" style="text-align:center;">As ${comTotal.length} filiais juntas: itens <b>R$ ${fmt(comTotal.reduce((t, x) => t + nu(x.valor_itens), 0))}</b> · total <b>R$ ${fmt(comTotal.reduce((t, x) => t + nu(x.valor_total), 0))}</b></div>` : '';
+  const av = window._trFechAviso; window._trFechAviso = null;
+  const temPrevia = linhas.some(x => x.situacao === 'PREVIA');
+  alvo.innerHTML = `
+    <div class="section-label">${temPrevia || !linhas.length ? 'Conferência antes de fechar' : 'Fechamento'} — ${trFechMesTxt(mes)}</div>
+    <div class="caption-label" style="text-align:center;">${!linhas.length
+      ? 'Nenhuma filial tem lista neste mês.'
+      : temPrevia
+      ? 'O total de cada filial é o que o fechamento grava. Abra o documento, confira e só então feche.'
+      : linhas.some(x => x.origem === 'CONGELADO')
+      ? 'O total de cada filial é o valor em que o mês foi fechado — o mesmo do Histórico.'
+      : 'O total de cada filial é o que ficou gravado no fechamento — o mesmo de Contas a pagar.'}</div>
+    ${av ? `<div class="contexto" style="margin:8px auto; border-color:${av.ok ? 'var(--farol-ok)' : 'var(--farol-fora)'};">${trEscH(av.txt)}</div>` : ''}
+    <div class="cards" style="grid-template-columns:repeat(auto-fit, minmax(250px, 1fr)); align-items:start;">${cartoes.join('')}</div>
+    ${soma}
+    <div id="trFechDocTela"></div>`;
+}
+// busca o documento de UMA filial no mes: o quadro, a tabela e as listas
+async function trFechDocDados(unidade, mes) {
+  const f = `unidade=eq.${encodeURIComponent(unidade)}&mes=eq.${mes}-01`;
+  try {
+    const rs = await Promise.all([
+      trFetch(`vw_tr_fech_doc_resumo?${f}`),
+      trFetch(`vw_tr_fech_doc_itens?${f}&order=categoria,item,un`),
+      trFetch(`vw_tr_fech_doc_listas?${f}&order=data_pedido,id_lista`),
+    ]);
+    for (const x of rs) if (!x.ok) return { erro: 'Não consegui montar o documento: ' + await trErroDe(x) };
+    const res = (await rs[0].json())[0];
+    if (!res) return { erro: `Não há lista de ${unidade} em ${trFechMesTxt(mes)}.` };
+    if (res.valor_total == null) return { erro: 'Seu login não vê valores — o documento de fechamento não é gerado.' };
+    return { res, itens: await rs[1].json(), listas: await rs[2].json() };
+  } catch (e) { return { erro: 'Não consegui falar com o banco — tente de novo.' }; }
+}
+// O DOCUMENTO (um html so, para a tela e para o PDF): cabecalho, tabela categoria > item
+// > unidade > quantidade > total com subtotal por categoria, quadro final e as listas.
+// A4 retrato, preto e branco. Cores escritas a mao de proposito: e outro documento, sem
+// o :root do painel (as mesmas da folha de separacao).
+// ARREDONDAMENTO: cada item sai com 2 casas e o subtotal da categoria e a soma do que
+// esta impresso; a cobranca soma todas as casas e arredonda uma vez. A diferenca (centavos)
+// vem do banco e sai numa linha propria antes do TOTAL — nunca ha dois totais.
+function trFechDocHtml(d, opc = {}) {
+  const r = d.res, e = trEscH, nu = (v) => Number(v) || 0;
+  const cent = (v) => Math.round(nu(v) * 100);
+  const mesNome = trMesNome(r.mes), ano = String(r.mes).slice(0, 4);
+  const titulo = `Fechamento das listas — ${r.unidade} — ${mesNome}/${ano}`;
+  const previa = r.situacao === 'PREVIA';
+  const sit = previa ? ['PRÉVIA', 'mês ainda não fechado']
+    : r.cobranca_status === 'EM VALIDACAO' ? ['FECHADO', 'aguardando validação']
+    : ['FECHADO', r.fechado_em ? 'em ' + trFechData(r.fechado_em) : ''];
+  const dm = (x) => x ? String(x).slice(8, 10) + '/' + String(x).slice(5, 7) : '—';
+  const entregasTxt = (n) => `${n} ${n === 1 ? 'entrega' : 'entregas'}`;
+
+  // --- tabela: categoria > item ---
+  const cats = [];
+  (d.itens || []).forEach(i => { let c = cats.find(x => x.nome === i.categoria); if (!c) cats.push(c = { nome: i.categoria, itens: [] }); c.itens.push(i); });
+  let impresso = 0;                                   // em centavos
+  const corpo = cats.map(c => {
+    const sub = c.itens.reduce((s, i) => s + cent(i.valor), 0);
+    impresso += sub;
+    const uns = [...new Set(c.itens.map(i => i.un))];
+    const qtdSub = uns.length === 1 ? trNum(c.itens.reduce((s, i) => s + nu(i.qtd), 0), 4) : '';
+    return `<tr class="cat"><td colspan="4">${e(c.nome)}</td></tr>`
+      + c.itens.map(i => `<tr><td>${e(i.item)}${previa && i.tem_aberta ? ' *' : ''}</td><td>${e(i.un || '')}</td>
+        <td class="n">${trNum(i.qtd, 4)}</td>
+        <td class="n">${i.sem_preco ? (cent(i.valor) ? fmt(nu(i.valor)) + ' + sem preço' : 'sem preço') : i.sem_cobranca ? 'sem cobrança' : fmt(nu(i.valor))}</td></tr>`).join('')
+      + `<tr class="sub"><td colspan="2">Total ${e(c.nome)}</td><td class="n">${qtdSub}</td><td class="n">${c.itens.every(i => i.sem_cobranca) ? 'sem cobrança' : fmt(sub / 100)}</td></tr>`;
+  }).join('');
+  // diferenca para o valor fechado: ate 5 centavos e arredondamento (o banco diz em
+  // diferenca_relevante) e entra na linha de centavos; acima disso ganha linha propria
+  const ajustes = [];
+  const centavos = cent(r.arredondamento) + (r.diferenca_relevante ? 0 : cent(r.diferenca_fechado));
+  if (centavos) ajustes.push(['Arredondamento de centavos — cada item sai com 2 casas; a cobrança soma tudo e arredonda uma vez', centavos / 100]);
+  if (r.diferenca_relevante) ajustes.push(['Diferença para o valor fechado — a soma das linhas de hoje não é a do fechamento; vale o valor fechado', r.diferenca_fechado]);
+  const fecha = impresso + cent(r.arredondamento) + cent(r.diferenca_fechado) === cent(r.valor_itens);
+
+  // --- quadro final ---
+  const comp = [['LISTA', r.valor_itens]];
+  if (nu(r.royalty)) comp.push(['ROYALTIES', r.royalty]);
+  if (r.frete_na_conta || nu(r.frete)) comp.push(['FRETE MICHIRO' + (nu(r.frete_entregas) ? ` (${entregasTxt(nu(r.frete_entregas))})` : ''), r.frete]);
+  if (nu(r.ajustes)) comp.push(['AJUSTES', r.ajustes]);
+  const quadro = comp.length === 1
+    ? `<tr class="tot"><td>TOTAL (LISTA)</td><td class="n">R$ ${fmt(nu(r.valor_total))}</td></tr>`
+    : comp.map(([a, v]) => `<tr><td>${a}</td><td class="n">R$ ${fmt(nu(v))}</td></tr>`).join('')
+      + `<tr class="tot"><td>TOTAL</td><td class="n">R$ ${fmt(nu(r.valor_total))}</td></tr>`;
+  const info = [];
+  if (r.vencimento) info.push(`<b>Vencimento: ${trFechData(r.vencimento)}</b>`);
+  if (r.origem === 'COBRANCA' && r.cobranca_status === 'PAGA') info.push(`Pago: R$ ${fmt(nu(r.valor_pago))}${r.pago_em ? ' (último pagamento em ' + trFechData(r.pago_em) + ')' : ''}`);
+  else if (r.origem === 'COBRANCA' && nu(r.valor_pago)) info.push(`Já pago: R$ ${fmt(nu(r.valor_pago))} · <b>Falta: R$ ${fmt(nu(r.saldo))}</b>`);
+  if (!r.frete_na_conta && nu(r.frete_direto_entregas)) info.push(`${entregasTxt(nu(r.frete_direto_entregas))} do Michiro pagas direto pela loja: R$ ${fmt(nu(r.frete_direto))} (não entram neste total)`);
+
+  // --- avisos da previa ---
+  const notas = [];
+  if (previa) {
+    (r.trava || []).forEach(t => notas.push('Falta para fechar: ' + e(t) + '.'));
+    if (nu(r.valor_itens_abertas)) notas.push(`R$ ${fmt(nu(r.valor_itens_abertas))} deste total vêm de lista ainda não conferida (marcada com *) e podem mudar.`);
+    (r.avisos || []).forEach(t => notas.push('Atenção: ' + e(t) + '.'));
+  }
+  if (!fecha) notas.push('ATENÇÃO: a soma das linhas não fechou com o total — não envie este documento e avise o Neto.');
+
+  // --- as listas do mes ---
+  const sitLista = (l) => l.fonte !== 'PAINEL' ? '—'
+    : ({ SOLICITADA: 'pedida — falta separar', SEPARADA: 'separada — falta enviar', ENVIADA: 'enviada — falta conferir', RECEBIDA: 'conferida — falta fechar', FECHADA: 'conferida' }[l.status] || e(l.status));
+  const listas = (d.listas || []).map(l => `<tr><td>${l.fonte === 'PAINEL' ? '#' + l.id_lista : 'planilha'}${l.aberta ? ' *' : ''}</td><td>${dm(l.data_pedido)}</td><td>${dm(l.data_entrega)}</td>
+      <td>${sitLista(l)}</td><td>${l.michiro ? 'sim' + (l.frete_outro_mes ? ' (frete de ' + dm(l.frete_data) + ')' : '') : (l.fonte === 'PAINEL' ? 'não' : '—')}</td>
+      <td class="n">${fmt(nu(l.valor))}</td></tr>`).join('');
+
+  return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${e(titulo)}</title><style>
+    @page { size:A4 portrait; margin:12mm; }
+    * { box-sizing:border-box; }
+    body { font-family:Arial, Helvetica, sans-serif; color:#000; background:#fff; margin:0; padding:18px; font-size:12px; line-height:1.3; }
+    .folha { max-width:760px; margin:0 auto; }
+    .topo { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; border-bottom:2px solid #000; padding-bottom:8px; }
+    .marca { font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:#45443f; }
+    h1 { font-size:19px; margin:2px 0 3px; }
+    .sub { font-size:12px; color:#45443f; }
+    .sit { border:2px solid #000; padding:6px 12px; text-align:center; font-weight:bold; font-size:15px; letter-spacing:1px; white-space:nowrap; }
+    .sit small { display:block; font-size:10px; font-weight:normal; letter-spacing:0; }
+    .sit.previa { border-style:dashed; }
+    .notas { border:1px solid #000; padding:6px 10px; margin-top:10px; font-size:11.5px; }
+    .notas div + div { margin-top:3px; }
+    h2 { font-size:11px; text-transform:uppercase; letter-spacing:.5px; margin:16px 0 4px; }
+    table { width:100%; border-collapse:collapse; }
+    thead { display:table-header-group; }
+    tr { page-break-inside:avoid; }
+    td, th { border-bottom:1px solid #bbb; padding:3px 6px; text-align:left; vertical-align:top; }
+    th { font-size:10px; text-transform:uppercase; color:#45443f; border-bottom:1.5px solid #000; }
+    .n { text-align:right; white-space:nowrap; }
+    tr.cat { page-break-after:avoid; }
+    tr.cat td { font-weight:bold; text-transform:uppercase; font-size:11px; padding-top:9px; border-bottom:1px solid #000; }
+    tr.sub td { font-weight:bold; }
+    tr.aj td { font-style:italic; color:#45443f; }
+    tr.tot td { font-weight:bold; font-size:13.5px; border-top:2px solid #000; border-bottom:2px solid #000; }
+    .fim { display:flex; justify-content:space-between; align-items:flex-start; gap:18px; margin-top:16px; page-break-inside:avoid; }
+    .info { font-size:12px; }
+    .info div + div { margin-top:4px; }
+    .quadro { width:320px; flex:none; border:2px solid #000; }
+    .quadro td { padding:6px 10px; font-size:13px; }
+    .quadro tr.tot td { font-size:15px; border-bottom:none; }
+    .rodape { margin-top:14px; font-size:10px; color:#45443f; }
+    .naoimprime { float:right; padding:8px 14px; margin:0 0 8px 8px; }
+    @media (max-width:560px) { body { padding:10px; font-size:11.5px; } .topo, .fim { display:block; } .sit { display:inline-block; margin-top:8px; } .quadro { width:100%; margin-top:10px; } td, th { padding:4px 3px; } .naoimprime { float:none; display:block; width:100%; margin:0 0 10px; } }
+    @media print { .naoimprime { display:none; } body { padding:0; } }
+  </style></head><body><div class="folha">
+    ${opc.botao ? '<button class="naoimprime" onclick="window.print()">Imprimir / salvar PDF</button>' : ''}
+    <div class="topo">
+      <div><div class="marca">Cidadão do Mundo</div>
+        <h1>Fechamento das listas — ${e(r.unidade)}</h1>
+        <div class="sub">${mesNome.charAt(0).toUpperCase() + mesNome.slice(1)} de ${ano} · ${nu(r.listas)} ${nu(r.listas) === 1 ? 'lista' : 'listas'} · emitido em ${trFechData(trHoje())}</div></div>
+      <div class="sit${previa ? ' previa' : ''}">${sit[0]}<small>${sit[1]}</small></div>
+    </div>
+    ${notas.length ? `<div class="notas">${notas.map(t => '<div>' + t + '</div>').join('')}</div>` : ''}
+    <table style="margin-top:10px;">
+      <thead><tr><th>Categoria / item</th><th>Un.</th><th class="n">Quantidade</th><th class="n">Total (R$)</th></tr></thead>
+      <tbody>${corpo || '<tr><td colspan="4">Nenhum item neste mês.</td></tr>'}
+        ${ajustes.map(([t, v]) => `<tr class="aj"><td colspan="3">${t}</td><td class="n">${fmt(nu(v))}</td></tr>`).join('')}
+        <tr class="tot"><td colspan="3">TOTAL DAS LISTAS</td><td class="n">${fmt(nu(r.valor_itens))}</td></tr>
+      </tbody>
+    </table>
+    <div class="fim">
+      <div class="info">${info.map(t => '<div>' + t + '</div>').join('')}</div>
+      <table class="quadro">${quadro}</table>
+    </div>
+    ${listas ? `<h2>Listas do mês</h2>
+    <table><thead><tr><th>Lista</th><th>Pedido</th><th>Entrega</th><th>Situação</th><th>Michiro levou</th><th class="n">Valor (R$)</th></tr></thead>
+      <tbody>${listas}</tbody></table>` : ''}
+    <div class="rodape">Quantidade = a recebida na conferência (sem conferência, a separada). Valor = preço da tabela na data do pedido. O valor de cada lista é arredondado; vale o total do quadro.</div>
+  </div></body></html>`;
+}
+// "ver o documento": a mesma folha do PDF, na tela
+async function trFechDocVer(ix) {
+  const g = window._trFechGeral;
+  let tela = document.getElementById('trFechDocTela');
+  if (!g || !tela) return;
+  const un = g.filiais[ix], mes = g.mes;
+  tela.innerHTML = `<div class="contexto" style="margin-top:14px;">Montando o documento de ${trEscH(un)}...</div>`;
+  const d = await trFechDocDados(un, mes);
+  tela = document.getElementById('trFechDocTela');
+  if (!tela || !window._trFechGeral || window._trFechGeral.mes !== mes) return;
+  if (d.erro) { tela.innerHTML = `<div class="contexto" style="margin-top:14px; border-color:var(--farol-fora);">${trEscH(d.erro)}</div>`; return; }
+  tela.innerHTML = `
+    <div class="section-label">Documento — ${trEscH(un)} · ${trFechMesTxt(mes)}</div>
+    <div style="display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin-bottom:10px;">
+      <button class="preset-btn" onclick="trFechDocPdf(${ix})">Gerar PDF</button>
+      <button class="preset-btn" onclick="document.getElementById('trFechDocTela').innerHTML=''">fechar o documento</button>
+    </div>
+    <iframe id="trFechDocFrame" title="Documento de fechamento" style="display:block; width:100%; max-width:860px; height:640px; margin:0 auto; border:1px solid var(--line); border-radius:10px; background:var(--tx-1);"></iframe>`;
+  const fr = document.getElementById('trFechDocFrame');
+  fr.onload = () => { try { fr.style.height = (fr.contentDocument.documentElement.scrollHeight + 6) + 'px'; } catch (e) {} };
+  fr.srcdoc = trFechDocHtml(d);
+  tela.scrollIntoView({ block: 'start' });
+}
+// "Gerar PDF": abre a folha numa janela e chama a impressao (salvar como PDF fica no
+// dialogo do navegador). A janela abre ANTES da consulta para o navegador nao bloquear.
+async function trFechDocPdf(ix) {
+  const g = window._trFechGeral;
+  if (!g) return;
+  if (TR_OP && TR_OP.veValores === false) { alert('Seu login não vê valores — o documento de fechamento não é gerado.'); return; }
+  const w = window.open('', '_blank');
+  if (!w) { alert('O navegador bloqueou a janela de impressão — libere pop-ups para este site.'); return; }
+  w.document.write('<p style="font-family:Arial, sans-serif;">Montando o documento...</p>');
+  const d = await trFechDocDados(g.filiais[ix], g.mes);
+  w.document.open();
+  if (d.erro) { w.document.write('<p style="font-family:Arial, sans-serif;">' + trEscH(d.erro) + '</p>'); w.document.close(); return; }
+  w.document.write(trFechDocHtml(d, { botao: true }));
+  w.document.close();
+  w.focus();
+  setTimeout(() => { try { w.print(); } catch (e) {} }, 400);
+}
+// "fechar o mes" direto do quadro: a pergunta repete o numero que esta na tela, e
+// depois de fechar a tela le de volta o que ficou gravado e diz se e o mesmo.
+async function trFechFecharDaqui(ix) {
+  const g = window._trFechGeral;
+  if (!g) return;
+  const un = g.filiais[ix], r = g.linhas.find(x => x.unidade === un);
+  if (!r || !r.pode_fechar) return;
+  const nu = (v) => Number(v) || 0;
+  const partes = [`Itens: R$ ${fmt(nu(r.valor_itens))}`];
+  if (r.frete_na_conta || nu(r.frete)) partes.push(`Frete Michiro: R$ ${fmt(nu(r.frete))}`);
+  if (nu(r.royalty)) partes.push(`Royalty: R$ ${fmt(nu(r.royalty))}`);
+  if (!confirm(`Fechar ${trFechMesTxt(g.mes)} de ${un}?\n\n${partes.join('\n')}\nTOTAL: R$ ${fmt(nu(r.valor_total))}\nVence em ${trFechData(r.vencimento)}\n`
+      + ((r.avisos || []).length ? '\nAtenção: ' + r.avisos.join('; ') + '.\n' : '')
+      + '\nDepois de fechado, a Rita valida e vira conta a pagar.')) return;
+  const resp = await trRpc('tr_fechar_mes', { p_unidade: un, p_mes: g.mes + '-01' });
+  if (!resp.ok) { window._trFechAviso = { ok: false, txt: `Não fechou ${un}: ` + await trErroDe(resp) }; return trFechGeral(); }
+  let gravado = null;
+  try {
+    const rr = await trFetch(`vw_tr_fech_doc_resumo?unidade=eq.${encodeURIComponent(un)}&mes=eq.${g.mes}-01`);
+    if (rr.ok) gravado = (await rr.json())[0];
+  } catch (e) { /* sem a leitura de volta o aviso diz que nao conferiu */ }
+  const bate = gravado && gravado.origem === 'COBRANCA' && Math.round(nu(gravado.valor_total) * 100) === Math.round(nu(r.valor_total) * 100);
+  window._trFechAviso = bate
+    ? { ok: true, txt: `${un} fechado em R$ ${fmt(nu(gravado.valor_total))} — igual à prévia. Falta validar, logo abaixo, para virar conta a pagar.` }
+    : { ok: false, txt: `${un} fechou${gravado && gravado.origem === 'COBRANCA' ? ' em R$ ' + fmt(nu(gravado.valor_total)) : ''}, mas não consegui confirmar que é o mesmo valor da prévia (R$ ${fmt(nu(r.valor_total))}) — confira antes de validar.` };
+  trTelaFechamento();
 }
 
 async function trFecharMes() {
