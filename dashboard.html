@@ -11679,24 +11679,24 @@ function renderLucroUni() {
       <div class="card-val">${rs(l)}</div>
       <div class="card-pct">de lucro no período</div>
       <div class="card-delta" style="color:${p >= 30 ? '#ff6b6b' : '#a5a49a'};">
-        ${rs(b)} vieram do benefício iFood — ${pct(p)}% do lucro</div>
+        ${rs(b)} vieram do benefício iFood — ${p > 100 ? 'mais que o lucro inteiro' : pct(p) + '% do lucro'}</div>
     </div>`;
   }).join('');
 
   const linhaTab = (r) => {
     const l = nu(r.resultado), b = nu(r.beneficio_ifood);
     const aberto = r.mes === mesAberto;
-    // lista do mes ainda sem fechar: a AV esta sem a receita e a filial sem o custo
+    // lista do mes ainda sem CONGELAR (tr_conciliacao_mes): o valor por loja pode mudar
     const semLista = !aberto && r.lista_fechada === false;
     return `<tr${aberto ? ' style="opacity:.55;"' : ''}>
-      <td>${mesTxt(r.mes)}${aberto ? ' <span style="color:#e8b04b;">· mês em aberto</span>' : ''}${semLista ? ' <span style="color:var(--amber-2);" title="A lista das filiais deste mês ainda não foi fechada: a Água Verde está sem essa receita e a filial sem esse custo. O total da rede não muda.">· lista não fechada</span>' : ''}</td>
+      <td>${mesTxt(r.mes)}${aberto ? ' <span style="color:#e8b04b;">· mês em aberto</span>' : ''}${semLista ? ' <span style="color:var(--amber-2);" title="A lista das filiais deste mês ainda está em revisão: o valor entre a Água Verde e a filial pode mudar até fechar. O total da rede não muda.">· lista em revisão</span>' : ''}</td>
       <td>${un(r.unidade)}</td>
       <td>${rs(nu(r.receita))}</td>
       <td>${nu(r.custo_lista_av) ? rs(nu(r.custo_lista_av)) : '—'}</td>
       <td class="${l < 0 ? 'negativo' : ''}"><b>${rs(l)}</b></td>
       <td>${rs(b)}</td>
       <td class="${l - b < 0 ? 'negativo' : ''}">${rs(l - b)}</td>
-      <td>${l > 0 ? pct(b / l * 100) + '%' : '—'}</td>
+      <td>${l > 0 ? (b > l ? 'mais de 100%' : pct(b / l * 100) + '%') : '—'}</td>
     </tr>`;
   };
 
@@ -11714,7 +11714,7 @@ function renderLucroUni() {
     <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">
       Lucro por unidade${ctxLoja ? ' · ' + un(ctxLoja) : ''} · ${fechados.length === 1 ? mesTxt(fechados[0]) : mesTxt(fechados[0]) + ' a ' + mesTxt(fechados[fechados.length - 1])}</div>
     <div class="contexto">É a <a href="javascript:void(0)" onclick="mostrarModulo('dre')" style="color:var(--tx-3);">DRE</a> resumida por loja: o lucro daqui é o resultado de lá, mês a mês, e quanto dele é benefício do iFood.</div>
-    ${semListaMeses.length ? `<div class="contexto" style="border-color:var(--amber-2);">Lista das filiais de ${semListaMeses.map(mesTxt).join(', ')} ainda não fechada: o lucro <b>por loja</b> desse mês é provisório (Água Verde sem a receita, filial sem o custo). O da rede não muda.</div>` : ''}
+    ${semListaMeses.length ? `<div class="contexto" style="border-color:var(--amber-2);">Lista das filiais de ${semListaMeses.map(mesTxt).join(', ')} ainda em revisão: o lucro <b>por loja</b> desse mês pode mudar até ela fechar. O da rede não muda.</div>` : ''}
 
     ${seletorPeriodo}
 
@@ -16123,7 +16123,10 @@ function renderModuloDFC() {
     });
   }
 
-  corpo += linha('dfc-resultado', '(=) RESULTADO OPERACIONAL', resultOper);
+  // 01/10/2026 (dono: "todos os numeros devem bater"): "Resultado operacional" e' o nome de
+  // uma linha da DRE (competencia, sem despesa financeira). Aqui e' dinheiro que entrou menos
+  // dinheiro que saiu na operacao — outro numero, entao outro nome.
+  corpo += linha('dfc-resultado', '(=) SOBRA DE CAIXA DA OPERAÇÃO', resultOper);
 
   corpo += linha('dfc-bloco', '(−) INVESTIMENTOS', invest, 'INVEST', -1);
   corpo += blocoSubtipos('INVEST', ehInvest, -1);
@@ -16228,7 +16231,7 @@ function renderModuloDFC() {
   </div>` : ''}
   <div class="cards">
     <div class="card blue"><div class="card-lbl">Receitas ${iSel >= 0 ? 'em ' + rotuloMes(meses[iSel]) : 'no ano'}</div><div class="card-val">R$ ${fmt(tot(receitas))}</div></div>
-    <div class="card ${tot(resultOper) >= 0 ? 'pos' : 'neg'}"><div class="card-lbl">Resultado operacional</div><div class="card-val">R$ ${fmt(tot(resultOper))}</div>
+    <div class="card ${tot(resultOper) >= 0 ? 'pos' : 'neg'}"><div class="card-lbl">Sobra de caixa da operação</div><div class="card-val">R$ ${fmt(tot(resultOper))}</div>
       <div class="card-pct">${tot(receitas) ? pct(tot(resultOper) / tot(receitas) * 100) : 0}% da receita</div></div>
     <div class="card ${tot(resultFim) >= 0 ? 'pos' : 'neg'}"><div class="card-lbl">Resultado final (caixa)</div><div class="card-val">R$ ${fmt(tot(resultFim))}</div></div>
     <div class="card highlight"><div class="card-lbl">${Math.abs(saldoAplicado[iFim]) > 0.005 ? 'Saldo total, com a XP' : 'Saldo'} (${rotuloMes(meses[iFim])})</div><div class="card-val">R$ ${fmt(saldoFim[iFim])}</div>${Math.abs(saldoAplicado[iFim]) > 0.005 ? `<div class="card-pct">em conta R$ ${fmt(saldoEmConta[iFim])} · aplicado R$ ${fmt(saldoAplicado[iFim])}</div>` : ''}</div>
