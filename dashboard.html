@@ -12198,10 +12198,13 @@ async function trTelaPedido(unidadeEscolhida) {
     <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:0 18px;">
       ${linhas.map((i, idx) => `
         <label data-busca="${i.item.toLowerCase()}" class="tr-linha" style="display:grid; grid-template-columns:1fr 76px; gap:2px 10px; align-items:center; font-size:12.5px; padding:5px 2px;">
-          <span>${i.item} <span class="tr-det">(${i.emb_fator ? 'pede em ' + i.emb_nome + ' de ' + trEmbDesc(i) : (i.un_medida || 'un')}${i.nao_cobrado ? ' · não cobrado' : (i.preco_tabela ? ' · R$ ' + Number(i.preco_tabela).toFixed(2) + '/' + (i.un_medida || 'un').toLowerCase() : '')}${i._acomp && i.emb_fator ? ' · leva ' + i._acomp.acomp_nome_base.toLowerCase() : ''})${i.sem_custo ? ' ⚠️ sem custo' : ''}</span><br><span id="trqe_${idx}" class="tr-conv" style="font-size:11px;"></span></span>
-          <input type="number" min="0" step="any" id="trq_${idx}" class="trc-in" placeholder="${i.emb_fator ? i.emb_nome + 's' : (i.minimo || i.maximo ? (i.minimo ?? '') + '–' + (i.maximo ?? '') : '')}"
-            oninput="trqTem(this); trEmbHint(${idx})"
-            style="width:72px; justify-self:end; text-align:right;">
+          <span>${i.item} <span class="tr-det">(${trLinhaComoPede(i)}${i._acomp && i.emb_fator ? ' · leva ' + i._acomp.acomp_nome_base.toLowerCase() : ''})${i.sem_custo ? ' ⚠️ sem custo' : ''}</span><br><span id="trqe_${idx}" class="tr-conv" style="font-size:11px;"></span></span>
+          <span style="justify-self:end; text-align:right; line-height:1.15;">
+            <input type="number" min="0" step="${i.emb_fator ? '0.5' : 'any'}" inputmode="decimal" id="trq_${idx}" class="trc-in"
+              oninput="trqTem(this); trEmbHint(${idx})"
+              style="width:72px; text-align:right;"><br>
+            <span class="tr-det" style="font-size:10.5px;">${trLinhaUnidade(i)}</span>
+          </span>
         </label>`).join('')}
     </div>
     <div class="section-label tr-secao" style="margin-top:16px;">PRECISA DE ALGO FORA DA GRADE?</div>
@@ -12210,12 +12213,76 @@ async function trTelaPedido(unidadeEscolhida) {
     <div id="trAvulsos"></div>
     <button class="preset-btn" onclick="trAddAvulso()">+ item fora da grade</button>
     <div style="margin-top:14px;">
-      <button class="preset-btn tr-btn-cheio" onclick="trCriarPedido()">Enviar pedido</button>
+      <button class="preset-btn tr-btn-cheio" onclick="trRevisarPedido()">Conferir e enviar</button>
       <span id="trPedidoParcial" style="font-size:13px; font-weight:700; margin-left:10px;"></span>
       <span id="trPedidoMsg" style="font-size:12px; margin-left:8px;"></span>
-    </div>`;
+    </div>
+    <div id="trPedidoResumo" class="contexto" style="margin-top:10px;" hidden></div>`;
   trAvulsoN = 0;
   trPedidoSoma();
+}
+
+// Como o item e pedido, escrito na linha: "vem em balde de 4,5 kg · R$ 52,02 o
+// balde". O preco aparece na MESMA unidade do campo (antes era R$/kg ao lado de
+// um campo em baldes). Login sem valores recebe preco nulo e ve so a embalagem.
+function trLinhaComoPede(i) {
+  const un = (i.un_medida || 'un').toLowerCase();
+  const base = i.emb_fator ? (i.emb_nome === 'unidade' ? 'por unidade de ' : 'vem em ' + i.emb_nome + ' de ') + trEmbDesc(i)
+    : (un === 'un' ? 'por unidade' : 'pede em ' + un);
+  if (i.nao_cobrado) return base + ' · não cobrado';
+  if (!i.preco_tabela) return base;
+  return base + (i.emb_fator
+    ? ` · R$ ${fmt(Number(i.preco_tabela) * Number(i.emb_fator))} ${/(a|ade|ção)$/.test(i.emb_nome.split(' ')[0]) ? 'a' : 'o'} ${i.emb_nome}`
+    : (un === 'un' ? ` · R$ ${fmt(Number(i.preco_tabela))} a unidade` : ` · R$ ${fmt(Number(i.preco_tabela))}/${un}`));
+}
+// a palavra que fica embaixo do campo: em que unidade se digita
+function trLinhaUnidade(i) {
+  if (i.emb_fator) return trEmbPlural(String(i.emb_nome).split(' (')[0], 2);   // "caixas", sem o "(10x300 g)"
+  const un = (i.un_medida || 'un').toLowerCase();
+  return un === 'un' ? 'unidades' : un;
+}
+// le a grade de um jeito so: o que foi preenchido e o que esta fora da regra
+// (embalagem so sai inteira ou pela metade). Usado pelo resumo e pelo envio.
+function trLerGrade(itens, prefixo) {
+  const escolhidos = [], erros = [];
+  (itens || []).forEach((i, idx) => {
+    const q = Number(document.getElementById(prefixo + idx)?.value || 0);
+    if (q <= 0) return;
+    if (i.emb_fator && !trEmbInteira(q)) erros.push(`${i.item}: ${trNum(q)} ${trEmbPlural(i.emb_nome, q)} — peça inteiro ou meio (ex.: ${Math.max(0.5, Math.round(q * 2) / 2).toLocaleString('pt-BR')})`);
+    escolhidos.push({ i, q });
+  });
+  return { escolhidos, erros };
+}
+// Resumo antes de enviar (dono, 01/10/2026): a pessoa le o que esta pedindo, na
+// embalagem e na medida, antes de a lista nascer. Serve para login sem valores.
+function trRevisarPedido() {
+  const msg = document.getElementById('trPedidoMsg');
+  const box = document.getElementById('trPedidoResumo');
+  const { escolhidos, erros } = trLerGrade(window._trItensPedido, 'trq_');
+  const avulsos = [];
+  for (let k = 1; k <= trAvulsoN; k++) {
+    const n = document.getElementById('trav_n_' + k);
+    const q = Number(document.getElementById('trav_q_' + k)?.value || 0);
+    if (n && n.value.trim() && q > 0) avulsos.push(`${n.value.trim().toUpperCase()} — ${trNum(q, 3)} ${document.getElementById('trav_u_' + k).value.toLowerCase()} (fora da grade, sem preço)`);
+  }
+  if (!escolhidos.length && !avulsos.length) { box.hidden = true; msg.textContent = 'Nenhuma quantidade preenchida.'; msg.style.color = '#f5a623'; return; }
+  if (erros.length) {
+    box.hidden = false;
+    box.innerHTML = `<b>Corrija antes de enviar</b> — embalagem sai inteira ou pela metade:<br>${erros.join('<br>')}`;
+    msg.textContent = ''; return;
+  }
+  msg.textContent = '';
+  box.hidden = false;
+  box.innerHTML = `<b>Você está pedindo para ${window._trPedidoUnidade}:</b>
+    <div style="margin:6px 0; font-size:12.5px; line-height:1.6;">${escolhidos.map(({ i, q }) => {
+      const un = (i.un_medida || 'un').toLowerCase();
+      return i.emb_fator
+        ? `${i.item} — <b>${trNum(q)} ${trEmbPlural(i.emb_nome, q)}</b> <span class="tr-det">= ${trNum(q * i.emb_fator, 3)} ${un}</span>`
+        : `${i.item} — <b>${trNum(q, 3)} ${un}</b>`;
+    }).concat(avulsos).join('<br>')}</div>
+    <button class="preset-btn tr-btn-cheio" onclick="trCriarPedido()">Está certo — enviar pedido</button>
+    <button class="preset-btn" onclick="document.getElementById('trPedidoResumo').hidden = true">voltar e corrigir</button>`;
+  box.scrollIntoView({ block: 'nearest' });
 }
 
 // campo preenchido ganha borda verde na ilha clara (ver de relance o que ja foi pedido)
@@ -12267,6 +12334,46 @@ function trEmbDesc(i) {
   const f = Number(i.emb_fator);
   if ((i.un_medida || '') === 'KG') return f >= 1 ? String(f).replace('.', ',') + ' kg' : Math.round(f * 1000) + ' g';
   return f + ' ' + (i.un_medida || 'un').toLowerCase();
+}
+// ---- UMA LINGUA SO (dono, 01/10/2026) ----
+// A confusao da "forma de pedir" vinha de cada tela pedir o numero numa unidade
+// (pedido e conferencia em embalagem; corrigir pedido e separacao em kg) e de o
+// campo nao dizer qual. Agora: a palavra da unidade fica ESCRITA junto do campo,
+// o pedido e a correcao falam em embalagem, e a embalagem sai inteira ou pela
+// metade (dono: "as embalagens podem sair pela metade em alguns casos").
+// Plural do nome da embalagem: "pacote (20x130 g)" -> "pacotes (20x130 g)",
+// "meia peça" -> "meias peças", "galão" -> "galões".
+function trEmbPlural(nome, n) {
+  if (!nome || Number(n) === 1) return nome || '';
+  let parou = false;
+  return String(nome).split(' ').map(p => {
+    if (parou || /^[(\d]/.test(p)) { parou = true; return p; }
+    return /ão$/.test(p) ? p.replace(/ão$/, 'ões') : (/[aeiou]$/i.test(p) ? p + 's' : p + 'es');
+  }).join(' ');
+}
+// numero em pt-BR sem zeros a direita: 4.5 -> "4,5"; 12 -> "12"
+function trNum(v, casas = 2) { return Number(v || 0).toLocaleString('pt-BR', { maximumFractionDigits: casas }); }
+// embalagem sai inteira ou pela metade: 1, 1,5, 2 — nunca 11,11
+function trEmbInteira(q) { return Math.abs(q * 2 - Math.round(q * 2)) < 1e-6; }
+// quantas embalagens ha em `qtd` (unidade de controle). Arredonda ANTES de
+// comparar: 7 pacotes de 1,2 kg = 8,4 kg voltam como 7,000000000000001.
+function trEmbConta(qtd, fator) { return Math.round(Number(qtd || 0) / Number(fator) * 100) / 100; }
+// "1 balde · 4,5 kg": o pedido na lingua de quem pediu, com a medida ao lado.
+// So converte quando a linha esta na MESMA unidade da grade e a conta fecha em
+// embalagem inteira ou meia — lista antiga, item de duas embalagens e numero
+// quebrado mostram so a medida, sem inventar contagem.
+function trQtdEmbTxt(qtd, un, cat) {
+  const medida = `${trNum(qtd, 3)} ${(un || '').toLowerCase()}`;
+  if (!cat || !cat.emb_fator || cat.emb2_fator || (cat.un_medida || '') !== (un || '') || !Number(qtd)) return medida;
+  const n = trEmbConta(qtd, cat.emb_fator);
+  return trEmbInteira(n) ? `<b>${trNum(n)} ${trEmbPlural(cat.emb_nome, n)}</b> <span class="tr-det">· ${medida}</span>` : medida;
+}
+// catalogo da filial por item (embalagem e unidade), para as telas depois do pedido
+async function trCatMapa(unidade) {
+  const r = await trFetch(`vw_tr_itens_pedido?unidade=eq.${encodeURIComponent(unidade || 'AHU')}&select=item,un_medida,emb_nome,emb_fator,emb2_nome,emb2_fator`);
+  const m = {};
+  if (r.ok) (await r.json()).forEach(x => { m[x.item] = x; });
+  return m;
 }
 // Letreiro da linha (24/09/2026, dono): conversao da embalagem E o valor do
 // item conforme digita — "2 × 700 g ≈ 1,4 kg = R$ 26,51". Login sem valores
@@ -12331,9 +12438,12 @@ function trAddAvulso() {
 
 async function trCriarPedido() {
   const msg = document.getElementById('trPedidoMsg');
-  const itens = window._trItensPedido || [];
-  const escolhidos = itens.map((i, idx) => ({ i, q: Number(document.getElementById('trq_' + idx)?.value || 0) }))
-    .filter(x => x.q > 0);
+  // a trava fica AQUI, no envio (o atributo step do campo nao impede nada: a
+  // tela nao e um <form>) — embalagem so sai inteira ou pela metade
+  const { escolhidos, erros } = trLerGrade(window._trItensPedido, 'trq_');
+  if (erros.length) { trRevisarPedido(); return; }
+  const resumo = document.getElementById('trPedidoResumo');
+  if (resumo) resumo.hidden = true;
   // itens fora da grade: nome digitado vira MAIUSCULA (padrao da base); se o
   // nome bater com um item da grade, o banco precifica normal em vez de avulso
   const avulsos = [];
@@ -12399,8 +12509,9 @@ async function trCriarPedido() {
 // ---- edicao de pedido salvo (dono, 04/09/2026) ----
 // So lista SOLICITADA (a separacao ainda nao comecou). Linha mexida ou
 // incluida ganha editado=true e o selo ✏️ na separacao/conferencia/PDF.
-// A edicao das quantidades e na unidade de CONTROLE (kg/un); a inclusao de
-// item novo respeita a embalagem, como no pedido.
+// Desde 01/10/2026 a correcao e na MESMA unidade do pedido (embalagem), tanto
+// nas linhas que ja estao na lista quanto na inclusao de item novo — ver
+// "UMA LINGUA SO". So fica na medida (kg/un) o que nao tem embalagem unica.
 async function trEditarPedido(id) {
   const alvo = document.getElementById('trTelaConteudo');
   const rl = await trFetch(`tr_listas?id=eq.${id}&select=id,unidade,status`);
@@ -12433,7 +12544,16 @@ async function trEditarPedido(id) {
   // a quantidade de um item com embalagem simples e editada (dono viu a #24422
   // com "3 pacotes" no nome e 5 no campo — a obs ficava velha)
   const fatores = {};
-  catalogo.forEach(x => { if (x.emb_fator && !x.emb2_fator) fatores[x.item] = { n: x.emb_nome, f: Number(x.emb_fator) }; });
+  catalogo.forEach(x => { if (x.emb_fator && !x.emb2_fator) fatores[x.item] = { n: x.emb_nome, f: Number(x.emb_fator), un: x.un_medida }; });
+  // UMA LINGUA SO (01/10/2026): a correcao e na MESMA unidade do pedido. Item de
+  // embalagem unica corrige em pacotes/baldes; o resto (sem embalagem, duas
+  // embalagens, pote automatico, linha antiga noutra unidade) segue na medida.
+  // Antes o campo era em kg e a anotacao saia de uma divisao — e dai que vinha
+  // o "pedido: 11.11 pacote(s)" (alguem digitou 5 querendo 5 pacotes).
+  itens.forEach(i => {
+    const fx = fatores[i.item];
+    i._emb = fx && fx.un === i.un_medida && i.qtd_auto == null ? fx : null;
+  });
   window._trEdit = { id, unidade: lista.unidade, itens, fatores };
   window._trEditNovos = novos;
   // decoracao do nome com a embalagem, a partir do proprio catalogo ja buscado
@@ -12447,10 +12567,12 @@ async function trEditarPedido(id) {
       Editando a lista <b>#${id}</b> · ${lista.unidade} — corrija as quantidades (<b>0 tira o item</b>), preencha
       os que faltam na grade de baixo e <b>salve uma vez só</b>. Linha mexida ganha o selo ✏️.</div>
     <div id="tabelaTrEdit"><table>
-      <tr><th>Item</th><th>Qtd</th></tr>
-      ${itens.map((i, idx) => `<tr><td>${i.item} <span class="dre-av">${i.un_medida || ''}</span>${i.qtd_auto != null ? ' <span class="tr-tag">🔁 automático — mudou a feijoada/canja? ajuste aqui</span>' : (catMapa[i.item] ? ` <span class="tr-det">(${catMapa[i.item]})</span>` : '')}${i.avulso ? ' <span class="tr-tag">🆕</span>' : ''}${i.observacao ? ` <span class="tr-tag">${i.observacao}</span>` : ''}${i.editado ? ' <span class="tr-tag">✏️</span>' : ''}</td>
-        <td><input type="number" min="0" step="any" id="tre_${idx}" class="trc-in" value="${Number(i.qtd_solicitada || 0)}"
-          style="width:80px; text-align:right;"></td></tr>`).join('')}
+      <tr><th>Item</th><th>Quanto</th></tr>
+      ${itens.map((i, idx) => `<tr><td>${i.item}${i.qtd_auto != null ? ' <span class="tr-tag">🔁 automático — ajuste aqui se mudou o prato</span>' : (catMapa[i.item] ? ` <span class="tr-det">(${catMapa[i.item]})</span>` : '')}${i.avulso ? ' <span class="tr-tag">🆕</span>' : ''}${i.observacao ? ` <span class="tr-tag">${i.observacao}</span>` : ''}${i.editado ? ' <span class="tr-tag">✏️</span>' : ''}</td>
+        <td style="white-space:nowrap;"><input type="number" min="0" step="${i._emb ? '0.5' : 'any'}" inputmode="decimal" id="tre_${idx}" class="trc-in"
+          value="${i._emb ? trEmbConta(i.qtd_solicitada, i._emb.f) : Number(i.qtd_solicitada || 0)}" oninput="trEditConv(${idx})"
+          style="width:80px; text-align:right;"> <b>${i._emb ? trEmbPlural(i._emb.n, 2) : (i.un_medida || '').toLowerCase()}</b>
+          <span class="tr-conv" id="trec_${idx}" style="font-size:11px;">${i._emb ? '= ' + trNum(i.qtd_solicitada, 3) + ' ' + (i.un_medida || '').toLowerCase() : ''}</span></td></tr>`).join('')}
     </table></div>
     <div style="margin-top:12px;">
       <button class="preset-btn" onclick="trSalvarEdicao()">Salvar alterações</button>
@@ -12463,10 +12585,13 @@ async function trEditarPedido(id) {
     <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:0 18px;">
       ${novos.map((i, idx) => `
         <label data-busca2="${i.item.toLowerCase()}" class="tr-linha" style="display:grid; grid-template-columns:1fr 76px; gap:2px 10px; align-items:center; font-size:12.5px; padding:5px 2px;">
-          <span>${i.item} <span class="tr-det">(${i.emb_fator ? 'pede em ' + i.emb_nome + ' de ' + trEmbDesc(i) : (i.un_medida || 'un')}${i.nao_cobrado ? ' · não cobrado' : (i.preco_tabela ? ' · R$ ' + Number(i.preco_tabela).toFixed(2) + '/' + (i.un_medida || 'un').toLowerCase() : '')})</span><br><span id="trne_${idx}" class="tr-conv" style="font-size:11px;"></span></span>
-          <input type="number" min="0" step="any" id="trn_${idx}" class="trc-in" placeholder="${i.emb_fator ? i.emb_nome + 's' : ''}"
-            oninput="trqTem(this); trEditHint(${idx})"
-            style="width:72px; justify-self:end; text-align:right;">
+          <span>${i.item} <span class="tr-det">(${trLinhaComoPede(i)})</span><br><span id="trne_${idx}" class="tr-conv" style="font-size:11px;"></span></span>
+          <span style="justify-self:end; text-align:right; line-height:1.15;">
+            <input type="number" min="0" step="${i.emb_fator ? '0.5' : 'any'}" inputmode="decimal" id="trn_${idx}" class="trc-in"
+              oninput="trqTem(this); trEditHint(${idx})"
+              style="width:72px; text-align:right;"><br>
+            <span class="tr-det" style="font-size:10.5px;">${trLinhaUnidade(i)}</span>
+          </span>
         </label>`).join('')}
     </div>
     <div class="section-label tr-secao" style="margin-top:16px;">FORA DA GRADE?</div>
@@ -12476,6 +12601,15 @@ async function trEditarPedido(id) {
       <button class="preset-btn" onclick="trSalvarEdicao()">Salvar alterações</button>
     </div>`;
   trAvulsoN = 0;
+}
+// conversao ao vivo da linha corrigida: "= 4,5 kg" ao lado do campo em pacotes
+function trEditConv(idx) {
+  const i = (window._trEdit?.itens || [])[idx];
+  const el = document.getElementById('trec_' + idx);
+  const campo = document.getElementById('tre_' + idx);
+  if (!i || !el || !campo || !i._emb) return;
+  const n = Number(campo.value || 0);
+  el.textContent = n > 0 ? `= ${trNum(n * i._emb.f, 3)} ${(i.un_medida || '').toLowerCase()}` : (campo.value === '' ? '' : 'tira o item');
 }
 function trEditFiltra() {
   const q = (document.getElementById('trEditBusca')?.value || '').toLowerCase();
@@ -12513,24 +12647,42 @@ async function trSalvarEdicao() {
   const msg = document.getElementById('trEditMsg');
   msg.textContent = 'Salvando...'; msg.style.color = '#8a897e';
   const { id, itens, fatores } = window._trEdit;
-  // 1. o que mudou nos itens que ja estavam na lista (a anotacao "pedido: N"
-  // acompanha a quantidade nova quando o item tem embalagem simples)
+  // 0. a trava, ANTES de gravar qualquer coisa: embalagem inteira ou pela metade,
+  // tanto na linha corrigida (so se foi mexida — lista antiga com numero quebrado
+  // nao trava quem nao tocou nela) quanto na grade dos que faltaram
+  const erros = trLerGrade(window._trEditNovos, 'trn_').erros;
+  itens.forEach((i, idx) => {
+    const campo = document.getElementById('tre_' + idx);
+    if (!campo || !i._emb || campo.value === '' || campo.value === campo.defaultValue) return;
+    const n = Number(campo.value);
+    if (n > 0 && !trEmbInteira(n)) erros.push(`${i.item}: ${trNum(n)} ${trEmbPlural(i._emb.n, n)} — peça inteiro ou meio`);
+  });
+  if (erros.length) {
+    msg.innerHTML = '<b>Nada foi salvo.</b> Embalagem sai inteira ou pela metade:<br>' + erros.join('<br>');
+    msg.style.color = '#ff6b6b'; return;
+  }
+  // 1. o que mudou nos itens que ja estavam na lista. Item de embalagem unica:
+  // o campo esta em embalagens — grava numero digitado x fator e anota o proprio
+  // numero digitado (nada de dividir de volta).
   const gravado = {};  // id -> anotacao e parte automatica como ficaram no banco
   for (const [idx, i] of itens.entries()) {
     const campo = document.getElementById('tre_' + idx);
     if (!campo) continue;
-    const v = Number(campo.value === '' ? i.qtd_solicitada : campo.value);
-    if (v === Number(i.qtd_solicitada)) continue;
+    if (campo.value === '' || campo.value === campo.defaultValue) continue;   // linha nao mexida fica como esta
+    const digitado = Number(campo.value);
+    const v = i._emb ? Math.round(digitado * i._emb.f * 1000) / 1000 : digitado;
+    if (Math.abs(v - Number(i.qtd_solicitada)) < 0.0005) continue;
     const corpo = { qtd_solicitada: v, editado: true };
     const fx = (fatores || {})[i.item];
-    if (i.qtd_auto != null) {
+    if (i._emb) corpo.observacao = `pedido: ${digitado} ${i._emb.n}(s)`;
+    else if (i.qtd_auto != null) {
       // linha mista (caixa pedida a mao + pote automatico): so o trecho "pedido"
       // acompanha a quantidade nova; a parte automatica fica, limitada ao total
       const auto = Math.min(Number(i.qtd_auto), v);
       const manual = Math.round((v - auto) * 1000) / 1000;
       corpo.qtd_auto = auto;
       if (fx) corpo.observacao = trObsPote(i.observacao, manual > 0 ? `pedido: ${Math.round(manual / fx.f * 100) / 100} ${fx.n}(s)` : null);
-    } else if (fx) corpo.observacao = `pedido: ${Math.round(v / fx.f * 100) / 100} ${fx.n}(s)`;
+    }
     const r = v <= 0
       ? await trFetch(`tr_lista_itens?id=eq.${i.id}`, { method: 'DELETE' })
       : await trFetch(`tr_lista_itens?id=eq.${i.id}`, { method: 'PATCH', body: JSON.stringify(corpo) });
@@ -12540,9 +12692,7 @@ async function trSalvarEdicao() {
   // 2. os que faltaram, preenchidos na grade (duas embalagens somam na mesma linha)
   const porItem = {};
   const escolhidos = [];
-  (window._trEditNovos || []).forEach((n, idx) => {
-    const q = Number(document.getElementById('trn_' + idx)?.value || 0);
-    if (q <= 0) return;
+  trLerGrade(window._trEditNovos, 'trn_').escolhidos.forEach(({ i: n, q }) => {
     escolhidos.push({ i: n, q });
     const qtd = n.emb_fator ? Math.round(q * n.emb_fator * 1000) / 1000 : q;
     const p = porItem[n.item] = porItem[n.item] || { item: n.item, un_medida: n.un_medida, qtd: 0, obs: [] };
@@ -12711,10 +12861,13 @@ async function trAbrirSeparacao(id) {
   ]);
   const lista = (await rl.json())[0];
   const itens = await ri.json();
-  const mapa = await trEmbMapa(lista.unidade);
+  const [mapa, cat] = await Promise.all([trEmbMapa(lista.unidade), trCatMapa(lista.unidade)]);
   // linha com pote automatico e contada em UNIDADES: o rotulo "caixa de 26"
   // do pote induzia a separar em caixas (a #24411 gravou 78 no lugar de 3)
   itens.forEach(i => { i._semEmb = i.qtd_auto != null; });
+  // o pedido aparece na lingua de quem pediu ("1 balde · 4,5 kg"); o campo do
+  // separado segue na medida, com a unidade ESCRITA ao lado (01/10/2026)
+  itens.forEach(i => { i._pedidoTxt = trQtdEmbTxt(i.qtd_solicitada, i.un_medida, i._semEmb ? null : cat[i.item]); });
   window._trItensSep = itens; window._trListaSep = lista; window._trEmbMapaSep = mapa;
   alvo.innerHTML = `
     <div class="caption-label"><button class="preset-btn" onclick="trListaAberta=null; trTelaSeparacao();">← fila</button>
@@ -12724,9 +12877,9 @@ async function trAbrirSeparacao(id) {
     <div id="tabelaTrOpSep"><table>
       <tr><th>Item</th><th>Solicitado</th><th>Separado</th></tr>
       ${itens.map((i, idx) => `<tr><td>${i.item} <span class="dre-av">${i.un_medida || ''}</span>${i._semEmb ? '' : trEmbRotulo(mapa, i.item)}${i.avulso ? ' <span class="tr-tag">🆕 fora da grade</span>' : ''}${i.observacao ? ` <span class="tr-tag">${i.observacao}</span>` : ''}${i.editado ? ' <span class="tr-tag">✏️ editado</span>' : ''}</td>
-        <td>${Number(i.qtd_solicitada || 0)}</td>
-        <td><input type="number" min="0" step="any" id="trs_${idx}" class="trc-in" value="${i.qtd_separada ?? i.qtd_solicitada ?? ''}"
-          style="width:80px; text-align:right;"></td></tr>`).join('')}
+        <td>${i._pedidoTxt}</td>
+        <td style="white-space:nowrap;"><input type="number" min="0" step="any" inputmode="decimal" id="trs_${idx}" class="trc-in" value="${i.qtd_separada ?? i.qtd_solicitada ?? ''}"
+          style="width:80px; text-align:right;"> <b>${(i.un_medida || '').toLowerCase()}</b></td></tr>`).join('')}
     </table></div>
     <div style="margin-top:12px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
       <button class="preset-btn" onclick="trSalvarSeparacao(${id})">Salvar e marcar como SEPARADA</button>
@@ -12793,8 +12946,8 @@ async function trImprimirSeparacao(id) {
     td, th { border-bottom:1px solid #bbb; padding:6px; font-size:13px; text-align:left; }
     th { font-size:10.5px; text-transform:uppercase; color:#45443f; }
     .q { text-align:right; white-space:nowrap; }
-    .risco { width:110px; }
-    .risco span { display:inline-block; width:100%; border-bottom:1px solid #000; height:14px; }
+    .risco { width:130px; white-space:nowrap; }
+    .risco span { display:inline-block; width:72%; border-bottom:1px solid #000; height:14px; }
     .cx { width:24px; font-size:15px; }
     @media print { .naoimprime { display:none; } }
   </style></head><body>
@@ -12804,7 +12957,7 @@ async function trImprimirSeparacao(id) {
     ${Object.keys(porGrupo).sort().map(g => `<h2>${g}</h2><table>
       <tr><th class="cx"></th><th>Item</th><th>Un</th><th class="q">Solicitado</th><th class="risco">Separado</th></tr>
       ${porGrupo[g].map(i => `<tr><td class="cx">☐</td><td>${i.item}${i.editado ? ' ✏️' : ''}${!i._semEmb && (window._trEmbMapaSep || {})[i.item] ?` <span style="font-size:10.5px; color:#45443f;">(${window._trEmbMapaSep[i.item]})</span>` : ''}${i.observacao ? `<br><span style="font-size:10.5px; color:#45443f;">${i.observacao}</span>` : ''}</td><td>${i.un_medida || ''}</td>
-        <td class="q"><b>${Number(i.qtd_solicitada || 0)}</b></td><td class="risco"><span></span></td></tr>`).join('')}
+        <td class="q">${i._pedidoTxt || '<b>' + Number(i.qtd_solicitada || 0) + '</b>'}</td><td class="risco"><span></span> ${(i.un_medida || '').toLowerCase()}</td></tr>`).join('')}
     </table>`).join('')}
   </body></html>`);
   w.document.close();
@@ -12903,7 +13056,7 @@ async function trVerFinalizada(id) {
   const lista = (await rl.json())[0] || {};
   const itens = await ri.json();
   const valor = rv.ok ? (await rv.json())[0] : null;
-  const mapa = await trEmbMapa(lista.unidade);
+  const [mapa, cat] = await Promise.all([trEmbMapa(lista.unidade), trCatMapa(lista.unidade)]);
   const comValor = Object.keys(precos).length > 0;
   const somaItens = itens.reduce((s, i) => s + (precos[i.id] != null ? trQtdCobrada(i) * precos[i.id] : 0), 0);
   const difs = itens.filter(i => Number(i.qtd_recebida ?? 0) !== Number(i.qtd_separada ?? 0));
@@ -12920,7 +13073,7 @@ async function trVerFinalizada(id) {
       <tr><th>Item</th><th>Pedido</th><th>Separado</th><th>Recebido</th><th>Diferença</th>${comValor ? '<th>Valor unit.</th><th>Total cobrado</th>' : ''}</tr>
       ${itens.map(i => { const d = Number(i.qtd_recebida ?? 0) - Number(i.qtd_separada ?? 0); return `<tr>
         <td>${i.item} <span class="dre-av">${i.un_medida || ''}</span>${trEmbRotulo(mapa, i.item)}${i.avulso ? ' <span class="tr-tag">🆕</span>' : ''}${i.observacao ? ` <span class="tr-tag">${i.observacao}</span>` : ''}${i.editado ? ' <span class="tr-tag">✏️</span>' : ''}</td>
-        <td>${Number(i.qtd_solicitada || 0)}</td><td>${Number(i.qtd_separada || 0)}</td><td>${Number(i.qtd_recebida ?? 0)}</td>
+        <td>${trQtdEmbTxt(i.qtd_solicitada, i.un_medida, cat[i.item])}</td><td>${Number(i.qtd_separada || 0)}</td><td>${Number(i.qtd_recebida ?? 0)}</td>
         <td${d ? ' style="color:#b3261e; font-weight:700;"' : ''}>${d ? (d > 0 ? '+' : '') + Math.round(d * 1000) / 1000 : '—'}</td>
         ${comValor ? trColunasValor(i, precos) : ''}
       </tr>`; }).join('')}
