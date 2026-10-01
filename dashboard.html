@@ -16984,8 +16984,64 @@ function cpOrdenar(col) {
   CP.ordem = CP.ordem.col === col ? { col, dir: -CP.ordem.dir } : { col, dir: natural };
   renderContasPagar();
 }
-async function cpAtualizar(btn) {
-  if (btn) { btn.disabled = true; btn.textContent = 'atualizando…'; }
+// ATUALIZAR PUXA O SAIPOS (dono, 01/10/2026). O painel nao roda Python: o botao grava
+// um pedido tipo SAIPOS_COMPLETO na fila que ja existia (fin_conciliacao_pedido) e o
+// atender_conciliacao.py, na maquina das rotinas, roda a carga completa (2-3 min).
+// Enquanto isso a tela continua usavel — o estado mora em CP_PEDIDO, fora do CP,
+// porque cada clique de filtro redesenha o botao.
+let CP_PEDIDO = null;   // { estado: 'PEDINDO'|'PENDENTE'|'RODANDO', desde } enquanto ha pedido vivo
+let CP_AVISO = '';      // ultima resposta do pedido que precisa ficar na tela
+function cpRotuloAtualizar() {
+  if (!CP_PEDIDO) return '↻ Atualizar';
+  const s = Math.round((Date.now() - CP_PEDIDO.desde) / 1000);
+  const t = s >= 60 ? Math.floor(s / 60) + 'min' + String(s % 60).padStart(2, '0') : s + 's';
+  return CP_PEDIDO.estado === 'RODANDO' ? `puxando o Saipos… ${t}` : `na fila… ${t}`;
+}
+function cpPintarBotao() {
+  const b = document.getElementById('cpBtnAtualizar');
+  if (b) { b.textContent = cpRotuloAtualizar(); b.disabled = !!CP_PEDIDO; }
+}
+async function cpAtualizar() {
+  if (CP_PEDIDO) return;
+  CP_PEDIDO = { estado: 'PEDINDO', desde: Date.now() };
+  CP_AVISO = '';
+  cpPintarBotao();
+  let fim = '';
+  try {
+    await rmbGarantirTokenValido();
+    const pede = () => fetch(`${SUPABASE_URL}/rest/v1/fin_conciliacao_pedido`, {
+      method: 'POST', headers: rmbHeaders({ Prefer: 'return=representation' }),
+      body: JSON.stringify({ quem: (rmbSessao() || {}).email || 'PAINEL', tipo: 'SAIPOS_COMPLETO' }),
+    });
+    let r = await pede();
+    if (r.status === 401) { await rmbRenovarSeExpirado(r); r = await pede(); }
+    if (!r.ok) throw new Error((await r.text()).slice(0, 120));
+    const pedido = (await r.json())[0];
+    CP_PEDIDO.estado = 'PENDENTE';
+    entrarContasPagar();          // o que ja esta no banco aparece na hora; o Saipos vem depois
+    // a carga leva 2-3 min; o atendedor desiste aos 16. Pendente por 90s = ninguem atendendo.
+    const limite = Date.now() + 17 * 60000;
+    let linha = null;
+    while (Date.now() < limite) {
+      await new Promise(s => setTimeout(s, 3000));
+      const q = await fetch(`${SUPABASE_URL}/rest/v1/fin_conciliacao_pedido?id=eq.${pedido.id}&select=status,resumo`, { headers: rmbHeaders() });
+      if (q.ok) linha = (await q.json())[0] || linha;
+      if (linha) CP_PEDIDO.estado = linha.status;
+      cpPintarBotao();
+      if (linha && (linha.status === 'OK' || linha.status === 'ERRO')) break;
+      if (CP_PEDIDO.estado === 'PENDENTE' && Date.now() - CP_PEDIDO.desde > 90000) break;
+    }
+    const resumo = (linha && linha.resumo) || '';
+    if (!linha || linha.status === 'PENDENTE') fim = 'O pedido entrou na fila, mas ninguém atendeu — a máquina das rotinas pode estar desligada. A lista abaixo é a da última carga.';
+    else if (linha.status === 'ERRO') fim = 'O Saipos não respondeu: ' + resumo + '. A lista abaixo é a da última carga.';
+    else if (linha.status === 'RODANDO') fim = 'A carga do Saipos ainda está rodando — clique de novo em alguns minutos.';
+    // atendedor que ainda nao foi reiniciado trata o pedido como conciliacao (janela de 7 dias)
+    else if (!resumo.includes('Saipos completo')) fim = 'Atendido pela versão antiga do atendedor: só os últimos 7 dias do Saipos foram relidos. Reinicie a tarefa "Painel - Atender conciliacao" na máquina das rotinas.';
+  } catch (e) {
+    fim = 'Não consegui pedir a atualização: ' + e.message;
+  }
+  CP_PEDIDO = null;
+  CP_AVISO = fim;
   await entrarContasPagar();
 }
 
@@ -17012,9 +17068,9 @@ function renderContasPagar() {
       <button class="preset-btn ${f.sentido === 'RECEBER' ? 'active' : ''}" onclick="cpSentido('RECEBER')">A receber</button>
       <button class="preset-btn ${CP.tudo ? 'active' : ''}" onclick="cpTudo()" title="por padrão a lista vai até 45 dias à frente">${CP.tudo ? 'até 45 dias' : 'ver tudo'}</button>
       <span style="flex:1;"></span>
-      <span class="caption-label" style="margin:0;" title="O botão relê o banco do painel. O que foi lançado ou baixado no Saipos entra na próxima carga do Saipos.">lido às ${hora(CP.lidoEm)}${CP.saiposEm ? ` · Saipos carregado ${CP.saiposEm.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }) === hoje ? 'hoje' : 'em ' + CP.saiposEm.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', timeZone: 'America/Sao_Paulo' })} às ${hora(CP.saiposEm)}` : ''}</span>
-      <button class="preset-btn" onclick="cpAtualizar(this)" title="relê as contas do banco do painel, mantendo filtros e ordem">↻ Atualizar</button>
-    </div><div class="cards">`;
+      <span class="caption-label" style="margin:0;" title="O botão pede uma carga completa do Saipos à máquina das rotinas (2 a 3 minutos) e relê a lista quando ela termina.">lido às ${hora(CP.lidoEm)}${CP.saiposEm ? ` · Saipos carregado ${CP.saiposEm.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }) === hoje ? 'hoje' : 'em ' + CP.saiposEm.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', timeZone: 'America/Sao_Paulo' })} às ${hora(CP.saiposEm)}` : ''}</span>
+      <button class="preset-btn" id="cpBtnAtualizar" onclick="cpAtualizar()" ${CP_PEDIDO ? 'disabled' : ''} title="puxa o Saipos de novo (2 a 3 minutos) e relê as contas, mantendo filtros e ordem">${cpRotuloAtualizar()}</button>
+    </div>${CP_AVISO ? `<div class="contexto" style="text-align:left; border-color:var(--amber-2); margin-bottom:10px;">${CP_AVISO}</div>` : ''}<div class="cards">`;
   for (const [k, rot, cls] of SIT) {
     const l = baseSit.filter(r => r.situacao === k);
     const saiuBanco = k === 'VENCIDA' ? l.filter(r => r.saiuBanco) : [];
