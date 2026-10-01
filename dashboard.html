@@ -11885,7 +11885,10 @@ function renderModuloListasFin() {
   const parciais = mensal.filter(r => (r.mes || '').slice(0, 7) === mesAtual);
   const historico = mensal.filter(r => (r.mes || '').slice(0, 7) !== mesAtual);
   const atrasados = historico.filter(r => r.sem_fechar).length;
-  const derivas = historico.filter(r => Math.abs(nu(r.deriva_custo)) > 0.005);
+  // 5 centavos de folga (01/10/2026): diferenca de centavos e arredondamento, nao custo
+  // reescrito. Agosto do Boqueirao vale o que foi pago (8.620,03, decisao do dono) e as
+  // linhas somam 8.620,01 — a planilha guarda mais casas nas caixas de growler.
+  const derivas = historico.filter(r => Math.abs(nu(r.deriva_custo)) > 0.05);
   const derivaTotal = derivas.reduce((s, r) => s + nu(r.deriva_custo), 0);
 
   const linhaMes = (r, situacao) => `<tr>
@@ -11893,7 +11896,7 @@ function renderModuloListasFin() {
     <td>R$ ${fmt(nu(r.valor_lista))}</td>
     <td>${nu(r.frete) ? 'R$ ' + fmt(nu(r.frete)) : '—'}</td>
     <td>${nu(r.royalty) ? 'R$ ' + fmt(nu(r.royalty)) + ' <span style="color:#8a897e; font-size:11px;">(regra)</span>' : '—'}</td>
-    <td><b>R$ ${fmt(nu(r.total_devido))}</b></td>
+    <td><b>R$ ${fmt(trHistDevido(r))}</b>${trHistDevidoAviso(r)}</td>
     ${situacao}
   </tr>`;
 
@@ -11942,15 +11945,57 @@ function renderModuloListasFin() {
         atrasados ? ` <span style="color:#ff6b6b;">(${atrasados} mês(es) sem fechar)</span>` : ''}</summary>
       <div class="caption-label" style="text-align:center; margin-top:10px;">
         Do corte de ago/26 em diante; o anterior vive nas planilhas aposentadas (e no banco, para consulta).
+        <b>Devido, Pago e Falta</b> são os mesmos de <b>Contas a pagar</b>: o pagamento é lido do lançamento do Saipos.
       </div>
       <div id="tabelaTrMensal"><table>
-        <tr><th>Mês</th><th>Filial</th><th>Listas</th><th>Itens (R$)</th><th>Frete</th><th>Royalty</th><th>Devido</th><th>Pago</th><th>Situação</th></tr>
-        ${historico.map(r => linhaMes(r, `<td>R$ ${fmt(nu(r.total_pago))}</td>
-          <td class="${r.sem_fechar ? 'negativo' : ''}">${r.sem_fechar ? 'SEM FECHAR' : 'fechado'}</td>`)).join('')}
+        <tr><th>Mês</th><th>Filial</th><th>Listas</th><th>Itens (R$)</th><th>Frete</th><th>Royalty</th><th>Devido</th><th>Pago</th><th>Falta</th><th>Situação</th></tr>
+        ${historico.map(r => linhaMes(r, trHistCelulas(r))).join('')}
       </table></div>
+      ${trHistNotas(historico, mesTxt)}
       ${derivas.length ? `<div class="caption-label" style="color:#ff6b6b;" title="A conta é o custo recalculado hoje menos o valor congelado no fechamento do mês. Diferença positiva quer dizer que a filial foi cobrada a menos do que o custo de hoje; negativa, a mais.">⚠ A planilha reescreveu depois o custo de ${derivas.length} mês(es) já fechado(s): R$ ${fmt(Math.abs(derivaTotal))} ${derivaTotal >= 0 ? 'cobrado a menos' : 'cobrado a mais'} — vale o valor congelado no fechamento.</div>` : ''}
     </details>`;
   entrarOperacaoListas();
+}
+
+// HISTORICO FECHADO (dono, 01/10/2026: "por que agosto, pago em setembro, nao esta
+// zerado?"). Devido, Pago e Falta saem da COBRANCA do mes — a mesma linha de Contas a
+// pagar (vw_tr_contas_pagar), com o pagamento lido do Saipos. Antes o "Pago" vinha das
+// planilhas aposentadas pelo mes do DEPOSITO: mostrava em agosto a lista de julho.
+// Quem faz a conta e o banco (vw_tr_conta_listas_mensal: cobranca_total, total_pago,
+// falta, cobranca_status); a tela so escreve. Mes sem cobranca (era planilha) usa o que
+// a planilha registrou. Banco ainda sem as colunas novas: a tela fica como era.
+function trHistDevido(r) { return r.cobranca_total != null ? Number(r.cobranca_total) : (Number(r.total_devido) || 0); }
+// a cobranca foi fechada num valor e a conta refeita hoje da outro: vale o cobrado, e avisa
+function trHistDevidoAviso(r) {
+  if (r.cobranca_total == null || Math.abs(Number(r.cobranca_total) - (Number(r.total_devido) || 0)) <= 0.005) return '';
+  return ` <span class="tr-tag" title="A cobrança deste mês foi fechada em R$ ${fmt(Number(r.cobranca_total))}; a conta refeita hoje (itens + frete + royalty) dá R$ ${fmt(Number(r.total_devido) || 0)}. Vale o cobrado.">≠ conta de hoje</span>`;
+}
+function trHistCelulas(r) {
+  const dm = d => d ? String(d).slice(8, 10) + '/' + String(d).slice(5, 7) : '';
+  const pago = r.total_pago == null ? null : Number(r.total_pago);
+  const falta = r.falta == null ? null : Number(r.falta);
+  const temCob = r.cobranca_total != null;
+  const aberto = temCob && falta > 0.005;
+  let sit, cls = '';
+  if (r.cobranca_status === 'EM VALIDACAO') { sit = 'fechado · esperando validação'; cls = 'tr-tag'; }
+  else if (r.sem_fechar) { sit = 'SEM FECHAR'; cls = 'negativo'; }
+  else if (!temCob) sit = 'fechado';
+  else if (!aberto) sit = 'fechado · pago' + (r.data_pagamento ? ' em ' + dm(r.data_pagamento) : '');
+  else if (pago > 0) sit = 'fechado · pago em parte';
+  else sit = 'fechado · em aberto';
+  const venc = aberto && r.cobranca_vencimento
+    ? ` <span class="dre-av">${r.cobranca_vencimento < trHoje() ? 'venceu' : 'vence'} ${dm(r.cobranca_vencimento)}</span>` : '';
+  const faltaTxt = falta == null || Math.abs(falta) <= 0.005 ? '—'
+    : (falta > 0 ? `<b>R$ ${fmt(falta)}</b>` : `R$ ${fmt(-falta)} a mais`);
+  return `<td>${pago == null ? '—' : 'R$ ' + fmt(pago)}</td>
+          <td${falta > 0.005 ? ' class="negativo"' : ''}>${faltaTxt}</td>
+          <td${cls ? ` class="${cls}"` : ''}>${sit}${venc}</td>`;
+}
+// embaixo da tabela: por que ainda falta (o texto mora na cobranca; so o primeiro trecho)
+function trHistNotas(historico, mesTxt) {
+  const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  return historico.filter(r => r.cobranca_total != null && Number(r.falta) > 0.005 && r.cobranca_nota)
+    .map(r => `<div class="caption-label" style="text-align:left; white-space:normal;"><b>${r.unidade} · ${mesTxt(r.mes)} — falta R$ ${fmt(Number(r.falta))}.</b> ${esc(String(r.cobranca_nota).split(' | ')[0])}</div>`).join('');
 }
 
 // drill do quadro do mes (09/09/2026): filial -> listas -> itens da lista
@@ -13727,6 +13772,16 @@ async function trTelaContas() {
   const contas = await r.json();
   const dono = TR_OP.papel === 'DONO';
   const abertas = contas.filter(c => c.status !== 'PAGA');
+  // Entradas das filiais no Saipos que NAO baixaram cobranca nenhuma (01/10/2026): o
+  // texto nao diz o mes (o Boqueirao entra como "REPASSE BOQUEIRAO LISTA + ROYALTIES"),
+  // o mes ainda nao tem fechamento validado, ou o titulo vinculado saiu do Saipos. Sem a
+  // view (banco anterior a baixa_listas_pelo_saipos.sql novo) o quadro nao aparece.
+  let entradas = [];
+  try {
+    const re = await trFetch(`vw_tr_pagamentos_saipos?situacao=neq.BAIXA&order=data${filtro}`);
+    if (re.ok) entradas = await re.json();
+  } catch (e) { entradas = []; }
+  window._trEntradas = entradas;
   // BAIXA PARCIAL (dono, 01/10/2026): a filial paga aos poucos; cada pagamento
   // entra com valor e data, a tela mostra quanto ja foi pago e quanto falta, e a
   // cobranca so vira PAGA quando o saldo zera (tr_registrar_pagamento).
@@ -13737,6 +13792,7 @@ async function trTelaContas() {
       ${TR_OP.papel === 'SEPARACAO' || dono ? 'O que está esperando validação fica em <b>Fechamento do mês</b>.' : ''}
       A filial pode pagar aos poucos. <b>O pagamento entra sozinho pelo Saipos</b>: a entrada lançada na Água Verde como
       “LISTA AHU 09/2026” (filial e mês da lista) baixa a cobrança na carga seguinte, e o que falta é calculado aqui.
+      ${entradas.length ? 'Entrada que não baixou sozinha está no quadro de baixo.' : ''}
       ${dono ? 'Lance à mão só o que não passar pelo Saipos — nos dois lugares conta em dobro.' : ''}
       <span id="trContasMsg" style="font-size:12px; margin-left:6px;"></span></div>
     <div id="tabelaTrOpContas"><table>
@@ -13758,7 +13814,76 @@ async function trTelaContas() {
         <td><b>${fmt(-abertas.reduce((s, c) => s + Number(c.valor_total || 0), 0))}</b></td>
         <td>${fmt(abertas.reduce((s, c) => s + Number(c.valor_pago || 0), 0))}</td>
         <td><b>${fmt(-abertas.reduce((s, c) => s + falta(c), 0))}</b></td><td></td><td></td><td></td>${dono ? '<td></td>' : ''}</tr>
+    </table></div>
+    ${trEntradasBloco(entradas, contas, dono)}`;
+}
+// ENTRADAS QUE NAO BAIXARAM (01/10/2026). O banco diz de que filial e de que mes e cada
+// entrada (vw_tr_pagamentos_saipos: vinculo explicito ou o texto "LISTA <FILIAL>
+// MM/AAAA"); aqui so aparece a que ficou sem cobranca. Nada de adivinhar o mes pela
+// data do deposito — foi isso que deslocou o "Pago" do Historico em um mes.
+function trEntradasBloco(entradas, contas, dono) {
+  if (!entradas || !entradas.length) return '';
+  const dm = d => d ? String(d).slice(8, 10) + '/' + String(d).slice(5, 7) : '—';
+  const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const mesAno = d => d ? String(d).slice(5, 7) + '/' + String(d).slice(0, 4) : '';
+  const porque = e => e.situacao === 'SEM DESTINO' ? 'o texto não diz de que mês é a lista'
+    : e.situacao === 'ESPERA O FECHAMENTO' ? `é da lista de ${mesAno(e.mes_referencia)}, que ainda não tem fechamento validado — baixa sozinha quando tiver`
+    : 'estava vinculada a uma cobrança, mas o lançamento saiu do Saipos';
+  const saldo = c => c.saldo != null ? Number(c.saldo) : Number(c.valor_total || 0);
+  const abertasDe = u => contas.filter(c => c.unidade === u && c.tipo === 'MENSAL' && c.status === 'EM ABERTO' && c.credor !== 'MICHIRO');
+  const vincular = (e, ix) => {
+    if (e.situacao !== 'SEM DESTINO') return '—';
+    if (e.id_titulo == null) return 'sem título no Saipos — só pelo texto';
+    const ab = abertasDe(e.unidade);
+    if (!ab.length) return 'nenhuma cobrança em aberto desta filial';
+    return `<select id="trvinc_${ix}" class="trc-in">${ab.map(c => `<option value="${c.id}">${mesAno(c.mes_referencia)} — falta R$ ${fmt(saldo(c))}</option>`).join('')}</select>
+          <button class="preset-btn" onclick="trVincular(${ix})">vincular</button>`;
+  };
+  return `
+    <div class="section-label">Entradas das filiais no Saipos que não baixaram cobrança</div>
+    <div class="caption-label">O dinheiro entrou na Água Verde, mas não foi para cobrança nenhuma.
+      O conserto de sempre é escrever no lançamento do Saipos a filial e o mês da lista — “LISTA BOQUEIRAO 09/2026” — e ele baixa sozinho na carga seguinte.
+      ${dono ? 'Ou diga aqui de qual cobrança é: o vínculo fica guardado e vale também nas próximas cargas.' : ''}</div>
+    <div id="tabelaTrEntradas"><table>
+      <tr><th>Entrou em</th><th>Filial</th><th>Valor</th><th>Texto no Saipos</th><th>Por que não baixou</th>${dono ? '<th>É de qual cobrança?</th>' : ''}</tr>
+      ${entradas.map((e, ix) => `<tr>
+        <td>${dm(e.data)}</td><td>${e.unidade}</td>
+        <td><b>${fmt(Number(e.valor != null ? e.valor : e.valor_entrada || 0))}</b></td>
+        <td style="text-align:left; white-space:normal;">${esc(e.descricao)}</td>
+        <td style="text-align:left; white-space:normal;">${porque(e)}</td>
+        ${dono ? `<td style="white-space:nowrap;">${vincular(e, ix)}</td>` : ''}</tr>`).join('')}
     </table></div>`;
+}
+// Vincular uma entrada do Saipos a uma cobranca (so o dono; tr_vincular_pagamento_lista).
+// Entrada maior que o que falta (um deposito pagando dois meses), ou sobra de entrada ja
+// vinculada em parte: vincula so a parte e o resto continua no quadro para a outra
+// cobranca. A pergunta repete o que vai ser gravado. Desfazer, so pelo chat.
+async function trVincular(ix) {
+  const msg = document.getElementById('trContasMsg');
+  const e = (window._trEntradas || [])[ix];
+  const escolhida = document.getElementById('trvinc_' + ix)?.value;
+  const c = (window._trContas || []).find(x => String(x.id) === String(escolhida));
+  if (!e || !c) return;
+  const avisa = (t, cor) => { if (msg) { msg.textContent = t; msg.style.color = cor; msg.scrollIntoView({ block: 'nearest' }); } };
+  const falta = c.saldo != null ? Number(c.saldo) : Number(c.valor_total || 0);
+  const valor = Number(e.valor || 0);
+  const inteira = Math.abs(valor - Number(e.valor_entrada || 0)) <= 0.005;
+  const parte = (!inteira || valor > falta + 0.005) ? Math.round(Math.min(valor, falta) * 100) / 100 : null;
+  const usado = parte == null ? valor : parte;
+  const resto = Math.round((falta - usado) * 100) / 100;
+  const sobra = Math.round((valor - usado) * 100) / 100;
+  const mes = String(c.mes_referencia || '').slice(5, 7) + '/' + String(c.mes_referencia || '').slice(0, 4);
+  const dia = String(e.data || '').slice(8, 10) + '/' + String(e.data || '').slice(5, 7);
+  if (!confirm(`Vincular R$ ${fmt(usado)} da entrada de ${dia} (“${e.descricao}”) à cobrança de ${c.unidade} ${mes}?\n`
+      + (resto > 0.005 ? `Fica faltando R$ ${fmt(resto)} nessa cobrança.` : 'A cobrança fica PAGA.')
+      + (sobra > 0.005 ? `\nSobram R$ ${fmt(sobra)} desta entrada para vincular a outra cobrança.` : '')
+      + '\nNão dá para desfazer por aqui.')) return;
+  const rv = await trRpc('tr_vincular_pagamento_lista', { p_id_titulo: e.id_titulo, p_id_cobranca: c.id, p_valor: parte, p_motivo: 'vinculado na tela Contas a pagar' });
+  if (!rv.ok) { avisa('Não deu: ' + await trErroDe(rv), 'var(--farol-fora)'); return; }
+  LISTAS = null;   // o Historico fechado le a mesma cobranca: recarrega na proxima entrada na tela
+  await trTelaContas();
+  const m3 = document.getElementById('trContasMsg');
+  if (m3) { m3.textContent = resto > 0.005 ? `Entrada vinculada — falta R$ ${fmt(resto)}.` : 'Entrada vinculada — cobrança PAGA.'; m3.style.color = 'var(--farol-ok)'; }
 }
 // Lancar um pagamento (total ou parcial) numa cobranca. Nao tem desfazer pela
 // tela, e as linhas sao parecidas (mesma filial, meses vizinhos): a pergunta
@@ -13781,6 +13906,7 @@ async function trPagar(id) {
       + '\nNão dá para desfazer por aqui.')) return;
   const r = await trRpc('tr_registrar_pagamento', { p_id: id, p_valor: valor, p_data: quando });
   if (!r.ok) return erro('Não deu: ' + await trErroDe(r));
+  LISTAS = null;   // o Historico fechado le a mesma cobranca: recarrega na proxima entrada na tela
   await trTelaContas();
   const m2 = document.getElementById('trContasMsg');
   if (m2) { m2.textContent = resto > 0 ? `Pagamento lançado — falta R$ ${fmt(resto)}.` : 'Pagamento lançado — cobrança PAGA.'; m2.style.color = '#3fb950'; }
