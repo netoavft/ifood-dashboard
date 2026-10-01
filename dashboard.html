@@ -13331,46 +13331,69 @@ async function trTelaContas() {
   const contas = await r.json();
   const dono = TR_OP.papel === 'DONO';
   const abertas = contas.filter(c => c.status !== 'PAGA');
+  // BAIXA PARCIAL (dono, 01/10/2026): a filial paga aos poucos; cada pagamento
+  // entra com valor e data, a tela mostra quanto ja foi pago e quanto falta, e a
+  // cobranca so vira PAGA quando o saldo zera (tr_registrar_pagamento).
+  const falta = c => c.saldo != null ? Number(c.saldo) : Number(c.valor_total || 0);
+  window._trContas = contas;
   alvo.innerHTML = `
     <div class="caption-label">Só entra aqui o fechamento que a Rita já validou.
       ${TR_OP.papel === 'SEPARACAO' || dono ? 'O que está esperando validação fica em <b>Fechamento do mês</b>.' : ''}
+      ${dono ? 'A filial pode pagar aos poucos: lance cada pagamento com o valor e a data.' : ''}
       <span id="trContasMsg" style="font-size:12px; margin-left:6px;"></span></div>
     <div id="tabelaTrOpContas"><table>
-      <tr><th>Quem deve</th><th>Para quem</th><th>Tipo</th><th>Referência</th><th>Itens</th><th>Frete</th><th>Royalty</th><th>Total</th><th>Vencimento</th><th>Status</th><th>Validou</th>${dono ? '<th></th>' : ''}</tr>
+      <tr><th>Quem deve</th><th>Para quem</th><th>Tipo</th><th>Referência</th><th>Itens</th><th>Frete</th><th>Royalty</th><th>Total</th><th>Já pago</th><th>Falta</th><th>Vencimento</th><th>Status</th><th>Validou</th>${dono ? '<th>Lançar pagamento</th>' : ''}</tr>
       ${contas.map(c => `<tr>
         <td>${c.unidade}</td><td>${c.credor === 'MICHIRO' ? '🛵 MICHIRO' : c.credor || 'AGUA VERDE'}</td><td>${c.tipo}</td>
         <td>${c.id_lista ? 'lista #' + c.id_lista : (c.mes_referencia || '').slice(0, 7)}</td>
         <td>${fmt(-Number(c.valor_itens || 0))}</td><td>${Number(c.frete) ? fmt(-Number(c.frete)) : '—'}</td>
         <td>${Number(c.royalty) ? fmt(-Number(c.royalty)) : '—'}</td><td><b>${fmt(-Number(c.valor_total || 0))}</b></td>
+        <td>${Number(c.valor_pago) ? fmt(Number(c.valor_pago)) : '—'}</td>
+        <td><b>${c.status === 'PAGA' ? '—' : fmt(-falta(c))}</b></td>
         <td${c.vencida && c.status !== 'PAGA' ? ' style="color:#ff6b6b; font-weight:bold;"' : ''}>${c.vencimento ? c.vencimento.slice(8,10)+'/'+c.vencimento.slice(5,7) : '—'}${c.vencida && c.status !== 'PAGA' ? ' VENCIDA' : ''}</td>
-        <td>${c.status}${c.pago_em ? ' em ' + c.pago_em.slice(8,10)+'/'+c.pago_em.slice(5,7) : ''}</td>
+        <td>${c.status === 'EM ABERTO' && Number(c.valor_pago) > 0 ? 'PAGA EM PARTE' : c.status}${c.pago_em ? ' em ' + c.pago_em.slice(8,10)+'/'+c.pago_em.slice(5,7) : ''}</td>
         <td>${c.validado_por ? c.validado_por + (c.validado_em ? ' em ' + c.validado_em.slice(8,10)+'/'+c.validado_em.slice(5,7) : '') : '—'}</td>
-        ${dono ? `<td>${c.status !== 'PAGA' ? `<button class="preset-btn" onclick="trBaixar(${c.id}, '${String(c.unidade || '').replace(/'/g, '')}', ${Number(c.valor_total || 0)})">baixar (pago hoje)</button>` : ''}</td>` : ''}</tr>`).join('')}
+        ${dono ? `<td style="white-space:nowrap;">${c.status !== 'PAGA' ? `R$ <input type="number" min="0" step="0.01" inputmode="decimal" id="trpg_v_${c.id}" class="trc-in" value="${falta(c).toFixed(2)}" style="width:96px; text-align:right;">
+          em <input type="date" id="trpg_d_${c.id}" class="trc-in" value="${trHoje()}">
+          <button class="preset-btn" onclick="trPagar(${c.id})">lançar</button>` : ''}</td>` : ''}</tr>`).join('')}
       <tr class="liq"><td>TOTAL EM ABERTO</td><td></td><td></td><td>${abertas.length} cobrança(s)</td><td></td><td></td><td></td>
-        <td><b>${fmt(-abertas.reduce((s, c) => s + Number(c.valor_total || 0), 0))}</b></td><td></td><td></td><td></td>${dono ? '<td></td>' : ''}</tr>
+        <td><b>${fmt(-abertas.reduce((s, c) => s + Number(c.valor_total || 0), 0))}</b></td>
+        <td>${fmt(abertas.reduce((s, c) => s + Number(c.valor_pago || 0), 0))}</td>
+        <td><b>${fmt(-abertas.reduce((s, c) => s + falta(c), 0))}</b></td><td></td><td></td><td></td>${dono ? '<td></td>' : ''}</tr>
     </table></div>`;
 }
-async function trBaixar(id, unidade, valor) {
+// Lancar um pagamento (total ou parcial) numa cobranca. Nao tem desfazer pela
+// tela, e as linhas sao parecidas (mesma filial, meses vizinhos): a pergunta
+// repete exatamente o que vai ser gravado — filial, valor, data e o que fica faltando.
+async function trPagar(id) {
   const msg = document.getElementById('trContasMsg');
-  // Baixar nao tem desfazer pela tela, e as linhas da tabela sao parecidas (mesma
-  // filial, meses vizinhos, valores proximos). A pergunta repete exatamente o que
-  // vai ser gravado: filial, valor e a data do pagamento.
-  const quando = trHoje();
+  const c = (window._trContas || []).find(x => x.id === id);
+  if (!c) return;
+  const saldo = c.saldo != null ? Number(c.saldo) : Number(c.valor_total || 0);
+  const valor = Math.round(Number(document.getElementById('trpg_v_' + id)?.value || 0) * 100) / 100;
+  const quando = document.getElementById('trpg_d_' + id)?.value;
+  const erro = (t) => { msg.textContent = t; msg.style.color = '#ff6b6b'; };
+  if (!(valor > 0)) return erro('Informe o valor pago.');
+  if (!quando) return erro('Informe a data do pagamento.');
+  if (valor > saldo + 0.005) return erro(`O valor (R$ ${fmt(valor)}) é maior que o que falta (R$ ${fmt(saldo)}).`);
   const dia = quando.slice(8, 10) + '/' + quando.slice(5, 7) + '/' + quando.slice(0, 4);
-  if (!confirm('Baixar como PAGA a cobrança de ' + (unidade || 'filial')
-      + ' — R$ ' + fmt(Number(valor || 0)) + ' — com pagamento em ' + dia
-      + '? Não dá para desfazer por aqui.')) return;
-  const r = await trRpc('tr_baixar_cobranca', { p_id: id, p_pago_em: quando });
-  if (!r.ok) { msg.textContent = 'Não deu: ' + await trErroDe(r); msg.style.color = '#ff6b6b'; return; }
-  msg.textContent = 'Baixada.'; msg.style.color = '#3fb950';
-  trTelaContas();
+  const resto = Math.round((saldo - valor) * 100) / 100;
+  if (!confirm(`Lançar pagamento de ${c.unidade} — R$ ${fmt(valor)} — em ${dia}?\n`
+      + (resto > 0 ? `Fica faltando R$ ${fmt(resto)}.` : 'A cobrança fica PAGA.')
+      + '\nNão dá para desfazer por aqui.')) return;
+  const r = await trRpc('tr_registrar_pagamento', { p_id: id, p_valor: valor, p_data: quando });
+  if (!r.ok) return erro('Não deu: ' + await trErroDe(r));
+  await trTelaContas();
+  const m2 = document.getElementById('trContasMsg');
+  if (m2) { m2.textContent = resto > 0 ? `Pagamento lançado — falta R$ ${fmt(resto)}.` : 'Pagamento lançado — cobrança PAGA.'; m2.style.color = '#3fb950'; }
 }
 // ---- tela: fechamento do mes (SEPARACAO = Rita, e DONO) ----
 // Mudou em 22/08/2026: a lista conferida NAO vira mais cobranca sozinha. As
 // listas do mes fecham num documento so por unidade, no inicio do mes seguinte,
 // e ele nasce EM VALIDACAO — a Rita confere o consolidado e valida; so entao
-// vira conta a pagar na mesa da Hellen. Vencimento: dia 5 para AHU/SÃO BRAZ
-// (vespera da folha da AV) e dia 20 para o Boqueirao, pela regra da unidade.
+// vira conta a pagar na mesa da Hellen. Vencimento (dono, 01/10/2026): ultimo
+// dia do mes seguinte para AHU/SÃO BRAZ (dia_pagamento 31), com baixa parcial
+// conforme a filial paga; dia 20 para o Boqueirao. Tudo pela regra da unidade.
 async function trTelaFechamento() {
   const alvo = document.getElementById('trTelaConteudo');
   const [rv, ru, ra] = await Promise.all([
@@ -13394,7 +13417,7 @@ async function trTelaFechamento() {
       <b>Fechar o mês de uma filial</b> — só fecha se todas as listas do mês estiverem conferidas item a item.
       <div style="margin-top:8px;">
         <select id="trFechUn" style="background:#232321; border:1px solid #34332f; border-radius:6px; color:#fff; padding:5px 8px;">
-          ${regras.map(g => `<option value="${g.unidade}">${g.unidade} — vence dia ${g.dia_pagamento || '?'}</option>`).join('')}
+          ${regras.map(g => `<option value="${g.unidade}">${g.unidade} — ${Number(g.dia_pagamento) >= 31 ? 'vence no último dia do mês seguinte' : 'vence dia ' + (g.dia_pagamento || '?') + ' do mês seguinte'}</option>`).join('')}
         </select>
         <input type="month" id="trFechMes" value="${mesPassado}" style="background:#232321; border:1px solid #34332f; border-radius:6px; color:#fff; padding:4px 6px; margin-left:6px;">
         <button class="preset-btn" onclick="trFecharMes()">fechar mês</button>
