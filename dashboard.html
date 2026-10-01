@@ -11836,7 +11836,7 @@ async function entrarListas() {   // Listas · Pedidos
   TR_MODULO = 'pedidos';
   alvo.innerHTML = `
     <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Listas · Pedidos</div>
-    <div class="caption-label" style="text-align:center;" title="Tudo por peso (kg), menos embalagens. Preço de tabela = CMV + 19% de custo de produção, congelado no ato do pedido. Fechamento e contas ficam em Listas · Financeiro.">
+    <div class="caption-label" style="text-align:center;" title="Tudo por peso (kg), menos embalagens. Preço de tabela = CMV + 19% de custo de produção, congelado no ato do pedido (no Boqueirão vale a tabela do mês). Fechamento e contas ficam em Listas · Financeiro.">
       A filial pede, a Água Verde separa, quem recebe confere.
     </div>
     <div id="trOperacao"><div class="contexto">Carregando a operação...</div></div>`;
@@ -11966,10 +11966,13 @@ async function trFinVerLista(id) {
     el.innerHTML = 'carregando...';
     el.hidden = false;
     const alvoLista = (window._trFinListas || []).find(l => l.id === id);
-    const [itens, mapa, precos] = await Promise.all([
-      consultarTudo(`tr_lista_itens?id_lista=eq.${id}&order=item&select=id,item,un_medida,qtd_solicitada,qtd_separada,qtd_recebida,observacao,avulso,editado`),
+    // cat: o nome da embalagem, para escrever "10 pacotes · 4,2 kg" quando a
+    // separacao contou (01/10/2026)
+    const [itens, mapa, precos, cat] = await Promise.all([
+      consultarTudo(`tr_lista_itens?id_lista=eq.${id}&order=item&select=id,item,un_medida,qtd_solicitada,qtd_separada,qtd_recebida,emb_separada,emb_recebida,observacao,avulso,editado`),
       trEmbMapa(alvoLista ? alvoLista.unidade : ''),
       trPrecosDaLista(id, consultarTudo),
+      trCatMapa(alvoLista ? alvoLista.unidade : ''),
     ]);
     const comValor = Object.keys(precos).length > 0;
     const somaItens = itens.reduce((s, i) => s + (precos[i.id] != null ? trQtdCobrada(i) * precos[i.id] : 0), 0);
@@ -11978,8 +11981,8 @@ async function trFinVerLista(id) {
       ${itens.map(i => { const dif = Number(i.qtd_recebida ?? 0) !== Number(i.qtd_separada ?? 0); return `<tr>
         <td style="text-align:left; padding:2px 10px 2px 0;">${i.item} <span class="dre-av">${i.un_medida || ''}</span>${trEmbRotulo(mapa, i.item)}${i.avulso ? ' <span class="tr-tag">🆕</span>' : ''}${i.editado ? ' <span class="tr-tag">✏️</span>' : ''}${i.observacao ? ` <span class="tr-tag">${i.observacao}</span>` : ''}</td>
         <td style="padding:2px 8px;">${Number(i.qtd_solicitada || 0)}</td>
-        <td style="padding:2px 8px;">${Number(i.qtd_separada ?? 0)}</td>
-        <td style="padding:2px 8px;${dif ? ' color:#ff6b6b; font-weight:700;' : ''}">${Number(i.qtd_recebida ?? 0)}</td>
+        <td style="padding:2px 8px;">${trSepTxt(i, cat[i.item], Number(i.qtd_separada ?? 0))}</td>
+        <td style="padding:2px 8px;${dif ? ' color:#ff6b6b; font-weight:700;' : ''}">${trRecTxt(i, cat[i.item], Number(i.qtd_recebida ?? 0))}</td>
         ${comValor ? trColunasValor(i, precos) : ''}
       </tr>`; }).join('')}
       ${comValor ? `<tr><td colspan="5" style="text-align:right; padding:2px 8px;"><b>Total dos itens</b></td>
@@ -12167,10 +12170,11 @@ async function trTelaPedido(unidadeEscolhida) {
     return;
   }
   const origemPedido = temEscolha ? trPedidoOrigem : null;
-  const [r, ra, regras] = await Promise.all([
+  const [r, ra, regras, sit] = await Promise.all([
     trFetch(`vw_tr_itens_pedido?unidade=eq.${encodeURIComponent(unidade)}&order=item`),
     trFetch(`tr_listas?fonte=eq.PAINEL&status=eq.SOLICITADA&unidade=eq.${encodeURIComponent(unidade)}&select=id,data_pedido&order=id.desc`),
     trAcompanhaRegras(),
+    trTabelaSituacao(unidade),
   ]);
   if (!r.ok) { alvo.innerHTML = `<div class="contexto" style="border-color:#ff6b6b;">${await trErroDe(r)}</div>`; return; }
   let itens = await r.json();
@@ -12198,7 +12202,7 @@ async function trTelaPedido(unidadeEscolhida) {
         : ' · <b style="color:#c8102e;">🏭 PRODUÇÃO CIDADÃO</b>')
         + ` <button class="preset-btn" onclick="trPedidoOrigem=null; trTelaPedido('${unidade}')">trocar</button>` : ''}
       — preencha só o que precisa; itens em branco ficam fora.
-      O preço é congelado pelo sistema no ato (Formação de preços${dataCusto ? ' de ' + dataCusto.slice(8,10) + '/' + dataCusto.slice(5,7) : ''}).</div>
+      ${trTabelaFrasePedido(sit, dataCusto)}</div>
     ${abertas.length ? `<div class="contexto" style="margin:8px 0;">✏️ Esqueceu um item? Pedido lançado e ainda não separado dá para corrigir:
       ${abertas.map(a => `<button class="preset-btn" onclick="trEditarPedido(${a.id})">editar lista #${a.id}${a.data_pedido ? ' (' + a.data_pedido.slice(8,10) + '/' + a.data_pedido.slice(5,7) + ')' : ''}</button>`).join(' ')}</div>` : ''}
     <input id="trPedidoBusca" type="search" class="trc-in" placeholder="buscar item... (o que você digitou continua guardado)" oninput="trPedidoFiltra()"
@@ -12405,10 +12409,64 @@ function trQtdEmbTxt(qtd, un, cat) {
 }
 // catalogo da filial por item (embalagem e unidade), para as telas depois do pedido
 async function trCatMapa(unidade) {
-  const r = await trFetch(`vw_tr_itens_pedido?unidade=eq.${encodeURIComponent(unidade || 'AHU')}&select=item,un_medida,emb_nome,emb_fator,emb2_nome,emb2_fator`);
+  const r = await trFetch(`vw_tr_itens_pedido?unidade=eq.${encodeURIComponent(unidade || 'AHU')}&select=item,un_medida,emb_nome,emb_fator,emb2_nome,emb2_fator,peso_variavel`);
   const m = {};
   if (r.ok) (await r.json()).forEach(x => { m[x.item] = x; });
   return m;
+}
+// ---- SEPARACAO PESA E CONTA, CONFERENCIA CONTA (dono, 01/10/2026) ----
+// "A separacao possa pesar e a conferencia conta por pacotes." A linha da lista
+// guarda, alem do peso (qtd_separada / qtd_recebida), QUANTAS embalagens sairam
+// e quantas chegaram (emb_separada / emb_recebida). Bateu a contagem, vale o
+// peso da separacao; chegou diferente, o recebido e proporcional (9 de 10
+// pacotes = 90% do peso). Linha SEM contagem (lista antiga, item sem embalagem,
+// item de duas embalagens, pote automatico) segue exatamente como antes.
+// A tolerancia do aviso de peso e a MESMA das views vw_tr_peso_por_envio e
+// vw_tr_peso_fora_do_combinado (script/separacao_peso_e_contagem.sql) — mudou
+// uma, mude a outra.
+const TR_PESO_TOL = 0.10;
+// a medida fugiu mais de 10% do combinado para essa contagem? (arredonda antes
+// de comparar: 4,95 / 4,5 - 1 da 0,10000000000000009 e acenderia no limite)
+function trPesoFora(n, medida, fator) {
+  const combinado = Number(n) * Number(fator);
+  if (!(combinado > 0) || !(Number(medida) > 0)) return false;
+  return Math.abs(Math.round((Number(medida) / combinado - 1) * 10000) / 10000) > TR_PESO_TOL;
+}
+// a separacao contou as embalagens desta linha?
+function trTemContagem(i) { return i.emb_separada != null && Number(i.emb_separada) > 0 && Number(i.qtd_separada) > 0; }
+// "10 pacotes · 4,2 kg": a contagem em destaque, o peso/medida ao lado
+function trContTxt(n, qtd, un, nome) {
+  return `<b>${trNum(n)} ${trEmbPlural(nome || 'volume', Number(n) === 0 ? 2 : n)}</b> <span class="tr-det">· ${trNum(qtd, 3)} ${(un || '').toLowerCase()}</span>`;
+}
+// Separado e Recebido nas telas de consulta (lista finalizada e Financeiro): com
+// contagem, "10 pacotes · 4,2 kg"; sem contagem, o texto de sempre (`senao`).
+function trSepTxt(i, c, senao) {
+  return i.emb_separada != null && Number(i.emb_separada) > 0
+    ? trContTxt(i.emb_separada, i.qtd_separada, i.un_medida, c && c.emb_nome) : senao;
+}
+function trRecTxt(i, c, senao) {
+  return i.emb_recebida != null && i.emb_separada != null && Number(i.emb_separada) > 0
+    ? trContTxt(i.emb_recebida, i.qtd_recebida, i.un_medida, c && c.emb_nome) : senao;
+}
+// "450 g", "1,2 kg", "26 un": a medida de UMA embalagem, como no rotulo da grade
+function trMedidaEmb(v, un) { return trEmbDesc({ un_medida: un, emb_fator: Math.round(Number(v) * 1000) / 1000 }); }
+// Bloco "Peso diferente do combinado" da fila de separacao: os itens que, nos
+// ultimos 60 dias, sairam em media mais de 10% fora do peso combinado da
+// embalagem (vw_tr_peso_fora_do_combinado — so dono e separacao recebem linhas).
+// Sem itens, o bloco nao existe.
+function trPesoAlertaHtml(alerta) {
+  if (!Array.isArray(alerta) || !alerta.length) return '';
+  return `<div class="contexto" style="border-color:var(--farol-perto); margin-top:14px;">
+    <b>⚖️ Peso diferente do combinado</b> — nos últimos 60 dias estes itens saíram com um peso diferente do
+    que está combinado para a embalagem. Vale rever com o Neto o peso combinado (ou a porção na produção).</div>
+    <div id="tabelaTrPesoFora"><table>
+      <tr><th>Item</th><th>Combinado</th><th>Vem dando</th><th>Em quantos envios</th></tr>
+      ${alerta.map(a => { const d = Number(a.desvio_pct); const emb = String(a.emb_nome || 'volume').split(' (')[0]; return `<tr>
+        <td>${a.item}</td>
+        <td>${emb} de ${trMedidaEmb(a.peso_combinado, a.un_medida)}</td>
+        <td><b>${trMedidaEmb(a.peso_medio, a.un_medida)}</b> <span class="tr-tag">${trNum(Math.abs(d), 1)}% ${d < 0 ? 'a menos' : 'a mais'}</span></td>
+        <td>${a.envios} ${Number(a.envios) === 1 ? 'envio' : 'envios'} <span class="tr-det">· ${trNum(a.embalagens)} ${trEmbPlural(emb, a.embalagens)}</span></td></tr>`; }).join('')}
+    </table></div>`;
 }
 // Letreiro da linha (24/09/2026, dono): conversao da embalagem E o valor do
 // item conforme digita — "2 × 700 g ≈ 1,4 kg = R$ 26,51". Login sem valores
@@ -12836,7 +12894,13 @@ async function trTelaPrecos(unidadeEscolhida) {
   let unidade = TR_OP.unidade || unidadeEscolhida || window._trPrecosUnidade;
   if (!unidade) unidade = 'AHU'; // desde 01/09/2026 as tres pagam a mesma tabela
   window._trPrecosUnidade = unidade;
-  const r = await trFetch(`vw_tr_tabela_precos?unidade=eq.${encodeURIComponent(unidade)}&order=grupo_separacao,item&select=item,classe,grupo_separacao,un,cmv,pct_producao,preco,cmv_atualizado_em,emb_nome,emb_fator,emb2_nome,emb2_fator,nao_cobrado,origem`);
+  // 01/10/2026 (dono): o Boqueirao tem TABELA MENSAL — o preco congela por mes; Ahu e
+  // Sao Braz seguem pelo custo do dia. Quem diz e o banco (vw_tr_tabela_mes_situacao);
+  // sem resposta dele a tela se comporta como antes.
+  const sit = await trTabelaSituacao(unidade);
+  const mensal = !!(sit && sit.tabela_mensal);
+  window._trTabelaSit = sit;
+  const r = await trFetch(`vw_tr_tabela_precos?unidade=eq.${encodeURIComponent(unidade)}&order=grupo_separacao,item&select=item,classe,grupo_separacao,un,cmv,pct_producao,preco,cmv_atualizado_em,emb_nome,emb_fator,emb2_nome,emb2_fator,nao_cobrado,origem${mensal ? ',tabela_mes,tabela_reajuste' : ''}`);
   if (!r.ok) { alvo.innerHTML = `<div class="contexto" style="border-color:#ff6b6b;">${await trErroDe(r)}</div>`; return; }
   const itens = await r.json();
   const pct = itens.length ? Math.round(Number(itens[0].pct_producao) * 100) : 0;
@@ -12845,19 +12909,188 @@ async function trTelaPrecos(unidadeEscolhida) {
     `<button class="preset-btn ${u === unidade ? 'active' : ''}" onclick="trTelaPrecos('${u}')">${u}</button>`).join(' ');
   alvo.innerHTML = `
     <div class="caption-label">Preço de transferência de <b>${unidade}</b> = CMV + <b>${pct}%</b> de custo de produção
-      (rateio da central, revisado por vigência)${dataCusto ? ` · CMV da Formação de preços de ${dataCusto.slice(8,10)}/${dataCusto.slice(5,7)}` : ''}.
-      Na cobrança vale o preço congelado no ato do pedido. ${seletor}</div>
+      (rateio da central, revisado por vigência)${!mensal && dataCusto ? ` · CMV da Formação de preços de ${dataCusto.slice(8,10)}/${dataCusto.slice(5,7)}` : ''}.
+      ${mensal ? 'Na cobrança vale o preço desta tabela, pelo mês em que o pedido foi feito.' : 'Na cobrança vale o preço congelado no ato do pedido.'} ${seletor}</div>
+    ${mensal ? trTabelaCabecalho(sit) : ''}
+    ${mensal && TR_OP.papel === 'DONO' ? '<div id="trTabelaReajustes"></div>' : ''}
     <input id="trPrecosBusca" type="search" class="trc-in" placeholder="buscar item..." oninput="trPrecosFiltra()"
       style="width:100%; max-width:340px; margin:8px 0; border-radius:8px; padding:8px 10px;">
     <div id="tabelaTrPrecos"><table>
       <tr><th>Item</th><th>Origem</th><th>Grupo</th><th>Un</th><th>Como se pede</th><th>CMV</th><th>Preço</th></tr>
       ${itens.map(i => `<tr data-busca="${(i.item + ' ' + (i.grupo_separacao || '') + ' ' + (i.classe || '') + ' ' + (i.origem || '')).toLowerCase()}">
-        <td>${i.item}</td><td>${i.origem === 'FORNECEDOR' ? '<span style="color:#4a90d9; font-weight:700;">fornecedor</span>' : 'Cidadão'}</td><td>${i.grupo_separacao || i.classe || '—'}</td><td>${i.un || '—'}</td>
+        <td>${i.item}${trTabelaMarca(i, sit)}</td><td>${i.origem === 'FORNECEDOR' ? '<span style="color:#4a90d9; font-weight:700;">fornecedor</span>' : 'Cidadão'}</td><td>${i.grupo_separacao || i.classe || '—'}</td><td>${i.un || '—'}</td>
         <td>${i.emb_fator ? i.emb_nome + ' de ' + trEmbDesc({ un_medida: i.un, emb_fator: i.emb_fator })
               + (i.emb2_fator ? ' ou ' + i.emb2_nome + ' de ' + trEmbDesc({ un_medida: i.un, emb_fator: i.emb2_fator }) : '') : '—'}</td>
         <td>R$ ${Number(i.cmv).toFixed(2)}</td><td><b>${i.nao_cobrado ? 'não cobrado' : 'R$ ' + Number(i.preco).toFixed(2)}</b></td>
       </tr>`).join('')}
     </table></div>`;
+  if (mensal && TR_OP.papel === 'DONO') trTabelaReajustes(unidade);
+}
+
+// ---- TABELA MENSAL (dono, 01/10/2026) ----
+// So o Boqueirao: o preco congela no dia 1 e vale o mes inteiro; no meio do mes um
+// item so muda se o custo variar mais de 15% E o dono aplicar. Ahu e Sao Braz seguem
+// pelo custo do dia. A regra mora no banco (tr_tabela_mensal_regra, tr_tabela_mes,
+// gatilho tr_item_nascimento); a tela so conta o que ele responde. O que roda
+// sozinho: a linha nasce pelo preco da tabela, e mes sem tabela abre no primeiro
+// pedido. O que e botao: fechar a tabela do mes e aplicar o reajuste de um item —
+// so para quem o banco diz que aprova (sit.pode_aprovar); os outros logins de dono
+// veem a previa, sem botao.
+const TR_MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+function trMesNome(d) { return d ? TR_MESES[Number(String(d).slice(5, 7)) - 1] : ''; }
+function trDiaMes(d) { return d ? String(d).slice(8, 10) + '/' + String(d).slice(5, 7) : ''; }
+// uma linha por filial: tem tabela mensal? a do mes existe? quando fechou?
+// Qualquer falha (view ainda nao criada, sem rede) devolve null = "como antes".
+async function trTabelaSituacao(unidade) {
+  try {
+    const r = await trFetch(`vw_tr_tabela_mes_situacao?unidade=eq.${encodeURIComponent(unidade)}`);
+    if (!r.ok) return null;
+    return (await r.json())[0] || null;
+  } catch (e) { return null; }
+}
+// a frase do topo do Novo pedido: de onde vem o preco deste pedido
+function trTabelaFrasePedido(sit, dataCusto) {
+  if (!sit || !sit.tabela_mensal) {
+    return `O preço é congelado pelo sistema no ato (Formação de preços${dataCusto ? ' de ' + dataCusto.slice(8,10) + '/' + dataCusto.slice(5,7) : ''}).`;
+  }
+  const mes = trMesNome(sit.mes), fim = trDiaMes(sit.fecha_proximo_a_partir_de);
+  if (!sit.tem_tabela) return `A tabela de ${mes} abre com o primeiro pedido do mês: o preço de hoje fica valendo até ${fim}.`;
+  return `O preço é o da <b>tabela de ${mes}</b> (${sit.como === 'FECHADA' ? 'fechada' : 'aberta'} em ${trDiaMes(sit.fechada_em)}) — o mesmo em todos os pedidos até ${fim}.`;
+}
+// o aviso no alto da Tabela de precos: que tabela e esta, quando fechou, quando muda
+function trTabelaCabecalho(sit) {
+  const mes = trMesNome(sit.mes), prox = trMesNome(sit.proximo_mes), fim = trDiaMes(sit.fecha_proximo_a_partir_de);
+  const pct = Math.round(Number(sit.gatilho_pct || 0.15) * 100);
+  const n = Number(sit.reajustados || 0);
+  let txt;
+  if (!sit.tem_tabela) {
+    txt = `<b>A tabela de ${mes} ainda não foi fechada.</b> Ela abre sozinha no primeiro pedido do mês, com o custo desse dia, e daí vale até ${fim}. Até lá, os preços abaixo são os de hoje.`;
+  } else {
+    txt = `<b>Tabela de ${mes}</b> — ${sit.como === 'FECHADA'
+        ? `fechada em <b>${trDiaMes(sit.fechada_em)}</b>${sit.fechada_por ? ' por ' + sit.fechada_por : ''}`
+        : `abriu sozinha em <b>${trDiaMes(sit.fechada_em)}</b>, no primeiro pedido do mês, com o custo daquele dia`}.
+      Os preços abaixo valem para todos os pedidos até <b>${fim}</b> e só mudam em <b>1º de ${prox}</b>.
+      No meio do mês, um item só muda se o custo dele variar mais de ${pct}% e o dono aprovar${n ? ` — neste mês ${n === 1 ? '1 item mudou' : n + ' itens mudaram'} (marcado na lista)` : ''}.`;
+  }
+  if (sit.proximo_tem_tabela) txt += ` A tabela de ${prox} já está fechada (em ${trDiaMes(sit.proximo_fechada_em)}) e entra no dia 1º.`;
+  return `<div class="contexto" style="margin:8px 0; text-align:left;">${txt}</div>`;
+}
+// selo ao lado do nome: item que mudou no meio do mes, ou que ainda nao esta na tabela
+function trTabelaMarca(i, sit) {
+  if (!sit || !sit.tabela_mensal || i.nao_cobrado) return '';
+  if (i.tabela_reajuste) return ` <span class="tr-tag">mudou em ${trDiaMes(i.tabela_reajuste)}</span>`;
+  if (sit.tem_tabela && !i.tabela_mes) return ' <span class="tr-tag">entra na tabela no primeiro pedido</span>';
+  return '';
+}
+// Bloco do DONO: o que mudou mais que o gatilho neste mes (com botao de aplicar) e a
+// previa do mes que vem (com botao de fechar, que so abre no ultimo dia do mes).
+// Efeito em R$ = diferenca de preco x o que a filial recebeu nos ultimos 30 dias.
+async function trTabelaReajustes(unidade) {
+  const sit = window._trTabelaSit;
+  if (!sit || !document.getElementById('trTabelaReajustes')) return;
+  const r = await trFetch(`vw_tr_tabela_previa?unidade=eq.${encodeURIComponent(unidade)}&order=item`);
+  // a tela pode ter trocado de filial enquanto a resposta vinha
+  const alvo = document.getElementById('trTabelaReajustes');
+  if (!alvo || window._trPrecosUnidade !== unidade || window._trTabelaSit !== sit) return;
+  if (!r.ok) { alvo.innerHTML = `<div class="contexto" style="border-color:var(--farol-fora);">Não consegui abrir os reajustes: ${await trErroDe(r)}</div>`; return; }
+  const itens = await r.json();
+  window._trReajItens = itens;
+  const mes = trMesNome(sit.mes), prox = trMesNome(sit.proximo_mes), fim = trDiaMes(sit.fecha_proximo_a_partir_de);
+  const pct = Math.round(Number(sit.gatilho_pct || 0.15) * 100);
+  const pode = !!sit.pode_aprovar, quem = sit.quem_aprova || 'o dono';
+  const un = (i) => (i.un || 'un').toLowerCase();
+  const preco = (v, i) => v == null ? '—' : `R$ ${fmt(Number(v))}${un(i) === 'un' ? '' : '/' + un(i)}`;
+  const mudou = (p) => p == null ? '—'
+    : Number(p) > 0 ? `<span class="tr-tag" style="font-size:inherit; font-weight:600;">subiu ${trNum(p, 1)}%</span>`
+    : Number(p) < 0 ? `<span class="tr-conv">caiu ${trNum(Math.abs(p), 1)}%</span>` : 'igual';
+  const reais = (v) => `${Number(v) > 0.004 ? '+' : Number(v) < -0.004 ? '−' : ''}R$ ${fmt(Math.abs(Number(v)))}`;
+  const efeito = (v, i) => !Number(i.qtd_30d) ? '<span class="tr-det">não recebeu em 30 dias</span>'
+    : `${reais(v)} <span class="tr-det">(recebeu ${trNum(i.qtd_30d, 1)} ${un(i)})</span>`;
+
+  // 1. excecoes do mes corrente
+  const exc = itens.filter(i => i.passa_gatilho);
+  const blocoExc = !sit.tem_tabela ? '' : `
+    <div class="contexto" style="margin:8px 0; text-align:left;">
+      <b>Itens que mudaram mais de ${pct}% contra a tabela de ${mes}</b>
+      ${exc.length ? `<div class="tr-det" style="margin:2px 0 6px;">${pode ? 'Só entram na tabela se você aplicar.' : `Só entram na tabela se ${quem} aplicar.`} O que já foi pedido não muda — vale para os próximos pedidos.</div>
+      <div id="tabelaTrReajExc"><table>
+        <tr><th>Item</th><th>Na tabela</th><th>Pelo custo de hoje</th><th>Mudou</th><th title="Diferença de preço × o que a filial recebeu nos últimos 30 dias.">Em 30 dias</th>${pode ? '<th></th>' : ''}</tr>
+        ${exc.map(i => `<tr><td>${i.item}</td><td>${preco(i.preco_tabela, i)}</td><td>${preco(i.preco_vivo, i)}</td><td>${mudou(i.variacao_pct)}</td><td>${efeito(i.efeito_30d, i)}</td>
+          ${pode ? `<td><button class="preset-btn" onclick="trTabelaAplicarExcecao(${itens.indexOf(i)})">aplicar na tabela</button></td>` : ''}</tr>`).join('')}
+      </table></div>` : `<div class="tr-det">Nenhum item — a tabela de ${mes} segue sem reajuste.</div>`}
+      <div id="trReajMsgExc" style="font-size:12.5px; font-weight:700; margin-top:6px;"></div>
+    </div>`;
+
+  // 2. previa do mes que vem
+  const comp = itens.filter(i => i.custo_tabela != null && !i.unidade_mudou);
+  const mudam = comp.filter(i => Number(i.variacao_proximo_pct) !== 0)
+    .sort((a, b) => Math.abs(Number(b.efeito_proximo_30d)) - Math.abs(Number(a.efeito_proximo_30d)) || Math.abs(Number(b.variacao_proximo_pct)) - Math.abs(Number(a.variacao_proximo_pct)));
+  const sobem = mudam.filter(i => Number(i.variacao_proximo_pct) > 0).length, caem = mudam.length - sobem;
+  const total = mudam.reduce((s, i) => s + Number(i.efeito_proximo_30d || 0), 0);
+  const plural = (n, um, mais) => `${n} ${n === 1 ? um : mais}`;
+  const sozinha = `Se ninguém fechar, ela abre sozinha no primeiro pedido de ${prox}, com o custo daquele dia.`;
+  let botao;
+  if (!sit.tem_tabela) {
+    botao = pode ? `<button class="preset-btn tr-btn-cheio" onclick="trTabelaFechar('${sit.mes}')">Fechar a tabela de ${mes} agora</button>
+      <span class="tr-det">Fecha com os custos de hoje e vale até ${fim}. Se ninguém fechar, ela abre sozinha no primeiro pedido.</span>`
+      : `<span class="tr-det">Quem fecha é ${quem}. Se ninguém fechar, ela abre sozinha no primeiro pedido, com o custo desse dia.</span>`;
+  } else if (sit.proximo_tem_tabela) {
+    botao = `<span class="tr-det">A tabela de ${prox} já está fechada (em ${trDiaMes(sit.proximo_fechada_em)}) — entra no dia 1º.</span>`;
+  } else if (!pode) {
+    botao = `<span class="tr-det">Quem fecha a tabela de ${prox} é ${quem}, a partir de ${fim} (último dia do mês). ${sozinha}</span>`;
+  } else if (sit.pode_fechar_proximo) {
+    botao = `<button class="preset-btn tr-btn-cheio" onclick="trTabelaFechar('${sit.proximo_mes}')">Fechar a tabela de ${prox}</button>
+      <span class="tr-det">Fecha com os custos de hoje e vale o mês inteiro.</span>`;
+  } else {
+    botao = `<button class="preset-btn" disabled style="opacity:.5; cursor:not-allowed;">Fechar a tabela de ${prox}</button>
+      <span class="tr-det">Dá para fechar a partir de ${fim}, o último dia do mês. ${sozinha}</span>`;
+  }
+  const blocoPrev = !sit.tem_tabela ? `
+    <div class="contexto" style="margin:8px 0; text-align:left;"><b>A tabela de ${mes} ainda não existe</b> — não há preço fechado para comparar.
+      <div style="margin-top:8px;">${botao}</div>
+      <div id="trReajMsg" style="font-size:12.5px; font-weight:700; margin-top:6px;"></div></div>` : `
+    <div class="contexto" style="margin:8px 0; text-align:left;">
+      <b>Prévia da tabela de ${prox}</b> — ${sit.proximo_tem_tabela ? 'o que muda no dia 1º' : 'se ela fechasse hoje'}:
+      ${mudam.length ? `${plural(sobem, 'item sobe', 'itens sobem')}, ${plural(caem, 'cai', 'caem')} e ${plural(comp.length - mudam.length, 'fica igual', 'ficam iguais')}.
+        Pelo que a filial recebeu nos últimos 30 dias, a conta do mês ${total > 0.005 ? 'sobe' : total < -0.005 ? 'cai' : 'não muda'}${Math.abs(total) > 0.005 ? ' <b>R$ ' + fmt(Math.abs(total)) + '</b>' : ''}.
+      <details style="margin-top:6px;"${mudam.length <= 8 ? ' open' : ''}><summary class="tr-det" style="cursor:pointer;">ver ${plural(mudam.length, 'item que muda', 'itens que mudam')}</summary>
+      <div id="tabelaTrReajPrev" style="margin-top:6px;"><table>
+        <tr><th>Item</th><th>Em ${mes}</th><th>Em ${prox}</th><th>Mudou</th><th title="Diferença de preço × o que a filial recebeu nos últimos 30 dias.">Em 30 dias</th></tr>
+        ${mudam.map(i => `<tr><td>${i.item}</td><td>${preco(i.preco_tabela, i)}</td><td>${preco(i.preco_proximo, i)}</td><td>${mudou(i.variacao_proximo_pct)}</td><td>${efeito(i.efeito_proximo_30d, i)}</td></tr>`).join('')}
+      </table></div></details>` : `nenhum preço muda (${plural(comp.length, 'item', 'itens')} na tabela).`}
+      <div style="margin-top:8px;">${botao}</div>
+      <div id="trReajMsg" style="font-size:12.5px; font-weight:700; margin-top:6px;"></div>
+    </div>`;
+  alvo.innerHTML = `
+    <div class="section-label tr-secao" style="margin-top:14px;">REAJUSTES</div>
+    ${blocoExc}${blocoPrev}`;
+}
+// aplica o reajuste de UM item no mes corrente (o banco confere de novo: so quem
+// aprova, e so acima do gatilho)
+async function trTabelaAplicarExcecao(idx) {
+  const i = (window._trReajItens || [])[idx], sit = window._trTabelaSit;
+  const msg = document.getElementById('trReajMsgExc');
+  if (!i || !sit) return;
+  const un = (i.un || 'un').toLowerCase();
+  if (!confirm(`Mudar ${i.item} na tabela de ${trMesNome(sit.mes)} de ${i.unidade}?\n\n`
+      + `De R$ ${fmt(Number(i.preco_tabela))} para R$ ${fmt(Number(i.preco_vivo))} por ${un === 'un' ? 'unidade' : un} `
+      + `(${Number(i.variacao_pct) > 0 ? 'subiu' : 'caiu'} ${trNum(Math.abs(i.variacao_pct), 1)}%).\n\n`
+      + 'Vale para os próximos pedidos. O que já foi pedido não muda.')) return;
+  const r = await trRpc('tr_reajustar_item_tabela', { p_unidade: i.unidade, p_item: i.item });
+  if (!r.ok) { if (msg) { msg.textContent = 'Não mudou: ' + await trErroDe(r); msg.style.color = 'var(--brand)'; msg.scrollIntoView({ block: 'nearest' }); } return; }
+  trTelaPrecos(i.unidade);
+}
+// fecha a tabela de um mes com os custos de hoje (o banco confere: so quem aprova, e
+// o mes seguinte so a partir do ultimo dia do mes)
+async function trTabelaFechar(mes) {
+  const sit = window._trTabelaSit;
+  const msg = document.getElementById('trReajMsg');
+  if (!sit) return;
+  if (!confirm(`Fechar a tabela de ${trMesNome(mes)} de ${sit.unidade} com os custos de hoje?\n\n`
+      + 'Ela vale o mês inteiro e não dá para refazer — depois, só o reajuste de um item que mudar muito.')) return;
+  const r = await trRpc('tr_fechar_tabela_mes', { p_unidade: sit.unidade, p_mes: mes });
+  if (!r.ok) { if (msg) { msg.textContent = 'Não fechou: ' + await trErroDe(r); msg.style.color = 'var(--brand)'; msg.scrollIntoView({ block: 'nearest' }); } return; }
+  trTelaPrecos(sit.unidade);
 }
 function trPrecosFiltra() {
   const q = (document.getElementById('trPrecosBusca')?.value || '').toLowerCase();
@@ -12870,9 +13103,15 @@ function trPrecosFiltra() {
 async function trTelaSeparacao() {
   const alvo = document.getElementById('trTelaConteudo');
   if (trListaAberta) return trAbrirSeparacao(trListaAberta);
-  const r = await trFetch('vw_tr_fila_separacao?order=data_pedido');
+  // junto com a fila, o alerta de peso (01/10/2026): se a view nao responder, a
+  // fila abre do mesmo jeito, so sem o bloco
+  const [r, ra] = await Promise.all([
+    trFetch('vw_tr_fila_separacao?order=data_pedido'),
+    trFetch('vw_tr_peso_fora_do_combinado?order=item&select=item,emb_nome,un_medida,peso_combinado,envios,embalagens,peso_medio,desvio_pct'),
+  ]);
   if (!r.ok) { alvo.innerHTML = `<div class="contexto" style="border-color:#ff6b6b;">${await trErroDe(r)}</div>`; return; }
   const fila = await r.json();
+  const alerta = ra.ok ? await ra.json() : [];
   // "Parada ha N dias" (12/09/2026): a fila ja vem da mais antiga para a mais nova,
   // mas a data sozinha nao diz o tamanho da espera. Dias corridos contra hoje em
   // Sao Paulo: 2 dias avisa, 3 ou mais aponta.
@@ -12888,7 +13127,7 @@ async function trTelaSeparacao() {
     if (n >= 2) return `<span class="tr-tag">${txt}</span>`;
     return txt;
   };
-  alvo.innerHTML = fila.length ? `
+  alvo.innerHTML = (fila.length ? `
     <div id="tabelaTrOpFila"><table>
       <tr><th>Lista</th><th>Filial</th><th>Pedida em</th><th title="Dias corridos desde o pedido. A partir de 2 dias avisa; de 3 em diante aponta.">Parada há</th><th>Status</th><th>Itens</th><th>Separados</th><th>Valor estimado</th><th></th></tr>
       ${fila.map(l => `<tr>
@@ -12901,7 +13140,7 @@ async function trTelaSeparacao() {
     </table></div>
     <div class="caption-label">Excluir é para pedido lançado errado — some para todo mundo, sem volta.
       De ENVIADA em diante não dá mais (já tem frete e conferência no meio): fale com o Neto.</div>` :
-    '<div class="contexto">Fila vazia — nenhum pedido aguardando separação. 🎉</div>';
+    '<div class="contexto">Fila vazia — nenhum pedido aguardando separação. 🎉</div>') + trPesoAlertaHtml(alerta);
 }
 
 // exclusao de lista lancada errada (dono, 04/09/2026): so ate SEPARADA — a
@@ -12924,7 +13163,7 @@ async function trAbrirSeparacao(id) {
   const alvo = document.getElementById('trTelaConteudo');
   const [rl, ri] = await Promise.all([
     trFetch(`tr_listas?id=eq.${id}&select=id,unidade,status,data_pedido`),
-    trFetch(`tr_lista_itens?id_lista=eq.${id}&order=item&select=id,item,un_medida,qtd_solicitada,qtd_separada,avulso,observacao,editado,qtd_auto`),
+    trFetch(`tr_lista_itens?id_lista=eq.${id}&order=item&select=id,item,un_medida,qtd_solicitada,qtd_separada,emb_separada,avulso,observacao,editado,qtd_auto`),
   ]);
   const lista = (await rl.json())[0];
   const itens = await ri.json();
@@ -12935,6 +13174,32 @@ async function trAbrirSeparacao(id) {
   // o pedido aparece na lingua de quem pediu ("1 balde · 4,5 kg"); o campo do
   // separado segue na medida, com a unidade ESCRITA ao lado (01/10/2026)
   itens.forEach(i => { i._pedidoTxt = trQtdEmbTxt(i.qtd_solicitada, i.un_medida, i._semEmb ? null : cat[i.item]); });
+  // PESA E CONTA (dono, 01/10/2026): item de embalagem unica, na unidade da
+  // grade, ganha DOIS campos — quantos foram e o peso/medida. Fica com um campo
+  // so (como sempre): item sem embalagem, item de duas embalagens, pote
+  // automatico e linha cujo pedido nao fecha em embalagem inteira ou meia.
+  const fecha = (r) => r >= 0.5 && Math.abs(r * 2 - Math.round(r * 2)) <= 0.002;
+  itens.forEach(i => {
+    const c = i._semEmb ? null : cat[i.item];
+    const unica = !!c && !!c.emb_fator && !c.emb2_fator && (c.un_medida || '') === (i.un_medida || '');
+    const pedida = unica ? Number(i.qtd_solicitada || 0) / Number(c.emb_fator) : 0;
+    i._cont = unica && (i.emb_separada != null || fecha(pedida));
+    if (!i._cont) return;
+    i._f = Number(c.emb_fator);
+    i._embNome = c.emb_nome;
+    i._pesoVar = !!c.peso_variavel;
+    // quantos: a contagem ja gravada; senao o que o peso ja separado da em
+    // embalagens (lista separada antes de a contagem existir); senao o pedido
+    const jaSep = i.qtd_separada != null ? Number(i.qtd_separada) / i._f : null;
+    i._n0 = i.emb_separada != null ? Number(i.emb_separada)
+      : (jaSep != null && (jaSep === 0 || fecha(jaSep)) ? Math.round(jaSep * 2) / 2 : Math.round(pedida * 2) / 2);
+    // peso: o gravado; senao contagem x peso combinado. No item de peso variavel
+    // (T-bone) nasce VAZIO: e pesado de verdade, nao tem peso para sugerir
+    const combinado = Math.round(i._n0 * i._f * 1000) / 1000;
+    i._p0 = i.qtd_separada != null ? Number(i.qtd_separada) : (i._pesoVar ? '' : combinado);
+    // o peso acompanha a contagem enquanto for o sugerido (ninguem digitou outro)
+    i._auto = !i._pesoVar && i._p0 !== '' && Math.abs(i._p0 - combinado) < 0.0005 ? String(i._p0) : '';
+  });
   window._trItensSep = itens; window._trListaSep = lista; window._trEmbMapaSep = mapa;
   alvo.innerHTML = `
     <div class="caption-label"><button class="preset-btn" onclick="trListaAberta=null; trTelaSeparacao();">← fila</button>
@@ -12945,8 +13210,14 @@ async function trAbrirSeparacao(id) {
       <tr><th>Item</th><th>Solicitado</th><th>Separado</th></tr>
       ${itens.map((i, idx) => `<tr><td>${i.item} <span class="dre-av">${i.un_medida || ''}</span>${i._semEmb ? '' : trEmbRotulo(mapa, i.item)}${i.avulso ? ' <span class="tr-tag">🆕 fora da grade</span>' : ''}${i.observacao ? ` <span class="tr-tag">${i.observacao}</span>` : ''}${i.editado ? ' <span class="tr-tag">✏️ editado</span>' : ''}</td>
         <td>${i._pedidoTxt}</td>
-        <td style="white-space:nowrap;"><input type="number" min="0" step="any" inputmode="decimal" id="trs_${idx}" class="trc-in" value="${i.qtd_separada ?? i.qtd_solicitada ?? ''}"
-          style="width:80px; text-align:right;"> <b>${(i.un_medida || '').toLowerCase()}</b></td></tr>`).join('')}
+        ${i._cont ? `<td style="white-space:normal; line-height:2;">
+          <span style="white-space:nowrap; margin-right:10px;"><input type="number" min="0" step="0.5" inputmode="decimal" id="trse_${idx}" class="trc-in" value="${i._n0}"
+            oninput="trSepConta(${idx})" style="width:56px; text-align:right;"> <b>${trEmbPlural(String(i._embNome).split(' (')[0], 2)}</b></span>
+          <span style="white-space:nowrap;"><input type="number" min="0" step="any" inputmode="decimal" id="trs_${idx}" class="trc-in" value="${i._p0}" data-auto="${i._auto}"
+            ${i._pesoVar ? 'placeholder="pese"' : ''} oninput="trSepAviso(${idx})" style="width:80px; text-align:right;"> <b>${(i.un_medida || '').toLowerCase()}</b></span>
+          <div class="tr-tag" id="trsa_${idx}" style="white-space:normal; line-height:1.3; margin-bottom:4px;" hidden></div></td>`
+        : `<td style="white-space:nowrap;"><input type="number" min="0" step="any" inputmode="decimal" id="trs_${idx}" class="trc-in" value="${i.qtd_separada ?? i.qtd_solicitada ?? ''}"
+          style="width:80px; text-align:right;"> <b>${(i.un_medida || '').toLowerCase()}</b></td>`}</tr>`).join('')}
     </table></div>
     <div style="margin-top:12px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
       <button class="preset-btn" onclick="trSalvarSeparacao(${id})">Salvar e marcar como SEPARADA</button>
@@ -12955,23 +13226,98 @@ async function trAbrirSeparacao(id) {
       <button class="preset-btn" onclick="trEnviarLista(${id})">Enviar para a filial</button>
       <span id="trSepMsg" style="font-size:12px;"></span>
     </div>
+    <div class="caption-label">Item que vai em pacote, balde ou caixa tem dois campos: <b>quantos foram</b> e
+      <b>o peso</b>. O peso já vem pelo combinado — troque pelo que a balança mostrar. A filial confere contando
+      os pacotes e vale o peso anotado aqui.</div>
     <div class="caption-label">Salvar grava as quantidades e marca a lista como SEPARADA. Enviar fecha a etapa —
       a filial passa a ver a lista na Conferência. <b>Marque o 🛵 só quando for o Michiro</b>: é a marcação que
       gera a cobrança do frete (desmarcado = outro portador, sem frete).</div>`;
+  // acende o que ja abre fora do combinado (separacao salva antes) e o lembrete do item pesado
+  itens.forEach((i, idx) => { if (i._cont) trSepAviso(idx); });
+}
+
+// A contagem mudou: o peso acompanha (contagem x peso combinado) enquanto for o
+// sugerido — depois que alguem digita o peso da balanca, ele nao e mais mexido.
+// Item de peso variavel (T-bone) nunca recebe peso sugerido.
+function trSepConta(idx) {
+  const i = (window._trItensSep || [])[idx];
+  const cont = document.getElementById('trse_' + idx);
+  const peso = document.getElementById('trs_' + idx);
+  if (!i || !cont || !peso) return;
+  cont.style.borderColor = '';
+  if (!i._pesoVar && (peso.value === '' || peso.value === peso.dataset.auto)) {
+    peso.value = cont.value === '' ? '' : String(Math.round(Number(cont.value) * i._f * 1000) / 1000);
+    peso.dataset.auto = peso.value;
+  }
+  trSepAviso(idx);
+}
+// Aviso na hora, SEM travar: o peso digitado fugiu mais de 10% do combinado
+// para aquela contagem ("10 pacotes costumam dar 4,5 kg; você pesou 3,9 kg").
+// Devolve true quando o aviso de peso esta aceso.
+function trSepAviso(idx) {
+  const i = (window._trItensSep || [])[idx];
+  const cont = document.getElementById('trse_' + idx);
+  const peso = document.getElementById('trs_' + idx);
+  const tag = document.getElementById('trsa_' + idx);
+  if (!i || !i._cont || !cont || !peso || !tag) return false;
+  const n = Number(cont.value || 0), p = Number(peso.value || 0);
+  const un = (i.un_medida || '').toLowerCase();
+  const fora = !i._pesoVar && n > 0 && trPesoFora(n, p, i._f);
+  let txt = '';
+  if (fora) txt = `${trNum(n)} ${trEmbPlural(String(i._embNome).split(' (')[0], n)} ${n < 2 ? 'costuma' : 'costumam'} dar ${trNum(n * i._f, 3)} ${un}; você ${un === 'kg' ? 'pesou' : 'anotou'} ${trNum(p, 3)} ${un} — confere?`;
+  else if (i._pesoVar && n > 0 && peso.value === '') txt = 'pese na balança e anote — cada pacote deste item tem um peso';
+  tag.textContent = txt;
+  tag.hidden = !txt;
+  peso.style.borderColor = fora ? 'var(--farol-perto)' : '';
+  return fora;
 }
 
 async function trSalvarSeparacao(id) {
   const msg = document.getElementById('trSepMsg');
+  // 1. le e VALIDA tudo antes de gravar qualquer linha (01/10/2026)
+  const gravar = [], erros = [];
+  let primeiroRuim = null, foraDoCombinado = 0;
+  const ruim = (el, texto) => { erros.push(texto); if (el) { el.style.borderColor = 'var(--farol-fora)'; primeiroRuim = primeiroRuim || el; } };
+  (window._trItensSep || []).forEach((i, idx) => {
+    const peso = document.getElementById('trs_' + idx);
+    if (!peso) return;
+    if (!i._cont) {
+      // linha sem contagem: um campo so, na medida — exatamente como era
+      if (peso.value === '') return;
+      const corpo = { qtd_separada: Number(peso.value) };
+      if (i.emb_separada != null) corpo.emb_separada = null;   // deixou de ser item de embalagem unica
+      gravar.push({ i, corpo });
+      return;
+    }
+    const cont = document.getElementById('trse_' + idx);
+    const emb = String(i._embNome).split(' (')[0];
+    const un = (i.un_medida || '').toLowerCase();
+    if (cont.value === '' && peso.value === '') return;   // linha deixada em branco: fica como esta
+    const n = Number(cont.value), p = Number(peso.value || 0);
+    if (cont.value === '') return ruim(cont, `${i.item}: diga quantos ${trEmbPlural(emb, 2)} foram (0 se não foi nenhum)`);
+    if (n < 0 || !trEmbInteira(n)) return ruim(cont, `${i.item}: ${trNum(n)} ${trEmbPlural(emb, n)} — embalagem sai inteira ou pela metade`);
+    if (n > 0 && !(p > 0)) return ruim(peso, `${i.item}: faltou o peso ${n < 2 ? 'de' : 'dos'} ${trNum(n)} ${trEmbPlural(emb, n)}${i._pesoVar ? ' — este item é pesado na balança' : ''} (se não foi nenhum, escreva 0 em ${trEmbPlural(emb, 2)})`);
+    if (n === 0 && p > 0) return ruim(cont, `${i.item}: tem ${trNum(p, 3)} ${un} anotado mas 0 ${trEmbPlural(emb, 2)} — diga quantos foram`);
+    if (trSepAviso(idx)) foraDoCombinado++;
+    gravar.push({ i, corpo: { qtd_separada: n > 0 ? p : 0, emb_separada: n } });
+  });
+  if (erros.length) {
+    msg.innerHTML = '<b>Nada foi salvo.</b> Corrija o campo em vermelho:<br>' + erros.join('<br>');
+    msg.style.color = 'var(--farol-fora)';
+    if (primeiroRuim) primeiroRuim.scrollIntoView({ block: 'center' });
+    return;
+  }
   msg.textContent = 'Salvando...'; msg.style.color = '#8a897e';
-  for (const [idx, i] of (window._trItensSep || []).entries()) {
-    const v = document.getElementById('trs_' + idx).value;
-    if (v === '') continue;
-    const r = await trFetch(`tr_lista_itens?id=eq.${i.id}`, { method: 'PATCH', body: JSON.stringify({ qtd_separada: Number(v) }) });
+  // 2. grava: o peso/medida em qtd_separada e, na linha contada, quantos em emb_separada
+  for (const { i, corpo } of gravar) {
+    const r = await trFetch(`tr_lista_itens?id=eq.${i.id}`, { method: 'PATCH', body: JSON.stringify(corpo) });
     if (!r.ok) { msg.textContent = `Item ${i.item}: ` + await trErroDe(r); msg.style.color = '#ff6b6b'; return; }
   }
   const rs = await trFetch(`tr_listas?id=eq.${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'SEPARADA' }) });
   if (!rs.ok) { msg.textContent = 'Itens salvos, mas o status não mudou: ' + await trErroDe(rs); msg.style.color = '#ff6b6b'; return; }
-  msg.textContent = 'Separação salva (lista SEPARADA).'; msg.style.color = '#3fb950';
+  msg.textContent = 'Separação salva (lista SEPARADA).'
+    + (foraDoCombinado ? ` ${foraDoCombinado} ${foraDoCombinado === 1 ? 'item ficou' : 'itens ficaram'} com peso diferente do combinado — confira antes de enviar.` : '');
+  msg.style.color = '#3fb950';
 }
 
 async function trEnviarLista(id) {
@@ -13013,18 +13359,19 @@ async function trImprimirSeparacao(id) {
     td, th { border-bottom:1px solid #bbb; padding:6px; font-size:13px; text-align:left; }
     th { font-size:10.5px; text-transform:uppercase; color:#45443f; }
     .q { text-align:right; white-space:nowrap; }
-    .risco { width:130px; white-space:nowrap; }
-    .risco span { display:inline-block; width:72%; border-bottom:1px solid #000; height:14px; }
+    .risco { width:150px; white-space:nowrap; }
+    .risco.dois { line-height:2; }
+    .risco span { display:inline-block; width:58%; border-bottom:1px solid #000; height:14px; }
     .cx { width:24px; font-size:15px; }
     @media print { .naoimprime { display:none; } }
   </style></head><body>
     <button class="naoimprime" onclick="window.print()" style="float:right; padding:8px 14px;">Imprimir / salvar PDF</button>
     <h1>Lista #${id} — ${lista.unidade || ''}</h1>
-    <div class="sub">pedida em ${ddmm(lista.data_pedido)} · ${itens.length} itens · impressa em ${ddmm(trHoje())} · marque ☑ ao separar e anote a quantidade separada</div>
+    <div class="sub">pedida em ${ddmm(lista.data_pedido)} · ${itens.length} itens · impressa em ${ddmm(trHoje())} · marque ☑ ao separar e anote quanto foi — no item de pacote, balde ou caixa: quantos foram e o peso</div>
     ${Object.keys(porGrupo).sort().map(g => `<h2>${g}</h2><table>
       <tr><th class="cx"></th><th>Item</th><th>Un</th><th class="q">Solicitado</th><th class="risco">Separado</th></tr>
       ${porGrupo[g].map(i => `<tr><td class="cx">☐</td><td>${i.item}${i.editado ? ' ✏️' : ''}${!i._semEmb && (window._trEmbMapaSep || {})[i.item] ?` <span style="font-size:10.5px; color:#45443f;">(${window._trEmbMapaSep[i.item]})</span>` : ''}${i.observacao ? `<br><span style="font-size:10.5px; color:#45443f;">${i.observacao}</span>` : ''}</td><td>${i.un_medida || ''}</td>
-        <td class="q">${i._pedidoTxt || '<b>' + Number(i.qtd_solicitada || 0) + '</b>'}</td><td class="risco"><span></span> ${(i.un_medida || '').toLowerCase()}</td></tr>`).join('')}
+        <td class="q">${i._pedidoTxt || '<b>' + Number(i.qtd_solicitada || 0) + '</b>'}</td><td class="risco${i._cont ? ' dois' : ''}">${i._cont ? `<span></span> ${trEmbPlural(String(i._embNome).split(' (')[0], 2)}<br>` : ''}<span></span> ${(i.un_medida || '').toLowerCase()}</td></tr>`).join('')}
     </table>`).join('')}
   </body></html>`);
   w.document.close();
@@ -13116,7 +13463,7 @@ async function trVerFinalizada(id) {
   const alvo = document.getElementById('trTelaConteudo');
   const [rl, ri, rv, precos] = await Promise.all([
     trFetch(`tr_listas?id=eq.${id}&select=id,unidade,status,data_pedido,data_entrega,recebido_por`),
-    trFetch(`tr_lista_itens?id_lista=eq.${id}&order=item&select=id,item,un_medida,qtd_solicitada,qtd_separada,qtd_recebida,avulso,observacao,editado`),
+    trFetch(`tr_lista_itens?id_lista=eq.${id}&order=item&select=id,item,un_medida,qtd_solicitada,qtd_separada,qtd_recebida,emb_separada,emb_recebida,avulso,observacao,editado`),
     trFetch(`vw_tr_listas?id=eq.${id}&select=total_lista,valor_cobrado,frete`),
     trPrecosDaLista(id, async (u) => { const r = await trFetch(u); return r.ok ? r.json() : []; }),
   ]);
@@ -13140,7 +13487,7 @@ async function trVerFinalizada(id) {
       <tr><th>Item</th><th>Pedido</th><th>Separado</th><th>Recebido</th><th>Diferença</th>${comValor ? '<th>Valor unit.</th><th>Total cobrado</th>' : ''}</tr>
       ${itens.map(i => { const d = Number(i.qtd_recebida ?? 0) - Number(i.qtd_separada ?? 0); return `<tr>
         <td>${i.item} <span class="dre-av">${i.un_medida || ''}</span>${trEmbRotulo(mapa, i.item)}${i.avulso ? ' <span class="tr-tag">🆕</span>' : ''}${i.observacao ? ` <span class="tr-tag">${i.observacao}</span>` : ''}${i.editado ? ' <span class="tr-tag">✏️</span>' : ''}</td>
-        <td>${trQtdEmbTxt(i.qtd_solicitada, i.un_medida, cat[i.item])}</td><td>${trNum(i.qtd_separada, 3)}</td><td>${trNum(i.qtd_recebida, 3)}</td>
+        <td>${trQtdEmbTxt(i.qtd_solicitada, i.un_medida, cat[i.item])}</td><td>${trSepTxt(i, cat[i.item], trNum(i.qtd_separada, 3))}</td><td>${trRecTxt(i, cat[i.item], trNum(i.qtd_recebida, 3))}</td>
         <td${d ? ' style="color:#b3261e; font-weight:700;"' : ''}>${d ? (d > 0 ? '+' : '') + trNum(d, 3) : '—'}</td>
         ${comValor ? trColunasValor(i, precos) : ''}
       </tr>`; }).join('')}
@@ -13187,6 +13534,16 @@ async function trReabrirConferencia(id) {
 // (3) o resto converte pela embalagem. Sem a (1), conferencia reaberta dizia
 // "igual ao separado" e regravava a diferenca-fantasma (4,892 contra 4,89).
 function trConfQtd(i, el) {
+  // PESA E CONTA (01/10/2026): na linha que a separacao contou, o campo e a
+  // CONTAGEM. Bateu = o peso da separacao, exato. Diferente = proporcional
+  // (9 de 10 pacotes = 90% do peso), em 3 casas. Campo intocado numa
+  // reconferencia regrava o recebido que ja estava — nada de diferenca-fantasma.
+  if (i._cont) {
+    const n = Number(el.value || 0), sep = Number(i.emb_separada);
+    if (Math.abs(n - sep) < 0.0005) return Number(i.qtd_separada);
+    if (el.value === el.defaultValue && i.qtd_recebida != null) return Number(i.qtd_recebida);
+    return Math.round(Number(i.qtd_separada) * n / sep * 1000) / 1000;
+  }
   if (el.value === el.dataset.sep) return Number(i.qtd_separada ?? 0);
   if (el.value === el.defaultValue) return Number(i.qtd_recebida ?? i.qtd_separada ?? 0);
   const bruto = Number(el.value || 0);
@@ -13210,7 +13567,7 @@ function trConfRecontar() {
     const vcel = document.getElementById('trcv_' + idx);
     if (vcel) {
       const partes = [];
-      if (i._fator && bruto > 0) partes.push(`= ${trNum(qtd)} ${(i.un_medida || '').toLowerCase()}`);
+      if ((i._fator || i._cont) && bruto > 0) partes.push(`= ${trNum(qtd, i._cont ? 3 : 2)} ${(i.un_medida || '').toLowerCase()}`);
       if (i._pe != null && i._pe > 0 && bruto > 0) { partes.push(`R$ ${fmt(qtd * i._pe)}`); }
       vcel.textContent = partes.join(' · ');
     }
@@ -13234,7 +13591,7 @@ async function trAbrirConferencia(id) {
   const alvo = document.getElementById('trTelaConteudo');
   const [rl, ri, rv] = await Promise.all([
     trFetch(`tr_listas?id=eq.${id}&select=id,unidade`),
-    trFetch(`tr_lista_itens?id_lista=eq.${id}&order=item&select=id,item,un_medida,qtd_separada,qtd_recebida,avulso,observacao,editado,qtd_auto`),
+    trFetch(`tr_lista_itens?id_lista=eq.${id}&order=item&select=id,item,un_medida,qtd_separada,qtd_recebida,emb_separada,emb_recebida,avulso,observacao,editado,qtd_auto`),
     trFetch(`vw_tr_conferencia_valores?id_lista=eq.${id}&select=id,preco_efetivo`),
   ]);
   const lista = (await rl.json())[0] || {};
@@ -13258,24 +13615,31 @@ async function trAbrirConferencia(id) {
     i._fator = cx && cx.emb_fator && !cx.emb2_fator && (cx.un_medida || '') === (i.un_medida || '')
       && (sepC === 0 || sepC / Number(cx.emb_fator) >= 0.5) ? Number(cx.emb_fator) : null;
     i._emb = i._fator ? cx.emb_nome : null;
+    // PESA E CONTA (01/10/2026): linha que a separacao CONTOU confere pela
+    // contagem e vale o peso da separacao — sem dividir peso por peso combinado.
+    // Recebido gravado sem contagem (conferencia feita antes desta tela) fica na
+    // regra de sempre, para a reconferencia nao mudar nada sozinha.
+    i._cont = trTemContagem(i) && !(i.qtd_recebida != null && i.emb_recebida == null);
+    if (i._cont) { i._fator = null; i._emb = (cat[i.item] && cat[i.item].emb_nome) || 'volume'; }
     i._pe = precos[i.id] != null ? Number(precos[i.id]) : null;
   });
   window._trItensConf = itens;
   alvo.innerHTML = `
     <div class="caption-label"><button class="preset-btn" onclick="trListaAberta=null; trTelaConferencia();">← listas</button>
       Conferência da lista <b>#${id}</b> — o campo vem preenchido com o separado; <b>corrija o que veio diferente</b>.
-      Item com embalagem confere em <b>caixas/potes/pacotes</b>, como foi pedido.
+      Item com embalagem confere em <b>caixas/potes/pacotes</b>, como foi pedido: <b>conte, não precisa pesar</b> —
+      bateu a contagem, vale o peso que a separação anotou.
       <span id="trConfTotal" style="font-size:12.5px; font-weight:700;"></span></div>
     <div id="tabelaTrOpConf"><table>
       <tr><th>Item</th><th>Separado</th><th>Recebido</th></tr>
       ${itens.map((i, idx) => `<tr><td>${i.item} <span class="dre-av">${i.un_medida || ''}</span>${i._desc ? ` <span class="tr-det">(${i._desc})</span>` : ''}${i.avulso ? ' <span class="tr-tag">🆕 fora da grade</span>' : ''}${i.observacao ? ` <span class="tr-tag">${i.observacao}</span>` : ''}${i.editado ? ' <span class="tr-tag">✏️ editado</span>' : ''}</td>
-        <td>${i._fator
+        <td>${i._cont ? trContTxt(i.emb_separada, i.qtd_separada, i.un_medida, i._emb) : i._fator
           ? `${trNum(arred(Number(i.qtd_separada || 0) / i._fator))} ${trEmbPlural(i._emb, arred(Number(i.qtd_separada || 0) / i._fator))} <span class="tr-det">= ${trNum(i.qtd_separada, 3)} ${(i.un_medida || '').toLowerCase()}</span>`
           : trNum(i.qtd_separada, 3)}</td>
         <td><input type="number" min="0" step="any" id="trc_${idx}" class="trc-in" oninput="trConfRecontar()"
-          data-sep="${i._fator ? arred(Number(i.qtd_separada || 0) / i._fator) : Number(i.qtd_separada || 0)}"
-          value="${i._fator ? arred(Number(i.qtd_recebida ?? i.qtd_separada ?? 0) / i._fator) : (i.qtd_recebida ?? i.qtd_separada ?? 0)}"
-          style="width:80px; text-align:right;"> <span class="tr-det">${i._fator ? trEmbPlural(String(i._emb).split(' (')[0], 2) : trUnNome(i.un_medida || '', 2)}</span>
+          data-sep="${i._cont ? Number(i.emb_separada) : i._fator ? arred(Number(i.qtd_separada || 0) / i._fator) : Number(i.qtd_separada || 0)}"
+          value="${i._cont ? Number(i.emb_recebida ?? i.emb_separada) : i._fator ? arred(Number(i.qtd_recebida ?? i.qtd_separada ?? 0) / i._fator) : (i.qtd_recebida ?? i.qtd_separada ?? 0)}"
+          style="width:80px; text-align:right;"> <span class="tr-det">${i._fator || i._cont ? trEmbPlural(String(i._emb).split(' (')[0], 2) : trUnNome(i.un_medida || '', 2)}</span>
           <span class="tr-tag" id="trdif_${idx}" hidden>≠ diferente do separado</span>
           <br><span class="tr-conv" id="trcv_${idx}" style="font-size:11px;"></span></td></tr>`).join('')}
     </table></div>
@@ -13296,14 +13660,35 @@ async function trFecharConferencia(id) {
   if (!document.getElementById('trConfOk').checked) {
     msg.textContent = 'Marque a caixa de conferência — é o compromisso de que foi item a item.'; msg.style.color = '#f5a623'; return;
   }
+  // Linha contada (01/10/2026): a contagem tem de estar escrita e ser inteira ou
+  // meia — conferida ANTES de mexer no status, para nao deixar a lista pela metade.
+  const ruins = [];
+  (window._trItensConf || []).forEach((i, idx) => {
+    const el = document.getElementById('trc_' + idx);
+    if (!i._cont || !el) return;
+    const n = Number(el.value || 0);
+    if (el.value !== '' && n >= 0 && trEmbInteira(n)) return;
+    const emb = String(i._emb).split(' (')[0];
+    ruins.push(el.value === '' ? `${i.item}: escreva quantos ${trEmbPlural(emb, 2)} chegaram (0 se não chegou nenhum)`
+      : `${i.item}: ${trNum(n)} ${trEmbPlural(emb, n)} — conte inteiro ou meio`);
+    el.style.borderColor = 'var(--farol-fora)';
+    if (ruins.length === 1) el.scrollIntoView({ block: 'center' });
+  });
+  if (ruins.length) {
+    msg.innerHTML = '<b>Nada foi registrado.</b> Corrija o campo em vermelho:<br>' + ruins.join('<br>');
+    msg.style.color = 'var(--farol-fora)'; return;
+  }
   msg.textContent = 'Registrando...'; msg.style.color = '#8a897e';
   const rs = await trFetch(`tr_listas?id=eq.${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'RECEBIDA' }) });
   if (!rs.ok) { msg.textContent = 'Não deu: ' + await trErroDe(rs); msg.style.color = '#ff6b6b'; return; }
   for (const [idx, i] of (window._trItensConf || []).entries()) {
     // campo em embalagens grava convertido na unidade de controle, sem a ida e
     // volta arredondada que gravava 9,88 no lugar de 10 potes (trConfQtd)
-    const v = trConfQtd(i, document.getElementById('trc_' + idx));
-    const r = await trFetch(`tr_lista_itens?id=eq.${i.id}`, { method: 'PATCH', body: JSON.stringify({ qtd_recebida: v }) });
+    const el = document.getElementById('trc_' + idx);
+    const v = trConfQtd(i, el);
+    // linha contada grava junto quantas embalagens chegaram; as outras, so o recebido
+    const corpo = i._cont ? { qtd_recebida: v, emb_recebida: Number(el.value || 0) } : { qtd_recebida: v };
+    const r = await trFetch(`tr_lista_itens?id=eq.${i.id}`, { method: 'PATCH', body: JSON.stringify(corpo) });
     if (!r.ok) { msg.textContent = `Item ${i.item}: ` + await trErroDe(r); msg.style.color = '#ff6b6b'; return; }
   }
   const rf = await trRpc('tr_fechar_lista', { p_id: id });
