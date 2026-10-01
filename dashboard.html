@@ -11517,6 +11517,15 @@ function renderModuloFichas() {
 // em 24/08) e o custo da mercadoria entra por COMPETENCIA, pela lista fechada
 // do mes. Antes disso o Ahu aparecia com 45% de margem tendo R$ 43,9 mil de
 // materia prima em 7 meses — porque a compra dele na AV estava em INVESTIMENTOS.
+//
+// 01/10/2026 (dono): "Lucro por unidade deve trazer numeros reais e considerar
+// tudo, ele nada mais e que uma DRE por filial resumida" e "todos os numeros de
+// todos os modulos devem bater". Ate aqui a view somava so o realizado (sem as
+// contas a pagar do mes) sobre a receita que caiu na conta, e a tela dizia por
+// escrito que o numero nao era o da DRE; em setembro a Agua Verde aparecia com
+// R$ 413 mil de lucro. Agora a view e' uma PROJECAO de vw_fin_resultado_fato, a
+// mesma conta do modulo DRE: o lucro daqui bate com o resultado de la ao centavo.
+// Nao volte a somar receita ou despesa nesta tela — a conta mora num lugar so.
 // ------------------------------------------------------------------
 let LUCROUNI = null;
 // Recorte de periodo DA TELA (12/09/2026): 'mes' | 'tri' | 'ano' | 'placar'.
@@ -11610,8 +11619,8 @@ function renderLucroUni() {
   const pctBenef = lucroRede > 0 ? benefRede / lucroRede * 100 : 0;
   // O CAMINHO (12/09/2026): quanto o preco medio teria de subir para o lucro ficar
   // igual pagando comissao cheia. E' o MINIMO — supoe vender exatamente o mesmo
-  // depois do aumento; se a venda cair, precisa subir mais. A receita desta view ja
-  // chega liquida do que o iFood reteve, que e' a mesma base do beneficio.
+  // depois do aumento; se a venda cair, precisa subir mais. A receita e' a venda
+  // bruta da DRE (PDV + outras receitas), a mesma base dos percentuais de la.
   const receitaRede = somaRede('receita');
   const pctPreco = receitaRede > 0 ? benefRede / receitaRede * 100 : 0;
 
@@ -11658,7 +11667,8 @@ function renderLucroUni() {
   const dfcRede = (natureza) => unidades.reduce((s, u) => s + dfcU(u, natureza), 0);
   const invest = dfcRede('INVESTIMENTOS');
   const retiradas = dfcRede('DISTRIBUICAO DE LUCROS');
-  const rendimentos = dfcRede('APLICAÇÕES');
+  // Rendimento de aplicacao NAO entra mais na ponte (01/10/2026): o resultado da
+  // DRE ja o inclui (resultado financeiro), e somar de novo contava duas vezes.
   const aporte = dfcRede('APORTE VALORES');   // repasse entre as unidades: soma ~0 na rede
 
   const cardsUni = unidades.map(u => {
@@ -11676,8 +11686,10 @@ function renderLucroUni() {
   const linhaTab = (r) => {
     const l = nu(r.resultado), b = nu(r.beneficio_ifood);
     const aberto = r.mes === mesAberto;
+    // lista do mes ainda sem fechar: a AV esta sem a receita e a filial sem o custo
+    const semLista = !aberto && r.lista_fechada === false;
     return `<tr${aberto ? ' style="opacity:.55;"' : ''}>
-      <td>${mesTxt(r.mes)}${aberto ? ' <span style="color:#e8b04b;">· mês em aberto</span>' : ''}</td>
+      <td>${mesTxt(r.mes)}${aberto ? ' <span style="color:#e8b04b;">· mês em aberto</span>' : ''}${semLista ? ' <span style="color:var(--amber-2);" title="A lista das filiais deste mês ainda não foi fechada: a Água Verde está sem essa receita e a filial sem esse custo. O total da rede não muda.">· lista não fechada</span>' : ''}</td>
       <td>${un(r.unidade)}</td>
       <td>${rs(nu(r.receita))}</td>
       <td>${nu(r.custo_lista_av) ? rs(nu(r.custo_lista_av)) : '—'}</td>
@@ -11692,20 +11704,17 @@ function renderLucroUni() {
     <td>${rotulo}${nota ? `<div style="color:#6f6e64; font-size:10.5px;">${nota}</div>` : ''}</td>
     <td class="${v < 0 ? 'negativo' : ''}">${rs(v)}</td></tr>`;
 
-  const chegou = lucroRede + invest + retiradas + rendimentos + aporte;
+  const chegou = lucroRede + invest + retiradas + aporte;
+  // meses do recorte em que a lista das filiais ainda nao fechou (aviso condicional)
+  const semListaMeses = [...new Set(res.filter(r => fechados.includes(r.mes) && r.lista_fechada === false).map(r => r.mes))];
   const sobrouCaixa = caixaFim - caixaIni;
 
   alvo.innerHTML = `
     ${plcCabecalhoQuebra('lucrouni')}
     <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">
       Lucro por unidade${ctxLoja ? ' · ' + un(ctxLoja) : ''} · ${fechados.length === 1 ? mesTxt(fechados[0]) : mesTxt(fechados[0]) + ' a ' + mesTxt(fechados[fechados.length - 1])}</div>
-    <div class="contexto">Esta tela é o <b>dinheiro real lançado</b>: a receita como entrou no financeiro, já líquida do que o iFood reteve, menos as despesas lançadas. Mais o caixa conta a conta e o que sai do lucro (retiradas, investimentos, repasses entre as casas).</div>
-    <div class="contexto" style="border-color:#f5a623;"><b>O número daqui não é o mesmo da DRE, e os dois estão certos.</b>
-      A <a href="javascript:void(0)" onclick="mostrarModulo('dre')" style="color:#a5a49a;">DRE</a> e o
-      <a href="javascript:void(0)" onclick="mostrarModulo('fechamento')" style="color:#a5a49a;">Fechamento do mês</a> partem da <b>venda bruta</b> e descontam cada
-      cobrança do iFood e da Rede pelo nome. Aqui a venda já chega descontada, porque é o valor que caiu na conta.
-      Em agosto na Água Verde isso dá R$ 156 mil aqui e R$ 97 mil lá. Use esta tela para comparar lojas entre si
-      e para ver quanto do lucro é benefício do iFood; use a DRE para a conta linha a linha.</div>
+    <div class="contexto">É a <a href="javascript:void(0)" onclick="mostrarModulo('dre')" style="color:var(--tx-3);">DRE</a> resumida por loja: o lucro daqui é o resultado de lá, mês a mês, e quanto dele é benefício do iFood.</div>
+    ${semListaMeses.length ? `<div class="contexto" style="border-color:var(--amber-2);">Lista das filiais de ${semListaMeses.map(mesTxt).join(', ')} ainda não fechada: o lucro <b>por loja</b> desse mês é provisório (Água Verde sem a receita, filial sem o custo). O da rede não muda.</div>` : ''}
 
     ${seletorPeriodo}
 
@@ -11733,7 +11742,7 @@ function renderLucroUni() {
     <div id="tabelaLucroUni"><table>
       <thead><tr><th>Mês</th><th>Unidade</th><th>Receita</th><th>Mercadoria da AV</th>
         <th>Lucro</th><th>Benefício iFood</th><th>Lucro sem o benefício</th><th>% do lucro</th></tr></thead>
-      <tbody>${res.filter(r => (fechados.includes(r.mes) || r.mes === mesAberto)
+      <tbody>${res.filter(r => fechados.includes(r.mes)
         && (!ctxLoja || r.unidade === ctxLoja)).map(linhaTab).join('')}</tbody>
     </table></div>
     <div class="contexto">
@@ -11777,7 +11786,6 @@ function renderLucroUni() {
         ${linhaPonte('Lucro do período', lucroRede)}
         ${linhaPonte('(−) Investimentos', invest, 'obra, máquina, equipamento — vira ativo, não some')}
         ${linhaPonte('(−) Retiradas dos sócios', retiradas)}
-        ${linhaPonte('(+) Rendimento aplicações', rendimentos, 'entrada não operacional: XP e contas correntes')}
         ${Math.abs(aporte) > 0.005 ? linhaPonte('(±) Repasse entre as unidades', aporte, 'soma perto de zero na rede — só muda de bolso') : ''}
         <tr class="sub"><td><b>= deveria ter sobrado</b></td><td><b>${rs(chegou)}</b></td></tr>
         <tr class="liq"><td>Sobrou de verdade no caixa${xpDentro ? ' + XP' : ''}</td><td>${rs(sobrouCaixa)}</td></tr>
@@ -11793,7 +11801,7 @@ function renderLucroUni() {
     </div>
 
     <div class="footer">
-      Lucro por competência, só o realizado (previsão do Saipos fica de fora). Benefício iFood
+      Lucro = resultado da DRE: por competência, com as contas do mês já lançadas (pagas ou a pagar) e o rendimento das aplicações. Benefício iFood
       calculado pela régua de 9,5% do valor líquido dos pedidos concluídos desde 02/04/2026, sem
       Boqueirão e sem Comida Brasileira AV — é estimativa validada contra a transferência real,
       não extrato do iFood. Fonte: vw_fin_resultado_unidade, vw_fin_saldo_conta_mensal, vw_fin_dfc_mensal.
