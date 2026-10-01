@@ -16916,23 +16916,78 @@ async function entrarContasPagar() {
   if (!alvo) return;
   if (!CP) alvo.innerHTML = '<div class="contexto">Carregando contas a pagar...</div>';
   try { await trRpc('rh_ff_baixa_automatica', {}); } catch (e) {}   // sem acesso a pessoal: ignora
-  const [itens, venc] = await Promise.all([
-    consultarTudo('vw_fin_contas_pagar?select=vencimento,conta_exibida,unidade,situacao,dias_vencida,sentido,subtipo,descricao,credito,debito,origem&order=vencimento'),
+  const [linhas, venc, imp] = await Promise.all([
+    consultarTudo('vw_fin_contas_pagar?select=vencimento,conta_exibida,unidade,situacao,dias_vencida,subtipo,descricao,credito,debito,origem,id_titulo,titulo,fornecedor&order=vencimento'),
     consultarTudo('vw_fin_vencidas_status?select=vencimento,descricao,debito,data_debito_banco,achou_no_banco').catch(() => []),
+    consultarTudo('vw_fin_ultima_importacao?select=fonte,importado_em').catch(() => []),
   ]);
   const saiu = {};
   (venc || []).filter(v => v.achou_no_banco).forEach(v => { saiu[`${v.vencimento}|${Number(v.debito)}|${v.descricao || ''}`] = v.data_debito_banco; });
-  (itens || []).forEach(r => {
-    r.credito = Number(r.credito); r.debito = Number(r.debito);
-    r.valor = r.sentido === 'PAGAR' ? r.debito : r.credito;
-    r.saiuBanco = r.situacao === 'VENCIDA' ? saiu[`${r.vencimento}|${r.debito}|${r.descricao || ''}`] : undefined;
-  });
-  CP = { itens: itens || [], filtro: CP ? CP.filtro : { sentido: 'PAGAR', situacao: '', origem: '', unidade: '' }, tudo: CP ? CP.tudo : false };
+  const impSaipos = (imp || []).find(i => i.fonte === 'SAIPOS_PREV');
+  CP = { itens: cpTitulos(linhas || [], saiu),
+         filtro: CP ? CP.filtro : { sentido: 'PAGAR', situacao: '', origem: '', unidade: '' },
+         tudo: CP ? CP.tudo : false,
+         ordem: CP ? CP.ordem : { col: 'vencimento', dir: 1 },
+         lidoEm: new Date(), saiposEm: impSaipos ? new Date(impSaipos.importado_em) : null };
   renderContasPagar();
+}
+// UM TITULO = UMA LINHA (dono, 01/10/2026: "o titulo a pagar no valor total, sem o
+// rateio por conta"). A view entrega um lancamento por categoria do rateio (a NF da
+// Facil vem em Embalagens + Descartaveis + Limpeza — e' o que a DRE e o projetado
+// precisam); aqui as partes do mesmo id_titulo do Saipos somam. O sentido sai do
+// LIQUIDO do titulo. Sem id_titulo (fora da folha, listas, ePadoca) a linha ja e' o titulo.
+function cpTitulos(linhas, saiu) {
+  const mapa = new Map();
+  linhas.forEach((r, i) => {
+    const credito = Number(r.credito), debito = Number(r.debito);
+    const k = r.id_titulo ? `${r.origem}|${r.id_titulo}|${r.vencimento}|${r.conta_exibida}` : `linha${i}`;
+    let t = mapa.get(k);
+    if (!t) {
+      t = { vencimento: r.vencimento, situacao: r.situacao, dias_vencida: r.dias_vencida, origem: r.origem,
+            unidade: r.unidade, conta_exibida: r.conta_exibida || '', descricao: r.titulo || r.descricao || '',
+            fornecedor: r.fornecedor || '', liquido: 0, partes: [], saiuTodas: true, saiuBanco: undefined };
+      mapa.set(k, t);
+    }
+    if (!t.fornecedor && r.fornecedor) t.fornecedor = r.fornecedor;
+    t.liquido += credito - debito;
+    t.partes.push({ subtipo: r.subtipo || '', valor: credito - debito });
+    const s = r.situacao === 'VENCIDA' && debito > 0 ? saiu[`${r.vencimento}|${debito}|${r.descricao || ''}`] : undefined;
+    if (s) t.saiuBanco = t.saiuBanco || s; else if (debito > 0) t.saiuTodas = false;
+  });
+  const lista = [...mapa.values()];
+  lista.forEach(t => {
+    t.sentido = t.liquido < 0 ? 'PAGAR' : 'RECEBER';
+    t.valor = Math.abs(Math.round(t.liquido * 100) / 100);
+    if (!t.saiuTodas) t.saiuBanco = undefined;
+    const cats = [...new Set(t.partes.map(p => p.subtipo))];
+    t.categoria = cats.join(' + ');
+    t.rateio = t.partes.length > 1 ? t.partes.map(p => `${p.subtipo}: ${fmt(Math.abs(p.valor))}`).join(' · ') : '';
+  });
+  return lista;
 }
 function cpFiltro(campo, valor) { CP.filtro[campo] = CP.filtro[campo] === valor ? '' : valor; renderContasPagar(); }
 function cpSentido(s) { CP.filtro = { sentido: s, situacao: '', origem: '', unidade: '' }; renderContasPagar(); }
 function cpTudo() { CP.tudo = !CP.tudo; renderContasPagar(); }
+// Ordenar pelo titulo da coluna: 1o clique no sentido natural (texto A→Z, valor do
+// maior para o menor), 2o clique inverte. Empate cai no vencimento.
+const CP_COLUNAS = [
+  ['vencimento', 'Vencimento', t => t.vencimento, 1],
+  ['descricao', 'Título', t => t.descricao, 1],
+  ['fornecedor', null, t => t.fornecedor, 1],          // rotulo depende de pagar/receber
+  ['origem', 'Origem', t => (CP_ORIGEM[t.origem] || { rot: t.origem || '' }).rot, 1],
+  ['conta', 'Conta', t => t.conta_exibida, 1],
+  ['categoria', 'Categoria', t => t.categoria, 1],
+  ['valor', 'Valor', t => t.valor, -1],
+];
+function cpOrdenar(col) {
+  const natural = (CP_COLUNAS.find(c => c[0] === col) || [])[3] || 1;
+  CP.ordem = CP.ordem.col === col ? { col, dir: -CP.ordem.dir } : { col, dir: natural };
+  renderContasPagar();
+}
+async function cpAtualizar(btn) {
+  if (btn) { btn.disabled = true; btn.textContent = 'atualizando…'; }
+  await entrarContasPagar();
+}
 
 function renderContasPagar() {
   const alvo = document.getElementById('view-contaspagar');
@@ -16948,20 +17003,24 @@ function renderContasPagar() {
                          && (sem === 'unidade' || !f.unidade || (r.unidade || '—') === f.unidade);
   const soma = (l) => l.reduce((s, r) => s + r.valor, 0);
   const verbo = f.sentido === 'PAGAR' ? 'a pagar' : 'a receber';
+  const hora = (d) => d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' });
 
-  const SIT = [['VENCIDA', 'Vencidas', 'neg'], ['VENCE HOJE', 'Vence hoje', 'highlight'], ['PROXIMOS 7 DIAS', 'Próximos 7 dias', 'blue'], ['DEPOIS', CP.tudo ? 'Depois' : 'Até 45 dias', 'neutral']];
+  const SIT =[['VENCIDA', 'Vencidas', 'neg'], ['VENCE HOJE', 'Vence hoje', 'highlight'], ['PROXIMOS 7 DIAS', 'Próximos 7 dias', 'blue'], ['DEPOIS', CP.tudo ? 'Depois' : 'Até 45 dias', 'neutral']];
   const baseSit = doSentido.filter(r => passa(r, 'situacao'));
   let h = `<div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-bottom:10px;">
       <button class="preset-btn ${f.sentido === 'PAGAR' ? 'active' : ''}" onclick="cpSentido('PAGAR')">A pagar</button>
       <button class="preset-btn ${f.sentido === 'RECEBER' ? 'active' : ''}" onclick="cpSentido('RECEBER')">A receber</button>
       <button class="preset-btn ${CP.tudo ? 'active' : ''}" onclick="cpTudo()" title="por padrão a lista vai até 45 dias à frente">${CP.tudo ? 'até 45 dias' : 'ver tudo'}</button>
+      <span style="flex:1;"></span>
+      <span class="caption-label" style="margin:0;" title="O botão relê o banco do painel. O que foi lançado ou baixado no Saipos entra na próxima carga do Saipos.">lido às ${hora(CP.lidoEm)}${CP.saiposEm ? ` · Saipos carregado ${CP.saiposEm.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }) === hoje ? 'hoje' : 'em ' + CP.saiposEm.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', timeZone: 'America/Sao_Paulo' })} às ${hora(CP.saiposEm)}` : ''}</span>
+      <button class="preset-btn" onclick="cpAtualizar(this)" title="relê as contas do banco do painel, mantendo filtros e ordem">↻ Atualizar</button>
     </div><div class="cards">`;
   for (const [k, rot, cls] of SIT) {
     const l = baseSit.filter(r => r.situacao === k);
     const saiuBanco = k === 'VENCIDA' ? l.filter(r => r.saiuBanco) : [];
     h += `<div class="card ${cls}" style="cursor:pointer; ${f.situacao === k ? 'outline:2px solid var(--brand);' : ''}" onclick="cpFiltro('situacao','${k}')">
       <div class="card-lbl">${rot}</div><div class="card-val">R$ ${fmt(soma(l))}</div>
-      <div class="card-pct">${l.length} conta(s)${saiuBanco.length ? ` · <span style="color:var(--amber-2);">${saiuBanco.length} já ${saiuBanco.length === 1 ? 'saiu' : 'saíram'} do banco, falta a baixa</span>` : ''}</div></div>`;
+      <div class="card-pct">${l.length} título(s)${saiuBanco.length ? ` · <span style="color:var(--amber-2);">${saiuBanco.length} já ${saiuBanco.length === 1 ? 'saiu' : 'saíram'} do banco, falta a baixa</span>` : ''}</div></div>`;
   }
   h += '</div>';
 
@@ -16976,19 +17035,30 @@ function renderContasPagar() {
     <div style="display:flex; gap:6px; flex-wrap:wrap; margin:4px 0 10px;"><span class="caption-label" style="margin:0 4px 0 0;">Unidade</span>${chips('unidade', r => r.unidade || '—', c => c)}</div>`;
 
   const lista = doSentido.filter(r => passa(r));
-  h += `<div class="caption-label"><b>R$ ${fmt(soma(lista))} ${verbo}</b> em ${lista.length} conta(s) no recorte · vencida primeiro; a coluna Baixa diz onde a conta fecha.</div>
+  const o = CP.ordem, colOrd = CP_COLUNAS.find(c => c[0] === o.col) || CP_COLUNAS[0];
+  lista.sort((a, b) => {
+    const va = colOrd[2](a), vb = colOrd[2](b);
+    if (va === '' && vb !== '') return 1;               // vazio sempre no fim
+    if (vb === '' && va !== '') return -1;
+    const c = typeof va === 'number' ? va - vb : String(va).localeCompare(String(vb), 'pt-BR');
+    return c * o.dir || a.vencimento.localeCompare(b.vencimento) || b.valor - a.valor;
+  });
+  const th = ([col, rot]) => `<th style="text-align:${col === 'valor' ? 'right' : 'left'}; cursor:pointer; user-select:none;${o.col === col ? ' color:var(--tx-1);' : ''}" title="ordenar por esta coluna" onclick="cpOrdenar('${col}')">${rot || (f.sentido === 'PAGAR' ? 'Fornecedor' : 'De quem')}${o.col === col ? (o.dir > 0 ? ' ▲' : ' ▼') : ''}</th>`;
+  h += `<div class="caption-label"><b>R$ ${fmt(soma(lista))} ${verbo}</b> em ${lista.length} título(s) no recorte · cada título pelo valor total; clique no nome da coluna para ordenar.</div>
     <div id="tabelaContasPagar" style="overflow-x:auto;"><table>
-    <tr><th>Vencimento</th><th style="text-align:left;">Descrição</th><th style="text-align:left;">Origem</th><th style="text-align:left;">Conta</th><th style="text-align:left;">Categoria</th><th>Valor</th><th style="text-align:left;">Baixa</th></tr>`;
-  const esq = 'text-align:left;', txt = 'text-align:left; white-space:normal; min-width:260px;';
+    <tr>${CP_COLUNAS.map(th).join('')}<th style="text-align:left;">Baixa</th></tr>`;
+  const esq = 'text-align:left;', txt = 'text-align:left; white-space:normal; min-width:240px;';
   for (const r of lista.slice(0, 400)) {
-    const o = CP_ORIGEM[r.origem] || { rot: r.origem || '—', baixa: '—' };
+    const og = CP_ORIGEM[r.origem] || { rot: r.origem || '—', baixa: '—' };
     const cor = r.situacao === 'VENCIDA' ? 'var(--farol-fora)' : r.situacao === 'VENCE HOJE' ? 'var(--amber-2)' : 'inherit';
     const baixa = r.saiuBanco
       ? `<span style="color:var(--amber-2);" title="o débito já apareceu no extrato do banco">saiu do banco em ${ffDdmm(r.saiuBanco)} — dar baixa no Saipos</span>`
-      : o.tela ? `<a href="javascript:void(0)" style="color:var(--tx-3);" onclick="mostrarModulo('${o.tela}')">${o.baixa} ›</a>`
-      : `<span style="color:var(--tx-3);">${o.baixa}</span>`;
+      : og.tela ? `<a href="javascript:void(0)" style="color:var(--tx-3);" onclick="mostrarModulo('${og.tela}')">${og.baixa} ›</a>`
+      : `<span style="color:var(--tx-3);">${og.baixa}</span>`;
     h += `<tr><td style="color:${cor}; white-space:nowrap;">${ffDdmm(r.vencimento)}/${r.vencimento.slice(0, 4)}${r.situacao === 'VENCIDA' ? ` · ${r.dias_vencida}d` : ''}</td>
-      <td style="${txt}">${r.descricao || ''}</td><td style="${esq}">${o.rot}</td><td style="${esq}">${r.conta_exibida || ''}</td><td style="${esq}">${r.subtipo || ''}</td>
+      <td style="${txt}">${r.descricao}</td><td style="${esq} white-space:normal;">${r.fornecedor || '<span style="color:var(--tx-5);">—</span>'}</td>
+      <td style="${esq}">${og.rot}</td><td style="${esq}">${r.conta_exibida}</td>
+      <td style="${esq} white-space:normal;"${r.rateio ? ` title="rateio: ${r.rateio}"` : ''}>${r.categoria}</td>
       <td><b>${fmt(r.valor)}</b></td><td style="${esq}">${baixa}</td></tr>`;
   }
   h += `</table></div>${lista.length > 400 ? `<div class="caption-label">Mostrando as 400 primeiras de ${lista.length} — filtre por origem ou unidade.</div>` : ''}`;
