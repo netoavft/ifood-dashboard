@@ -12939,6 +12939,12 @@ async function trTelaPrecos(unidadeEscolhida) {
 const TR_MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
 function trMesNome(d) { return d ? TR_MESES[Number(String(d).slice(5, 7)) - 1] : ''; }
 function trDiaMes(d) { return d ? String(d).slice(8, 10) + '/' + String(d).slice(5, 7) : ''; }
+// Ate que dia a tabela do mes corrente vale (o ultimo dia do mes) — a data vem do banco,
+// nada de calcular aqui. Dono, 01/10/2026: a tabela do mes seguinte fecha a partir do
+// dia 25, entao fecha_proximo_a_partir_de deixou de ser o ultimo dia do mes e o banco
+// ganhou a coluna ultimo_dia_mes. O "||" so cobre o banco ainda sem a coluna nova (la
+// fecha_proximo_a_partir_de ainda e o ultimo dia).
+function trTabelaValeAte(sit) { return trDiaMes(sit.ultimo_dia_mes || sit.fecha_proximo_a_partir_de); }
 // uma linha por filial: tem tabela mensal? a do mes existe? quando fechou?
 // Qualquer falha (view ainda nao criada, sem rede) devolve null = "como antes".
 async function trTabelaSituacao(unidade) {
@@ -12953,13 +12959,13 @@ function trTabelaFrasePedido(sit, dataCusto) {
   if (!sit || !sit.tabela_mensal) {
     return `O preço é congelado pelo sistema no ato (Formação de preços${dataCusto ? ' de ' + dataCusto.slice(8,10) + '/' + dataCusto.slice(5,7) : ''}).`;
   }
-  const mes = trMesNome(sit.mes), fim = trDiaMes(sit.fecha_proximo_a_partir_de);
+  const mes = trMesNome(sit.mes), fim = trTabelaValeAte(sit);
   if (!sit.tem_tabela) return `A tabela de ${mes} abre com o primeiro pedido do mês: o preço de hoje fica valendo até ${fim}.`;
   return `O preço é o da <b>tabela de ${mes}</b> (${sit.como === 'FECHADA' ? 'fechada' : 'aberta'} em ${trDiaMes(sit.fechada_em)}) — o mesmo em todos os pedidos até ${fim}.`;
 }
 // o aviso no alto da Tabela de precos: que tabela e esta, quando fechou, quando muda
 function trTabelaCabecalho(sit) {
-  const mes = trMesNome(sit.mes), prox = trMesNome(sit.proximo_mes), fim = trDiaMes(sit.fecha_proximo_a_partir_de);
+  const mes = trMesNome(sit.mes), prox = trMesNome(sit.proximo_mes), fim = trTabelaValeAte(sit);
   const pct = Math.round(Number(sit.gatilho_pct || 0.15) * 100);
   const n = Number(sit.reajustados || 0);
   let txt;
@@ -12983,7 +12989,8 @@ function trTabelaMarca(i, sit) {
   return '';
 }
 // Bloco do DONO: o que mudou mais que o gatilho neste mes (com botao de aplicar) e a
-// previa do mes que vem (com botao de fechar, que so abre no ultimo dia do mes).
+// previa do mes que vem (com botao de fechar, que so abre na data de corte que o banco
+// devolve em fecha_proximo_a_partir_de — dia 25 desde 01/10/2026; antes, o ultimo dia).
 // Efeito em R$ = diferenca de preco x o que a filial recebeu nos ultimos 30 dias.
 async function trTabelaReajustes(unidade) {
   const sit = window._trTabelaSit;
@@ -12995,7 +13002,8 @@ async function trTabelaReajustes(unidade) {
   if (!r.ok) { alvo.innerHTML = `<div class="contexto" style="border-color:var(--farol-fora);">Não consegui abrir os reajustes: ${await trErroDe(r)}</div>`; return; }
   const itens = await r.json();
   window._trReajItens = itens;
-  const mes = trMesNome(sit.mes), prox = trMesNome(sit.proximo_mes), fim = trDiaMes(sit.fecha_proximo_a_partir_de);
+  // fim = ate quando a tabela deste mes vale; corte = desde quando da para fechar a do mes que vem
+  const mes = trMesNome(sit.mes), prox = trMesNome(sit.proximo_mes), fim = trTabelaValeAte(sit), corte = trDiaMes(sit.fecha_proximo_a_partir_de);
   const pct = Math.round(Number(sit.gatilho_pct || 0.15) * 100);
   const pode = !!sit.pode_aprovar, quem = sit.quem_aprova || 'o dono';
   const un = (i) => (i.un || 'un').toLowerCase();
@@ -13037,13 +13045,13 @@ async function trTabelaReajustes(unidade) {
   } else if (sit.proximo_tem_tabela) {
     botao = `<span class="tr-det">A tabela de ${prox} já está fechada (em ${trDiaMes(sit.proximo_fechada_em)}) — entra no dia 1º.</span>`;
   } else if (!pode) {
-    botao = `<span class="tr-det">Quem fecha a tabela de ${prox} é ${quem}, a partir de ${fim} (último dia do mês). ${sozinha}</span>`;
+    botao = `<span class="tr-det">Quem fecha a tabela de ${prox} é ${quem}, a partir de ${corte}. ${sozinha}</span>`;
   } else if (sit.pode_fechar_proximo) {
     botao = `<button class="preset-btn tr-btn-cheio" onclick="trTabelaFechar('${sit.proximo_mes}')">Fechar a tabela de ${prox}</button>
-      <span class="tr-det">Fecha com os custos de hoje e vale o mês inteiro.</span>`;
+      <span class="tr-det">Fecha com os custos de hoje e vale ${prox} inteiro, a partir do dia 1º. Até ${fim} segue a tabela de ${mes}.</span>`;
   } else {
     botao = `<button class="preset-btn" disabled style="opacity:.5; cursor:not-allowed;">Fechar a tabela de ${prox}</button>
-      <span class="tr-det">Dá para fechar a partir de ${fim}, o último dia do mês. ${sozinha}</span>`;
+      <span class="tr-det">Dá para fechar a partir de ${corte}. ${sozinha}</span>`;
   }
   const blocoPrev = !sit.tem_tabela ? `
     <div class="contexto" style="margin:8px 0; text-align:left;"><b>A tabela de ${mes} ainda não existe</b> — não há preço fechado para comparar.
@@ -13081,13 +13089,16 @@ async function trTabelaAplicarExcecao(idx) {
   trTelaPrecos(i.unidade);
 }
 // fecha a tabela de um mes com os custos de hoje (o banco confere: so quem aprova, e
-// o mes seguinte so a partir do ultimo dia do mes)
+// o mes seguinte so a partir da data de corte da regra — dia 25)
 async function trTabelaFechar(mes) {
   const sit = window._trTabelaSit;
   const msg = document.getElementById('trReajMsg');
   if (!sit) return;
+  // fechando a do mes que vem antes de o mes acabar: avisa que nota que chegar depois nao entra
   if (!confirm(`Fechar a tabela de ${trMesNome(mes)} de ${sit.unidade} com os custos de hoje?\n\n`
-      + 'Ela vale o mês inteiro e não dá para refazer — depois, só o reajuste de um item que mudar muito.')) return;
+      + (mes === sit.proximo_mes
+        ? 'Ela entra no dia 1º, vale o mês inteiro e não dá para refazer. Nota que chegar depois de hoje só muda o preço pelo reajuste de um item que mudar muito.'
+        : 'Ela vale o mês inteiro e não dá para refazer — depois, só o reajuste de um item que mudar muito.'))) return;
   const r = await trRpc('tr_fechar_tabela_mes', { p_unidade: sit.unidade, p_mes: mes });
   if (!r.ok) { if (msg) { msg.textContent = 'Não fechou: ' + await trErroDe(r); msg.style.color = 'var(--brand)'; msg.scrollIntoView({ block: 'nearest' }); } return; }
   trTelaPrecos(sit.unidade);
