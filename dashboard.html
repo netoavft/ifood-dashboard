@@ -14996,9 +14996,10 @@ const FX_GRUPOS = { CUSTO: ['MATERIA PRIMA', 'USO E CONSUMO'], PESSOAL: ['PESSOA
 // nao ha uma lista unica que o explique; linha que abre vazia ensina a nao clicar.
 const FX_COMPOSICAO = { CUSTO: 'merc', PESSOAL: 'pess', VENDA: 'venda', ADMIN: 'admin', TAXAS: 'canal' };
 // O que NAO vem do plano de contas, para o total da abertura sempre fechar com o
-// balde em vez de bater perto: em VENDA sao os anuncios e a entrega sob demanda
-// (vem de vw_canal_custo_mes) e em TAXAS e' o ICMS (DEDUCOES DA RECEITA).
-const FX_RESTO_ROT = { VENDA: 'anúncios e entrega sob demanda (cobrados pelo iFood)',
+// balde em vez de bater perto: em VENDA e' a entrega sob demanda (vem de
+// vw_canal_custo_mes) e em TAXAS e' o ICMS (DEDUCOES DA RECEITA).
+// 01/10/2026: os anuncios do iFood sairam de VENDA; estao em TAXAS, com nome, como na DRE.
+const FX_RESTO_ROT = { VENDA: 'entrega sob demanda (cobrada pelo iFood)',
                        TAXAS: 'ICMS e outras deduções da receita' };
 let FX_BALDE = null;
 function fxAbrirBalde(id) { FX_BALDE = (FX_BALDE === id) ? null : id; renderFechamento(); }
@@ -15012,7 +15013,7 @@ async function fxCarregarM() {
       consultarTudo('vw_fin_dre_mensal?select=unidade,mes,natureza,tipo,subtipo,credito,debito&mes=gte.2026-01-01'),
       consultarTudo('vw_mes_vendas?select=mes,unidade,canal,pedidos,faturamento&mes=gte.2026-01-01'),
       // custo dos canais por FATO (12/09/2026): substitui a conta por diferenca e o extrato de anuncios so da AV
-      consultarTudo('vw_canal_custo_mes?select=mes,unidade,linha,classe,custo&mes=gte.2026-01-01'),
+      consultarTudo('vw_canal_custo_mes?select=mes,unidade,linha,classe,rotulo,custo&mes=gte.2026-01-01'),
       consultarTudo('vw_fin_dre_beneficio?select=mes,unidade,beneficio_ifood'),
       consultarTudo('vw_fin_ponte_mensal?select=*'),
       consultarTudo('fin_metas_dre?select=chave,sentido,pct_meta'),
@@ -15052,31 +15053,41 @@ function fxMesCalc(mes) {
   const outras = s(r => r.natureza === 'RECEITAS' && !FX_SUBT_PDV.includes(r.subtipo));
   const outrasDet = {}; rows.forEach(r => { if (r.natureza === 'RECEITAS' && !FX_SUBT_PDV.includes(r.subtipo)) outrasDet[r.subtipo] = (outrasDet[r.subtipo] || 0) + fxN(r.credito) - fxN(r.debito); });
   // custo dos canais por FATO (12/09/2026, decisao do dono): cada cobranca do
-  // iFood e da Rede com nome, nas 3 lojas. Anuncios ficam no balde "entrega,
-  // comercial e marketing"; entrega sob demanda idem; antecipacao da Rede em
-  // juros e tarifas. A conta antiga (vendido − recebido) fica so de conferencia.
+  // iFood e da Rede com nome, nas 3 lojas. Entrega sob demanda fica no balde
+  // "entrega, comercial e marketing"; antecipacao da Rede em juros e tarifas.
+  // A conta antiga (vendido − recebido) fica so de conferencia.
+  // 01/10/2026 (dono: "o mesmo numero tem de ser o mesmo em toda tela"): a regua
+  // e' a DRE (renderModuloDRE). Os ANUNCIOS do iFood ficam DENTRO do custo dos
+  // canais (a classe CANAL inteira) e as COMISSOES de vendedores saem antes da
+  // receita liquida — os dois moravam no balde VENDA. O resultado nao muda um
+  // centavo; muda a margem de contribuicao, que tinha o mesmo nome e a mesma
+  // meta nas duas telas e conteudo diferente (set/26, Agua Verde: R$ 30,5 mil
+  // a mais aqui do que na DRE). A copia SQL desta conta e' vw_fin_resultado_fato
+  // (script/sql/resultado_fato.sql): mudou aqui, muda la.
   const cf = FX_M.canal.filter(r => r.mes === mes && L.includes(r.unidade));
   const cs = (pred) => cf.reduce((a, r) => a + (pred(r) ? fxN(r.custo) : 0), 0);
-  const anuncios = cs(r => r.linha === 'ANUNCIOS');
   const sobDemanda = cs(r => r.classe === 'LOGISTICA'), antecip = cs(r => r.classe === 'FINANCEIRO');
   const temFato = cf.length > 0;
-  const taxasCanais = temFato ? cs(r => r.classe === 'CANAL') - anuncios : recBruta - recPdv;
-  const defasagem = temFato ? recBruta - recPdv - taxasCanais - anuncios - sobDemanda - antecip : 0;
+  const taxasCanais = temFato ? cs(r => r.classe === 'CANAL') : recBruta - recPdv;
+  const defasagem = temFato ? recBruta - recPdv - taxasCanais - sobDemanda - antecip : 0;
+  // comissoes de vendedores: deducao da receita, como na DRE (la desde 03/09/2026)
+  const comissoes = s(r => r.natureza === 'DESPESAS' && r.subtipo === 'COMISSOES', -1);
   const deducoes = s(r => r.natureza === 'DEDUÇOES DA RECEITA' && r.subtipo !== 'IRPJ', -1);
   const irpj = s(r => r.natureza === 'DEDUÇOES DA RECEITA' && r.subtipo === 'IRPJ', -1);
   const grupos = {};
-  Object.entries(FX_GRUPOS).forEach(([k, tipos]) => { grupos[k] = s(r => r.natureza === 'DESPESAS' && r.tipo !== 'INVESTIMENTOS' && tipos.includes(r.tipo), -1); });
-  grupos.VENDA += anuncios + sobDemanda;
+  // COMISSOES fica fora dos grupos (ja saiu la em cima, antes da receita liquida) — o mesmo predGrupo da DRE
+  Object.entries(FX_GRUPOS).forEach(([k, tipos]) => { grupos[k] = s(r => r.natureza === 'DESPESAS' && r.tipo !== 'INVESTIMENTOS' && tipos.includes(r.tipo) && r.subtipo !== 'COMISSOES', -1); });
+  grupos.VENDA += sobDemanda;
   const mapeados = Object.values(FX_GRUPOS).flat().concat(['DESPESAS FINANCEIRAS']);
   const outrasDesp = s(r => r.natureza === 'DESPESAS' && r.tipo !== 'INVESTIMENTOS' && !mapeados.includes(r.tipo), -1);
   const base = recBruta + outras;
-  const recLiq = base - taxasCanais - deducoes;
+  const recLiq = base - taxasCanais - comissoes - deducoes;
   const ebitda = recLiq - grupos.CUSTO - grupos.PESSOAL - grupos.VENDA - grupos.ADMIN - outrasDesp;
   const despFin = s(r => r.tipo === 'DESPESAS FINANCEIRAS', -1) + antecip, recFin = s(r => r.natureza === 'APLICAÇÕES' && r.subtipo === 'RENDIMENTOS');
   const semClass = s(r => r.natureza === 'SEM CLASSIFICACAO');
   const resultado = ebitda + recFin - despFin + semClass - irpj;
   const benef = FX_M.benef.filter(r => r.mes === mes && L.includes(r.unidade)).reduce((a, r) => a + fxN(r.beneficio_ifood), 0);
-  return { mes, canais, recBruta, pedidos, ticket: pedidos ? recBruta / pedidos : 0, outras, outrasDet, taxasCanais, defasagem, temFato, deducoes, irpj, base, grupos, outrasDesp, ebitda, despFin, recFin, semClass, resultado, benef };
+  return { mes, canais, recBruta, pedidos, ticket: pedidos ? recBruta / pedidos : 0, outras, outrasDet, taxasCanais, comissoes, defasagem, temFato, deducoes, irpj, base, recLiq, grupos, outrasDesp, ebitda, despFin, recFin, semClass, resultado, benef };
 }
 // PONTE SO VALE INTEIRA (12/09/2026). A view pode nao ter uma das lojas da visao num mes;
 // somar o que houver daria o caixa de uma loja com o rotulo da Rede. Sem todas as lojas da
@@ -15129,11 +15140,12 @@ const PLC_TILES = [
   { id: 'merc',  rot: 'Mercadoria',             un: 'R$', meta: 'CUSTO',       v: a => a.grupos.CUSTO,
     telas: [['engcard', 'Engenharia de cardápio'], ['fichas', 'Fichas técnicas'], ['despesas', 'Análise de despesas']] },
   { id: 'canal', rot: 'Custo dos canais',       un: 'R$', meta: null,          v: a => a.taxas,
+    def: 'Custo dos canais = o que o iFood e a Rede cobraram: promoções pagas pela loja, anúncios, comissão e taxas. ',
     telas: [['resumo', 'Resumo do canal iFood'], ['rede', 'Taxas da maquininha'], ['promocoes', 'Promoções']] },
   { id: 'pess',  rot: 'Pessoas',                un: 'R$', meta: 'PESSOAL',     v: a => a.grupos.PESSOAL,
     telas: [['despesas', 'Análise de despesas'], ['cargos', 'Cargos e salários'], ['forafolha', 'Pagamento fora da folha'], ['rh', 'Descontos em folha']] },
   { id: 'mc',    rot: 'Margem de contribuição', un: 'R$', meta: 'LUCRO_BRUTO', v: a => a.mc,
-    def: 'Margem de contribuição = receita líquida − mercadoria. ',
+    def: 'Margem de contribuição = receita líquida − mercadoria, a mesma da DRE. A receita líquida já vem sem o custo dos canais (anúncios dentro), sem comissão de vendedor e sem ICMS. ',
     telas: [['dre', 'DRE'], ['rateio', 'Preço alvo por produto']] },
   { id: 'res',   rot: 'Resultado',              un: 'R$', meta: 'RESULTADO',   v: a => a.resultado,
     telas: [['fechamento', 'Fechamento do mês'], ['dre', 'DRE'], ['lucrouni', 'Lucro por unidade']] },
@@ -15280,12 +15292,14 @@ function plcAgrega(meses) {
   partes.forEach(p => Object.entries(p.canais).forEach(([c, v]) => { canais[c] = (canais[c] || 0) + v; }));
   const recBruta = som(p => p.recBruta), pedidos = som(p => p.pedidos);
   const base = som(p => p.base), taxas = som(p => p.taxasCanais), deducoes = som(p => p.deducoes);
-  const recLiq = base - taxas - deducoes;
+  // 01/10/2026: a receita liquida e' a da DRE — sai tambem a comissao de vendedor
+  const comissoes = som(p => p.comissoes);
+  const recLiq = base - taxas - comissoes - deducoes;
   const pontes = meses.map(m => fxPonte(m)).filter(Boolean);
   const ps = c => pontes.reduce((a, p) => a + p[c], 0);
   return {
     meses, recBruta, pedidos, ticket: pedidos ? recBruta / pedidos : 0,
-    outras: som(p => p.outras), base, taxas, deducoes, recLiq, grupos,
+    outras: som(p => p.outras), base, taxas, comissoes, deducoes, recLiq, grupos,
     mc: recLiq - grupos.CUSTO, ebitda: som(p => p.ebitda), resultado: som(p => p.resultado),
     benef: som(p => p.benef), temFato: partes.every(p => p.temFato), canais,
     caixa: pontes.length ? ps('v') : null,
@@ -15320,7 +15334,8 @@ function plcComposicao(id, meses) {
   const porTipo = (tipos) => {
     const m = {};
     linhasDre.forEach(r => {
-      if (r.natureza !== 'DESPESAS' || r.tipo === 'INVESTIMENTOS' || !tipos.includes(r.tipo)) return;
+      // COMISSOES nao e' de grupo nenhum desde 01/10/2026: e' deducao da receita (como na DRE)
+      if (r.natureza !== 'DESPESAS' || r.tipo === 'INVESTIMENTOS' || !tipos.includes(r.tipo) || r.subtipo === 'COMISSOES') return;
       m[r.subtipo || r.tipo] = (m[r.subtipo || r.tipo] || 0) - (fxN(r.credito) - fxN(r.debito));
     });
     return Object.entries(m).map(([k, v]) => ({ k, v })).sort((a, b) => b.v - a.v);
@@ -15337,9 +15352,11 @@ function plcComposicao(id, meses) {
   if (id === 'venda') return porTipo(FX_GRUPOS.VENDA);
   if (id === 'admin') return porTipo(FX_GRUPOS.ADMIN);
   if (id === 'canal') {
-    const cf = FX_M.canal.filter(r => meses.includes(r.mes) && L.includes(r.unidade) && r.classe === 'CANAL' && r.linha !== 'ANUNCIOS');
+    // 01/10/2026: com os anuncios — o cartao e o balde agora sao a classe CANAL inteira,
+    // e cada cobranca leva o mesmo nome que a DRE mostra ao abrir as deducoes (rotulo)
+    const cf = FX_M.canal.filter(r => meses.includes(r.mes) && L.includes(r.unidade) && r.classe === 'CANAL');
     const m = {};
-    cf.forEach(r => { m[r.linha] = (m[r.linha] || 0) + fxN(r.custo); });
+    cf.forEach(r => { const k = r.rotulo || r.linha; m[k] = (m[k] || 0) + fxN(r.custo); });
     return Object.entries(m).map(([k, v]) => ({ k, v })).sort((x, y) => y.v - x.v);
   }
   return null;
@@ -15525,7 +15542,15 @@ function renderFechamento() {
   const rotAnt = ant ? `em relação a ${fxMesLongo(ant)}` : '';
   const serie = meses.map(fxMesCalc);
   const rots = meses.map(fxMesRot);
-  const M = FX_M.metas;
+  // 01/10/2026 (dono: "o mesmo numero tem de ser o mesmo em toda tela"): a meta e' a DO
+  // MES quando ela existe em fin_metas_dre_mes (o custo desce meio ponto por mes ate 32 em
+  // fev/27), senao a geral — a mesma regra do Placar (plcMeta). Ate aqui o Fechamento lia
+  // so a geral: de outubro em diante o mesmo mes sairia "dentro" aqui e "fora" no Placar.
+  const M = {};
+  Object.entries(FX_M.metas).forEach(([k, g]) => {
+    const pm = FX_M.metasMes ? FX_M.metasMes[k + '|' + mes] : undefined;
+    M[k] = { sentido: g.sentido, meta: pm === undefined ? g.meta : pm };
+  });
   const cem = v => a.base ? v / a.base * 100 : 0;
   let h = seletorLojaFin();
   h += `<div class="fx-cab-topo"><div><div class="fx-rotulo">Fechamento do mês · ${nomeLojaFin()}</div><h2 class="fx-h1">${fxMesLongo(mes)[0].toUpperCase() + fxMesLongo(mes).slice(1)} de ${mes.slice(0, 4)} em uma página</h2>
@@ -15543,8 +15568,9 @@ function renderFechamento() {
   h += `<div class="fx-nota">${a.outras > 0.5 ? `Além das vendas, entraram <b>${fxMil(a.outras)}</b> de outras receitas (${Object.entries(a.outrasDet).filter(([, v]) => Math.abs(v) > 0.5).sort((x, y) => y[1] - x[1]).map(([k, v]) => `${nomesOutras[k] || k.toLowerCase()} ${fxMil(v)}`).join(', ')}). Somando tudo, o mês movimentou <b>${fxMil(a.base)}</b>; é sobre esse total que a seção 2 divide os R$ 100.` : `O total do mês é <b>${fxMil(a.base)}</b>; é sobre ele que a seção 2 divide os R$ 100.`}</div>`;
   // 2. de cada R$ 100
   const baldes = x => [['CUSTO', 'Mercadoria', 'insumos, bebidas, embalagens (inclusive as de envio)', x.grupos.CUSTO], ['PESSOAL', 'Pessoas', 'salários, encargos, pró-labore', x.grupos.PESSOAL],
-    ['VENDA', 'Entrega, comercial e marketing', 'motoboys, anúncios, marketing', x.grupos.VENDA], ['ADMIN', 'A casa', 'aluguel, energia, gás, manutenção, sistemas', x.grupos.ADMIN],
-    ['TAXAS', 'Taxas dos canais e impostos', 'comissão e taxas do iFood e dos cartões, ICMS', x.taxasCanais + x.deducoes],
+    ['VENDA', 'Entrega, comercial e marketing', 'motoboys, marketing, fretes', x.grupos.VENDA], ['ADMIN', 'A casa', 'aluguel, energia, gás, manutenção, sistemas', x.grupos.ADMIN],
+    // 01/10/2026: o balde TAXAS e' a linha "(−) DEDUCOES DA RECEITA" da DRE, inteira
+    ['TAXAS', 'Taxas dos canais e impostos', 'promoções, anúncios, taxas do iFood e dos cartões, comissões, ICMS', x.taxasCanais + x.comissoes + x.deducoes],
     ['OUTROS', 'Juros, tarifas e outros', '', x.despFin - x.semClass + x.irpj + x.outrasDesp],
     // 28/09/2026 (dono): o rendimento vira linha propria, "entrada nao operacional". Antes ele
     // era descontado de "Juros, tarifas e outros" e deixava o balde negativo.
@@ -15599,6 +15625,9 @@ function renderFechamento() {
   if (FX_BALDE && podeAbrir(FX_BALDE)) {
     const bSel = ba.find(x => x[0] === FX_BALDE) || ['', FX_BALDE, '', 0, 0];
     const comp = (plcComposicao(FX_COMPOSICAO[FX_BALDE], [mes]) || []).filter(c => Math.abs(c.v) > 0.5);
+    // 01/10/2026: a comissao de vendedor entra em TAXAS com nome proprio (como na DRE),
+    // em vez de sumir na linha de resto junto com o ICMS.
+    if (FX_BALDE === 'TAXAS' && Math.abs(a.comissoes) > 0.5) comp.push({ k: 'Comissões de vendedores', v: a.comissoes });
     const resto = bSel[4] - comp.reduce((s, c) => s + c.v, 0);
     const linhasComp = Math.abs(resto) > 0.5
       ? comp.concat([{ k: FX_RESTO_ROT[FX_BALDE] || 'outros lançamentos deste balde', v: resto }])
@@ -16378,6 +16407,7 @@ let dreDe = null, dreAte = null;  // janela personalizada (mes 'AAAA-MM-DD' da v
 let DRE_MES_FIXO = null;
 const dreAberto = new Set();
 let DRE_METAS = null;    // fin_metas_dre: chave -> {sentido, meta}
+let DRE_METAS_MES = null; // fin_metas_dre_mes: 'chave|mes' -> % (01/10/2026: a meta do mes, quando existe)
 let DRE_FIN = null;      // vw_fin_dre_mensal: financeiro Saipos por COMPETENCIA (desde jan/26)
 let DRE_VENDAS = null;   // vw_vendas_canal_mensal: receita bruta por canal (PDV Saipos)
 let DRE_CANAL = null;    // vw_canal_custo_mes (3 lojas): custo dos canais por FATO, cada cobranca com nome
@@ -16507,8 +16537,8 @@ async function entrarDre() {
   const alvo = document.getElementById('view-dre');
   if (DRE_RAW === null) {   // DRE_FIN e derivado; quem diz se ja buscou e o cru
     alvo.innerHTML = '<div class="contexto">Carregando DRE...</div>';
-    let metas, benefMes;
-    [DRE_RAW, DRE_VENDAS_RAW, metas, BENEF_FAROL, benefMes, DRE_CANAL] = await Promise.all([
+    let metas, benefMes, metasMes;
+    [DRE_RAW, DRE_VENDAS_RAW, metas, BENEF_FAROL, benefMes, DRE_CANAL, metasMes] = await Promise.all([
       consultarTudo('vw_fin_dre_mensal?select=unidade,mes,natureza,tipo,subtipo,ordem,credito,debito&order=mes,ordem'),
       consultarTudo('vw_vendas_canal_mensal?select=unidade,mes,canal,vendas,receita&order=mes'),
       consultarTudo('fin_metas_dre?select=chave,sentido,pct_meta&order=ordem'),
@@ -16521,6 +16551,8 @@ async function entrarDre() {
       // custo dos canais por FATO nas 3 lojas (vw_canal_custo_mes, 03/09/2026):
       // cada cobranca do iFood e da Rede com nome — abre a linha de deducoes
       consultarTudo('vw_canal_custo_mes?select=mes,unidade,linha,classe,rotulo,custo&mes=gte.2026-01-01'),
+      // a meta do mes (01/10/2026), a mesma consulta do Fechamento/Placar; sem a tabela, segue so com a geral
+      consultarTudo('fin_metas_dre_mes?select=chave,mes,pct_meta').catch(() => []),
       garantirDadosFin(),   // DFC (caixa) para a ponte DRE x DFC do mes fechado
     ]);
     // A mercadoria que a filial compra da AV entra por COMPETENCIA e ja vem
@@ -16530,6 +16562,8 @@ async function entrarDre() {
     aplicarLojaFin();   // deriva DRE_FIN e DRE_VENDAS da loja escolhida
     DRE_METAS = {};
     metas.forEach(m => { DRE_METAS[m.chave] = { sentido: m.sentido, meta: Number(m.pct_meta) }; });
+    DRE_METAS_MES = {};
+    (metasMes || []).forEach(m => { DRE_METAS_MES[m.chave + '|' + m.mes] = Number(m.pct_meta); });
     DRE_BENEF_RAW = benefMes;
     aplicarBenefLoja();
   }
@@ -16694,12 +16728,44 @@ function renderModuloDRE() {
     ini0 = Math.max(0, nM - nExib);
   }
   const cols = meses.slice(ini0, fim0 + 1);
-  const totalJan = (v) => v.slice(ini0, fim0 + 1).reduce((s, x) => s + x, 0);
+  // ---- 01/10/2026 (dono: "o mesmo numero tem de ser o mesmo em toda tela") ----
+  // O TOTAL SOMA SO MESES FECHADOS, como o Placar. O mes em curso continua na tabela
+  // como coluna ("em curso"), mas fora da soma: ele tem a despesa do mes inteiro contra
+  // meia venda e puxava o Total, e o % do Total, para um numero que nenhuma outra tela
+  // mostra. Janela sem nenhum mes fechado: a coluna Total fica com traco.
+  const mesFechado = (i) => meses[i].slice(0, 7) < mesAtual;
+  const totalJan = (v) => { let s = 0; for (let i = ini0; i <= fim0; i++) if (mesFechado(i)) s += v[i]; return s; };
+  const temFechadoJan = cols.some((_, k) => mesFechado(ini0 + k));
   const baseAVTot = totalJan(baseAV);
+  // iF = o mes do bloco Fechamento la embaixo: o ultimo ja fechado dentro de [ini0, fim0];
+  // DRE_MES_FIXO (clique no cabecalho da coluna) manda quando cai dentro da janela. Subiu
+  // para ca porque o rotulo da meta de cada linha precisa dele antes de a tabela ser montada.
+  let iF = -1;
+  meses.forEach((m, i) => { if (i >= ini0 && i <= fim0 && m.slice(0, 7) < mesAtual) iF = i; });
+  if (DRE_MES_FIXO) {
+    const jF = meses.indexOf(DRE_MES_FIXO);
+    if (jF >= ini0 && jF <= fim0 && meses[jF].slice(0, 7) < mesAtual) iF = jF;
+  }
+  // A META E' A DO MES quando ela existe em fin_metas_dre_mes (o custo desce meio ponto
+  // por mes ate 32 em fev/27), senao a geral — a mesma regra do Placar (plcMeta). No Total,
+  // a media das metas dos meses somados PESADA PELA BASE, tambem como o Placar: media
+  // simples daria um numero que nao e' a meta de mes nenhum.
+  const metaTemMes = (chave, i) => !!DRE_METAS_MES && DRE_METAS_MES[chave + '|' + meses[i]] !== undefined;
+  const metaMes = (chave, i) => {
+    const g = DRE_METAS && DRE_METAS[chave];
+    if (!g) return null;
+    return { sentido: g.sentido, meta: metaTemMes(chave, i) ? DRE_METAS_MES[chave + '|' + meses[i]] : g.meta };
+  };
+  const metaTotal = (chave) => {
+    const g = DRE_METAS && DRE_METAS[chave];
+    if (!g) return null;
+    let num = 0, den = 0;
+    for (let i = ini0; i <= fim0; i++) if (mesFechado(i)) { num += metaMes(chave, i).meta * baseAV[i]; den += baseAV[i]; }
+    return den ? { sentido: g.sentido, meta: num / den } : g;
+  };
 
   // farol da analise vertical contra a meta (fin_metas_dre)
-  const corFarol = (metaChave, av) => {
-    const m = DRE_METAS && DRE_METAS[metaChave];
+  const corFarol = (m, av) => {
     if (!m || av === null) return null;
     const dist = m.sentido === 'abaixo' ? av - m.meta : m.meta - av;   // >0 = fora da meta
     if (dist <= 0) return 'var(--farol-ok)';
@@ -16711,7 +16777,7 @@ function renderModuloDRE() {
   // so aparece quando uma linha com meta esta fora dela (ambar = ate 10% de
   // distancia, vermelho = alem) — dentro da meta, nada pisca (decisao do
   // usuario: a versao com verde/vermelho em toda celula ficou carnavalesca).
-  const celula = (v, base, vAnt, kind, metaChave) => {
+  const celula = (v, base, vAnt, kind, meta) => {
     // linha de saida mostra o numero com sinal de menos (pedido do dono, 16/08:
     // "o olho le o numero, nao o titulo") — o % segue positivo.
     // Layout 16/08 a noite: % da receita AO LADO do numero, colorido pelo farol
@@ -16720,7 +16786,7 @@ function renderModuloDRE() {
     let avHtml = '';
     if (base) {
       const av = v / base * 100;
-      const cor = metaChave ? corFarol(metaChave, av) : null;
+      const cor = meta ? corFarol(meta, av) : null;
       avHtml = `<span class="dre-av"${cor ? ` style="color:${cor}; font-weight:700;"` : ''}>${pct(av)}%</span>`;
     }
     const valorHtml = `<div class="${vMostra < -0.005 ? 'negativo' : ''}">${fmt(vMostra)}${avHtml}</div>`;
@@ -16738,13 +16804,18 @@ function renderModuloDRE() {
     const attrs = chave ? ` class="${classe} clicavel" onclick="dreToggle('${chave}')"` : ` class="${classe}"`;
     let tds = '';
     for (let i = ini0; i <= fim0; i++) {
-      tds += celula(vals[i], baseAV[i], i > 0 ? vals[i - 1] : null, kind, metaChave);
+      tds += celula(vals[i], baseAV[i], i > 0 ? vals[i - 1] : null, kind, metaChave ? metaMes(metaChave, i) : null);
     }
-    tds += celula(totalJan(vals), baseAVTot, null, kind, metaChave);
+    tds += temFechadoJan ? celula(totalJan(vals), baseAVTot, null, kind, metaChave ? metaTotal(metaChave) : null) : '<td>—</td>';
     // a meta de referencia mora no rotulo da linha (fica visivel mesmo rolando
-    // os meses) — nas celulas so aparece o farol quando ela e' estourada
-    const m = metaChave && DRE_METAS ? DRE_METAS[metaChave] : null;
-    const metaTxt = m ? `<div><span class="meta-pill">🎯 meta: ${m.sentido === 'abaixo' ? 'até' : ''} ${pct(m.meta)}%${m.sentido === 'abaixo' ? '' : ' ou mais'} da receita</span></div>` : '';
+    // os meses) — nas celulas so aparece o farol quando ela e' estourada.
+    // 01/10/2026: quando a meta muda mes a mes, o rotulo mostra a do mes que esta no
+    // Fechamento la embaixo (sem mes fechado na janela, a da ultima coluna) e diz de que
+    // mes ela e'; cada coluna continua pintada contra a meta do proprio mes.
+    const iRot = iF >= 0 ? iF : fim0;
+    const m = metaChave ? metaMes(metaChave, iRot) : null;
+    const doMes = !!m && metaTemMes(metaChave, iRot);
+    const metaTxt = m ? `<div><span class="meta-pill"${doMes ? ' title="A meta desta linha muda mês a mês: cada coluna é pintada contra a meta do próprio mês."' : ''}>🎯 meta${doMes ? ' de ' + rotuloMes(meses[iRot]) : ''}: ${m.sentido === 'abaixo' ? 'até' : ''} ${pct(m.meta)}%${m.sentido === 'abaixo' ? '' : ' ou mais'} da receita</span></div>` : '';
     return `<tr${attrs}><td>${seta}${label}${metaTxt}</td>${tds}</tr>`;
   };
   const blocoSubtipos = (chave, pred, sinal, kind = null) => {
@@ -16805,16 +16876,7 @@ function renderModuloDRE() {
   }
   corpo += linha('dfc-resultado', '(=) RESULTADO OPERACIONAL', ebitda, { kind: 'ganho', metaChave: 'EBITDA' });
 
-  // Linha do beneficio iFood (aplicado da fila em 16/08/2026): o beneficio nao
-  // e receita nova — e comissao que o iFood deixou de cobrar, diluida em
-  // RECEITAS ONLINE. Lancar seria duplicar; por isso e linha DERIVADA de
-  // fato_pedidos (vw_fin_dre_beneficio), como ajuste de leitura. O recorrente
-  // e calculado aqui em cima do MESMO ebitda do painel, para nunca divergir.
-  const benefVals = meses.map(m => DRE_BENEF ? (DRE_BENEF[m] || 0) : 0);
-  if (benefVals.some(v => v > 0.005)) {
-    corpo += linha('dfc-linha', '(−) Benefício iFood embutido acima (comissão isenta)', benefVals, { kind: 'custo' });
-    corpo += linha('dfc-resultado', '(=) RESULTADO RECORRENTE (pagando comissão cheia)', ebitda.map((v, i) => v - benefVals[i]), { kind: 'ganho' });
-  }
+  // (o bloco do beneficio iFood desceu para depois do RESULTADO LIQUIDO em 01/10/2026)
 
   // 28/09/2026 (dono): "o rendimento da XP deve entrar em uma linha separada como entradas
   // nao operacionais chamada rendimento aplicacoes, pode somar com os rendimentos automaticos
@@ -16832,6 +16894,21 @@ function renderModuloDRE() {
     corpo += linha('dfc-linha', '(−) Imposto de renda (IRPJ)', irpj, { kind: 'custo' });
   }
   corpo += linha('dfc-resultado', '(=) RESULTADO LÍQUIDO', resultado, { kind: 'ganho', metaChave: 'RESULTADO' });
+
+  // Linha do beneficio iFood (aplicado da fila em 16/08/2026): o beneficio nao
+  // e receita nova — e comissao que o iFood deixou de cobrar, diluida em
+  // RECEITAS ONLINE. Lancar seria duplicar; por isso e linha DERIVADA de
+  // fato_pedidos (vw_fin_dre_beneficio), como ajuste de leitura.
+  // 01/10/2026 (dono: "o mesmo numero tem de ser o mesmo em toda tela"): o
+  // recorrente e' o resultado LIQUIDO menos o beneficio — a mesma conta do
+  // Fechamento do mes ("pagando comissao cheia, teria sobrado") e do Lucro por
+  // unidade (resultado_sem_beneficio). Ate aqui a DRE tirava o beneficio do
+  // resultado OPERACIONAL, e o mesmo nome dava dois numeros.
+  const benefVals = meses.map(m => DRE_BENEF ? (DRE_BENEF[m] || 0) : 0);
+  if (benefVals.some(v => v > 0.005)) {
+    corpo += linha('dfc-linha', '(−) Benefício iFood embutido acima (comissão isenta)', benefVals, { kind: 'custo' });
+    corpo += linha('dfc-resultado', '(=) RESULTADO RECORRENTE (pagando comissão cheia)', resultado.map((v, i) => v - benefVals[i]), { kind: 'ganho' });
+  }
 
   // ---- Abaixo do resultado (estrutura do Matheus, 03/09/2026): o que nao e'
   // resultado da operacao da loja mas mexe no dinheiro dela. ----
@@ -16881,19 +16958,13 @@ function renderModuloDRE() {
   // Matheus em 16/08/2026 — foto de UM mes fechado vs o anterior, status em
   // PALAVRA com a regua visivel, Prime Cost e ponto de equilibrio. Os numeros
   // sao 100% do Saipos: as fontes nunca se misturam, so a ideia veio de la.) ----
-  // iF sai de dentro do bloco: o cabecalho da tabela (bem mais abaixo) precisa saber
-  // qual mes esta no Fechamento para marcar a coluna.
-  let fechHtml = '', ponteHtml = '', iF = -1;
+  // iF (o mes que esta no Fechamento) e' calculado la em cima, junto da janela, desde
+  // 01/10/2026: o rotulo da meta de cada linha e o cabecalho da tabela precisam dele.
+  let fechHtml = '', ponteHtml = '';
   {
-    // O Fechamento agora OBEDECE A JANELA exibida (presets e De/Até). Antes ele varria a
+    // O Fechamento OBEDECE A JANELA exibida (presets e De/Até). Antes ele varria a
     // serie inteira: com De/Até em jun/26 a tabela terminava em junho e o Fechamento
-    // embaixo continuava sendo agosto. iF = ultimo mes ja fechado dentro de [ini0, fim0];
-    // DRE_MES_FIXO (clique no cabecalho da coluna) manda quando cai dentro da janela.
-    meses.forEach((m, i) => { if (i >= ini0 && i <= fim0 && m.slice(0, 7) < mesAtual) iF = i; });
-    if (DRE_MES_FIXO) {
-      const jF = meses.indexOf(DRE_MES_FIXO);
-      if (jF >= ini0 && jF <= fim0 && meses[jF].slice(0, 7) < mesAtual) iF = jF;
-    }
+    // embaixo continuava sendo agosto.
     if (iF >= 0 && recLiq[iF] > 0.005) {
       // ---- PONTE DRE x DFC (ultima ideia absorvida do fechamento do Matheus,
       // 16/08/2026): o lucro do papel virou caixa? Mesmos predicados nas duas
@@ -16979,8 +17050,9 @@ function renderModuloDRE() {
         const [cor, palavra] = dist <= 0 ? ['var(--farol-ok)', 'NA META'] : dist <= meta.meta * 0.10 ? ['var(--farol-perto)', 'PERTO DA META'] : ['var(--farol-fora)', 'FORA DA META'];
         return `<div class="card-pct"><b style="color:${cor};">${palavra}</b> · meta ${meta.sentido === 'abaixo' ? '≤' : '≥'} ${pct(meta.meta)}%</div>`;
       };
-      const mPrime = DRE_METAS && DRE_METAS.CUSTO && DRE_METAS.PESSOAL
-        ? { sentido: 'abaixo', meta: DRE_METAS.CUSTO.meta + DRE_METAS.PESSOAL.meta } : null;
+      // 01/10/2026: a meta do MES do Fechamento (iF), a mesma regra das colunas da tabela
+      const mPrime = metaMes('CUSTO', iF) && metaMes('PESSOAL', iF)
+        ? { sentido: 'abaixo', meta: metaMes('CUSTO', iF).meta + metaMes('PESSOAL', iF).meta } : null;
       const mCf = DRE_METAS && DRE_METAS.VENDA && DRE_METAS.ADMIN
         ? { sentido: 'abaixo', meta: DRE_METAS.VENDA.meta + DRE_METAS.ADMIN.meta } : null;
       // variacao vs mes anterior: palavra do fato, sem juizo (o status ja julga)
@@ -16998,7 +17070,7 @@ function renderModuloDRE() {
       <div class="section-label">Fechamento de ${rotuloMes(meses[iF])}${DRE_MES_FIXO === meses[iF] ? ' — mês fixado no clique' : ' — último mês fechado do período escolhido'}</div>
       <div class="cards cards-3">
         <div class="card ${resultado[iF] >= 0 ? 'pos' : 'neg'}"><div class="card-lbl">Resultado líquido do mês</div><div class="card-val">R$ ${fmt(resultado[iF])}</div>
-          ${statusDe(resPct, DRE_METAS && DRE_METAS.RESULTADO)}${varRS(resultado)}</div>
+          ${statusDe(resPct, metaMes('RESULTADO', iF))}${varRS(resultado)}</div>
         <div class="card"><div class="card-lbl">Prime Cost (CMV + pessoal)</div><div class="card-val">${pct(primePct)}%</div>
           ${statusDe(primePct, mPrime)}${varPP(primePct, antDe(primeArr))}</div>
         ${pe ? `<div class="card"><div class="card-lbl">Ponto de equilíbrio</div><div class="card-val">R$ ${fmt(pe)}</div>
@@ -17008,7 +17080,8 @@ function renderModuloDRE() {
         Os demais indicadores estão na própria tabela: o % ao lado de cada número é a fatia da receita bruta,
         colorido pela meta (verde dentro, âmbar perto, vermelho fora). Prime Cost = CMV + pessoal, os dois maiores
         custos da casa. Ponto de equilíbrio = (pessoal + comerciais + administrativas + outras) ÷ margem de
-        contribuição % — quanto precisava faturar para empatar. Metas editáveis na tabela <b>fin_metas_dre</b>.
+        contribuição % — quanto precisava faturar para empatar. Metas editáveis na tabela <b>fin_metas_dre</b>;
+        quando a meta muda mês a mês, vale a do mês (<b>fin_metas_dre_mes</b>), a mesma do Placar e do Fechamento do mês.
       </div>`;
     }
   }
@@ -17040,6 +17113,7 @@ function renderModuloDRE() {
   ${cols[cols.length - 1] && cols[cols.length - 1].slice(0, 7) === mesAtual ? `<div class="contexto" style="margin-top:12px;">
     <b>${rotuloMes(cols[cols.length - 1])} está em curso:</b> as despesas do mês entram quase todas de uma vez
     (competência já lançada), mas as vendas ainda estão acontecendo — <b>o mês fecha melhor do que aparece aqui</b>.
+    Por isso a coluna <b>Total</b> soma só os meses fechados, como o Placar.
     Compromissos já lançados para os próximos meses não entram nesta tabela: estão no <b>Fluxo projetado</b>.</div>` : ''}
   <details class="detalhes-extra" style="margin-top:12px;">
     <summary>📖 O que significa cada linha (guia rápido)</summary>
@@ -17058,6 +17132,7 @@ function renderModuloDRE() {
       <b>(−) Juros e tarifas</b> — juros, tarifas de banco e a antecipação da Rede.<br>
       <b>(−) Imposto de renda (IRPJ)</b> — imposto sobre o LUCRO (o imposto sobre a venda ficou lá em cima, nas deduções).<br>
       <b>(=) Resultado líquido</b> — o que sobrou no fim do mês: lucro ou prejuízo.<br>
+      <b>(=) Resultado recorrente</b> — o resultado líquido sem o benefício do iFood: o que teria sobrado pagando comissão cheia.<br>
       <b>Abaixo do resultado</b> — o que não é resultado da operação da loja, mas mexe no dinheiro dela: o lucro que as filiais repassam (total enviado menos a lista do mês, com o bônus do iFood dentro), investimentos, retiradas e aportes. A ordem e os nomes seguem o fechamento da MA Consultoria (03/09/2026); os cálculos são nossos.
     </div>
   </details>
@@ -17066,7 +17141,7 @@ function renderModuloDRE() {
       <tr><th></th>${cols.map(m => {
         if (m.slice(0, 7) === mesAtual) return `<th>${rotuloMes(m)}<div class="th-emcurso">em curso</div></th>`;
         return `<th style="cursor:pointer;" onclick="dreFixarMes('${m}')" title="clique para o Fechamento e a ponte lá embaixo mostrarem este mês">${rotuloMes(m)}${meses[iF] === m ? '<div class="th-emcurso">no fechamento</div>' : ''}</th>`;
-      }).join('')}<th>Total</th></tr>
+      }).join('')}<th>Total${cols.some(m => m.slice(0, 7) === mesAtual) ? '<div class="th-emcurso">só meses fechados</div>' : ''}</th></tr>
       ${corpo}
     </table>
   </div>
