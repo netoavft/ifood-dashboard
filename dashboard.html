@@ -12463,15 +12463,23 @@ function trEmbConta(qtd, fator) { return Math.round(Number(qtd || 0) / Number(fa
 // quebrado mostram so a medida, sem inventar contagem.
 function trQtdEmbTxt(qtd, un, cat) {
   const medida = `${trNum(qtd, 3)} ${(un || '').toLowerCase()}`;
-  if (!cat || !cat.emb_fator || cat.emb2_fator || (cat.un_medida || '') !== (un || '') || !Number(qtd)) return medida;
+  const n = trEmbQtdDe(qtd, un, cat);
+  if (n == null) return medida;
+  return `<b>${trNum(n)} ${trEmbPlural(cat.emb_nome, n)}</b> <span class="tr-det">· ${medida}</span>`;
+}
+// A REGRA do "fecha em embalagem", num lugar so (01/10/2026: o pedido e o documento de
+// fechamento usam a mesma): quantas embalagens ha em `qtd`, ou null quando nao da para
+// dizer — item sem embalagem na grade, de duas embalagens, linha em outra unidade, ou
+// numero que nao fecha em embalagem inteira ou meia.
+function trEmbQtdDe(qtd, un, cat) {
+  if (!cat || !cat.emb_fator || cat.emb2_fator || (cat.un_medida || '') !== (un || '') || !Number(qtd)) return null;
   // testa a razao CRUA: arredondar antes fazia 1 un de um rolo de 250 virar
   // "0 rolos" e 5 kg de uma caixa de 10,1 kg virar "0,5 caixa". A folga e so
   // para o erro de ponto flutuante e as 3 casas do banco; menos de meia
   // embalagem nunca vira contagem.
   const r = Number(qtd) / Number(cat.emb_fator);
-  if (r < 0.5 || Math.abs(r * 2 - Math.round(r * 2)) > 0.002) return medida;
-  const n = Math.round(r * 2) / 2;
-  return `<b>${trNum(n)} ${trEmbPlural(cat.emb_nome, n)}</b> <span class="tr-det">· ${medida}</span>`;
+  if (r < 0.5 || Math.abs(r * 2 - Math.round(r * 2)) > 0.002) return null;
+  return Math.round(r * 2) / 2;
 }
 // catalogo da filial por item (embalagem e unidade), para as telas depois do pedido
 async function trCatMapa(unidade) {
@@ -13968,6 +13976,7 @@ async function trTelaContas() {
       ${entradas.length ? 'Entrada que não baixou sozinha está no quadro de baixo.' : ''}
       ${dono ? 'Lance à mão só o que não passar pelo Saipos — nos dois lugares conta em dobro.' : ''}
       <span id="trContasMsg" style="font-size:12px; margin-left:6px;"></span></div>
+    ${trContasDocBloco(contas)}
     <div id="tabelaTrOpContas"><table>
       <tr><th>Quem deve</th><th>Para quem</th><th>Tipo</th><th>Referência</th><th>Itens</th><th>Frete</th><th>Royalty</th><th>Total</th><th>Já pago</th><th>Falta</th><th>Vencimento</th><th>Status</th><th>Validou</th>${dono ? '<th>Lançar pagamento</th>' : ''}</tr>
       ${contas.map(c => `<tr>
@@ -14113,10 +14122,10 @@ async function trTelaFechamento() {
     <div class="contexto" style="max-width:620px;">
       <b>Fechar o mês de uma filial</b> — só fecha se todas as listas do mês estiverem conferidas item a item.
       <div style="margin-top:8px;">
-        <select id="trFechUn" style="background:#232321; border:1px solid #34332f; border-radius:6px; color:#fff; padding:5px 8px;">
+        <select id="trFechUn" style="background:#232321; border:1px solid #34332f; border-radius:6px; color:#fff; padding:5px 8px; max-width:100%;">
           ${regras.map(g => `<option value="${g.unidade}">${g.unidade} — ${Number(g.dia_pagamento) >= 31 ? 'vence no último dia do mês seguinte' : 'vence dia ' + (g.dia_pagamento || '?') + ' do mês seguinte'}</option>`).join('')}
         </select>
-        <input type="month" id="trFechMes" value="${mesPassado}" style="background:#232321; border:1px solid #34332f; border-radius:6px; color:#fff; padding:4px 6px; margin-left:6px;">
+        <input type="month" id="trFechMes" min="${TR_FECH_DOC_INICIO}" value="${mesPassado}" style="background:#232321; border:1px solid #34332f; border-radius:6px; color:#fff; padding:4px 6px; margin-left:6px;">
         <button class="preset-btn" onclick="trFecharMes()">fechar mês</button>
       </div>
       <div id="trFechMsg" style="font-size:12px; margin-top:8px;"></div>
@@ -14164,6 +14173,15 @@ async function trTelaFechamento() {
 // iframe, no PDF numa janela de impressao (mesmo mecanismo de trImprimirSeparacao).
 // Sem as views no banco (arquivo ainda nao aplicado) o quadro nao aparece e a tela
 // fica como era.
+// O PRIMEIRO MES COM DOCUMENTO (dono, 01/10/2026: "pode esconder"): antes de agosto/2026
+// nao ha quadro, nem documento, nem mes no seletor — julho do Boqueirao sairia com uma linha
+// de diferenca de R$ 810,35 (a planilha final nao bate com as linhas guardadas). E o mesmo
+// corte do Historico (mes=gte.2026-08-01); o anterior vive nas planilhas aposentadas.
+const TR_FECH_DOC_INICIO = '2026-08';
+// O PRIMEIRO MES EM QUE A SEPARACAO PESA E CONTA (01/10/2026). Antes dele ninguem contava e o
+// documento deduz a embalagem da grade; dele em diante, peso sem contagem NAO vira embalagem
+// (a linha sem contagem e a que foi so pesada) — ver trFechDocEmb.
+const TR_FECH_CONTAGEM_INICIO = '2026-10';
 function trEscH(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 function trFechData(d) { return d ? String(d).slice(8, 10) + '/' + String(d).slice(5, 7) + '/' + String(d).slice(0, 4) : '—'; }
 function trFechMesTxt(mes) { return trMesNome(mes + '-01') + '/' + String(mes).slice(0, 4); }   // "setembro/2026"
@@ -14194,6 +14212,13 @@ async function trFechGeral() {
   if (!inp || !inp.value || !document.getElementById('trFechGeral')) return;
   const mes = inp.value;                       // AAAA-MM
   window._trFechMesSel = mes;
+  if (mes < TR_FECH_DOC_INICIO) {              // digitado a mao: o seletor ja nao oferece
+    window._trFechGeral = null;
+    document.getElementById('trFechGeral').innerHTML = `
+    <div class="section-label">Fechamento — ${trFechMesTxt(mes)}</div>
+    <div class="caption-label" style="text-align:center;">A conferência e o documento de fechamento começam em ${trFechMesTxt(TR_FECH_DOC_INICIO)}. O que veio antes está nas planilhas aposentadas.</div>`;
+    return;
+  }
   let r;
   try { r = await trFetch(`vw_tr_fech_doc_resumo?mes=eq.${mes}-01&order=unidade`); } catch (e) { return; }
   const alvo = document.getElementById('trFechGeral');
@@ -14262,6 +14287,7 @@ async function trFechGeral() {
 }
 // busca o documento de UMA filial no mes: o quadro, a tabela e as listas
 async function trFechDocDados(unidade, mes) {
+  if (String(mes) < TR_FECH_DOC_INICIO) return { erro: `Não há documento de ${trFechMesTxt(mes)} — o documento de fechamento começa em ${trFechMesTxt(TR_FECH_DOC_INICIO)}.` };
   const f = `unidade=eq.${encodeURIComponent(unidade)}&mes=eq.${mes}-01`;
   try {
     const rs = await Promise.all([
@@ -14273,7 +14299,11 @@ async function trFechDocDados(unidade, mes) {
     const res = (await rs[0].json())[0];
     if (!res) return { erro: `Não há lista de ${unidade} em ${trFechMesTxt(mes)}.` };
     if (res.valor_total == null) return { erro: 'Seu login não vê valores — o documento de fechamento não é gerado.' };
-    return { res, itens: await rs[1].json(), listas: await rs[2].json() };
+    // a grade da filial (embalagem e unidade de cada item), para escrever "8 rolos" ao lado
+    // de "2.000"; se ela nao vier, o documento sai so na unidade, como antes
+    let cat = {};
+    try { cat = await trCatMapa(unidade); } catch (e) { cat = {}; }
+    return { res, itens: await rs[1].json(), listas: await rs[2].json(), cat };
   } catch (e) { return { erro: 'Não consegui falar com o banco — tente de novo.' }; }
 }
 // O DOCUMENTO (um html so, para a tela e para o PDF): cabecalho, tabela categoria > item
@@ -14299,6 +14329,16 @@ function trFechDocHtml(d, opc = {}) {
   const cats = [];
   (d.itens || []).forEach(i => { let c = cats.find(x => x.nome === i.categoria); if (!c) cats.push(c = { nome: i.categoria, itens: [] }); c.itens.push(i); });
   let impresso = 0;                                   // em centavos
+  // a conta da grade so vale em mes inteiro do painel: a embalagem da grade descreve como o
+  // PAINEL pede; lista da era planilha tinha a unidade propria dela (CX, FD, RL)
+  const doPainel = (d.listas || []).length > 0 && d.listas.every(l => l.fonte === 'PAINEL');
+  let temEmb = false;
+  const emb = (i) => {
+    const x = trFechDocEmb(i, d.cat, doPainel, String(r.mes || '').slice(0, 7));
+    if (!x) return '';
+    temEmb = true;
+    return ` <span class="emb"><span class="pt">· </span>${trNum(x.n)} ${e(trEmbPlural(x.nome, x.n))}</span>`;
+  };
   const corpo = cats.map(c => {
     const sub = c.itens.reduce((s, i) => s + cent(i.valor), 0);
     impresso += sub;
@@ -14306,7 +14346,7 @@ function trFechDocHtml(d, opc = {}) {
     const qtdSub = uns.length === 1 ? trNum(c.itens.reduce((s, i) => s + nu(i.qtd), 0), 4) : '';
     return `<tr class="cat"><td colspan="4">${e(c.nome)}</td></tr>`
       + c.itens.map(i => `<tr><td>${e(i.item)}${previa && i.tem_aberta ? ' *' : ''}</td><td>${e(i.un || '')}</td>
-        <td class="n">${trNum(i.qtd, 4)}</td>
+        <td class="n">${trNum(i.qtd, 4)}${emb(i)}</td>
         <td class="n">${i.sem_preco ? (cent(i.valor) ? fmt(nu(i.valor)) + ' + sem preço' : 'sem preço') : i.sem_cobranca ? 'sem cobrança' : fmt(nu(i.valor))}</td></tr>`).join('')
       + `<tr class="sub"><td colspan="2">Total ${e(c.nome)}</td><td class="n">${qtdSub}</td><td class="n">${c.itens.every(i => i.sem_cobranca) ? 'sem cobrança' : fmt(sub / 100)}</td></tr>`;
   }).join('');
@@ -14370,6 +14410,7 @@ function trFechDocHtml(d, opc = {}) {
     td, th { border-bottom:1px solid #bbb; padding:3px 6px; text-align:left; vertical-align:top; }
     th { font-size:10px; text-transform:uppercase; color:#45443f; border-bottom:1.5px solid #000; }
     .n { text-align:right; white-space:nowrap; }
+    .emb { color:#45443f; }
     tr.cat { page-break-after:avoid; }
     tr.cat td { font-weight:bold; text-transform:uppercase; font-size:11px; padding-top:9px; border-bottom:1px solid #000; }
     tr.sub td { font-weight:bold; }
@@ -14383,7 +14424,7 @@ function trFechDocHtml(d, opc = {}) {
     .quadro tr.tot td { font-size:15px; border-bottom:none; }
     .rodape { margin-top:14px; font-size:10px; color:#45443f; }
     .naoimprime { float:right; padding:8px 14px; margin:0 0 8px 8px; }
-    @media (max-width:560px) { body { padding:10px; font-size:11.5px; } .topo, .fim { display:block; } .sit { display:inline-block; margin-top:8px; } .quadro { width:100%; margin-top:10px; } td, th { padding:4px 3px; } .naoimprime { float:none; display:block; width:100%; margin:0 0 10px; } }
+    @media (max-width:560px) { body { padding:10px; font-size:11.5px; } .topo, .fim { display:block; } .sit { display:inline-block; margin-top:8px; } .quadro { width:100%; margin-top:10px; } td, th { padding:4px 3px; } .emb { display:block; font-size:10.5px; } .emb .pt { display:none; } .naoimprime { float:none; display:block; width:100%; margin:0 0 10px; } }
     @media print { .naoimprime { display:none; } body { padding:0; } }
   </style></head><body><div class="folha">
     ${opc.botao ? '<button class="naoimprime" onclick="window.print()">Imprimir / salvar PDF</button>' : ''}
@@ -14408,24 +14449,34 @@ function trFechDocHtml(d, opc = {}) {
     ${listas ? `<h2>Listas do mês</h2>
     <table><thead><tr><th>Lista</th><th>Pedido</th><th>Entrega</th><th>Situação</th><th>Michiro levou</th><th class="n">Valor (R$)</th></tr></thead>
       <tbody>${listas}</tbody></table>` : ''}
-    <div class="rodape">Quantidade = a recebida na conferência (sem conferência, a separada). Valor = preço da tabela na data do pedido. O valor de cada lista é arredondado; vale o total do quadro.</div>
+    <div class="rodape">Quantidade = a recebida na conferência (sem conferência, a separada).${temEmb ? ' Rolos, pacotes e caixas = as embalagens contadas na separação e na conferência; nas listas sem contagem, a quantidade dividida pelo tamanho da embalagem do item.' : ''} Valor = preço da tabela na data do pedido. O valor de cada lista é arredondado; vale o total do quadro.</div>
   </div></body></html>`;
 }
 // "ver o documento": a mesma folha do PDF, na tela
 async function trFechDocVer(ix) {
   const g = window._trFechGeral;
+  if (!g) return;
+  const mes = g.mes;
+  return trFechDocAbrir(g.filiais[ix], mes, () => !!window._trFechGeral && window._trFechGeral.mes === mes);
+}
+// O documento de UMA filial num mes, na caixa #trFechDocTela da tela que estiver aberta
+// (Fechamento do mes ou Contas a pagar). `vale` diz se a tela ainda e a mesma quando a
+// resposta chega; e so o ULTIMO documento pedido e desenhado (clicar em dois seguidos nao
+// deixa o primeiro cair por cima do segundo).
+async function trFechDocAbrir(un, mes, vale) {
   let tela = document.getElementById('trFechDocTela');
-  if (!g || !tela) return;
-  const un = g.filiais[ix], mes = g.mes;
+  if (!tela) return;
+  const vez = window._trFechDocVez = (window._trFechDocVez || 0) + 1;
   tela.innerHTML = `<div class="contexto" style="margin-top:14px;">Montando o documento de ${trEscH(un)}...</div>`;
   const d = await trFechDocDados(un, mes);
   tela = document.getElementById('trFechDocTela');
-  if (!tela || !window._trFechGeral || window._trFechGeral.mes !== mes) return;
+  if (!tela || vez !== window._trFechDocVez || (vale && !vale())) return;
+  window._trFechDocAberto = { un, mes };
   if (d.erro) { tela.innerHTML = `<div class="contexto" style="margin-top:14px; border-color:var(--farol-fora);">${trEscH(d.erro)}</div>`; return; }
   tela.innerHTML = `
     <div class="section-label">Documento — ${trEscH(un)} · ${trFechMesTxt(mes)}</div>
     <div style="display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin-bottom:10px;">
-      <button class="preset-btn" onclick="trFechDocPdf(${ix})">Gerar PDF</button>
+      <button class="preset-btn" onclick="trFechDocPdfAberto()">Gerar PDF</button>
       <button class="preset-btn" onclick="document.getElementById('trFechDocTela').innerHTML=''">fechar o documento</button>
     </div>
     <iframe id="trFechDocFrame" title="Documento de fechamento" style="display:block; width:100%; max-width:860px; height:640px; margin:0 auto; border:1px solid var(--line); border-radius:10px; background:var(--tx-1);"></iframe>`;
@@ -14439,17 +14490,96 @@ async function trFechDocVer(ix) {
 async function trFechDocPdf(ix) {
   const g = window._trFechGeral;
   if (!g) return;
+  return trFechDocImprimir(g.filiais[ix], g.mes);
+}
+// o PDF do documento que esta aberto na tela (o botao de dentro da caixa do documento)
+function trFechDocPdfAberto() { const a = window._trFechDocAberto; if (a) return trFechDocImprimir(a.un, a.mes); }
+// (sem await antes do window.open: a janela tem de abrir dentro do clique)
+async function trFechDocImprimir(un, mes) {
   if (TR_OP && TR_OP.veValores === false) { alert('Seu login não vê valores — o documento de fechamento não é gerado.'); return; }
   const w = window.open('', '_blank');
   if (!w) { alert('O navegador bloqueou a janela de impressão — libere pop-ups para este site.'); return; }
   w.document.write('<p style="font-family:Arial, sans-serif;">Montando o documento...</p>');
-  const d = await trFechDocDados(g.filiais[ix], g.mes);
+  const d = await trFechDocDados(un, mes);
   w.document.open();
   if (d.erro) { w.document.write('<p style="font-family:Arial, sans-serif;">' + trEscH(d.erro) + '</p>'); w.document.close(); return; }
   w.document.write(trFechDocHtml(d, { botao: true }));
   w.document.close();
   w.focus();
   setTimeout(() => { try { w.print(); } catch (e) {} }, 400);
+}
+// EMBALAGENS NO DOCUMENTO (dono, 01/10/2026: "sim"). A quantidade sai na unidade do painel
+// (2.000 un) e, ao lado, em embalagens (8 rolos) — como no documento que ele montava a mao
+// ("4 RL", "3 PC"). Duas fontes, nesta ordem, e nenhuma inventa contagem:
+//  1. a separacao CONTOU as embalagens (de 01/10/2026 em diante): vale a contagem do banco
+//     (vw_tr_fech_doc_itens.emb_cont — a recebida; sem conferencia, a separada). O banco so a
+//     entrega quando TODAS as linhas do item no mes foram contadas; item com linha contada e
+//     linha nao contada fica so na unidade.
+//  2. item sem contagem nenhuma, em mes so de listas do painel (setembro/2026): a conta da
+//     grade, com a MESMA regra do pedido (trEmbQtdDe) — embalagem unica, na unidade da linha,
+//     fechando em embalagem inteira ou meia. Item de PESO VARIAVEL (T-bone) fica de fora: nele
+//     cada pacote pesa diferente, e peso nao diz quantos pacotes foram.
+// PESO (kg, litro) so vira contagem pela grade com DUAS garantias: o banco disse que nenhuma
+// linha foi contada (linhas_cont veio, e veio 0 — sem as colunas, arquivo ainda nao rodado,
+// nao ha garantia) E o mes e anterior a contagem (TR_FECH_CONTAGEM_INICIO). De outubro/2026
+// em diante a separacao pesa e conta: linha sem contagem e linha so PESADA, e peso pesado
+// dividido pelo tamanho da embalagem inventaria pacote quando fechasse por coincidencia.
+// O que e contado por unidade (un, rolo, caixa) vale sempre: ali a divisao e aritmetica exata.
+function trFechDocEmb(i, cat, doPainel, mes) {
+  const c = cat && cat[i.item];
+  const nome = String(i.emb_nome || (c && c.emb_nome) || '').split(' (')[0];   // "pacote", sem o "(20x130 g)"
+  if (!nome) return null;
+  let n = null;
+  if (Number(i.linhas_cont) > 0) n = i.emb_cont != null ? Number(i.emb_cont) : null;
+  else if (doPainel && !(c && c.peso_variavel)) {
+    const peso = ['KG', 'G', 'LT', 'L', 'ML'].includes(String(i.un || '').toUpperCase());
+    if (!peso || (i.linhas_cont != null && !!mes && String(mes) < TR_FECH_CONTAGEM_INICIO)) n = trEmbQtdDe(i.qtd, i.un, c);
+  }
+  return n != null && n > 0 ? { n, nome } : null;
+}
+// ---- O DOCUMENTO DE FECHAMENTO EM CONTAS A PAGAR (dono, 01/10/2026: "sim") ----
+// O financeiro (Hellen) e a filial que ve valores abrem aqui a mesma folha de Fechamento do
+// mes — "ver o documento" e "Gerar PDF" —, uma por cobranca MENSAL (filial x mes) desta
+// tela, de agosto/2026 em diante. A filial so escolhe entre as cobrancas da propria unidade,
+// e o banco so entrega a ela as linhas da propria unidade (vw_tr_fech_doc_*). Login sem
+// valores nao tem esta aba; se chegasse aqui, o bloco nao aparece e o banco nao da os R$.
+function trContasDocBloco(contas) {
+  window._trContasDocs = [];
+  if (!TR_OP || TR_OP.veValores === false) return '';
+  const docs = [];
+  (contas || []).forEach(c => {
+    const mes = String(c.mes_referencia || '').slice(0, 7);
+    if (c.tipo !== 'MENSAL' || c.credor === 'MICHIRO' || c.status === 'CANCELADA' || mes < TR_FECH_DOC_INICIO) return;
+    if (TR_OP.unidade && c.unidade !== TR_OP.unidade) return;
+    if (!docs.some(x => x.un === c.unidade && x.mes === mes)) docs.push({ un: c.unidade, mes });
+  });
+  if (!docs.length) return '';
+  docs.sort((a, b) => (a.mes < b.mes ? 1 : a.mes > b.mes ? -1 : String(a.un).localeCompare(String(b.un))));
+  window._trContasDocs = docs;
+  return `
+    <div class="contexto" style="margin:10px 0;">
+      <b>Documento de fechamento</b> — a folha do mês: os itens, o total e o vencimento${TR_OP.unidade ? '' : ' de cada filial'}.
+      <div style="margin-top:8px; display:flex; flex-wrap:wrap; gap:6px; align-items:center; justify-content:center;">
+        <select id="trContasDocSel" class="trc-in" style="max-width:100%;" aria-label="Filial e mês do documento">
+          ${docs.map((x, ix) => `<option value="${ix}">${trEscH(x.un)} · ${trFechMesTxt(x.mes)}</option>`).join('')}
+        </select>
+        <button class="preset-btn" onclick="trContasDocVer()">ver o documento</button>
+        <button class="preset-btn" onclick="trContasDocPdf()">Gerar PDF</button>
+      </div>
+    </div>
+    <div id="trFechDocTela"></div>`;
+}
+function trContasDocEscolhido() {
+  const s = document.getElementById('trContasDocSel');
+  return s ? (window._trContasDocs || [])[Number(s.value)] || null : null;
+}
+function trContasDocVer() {
+  const x = trContasDocEscolhido();
+  if (x) return trFechDocAbrir(x.un, x.mes, () => !!document.getElementById('trContasDocSel'));
+}
+function trContasDocPdf() {
+  const x = trContasDocEscolhido();
+  if (x) return trFechDocImprimir(x.un, x.mes);
 }
 // "fechar o mes" direto do quadro: a pergunta repete o numero que esta na tela, e
 // depois de fechar a tela le de volta o que ficou gravado e diz se e o mesmo.
