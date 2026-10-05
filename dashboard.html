@@ -1026,7 +1026,7 @@
       </details>
     </div>
 
-    <div style="display:flex; justify-content:center; margin-bottom:20px; border-bottom:1px solid #34332f; padding-top:20px; padding-bottom:20px;">
+    <div id="limparFiltrosBar" style="display:flex; justify-content:center; margin-bottom:20px; border-bottom:1px solid #34332f; padding-top:20px; padding-bottom:20px;">
       <button onclick="resetFiltros()">Limpar filtros</button>
     </div>
 
@@ -1821,6 +1821,12 @@ function mostrarModulo(nome) {
   if (rodape) rodape.style.display = MODULOS_COM_RODAPE.has(nome) ? '' : 'none';
   const filtros = document.getElementById('filtrosTopo');
   if (filtros) filtros.style.display = MODULOS_COM_FILTRO_TOPO.has(nome) ? 'flex' : 'none';
+  // Atendimento e' tela de ferramenta do delivery: a visao de rede e o "Limpar
+  // filtros" nao agem nela, e para quem esta atendendo sao so ruido no topo.
+  ['perimetroBar', 'limparFiltrosBar'].forEach(id => {
+    const barra = document.getElementById(id);
+    if (barra) barra.style.display = (nome === 'atendimento') ? 'none' : 'flex';
+  });
   const modulos = {
     estasemana: ['modulo-estasemana', 'navBtnEstaSemana'],
     resumo: ['modulo-resumo', 'navBtnResumo'],
@@ -4110,7 +4116,7 @@ function renderModuloAtendimento() {
   const grupos = ['Todas', ...new Set(ATD.respostas.map(r => r.grupo))];
   const campo = 'background:var(--surface-2); border:1px solid var(--line); color:var(--tx-1); border-radius:8px; font-family:inherit;';
   const cartoes = ATD.respostas.map(r => `
-    <div class="atd-cartao" data-grupo="${atdEsc(r.grupo)}" data-busca="${atdEsc((r.situacao + ' ' + (r.quando_usar || '') + ' ' + r.texto).toLowerCase())}"
+    <div class="atd-cartao" data-grupo="${atdEsc(r.grupo)}" data-busca="${atdEsc(atdNorm(r.grupo + ' ' + r.situacao + ' ' + (r.quando_usar || '') + ' ' + r.texto))}"
          style="background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:14px 16px; margin-bottom:12px;">
       <div style="display:flex; justify-content:space-between; gap:12px; align-items:baseline; flex-wrap:wrap;">
         <div style="color:var(--tx-1); font-weight:700; font-size:15px;">${atdEsc(r.situacao)}</div>
@@ -4118,10 +4124,10 @@ function renderModuloAtendimento() {
       </div>
       ${r.quando_usar ? `<div style="color:var(--tx-3); font-size:12.5px; margin-top:6px;"><b style="color:var(--farol-ok);">Usar quando:</b> ${atdEsc(r.quando_usar)}</div>` : ''}
       ${r.quando_nao ? `<div style="color:var(--tx-3); font-size:12.5px; margin-top:3px;"><b style="color:var(--farol-fora);">Atenção:</b> ${atdEsc(r.quando_nao)}</div>` : ''}
-      <textarea id="atdTxt_${r.codigo}" rows="${Math.max(3, Math.ceil(r.texto.length / 95))}"
+      <textarea id="atdTxt_${r.codigo}" rows="${Math.max(2, Math.ceil(r.texto.length / 95))}" oninput="atdAjustar(this)"
                 style="${campo} width:100%; box-sizing:border-box; margin-top:10px; padding:10px 12px; font-size:14px; line-height:1.5; resize:vertical;">${atdEsc(r.texto)}</textarea>
       <div style="display:flex; gap:12px; align-items:center; margin-top:8px; flex-wrap:wrap;">
-        <button class="preset-btn" onclick="atdCopiar('${r.codigo}')">Copiar resposta</button>
+        <button class="preset-btn" style="color:var(--tx-1); font-size:13px; padding:8px 16px;" onclick="atdCopiar('${r.codigo}')">Copiar resposta</button>
         <span id="atdMsg_${r.codigo}" style="font-size:12.5px; color:var(--tx-3);"></span>
       </div>
       ${r.depois ? `<div style="color:var(--tx-4); font-size:12.5px; margin-top:8px;"><b>Depois:</b> ${atdEsc(r.depois)}</div>` : ''}
@@ -4146,7 +4152,20 @@ function renderModuloAtendimento() {
         <span id="atdNovoMsg" style="font-size:12.5px; color:var(--tx-3);"></span>
       </div>
     </div>`;
+  document.querySelectorAll('#atdLista textarea').forEach(atdAjustar);
   atdFiltrar();
+}
+
+// Sem acento e em minusculas: quem atende digita "nao atende", "endereco".
+function atdNorm(s) {
+  return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+}
+
+// A caixa acompanha o tamanho do texto, inclusive quando a pessoa cola a
+// descricao do prato. Com a tela escondida scrollHeight vem zero: ai vale o rows.
+function atdAjustar(t) {
+  t.style.height = 'auto';
+  if (t.scrollHeight) t.style.height = (t.scrollHeight + 2) + 'px';
 }
 
 function atdGrupo(btn) {
@@ -4158,14 +4177,16 @@ function atdGrupo(btn) {
 // Filtra escondendo cartao, sem redesenhar: redesenhar apagaria o que a pessoa
 // ja preencheu nas caixas de texto.
 function atdFiltrar() {
-  const termo = (document.getElementById('atdBusca').value || '').trim().toLowerCase();
-  let vivos = 0;
-  document.querySelectorAll('.atd-cartao').forEach(c => {
-    const ok = (ATD.grupo === 'Todas' || c.dataset.grupo === ATD.grupo) && (!termo || c.dataset.busca.includes(termo));
-    c.style.display = ok ? '' : 'none';
-    if (ok) vivos++;
-  });
-  document.getElementById('atdVazio').style.display = vivos ? 'none' : '';
+  const palavras = atdNorm(document.getElementById('atdBusca').value).split(/\s+/).filter(Boolean);
+  const cartoes = [...document.querySelectorAll('.atd-cartao')];
+  const acha = termos => cartoes.filter(c => (ATD.grupo === 'Todas' || c.dataset.grupo === ATD.grupo)
+                                          && termos.every(t => c.dataset.busca.includes(t)));
+  let vivos = acha(palavras);
+  // Nada com a palavra inteira: tenta pelo comeco dela ("atrasado" acha
+  // "atraso", "demorou" acha "demora") antes de mandar a pessoa descrever o caso.
+  if (!vivos.length && palavras.length) vivos = acha(palavras.map(t => t.slice(0, 5)));
+  cartoes.forEach(c => { c.style.display = vivos.includes(c) ? '' : 'none'; });
+  document.getElementById('atdVazio').style.display = vivos.length ? 'none' : '';
 }
 
 // O que ainda esta por preencher no texto: hora, valor, opcao entre colchetes e
@@ -4189,8 +4210,19 @@ async function atdCopiar(codigo) {
     msg.textContent = 'Falta preencher: ' + falta.join(', ') + '.';
     return;
   }
+  let copiou = true;
   try { await navigator.clipboard.writeText(texto); }
-  catch (e) { const t = document.getElementById('atdTxt_' + codigo); t.select(); document.execCommand('copy'); }
+  catch (e) {
+    const t = document.getElementById('atdTxt_' + codigo);
+    t.select();
+    try { copiou = document.execCommand('copy'); } catch (e2) { copiou = false; }
+  }
+  // dizer "Copiado" sem ter copiado faz a pessoa colar no chat o que estava antes
+  if (!copiou) {
+    msg.style.color = 'var(--farol-fora)';
+    msg.textContent = 'Não consegui copiar sozinho. O texto está selecionado: aperte Ctrl+C.';
+    return;
+  }
   msg.style.color = 'var(--farol-ok)';
   msg.textContent = 'Copiado. Cole no chat do Gestor de Pedidos.';
   // registro de uso: falhar aqui nao pode atrapalhar quem esta atendendo
