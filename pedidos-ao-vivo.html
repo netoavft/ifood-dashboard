@@ -41,6 +41,19 @@
   (o duplo clique no botão de som caía nele); botão de som de largura fixa; com -SemSom não há botão
   de som nem som nenhum (e o -SemSom é lembrado sem internet); unidade escolhida guardada POR
   ambiente (a do ?teste=1 não filtra mais a tela da loja).
+  05/10/2026 — decisão do dono: a API do iFood não é PDV; a única função de vigia é avisar o operador
+  do delivery que o Saipos parou. O vigia tem dois modos (coluna `modo` do pulso):
+    status   (padrão em produção) só lê a SITUAÇÃO DAS LOJAS no iFood, uma vez por minuto. A tela mostra
+             o bloco "Situação das lojas" e o aviso vermelho "LOJA FORA DO AR NO IFOOD — o Saipos pode
+             ter parado" (loja no horário e sem conexão em 2 conferências seguidas; pulso
+             lojas_fora_do_ar). As partes de pedidos ao vivo ficam escondidas, com uma frase dizendo que
+             ainda não estão ligadas; o indicador do topo diz há quanto tempo as lojas foram conferidas.
+    eventos  tudo como antes (pedidos ao vivo) + o bloco e o aviso das lojas.
+  O aviso de loja fora do ar NÃO passa pelo filtro de unidade (revisão de 05/10: clicar numa unidade
+  escondia o vermelho das outras): aparece sempre, com todas as unidades. Som: a mesma sirene do
+  vermelho, com o mesmo "Ouvi — parar o som", e nada toca no modo sem som (-SemSom).
+  Pulso ANTIGO (sem `modo` nem `lojas_situacao`) ou nenhum pulso: a tela funciona como antes — o bloco e
+  o aviso das lojas só não aparecem.
   Cores: os tokens do :root do docs/dashboard.html (mesmos nomes e valores), sem cor nova.
   Instalação e o que fazer quando algo falha: rotinas/VIGIA-PEDIDOS-IFOOD.md.
 -->
@@ -141,6 +154,21 @@
   .nota-mudo { border:1px dashed var(--line-2); color:var(--tx-3); border-radius:8px; padding:8px 12px;
     font-size:13px; margin-bottom:12px; }
 
+  /* situação das lojas no iFood (05/10/2026): um quadro por unidade, uma linha por loja.
+     Nomes de classe próprios (uni-, lj-, s-): ".fora" já é a faixa do aviso sem funcionar. */
+  .lojas-sit { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:10px; margin-bottom:6px; }
+  .uni { background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:10px 13px; }
+  .uni.uni-grave { border-color:var(--farol-fora); border-width:2px; }
+  .uni.uni-atencao { border-color:var(--farol-perto); }
+  .uni-nome { display:flex; justify-content:space-between; align-items:baseline; gap:8px; font-size:15px; font-weight:800; margin-bottom:4px; }
+  .uni-nome small { color:var(--tx-4); font-weight:600; font-size:12px; }
+  .lj { display:flex; justify-content:space-between; align-items:baseline; gap:10px; font-size:13px; padding:4px 0; border-top:1px solid var(--line); }
+  .lj-nome { color:var(--tx-2); min-width:0; }
+  .lj-sit { font-weight:700; text-align:right; }
+  .lj-sit.s-ok { color:var(--farol-ok); } .lj-sit.s-fora { color:var(--farol-fora); }
+  .lj-sit.s-perto { color:var(--farol-perto); } .lj-sit.s-cinza { color:var(--tx-4); }
+  .lj-sub { display:block; color:var(--tx-5); font-weight:600; font-size:11.5px; }
+
   /* cards (mesmo desenho do painel) */
   .cards { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin-bottom:22px; }
   @media (max-width:760px) { .cards { grid-template-columns:repeat(2,minmax(0,1fr)); } }
@@ -234,6 +262,19 @@
 
   <nav class="unidades" id="unidades"></nav>
 
+  <!-- LOJA FORA DO AR (05/10/2026): nível próprio, separado do aviso de pedidos parados. Fica ACIMA de
+       tudo e NÃO passa pelo filtro de unidade. Texto igual ao que o vigia grava (fora_do_ar_texto). -->
+  <section id="lojasFora" class="aviso" hidden>
+    <div class="aviso-titulo">⚠ LOJA FORA DO AR NO IFOOD — o Saipos pode ter parado</div>
+    <div class="aviso-texto" id="lojasForaTexto"></div>
+    <div class="aviso-acao"><b>O que fazer:</b> confira se o Saipos está aberto e funcionando nesta unidade. Enquanto estiver assim, a loja não recebe pedido do iFood.</div>
+    <div class="aviso-volta" id="lojasForaOutra" hidden></div>
+    <div class="aviso-rodape">
+      <button class="btn-ouvi" id="btnOuviLojas" onclick="ouviLojas()">Ouvi — parar o som</button>
+      <span class="aviso-calado" id="lojasForaCalado" hidden>Som parado. Volta a tocar se outra loja ficar fora do ar.</span>
+    </div>
+  </section>
+
   <section id="aviso" class="aviso" hidden>
     <div class="aviso-titulo" id="avisoTitulo"></div>
     <div class="aviso-texto" id="avisoTexto"></div>
@@ -247,6 +288,15 @@
 
   <section id="foraDoAr" class="fora" hidden><span id="foraTexto"></span> <button class="btn" id="btnCalarFalha" onclick="calarFalha()" hidden>Ouvi — parar o bip</button></section>
 
+  <div id="blocoLojas" hidden>
+    <h2 class="section-label">Situação das lojas <small id="lojasLegenda"></small></h2>
+    <div id="listaLojas" class="lojas-sit"></div>
+  </div>
+
+  <div id="notaSemPedidos" class="nota-mudo" hidden>Os pedidos ao vivo ainda não estão ligados nesta tela. Por enquanto ela mostra a situação das lojas no iFood e avisa quando uma loja fica fora do ar — sinal de que o Saipos pode ter parado.</div>
+
+  <!-- tudo o que depende dos pedidos ao vivo: escondido enquanto o vigia roda no modo "status" -->
+  <div id="blocoPedidos">
   <div class="cards" id="cards"></div>
 
   <h2 class="section-label">Esperando confirmação <small id="espLegenda"></small></h2>
@@ -261,6 +311,7 @@
 
   <h2 class="section-label">Pedidos de hoje <span id="chipLoja"></span></h2>
   <div class="tabela" id="tabelaPedidos"></div>
+  </div><!-- /blocoPedidos -->
 
   <h2 class="section-label" id="casos">Casos para avaliar <small id="casosLegenda">pedidos confirmados com mais de 6 min ou cancelados porque ninguém confirmou — últimos 30 dias</small></h2>
   <p class="nota">O Saipos confirma os pedidos sozinho: isto não deveria acontecer. O mais grave é o pedido que o iFood cancelou porque ninguém confirmou. Vários na mesma unidade, com pouco tempo de diferença, indicam que o Saipos ficou instável.</p>
@@ -280,6 +331,8 @@ const AMBIENTE = new URLSearchParams(location.search).get('teste') === '1' ? 'sa
 const LER_A_CADA_MS = 20000;
 const PULSO_VELHO_S = 120;        // vigia sem pulso há mais que isto = fora do ar
 const SEM_IFOOD_S = 90;           // vigia sem polling OK há mais que isto = cego (o vigia marca aos 60)
+const SEM_STATUS_S = 150;         // situação das lojas sem leitura boa há mais que isto = não vale (o vigia lê
+                                  // a cada 60 s e, no modo status, marca "sem resposta do iFood" aos 180)
 const VOLTA_ANOTACAO_S = 300;     // "o vigia acabou de voltar" vale por isto (o vigia grava por 5 min — rodada 5)
 const SEM_INTERNET_S = 45;        // leituras desta tela falhando há mais que isto = tela sem internet
 const LEITURA_TETO_MS = 15000;    // leitura que não responde em 15 s conta como falha (fetch pendurado
@@ -724,19 +777,73 @@ function estado() {
   const semPulso = (p.segundos_sem_pulso || 0) + d;
   if (p.desligado_em) return { tipo: 'DESLIGADO', semPulso };
   if (semPulso > PULSO_VELHO_S) return { tipo: 'PARADO', semPulso };
+  if (p.modo === 'status') {
+    // modo status (05/10/2026): não existe polling de eventos. "Falando com o iFood" = a situação das
+    // lojas foi lida há pouco (segundos_sem_status, idade calculada no banco + tempo desde a leitura)
+    const semStatus = idadeStatus();
+    if (p.aviso_nivel === 'SEM_IFOOD' || semStatus == null || semStatus > SEM_STATUS_S)
+      return { tipo: 'SEM_IFOOD', semPulso, semIfood: semStatus };
+    return { tipo: 'NO_AR', semPulso, semIfood: semStatus };
+  }
   const semIfood = p.segundos_sem_ifood == null ? null : p.segundos_sem_ifood + d;
   if (p.aviso_nivel === 'SEM_IFOOD' || semIfood == null || semIfood > SEM_IFOOD_S)
     return { tipo: 'SEM_IFOOD', semPulso, semIfood };
   return { tipo: 'NO_AR', semPulso, semIfood };
 }
+// ---- situação das lojas (05/10/2026). Pulso antigo (sem `modo`, sem `lojas_situacao`) ou nenhum
+// pulso: tudo aqui devolve "não tem" e a tela segue como era.
+function modoStatus() { return !!S.pulso && S.pulso.modo === 'status'; }
+function temSituacao() { return !!S.pulso && Array.isArray(S.pulso.lojas_situacao); }
+function idadeStatus() {
+  const p = S.pulso;
+  return (!p || p.segundos_sem_status == null) ? null : p.segundos_sem_status + decorrido();
+}
+function statusFresco() { const i = idadeStatus(); return i != null && i <= SEM_STATUS_S; }
+// a situação de cada loja, sem entrada nula ou que não seja objeto (o vigia nunca manda, mas a tela não
+// pode quebrar se vier — revisão de 05/10)
+function lojasSituacao() { return temSituacao() ? S.pulso.lojas_situacao.filter(x => x && typeof x === 'object') : []; }
+// lojas de que o iFood respondeu SEM dizer se estão conectadas (DESCONHECIDA): nunca tocam a sirene, mas
+// é o aviso mudo — aparecem em laranja e na faixa de baixo
+function lojasMudas() { return statusFresco() ? lojasSituacao().filter(x => x.situacao === 'DESCONHECIDA') : []; }
+// o iFood não disse a conexão de NENHUMA loja aberta: o aviso de loja fora do ar não tem como funcionar
+function todasMudas() {
+  const sabidas = ['ABERTA', 'FECHADA_IFOOD', 'SEM_CONEXAO', 'FORA_DO_AR'];
+  return lojasMudas().length > 0 && !lojasSituacao().some(x => sabidas.includes(x.situacao));
+}
+// MODO EVENTOS: o polling vai bem, mas a leitura das lojas morreu (ou nunca aconteceu, com o vigia já de
+// pé há mais de 5 pollings) — o aviso de loja fora do ar está morto e o topo diria "Aviso ligado"
+function avisoLojasMorto() {
+  const p = S.pulso;
+  if (!p || p.modo !== 'eventos' || estado().tipo !== 'NO_AR') return false;
+  const i = idadeStatus();
+  if (i == null) return (p.consultas || 0) > 5;
+  return i > SEM_STATUS_S || todasMudas();
+}
+// Lojas FORA DO AR (no horário e sem conexão em 2 conferências seguidas — quem decide é o vigia). Só
+// valem com o vigia de pé e a situação lida há pouco: memória velha daria aviso falso. De propósito
+// NÃO passa por naUnidade(): o filtro de unidade nunca esconde loja fora do ar de outra unidade.
+function lojasFora() {
+  const p = S.pulso;
+  if (!p || !Array.isArray(p.lojas_fora_do_ar) || !p.lojas_fora_do_ar.length) return [];
+  const t = estado().tipo;
+  if (t === 'SEM_INTERNET' || t === 'PARADO' || t === 'DESLIGADO' || t === 'NUNCA') return [];
+  return statusFresco() ? p.lojas_fora_do_ar.filter(x => x && x.m) : [];
+}
+function chaveLoja(x) { return 'loja:' + x.m + ':' + (x.desde || ''); }   // caiu de novo = toca de novo
+function juntar(nomes) { return nomes.length < 2 ? nomes.join('') : nomes.slice(0, -1).join(', ') + ' e ' + nomes[nomes.length - 1]; }
 function naUnidade(u) { return S.unidade === 'TODAS' || u === S.unidade; }
 function pedidosFiltrados() { return S.pedidos.filter(p => naUnidade(p.unidade)); }
 function nivelDo(x) { return x.aviso || (x.alarme ? 'ALARME' : 'ATENCAO'); }
+// os pedidos do aviso que vieram no pulso, sem entrada nula e só se for lista (a tela não quebra com lixo)
+function avisoPedidos() {
+  const a = S.pulso && S.pulso.aviso_pedidos;
+  return Array.isArray(a) ? a.filter(x => x && typeof x === 'object') : [];
+}
 // pedidos do aviso num nível (ALARME ou CONFIRMAR), só da unidade escolhida e só com o vigia no ar
 function avisos(nivel) {
   const p = S.pulso;
-  if (!p || estado().tipo !== 'NO_AR') return [];
-  return (p.aviso_pedidos || []).filter(x => nivelDo(x) === nivel && naUnidade(x.unidade));
+  if (!p || estado().tipo !== 'NO_AR' || modoStatus()) return [];   // modo status: não há aviso de pedidos
+  return avisoPedidos().filter(x => nivelDo(x) === nivel && naUnidade(x.unidade));
 }
 function chaveSom(x) { return x.id + ':' + nivelDo(x); }       // subir de nível toca de novo
 // o vigia acabou de voltar (reinício ou 90 s ou mais sem ler o iFood) — rodada 5: NADA sai do aviso por
@@ -769,7 +876,11 @@ function media(xs) {
 // ------------------------------------------------------------------ desenho
 function desenhar() {
   document.getElementById('faixaTeste').hidden = AMBIENTE !== 'sandbox';
-  desenharStatus(); desenharUnidades(); desenharAviso(); desenharCards();
+  // modo status: as partes de pedidos ao vivo ficam escondidas, com a frase dizendo por quê
+  const soLojas = modoStatus();
+  document.getElementById('blocoPedidos').hidden = soLojas;
+  document.getElementById('notaSemPedidos').hidden = !soLojas;
+  desenharStatus(); desenharUnidades(); desenharAvisoLojas(); desenharAviso(); desenharSituacaoLojas(); desenharCards();
   desenharEsperando(); desenharLojas(); desenharCancelados(); desenharPedidos(); desenharCasos();
   desenharRodape(); desenharSom();
 }
@@ -778,6 +889,7 @@ function desenharStatus() {
   const chip = document.getElementById('statusVigia'), t = document.getElementById('statusTexto');
   const v = estado();
   if (v.tipo === 'SEM_INTERNET') { chip.className = 'chip fora'; t.textContent = 'Esta tela está sem internet'; }
+  else if (v.tipo === 'NO_AR' && modoStatus()) { chip.className = 'chip ok'; t.textContent = 'Aviso ligado · lojas conferidas no iFood há ' + duracao(v.semIfood); }
   else if (v.tipo === 'NO_AR') { chip.className = 'chip ok'; t.textContent = 'Aviso ligado · iFood conferido há ' + duracao(v.semIfood); }
   else if (v.tipo === 'SEM_IFOOD') { chip.className = 'chip perto'; t.textContent = 'Aviso sem resposta do iFood' + (v.semIfood != null ? ' há ' + duracao(v.semIfood) : ''); }
   else { chip.className = 'chip fora'; t.textContent = 'Aviso desligado'; }
@@ -786,16 +898,98 @@ function desenharStatus() {
 
 function desenharUnidades() {
   const cont = {};
-  S.pedidos.forEach(p => { cont[p.unidade] = (cont[p.unidade] || 0) + 1; });
+  // modo status: não há pedidos — os botões saem das lojas (o número é o de lojas da unidade)
+  const fonte = modoStatus() && temSituacao() ? lojasSituacao() : S.pedidos;
+  fonte.forEach(p => { cont[p.unidade] = (cont[p.unidade] || 0) + 1; });
   const us = Object.keys(cont).sort((a, b) => ORDEM_UNIDADE.indexOf(a) - ORDEM_UNIDADE.indexOf(b));
   if (S.unidade !== 'TODAS' && !us.includes(S.unidade)) us.push(S.unidade);
-  const botoes = [['TODAS', 'Todas as unidades', S.pedidos.length]].concat(us.map(u => [u, nomeUnidade(u), cont[u] || 0]));
+  const botoes = [['TODAS', 'Todas as unidades', fonte.length]].concat(us.map(u => [u, nomeUnidade(u), cont[u] || 0]));
   porHtml(document.getElementById('unidades'), botoes.map(([u, nome, n]) =>
     `<button class="${S.unidade === u ? 'active' : ''}" onclick="escolherUnidade('${esc(u)}')">${esc(nome)}<span class="n">${n}</span></button>`).join(''));
 }
 function escolherUnidade(u) {
   if (cliqueAtravessou()) return;                // clique que era para a faixa de som que sumiu
   S.unidade = u; S.loja = null; gravarLocal(CHAVE_UNIDADE, u === 'TODAS' ? null : u); desenhar();
+}
+
+// LOJA FORA DO AR NO IFOOD (05/10/2026). Todas as unidades, sempre — o filtro não entra aqui.
+function desenharAvisoLojas() {
+  const box = document.getElementById('lojasFora'), fora = lojasFora();
+  if (!fora.length) { box.hidden = true; return; }
+  const d = (S.pulso.segundos_sem_pulso || 0) + decorrido();
+  const porUnidade = {};
+  fora.forEach(x => { (porUnidade[x.unidade] = porUnidade[x.unidade] || []).push(x); });
+  const us = Object.keys(porUnidade).sort((a, b) => ORDEM_UNIDADE.indexOf(a) - ORDEM_UNIDADE.indexOf(b));
+  porHtml(document.getElementById('lojasForaTexto'), us.map(u => {
+    const xs = porUnidade[u].slice().sort((a, b) => (b.segundos || 0) - (a.segundos || 0));
+    return `${esc(nomeUnidade(u))}: ${esc(juntar(xs.map(x => x.loja || '?')))} — há ${duracao((xs[0].segundos || 0) + d)}`;
+  }).join('<br>'));
+  const outra = document.getElementById('lojasForaOutra');
+  const deOutra = S.unidade !== 'TODAS' && us.some(u => u !== S.unidade);
+  outra.hidden = !deOutra;
+  outra.textContent = deOutra ? `Você está vendo só ${nomeUnidade(S.unidade)}, mas há aviso em outra unidade: ` +
+    juntar(us.filter(u => u !== S.unidade).map(nomeUnidade)) + '.' : '';
+  const calado = fora.every(x => S.silenciados.has(chaveLoja(x)));
+  const mudo = mudoPeloNeto();                     // tela sem som (-SemSom): não há som para parar
+  box.classList.toggle('calado', calado);
+  document.getElementById('lojasForaCalado').hidden = !calado || mudo;
+  document.getElementById('btnOuviLojas').hidden = calado || mudo;
+  box.hidden = false;
+  fora.forEach(x => notificar(chaveLoja(x), 'LOJA FORA DO AR NO IFOOD — o Saipos pode ter parado',
+    `${x.loja || 'Loja'} (${nomeUnidade(x.unidade)}) sem conexão com o iFood há ${duracao((x.segundos || 0) + d)}. ` +
+    'Confira se o Saipos está aberto e funcionando.'));
+}
+function ouviLojas() { lojasFora().forEach(x => S.silenciados.add(chaveLoja(x))); desenharAvisoLojas(); }
+
+// "Situação das lojas": por unidade, cada loja com o estado em palavras simples. O texto do próprio
+// iFood (titulo) entra quando ajuda. Aqui o filtro de unidade vale (o aviso vermelho, acima, não filtra).
+const SITUACAO_LOJA = {
+  ABERTA:        ['Aberta', 's-ok'],
+  FECHADA:       ['Fechada — fora do horário', 's-cinza'],
+  FORA_DO_AR:    ['FORA DO AR', 's-fora'],
+  SEM_CONEXAO:   ['Sem conexão — conferindo', 's-perto'],
+  FECHADA_IFOOD: ['Fechada no iFood', 's-perto'],
+  SEM_LEITURA:   ['sem leitura', 's-cinza'],
+  DESCONHECIDA:  ['sem informação do iFood', 's-perto'],
+};
+function situacaoDaLoja(x, d) {
+  const [nome, cls] = SITUACAO_LOJA[x.situacao] || [x.situacao || '—', 's-cinza'];
+  let texto = nome, sub = '';
+  if (x.situacao === 'FORA_DO_AR') {
+    if (x.segundos != null) texto += ' há ' + duracao(x.segundos + d);
+    sub = 'no horário e sem conexão com o iFood';
+  } else if (x.situacao === 'SEM_CONEXAO' && x.folga === 'abertura') { texto = 'Ainda não conectou'; sub = 'o horário acabou de abrir — a tela avisa se continuar assim'; }
+  else if (x.situacao === 'SEM_CONEXAO' && x.folga === 'fechamento') { texto = 'Sem conexão'; sub = 'perto da hora de fechar'; }
+  else if (x.situacao === 'SEM_CONEXAO') sub = x.no_horario === true ? 'confirma na próxima conferência' : 'não deu para saber o horário desta loja';
+  else if (x.situacao === 'FECHADA_IFOOD') sub = x.titulo ? 'o iFood diz: ' + x.titulo : 'o iFood diz que não está recebendo pedido';
+  else if (x.situacao === 'SEM_LEITURA') sub = 'o iFood não respondeu sobre esta loja';
+  else if (x.situacao === 'DESCONHECIDA') sub = 'o iFood não disse se a loja está conectada' + (x.titulo ? ' (diz: ' + x.titulo + ')' : '');
+  return `<span class="lj-sit ${cls}">${esc(texto)}${sub ? `<span class="lj-sub">${esc(sub)}</span>` : ''}</span>`;
+}
+function desenharSituacaoLojas() {
+  const bloco = document.getElementById('blocoLojas');
+  if (!temSituacao()) { bloco.hidden = true; return; }       // pulso antigo ou vigia ainda sem a 1ª leitura
+  const todas = lojasSituacao().filter(x => naUnidade(x.unidade));
+  const d = (S.pulso.segundos_sem_pulso || 0) + decorrido(), idade = idadeStatus(), tipo = estado().tipo;
+  const parado = tipo === 'PARADO' || tipo === 'DESLIGADO';
+  document.getElementById('lojasLegenda').textContent =
+    parado ? 'o aviso está parado: esta é a última situação lida, pode estar errada'
+    : idade == null ? 'ainda sem leitura do iFood'
+    : !statusFresco() ? 'sem leitura do iFood há ' + duracao(idade) + ' — pode estar desatualizada'
+    : 'conferida no iFood há ' + duracao(idade);
+  const porUnidade = {};
+  todas.forEach(x => { (porUnidade[x.unidade] = porUnidade[x.unidade] || []).push(x); });
+  const us = Object.keys(porUnidade).sort((a, b) => ORDEM_UNIDADE.indexOf(a) - ORDEM_UNIDADE.indexOf(b));
+  porHtml(document.getElementById('listaLojas'), us.length ? us.map(u => {
+    const xs = porUnidade[u], abertas = xs.filter(x => x.situacao === 'ABERTA').length;
+    const grave = xs.some(x => x.situacao === 'FORA_DO_AR');
+    const atencao = !grave && xs.some(x => ['SEM_CONEXAO', 'FECHADA_IFOOD', 'SEM_LEITURA', 'DESCONHECIDA'].includes(x.situacao));
+    return `<div class="uni ${grave ? 'uni-grave' : atencao ? 'uni-atencao' : ''}">` +
+      `<div class="uni-nome">${esc(nomeUnidade(u))}<small>${abertas} de ${xs.length} aberta${abertas === 1 ? '' : 's'}</small></div>` +
+      xs.map(x => `<div class="lj"><span class="lj-nome">${esc(x.loja || '?')}</span>${situacaoDaLoja(x, d)}</div>`).join('') +
+      '</div>';
+  }).join('') : '<div class="vazio">Nenhuma loja nesta unidade.</div>');
+  bloco.hidden = false;
 }
 
 // "Pedido #1234 (Loja)" — sem número, "Pedido da Loja" (sem repetir a loja entre parênteses)
@@ -843,13 +1037,21 @@ function desenharAviso() {
   }
   // faixa "o aviso não está funcionando" — cada caso com o que fazer
   const onde = 'Se o Saipos parar de imprimir, abra o Gestor de Pedidos do iFood.';
+  // modo status: o aviso que existe é o de loja fora do ar (sem pulso não há modo: fica o texto de sempre)
+  const soLojas = modoStatus();
+  const nomeAviso = soLojas ? 'O aviso de loja fora do ar' : 'O aviso de pedidos parados';
+  const naoAvisa = soLojas ? 'Loja fora do ar NÃO será avisada agora.' : 'Pedidos parados NÃO serão avisados agora.';
+  // lojas que o iFood não deixou ler agora (só com a situação lida há pouco; senão a faixa de cima já diz)
+  const semLeitura = statusFresco() ? lojasSituacao().filter(x => x.situacao === 'SEM_LEITURA') : [];
+  const mudas = lojasMudas(), lojasMorto = avisoLojasMorto();
   let html = '', grave = true;
   if (v.tipo === 'SEM_INTERNET') html = `<b>Esta tela está sem internet há ${duracao(v.seg)}.</b> Os pedidos e o aviso não chegam aqui. Confira a internet deste computador. ${onde}`;
-  else if (v.tipo === 'PARADO') html = `<b>O aviso de pedidos parados está desligado há ${duracao(v.semPulso)}</b> (o programa no computador das rotinas parou). ${onde} Avise o Neto.`;
-  else if (v.tipo === 'DESLIGADO') html = `<b>O aviso de pedidos parados foi desligado às ${horaBR(S.pulso.desligado_em)}.</b> ${onde} Avise o Neto.`;
+  else if (v.tipo === 'PARADO') html = `<b>${nomeAviso} está desligado há ${duracao(v.semPulso)}</b> (o programa no computador das rotinas parou). ${onde} Avise o Neto.`;
+  else if (v.tipo === 'DESLIGADO') html = `<b>${nomeAviso} foi desligado às ${horaBR(S.pulso.desligado_em)}.</b> ${onde} Avise o Neto.`;
   else if (v.tipo === 'NUNCA') html = `<b>O aviso de pedidos parados ainda não foi ligado.</b> ${onde}`;
-  else if (v.tipo === 'SEM_IFOOD') html = `<b>O aviso não consegue falar com o iFood${v.semIfood != null ? ' há ' + duracao(v.semIfood) : ''}.</b> Pedidos parados NÃO serão avisados agora. ${onde} Avise o Neto.`;
-  else if (S.pulso && ((S.pulso.lojas_sem_permissao || []).length || (S.pulso.lojas_sem_detalhe || []).length)) {
+  else if (v.tipo === 'SEM_IFOOD' && soLojas && todasMudas()) html = `<b>O iFood parou de dizer se as lojas estão conectadas.</b> ${naoAvisa} ${onde} Avise o Neto.`;
+  else if (v.tipo === 'SEM_IFOOD') html = `<b>O aviso não consegue falar com o iFood${v.semIfood != null ? ' há ' + duracao(v.semIfood) : ''}.</b> ${naoAvisa} ${onde} Avise o Neto.`;
+  else if (S.pulso && ((S.pulso.lojas_sem_permissao || []).length || (S.pulso.lojas_sem_detalhe || []).length || semLeitura.length || mudas.length || lojasMorto)) {
     const n = (S.pulso.lojas_sem_permissao || []).length, m = (S.pulso.lojas_sem_detalhe || []).length;
     // QUAIS lojas (rodada 3): nome e unidade vêm da view (lojas_sem_aviso); sem ela, só a contagem
     const nomes = (S.pulso.lojas_sem_aviso || []).map(x => x.loja +
@@ -860,6 +1062,17 @@ function desenharAviso() {
                        `Nas outras o aviso funciona.`);
     if (m) partes.push(`<b>${m} loja${m > 1 ? 's' : ''} sem o número do pedido</b> na tela (falta permissão no iFood). ` +
                        `O aviso funciona ${m > 1 ? 'nelas' : 'nela'}; o pedido aparece pelo nome da loja.`);
+    const k = semLeitura.length;
+    if (k) partes.push(`<b>${k} loja${k > 1 ? 's' : ''} sem leitura no iFood: ${esc(juntar(semLeitura.map(x => x.loja || '?')))}</b> ` +
+                       `(o iFood não respondeu sobre ${k > 1 ? 'elas' : 'ela'}). Se ${k > 1 ? 'uma delas' : 'ela'} ficar fora do ar, a tela não avisa.`);
+    // modo eventos com a leitura das lojas morta: o polling vai bem e o topo diz "Aviso ligado", mas o
+    // aviso de loja fora do ar não funciona — dito aqui (revisão de 05/10; antes só a legenda pequena dizia)
+    if (lojasMorto) partes.unshift('<b>O aviso de loja fora do ar não está funcionando</b> (o iFood não responde sobre as lojas' +
+                                   (idadeStatus() != null && !statusFresco() ? ' há ' + duracao(idadeStatus()) : '') +
+                                   '). O aviso de pedidos parados segue funcionando.');
+    const q = lojasMorto ? 0 : mudas.length;
+    if (q) partes.push(`<b>${q} loja${q > 1 ? 's' : ''} sem informação do iFood: ${esc(juntar(mudas.map(x => x.loja || '?')))}</b> ` +
+                       `(o iFood não disse se ${q > 1 ? 'estão conectadas' : 'está conectada'}). Se ${q > 1 ? 'uma delas' : 'ela'} ficar fora do ar, a tela não avisa.`);
     html = partes.join(' ') + ' Avise o Neto.';
     grave = false;
   }
@@ -872,6 +1085,7 @@ function desenharAviso() {
   document.getElementById('btnCalarFalha').hidden = !podeCalar;
   // título e ícone da aba (aba fixada só mostra o ícone)
   if (alarme.length) { document.title = '⚠ PEDIDOS PARADOS'; mudarIcone('alarme'); }
+  else if (lojasFora().length) { document.title = '⚠ LOJA FORA DO AR'; mudarIcone('alarme'); }
   else if (lembrete.length) { document.title = '⏱ CONFIRMAR PEDIDO'; mudarIcone('lembrete'); }
   else if (v.tipo !== 'NO_AR') { document.title = '⚠ AVISO SEM FUNCIONAR'; mudarIcone('falha'); }
   else { document.title = 'Pedidos ao vivo'; mudarIcone(null); }
@@ -902,7 +1116,7 @@ function desenharEsperando() {
     .sort((a, b) => b.segundos_esperando - a.segundos_esperando);
   document.getElementById('espLegenda').textContent = v.tipo === 'NO_AR' ? '' : 'o aviso não está funcionando: estes tempos podem estar errados';
   const atencao = v.tipo === 'NO_AR' && !avisos('ALARME').length && !avisos('CONFIRMAR').length &&
-    (S.pulso.aviso_pedidos || []).some(x => nivelDo(x) === 'ATENCAO' && naUnidade(x.unidade));
+    avisoPedidos().some(x => nivelDo(x) === 'ATENCAO' && naUnidade(x.unidade));
   const nota = document.getElementById('notaAtencao');
   nota.hidden = !atencao;
   nota.textContent = 'Pedido esperando há mais de 3 min. Acontece algumas vezes por dia; se aparecer outro, confira o Saipos.';
@@ -1022,10 +1236,14 @@ function desenharRodape() {
   const s = sessao();
   const notif = podeNotificar() && Notification.permission === 'default'
     ? ' <button class="btn" onclick="pedirNotificacao()">Avisar também no canto da tela do Windows</button>' : '';
-  document.getElementById('rodape').innerHTML = esc(
-    `Vermelho: ${r.pedidos_mesma_unidade} ou mais pedidos da mesma unidade sem confirmar há ${r.minutos_parado} min ` +
+  const regraLojas = 'loja dentro do horário e sem conexão com o iFood em 2 conferências seguidas (o Saipos pode ter parado)';
+  document.getElementById('rodape').innerHTML = esc((modoStatus()
+    ? `Vermelho: ${regraLojas}. Os pedidos ao vivo ainda não estão ligados. ` +
+      `Esta tela lê a cada ${LER_A_CADA_MS / 1000} s e não confirma nada.`
+    : `Vermelho: ${r.pedidos_mesma_unidade} ou mais pedidos da mesma unidade sem confirmar há ${r.minutos_parado} min ` +
     `(o Saipos pode ter caído). Laranja: 1 pedido sem confirmar há ${r.minutos_qualquer} min (confirme no Gestor; ` +
-    `o iFood cancela sozinho perto de 8 min). Esta tela lê a cada ${LER_A_CADA_MS / 1000} s e não confirma nada.` +
+    `o iFood cancela sozinho perto de 8 min). ` + (temSituacao() ? `Loja fora do ar: ${regraLojas}. ` : '') +
+    `Esta tela lê a cada ${LER_A_CADA_MS / 1000} s e não confirma nada.`) +
     (S.lidoHora ? ` Última leitura ${S.lidoHora.toLocaleTimeString('pt-BR')}.` : '') +
     (s && s.email ? ` Conta: ${s.email}.` : '')) + notif;
 }
@@ -1046,12 +1264,14 @@ function tique() {
     el.textContent = (el.dataset.prefixo || '') + relogioTexto(Number(el.dataset.base) + d);
   });
   desenharStatus();
-  if (Math.floor(d) % 5 === 0) desenharAviso();
+  if (Math.floor(d) % 5 === 0) { desenharAvisoLojas(); desenharAviso(); desenharSituacaoLojas(); }
   if (mudoPeloNeto()) return;
   const v = estado();
   if (S.falhaCalada && v.tipo !== S.falhaCalada) S.falhaCalada = null;   // mudou a falha: volta a apitar
   const soar = x => !S.silenciados.has(chaveSom(x));
-  if (avisos('ALARME').some(soar)) {
+  const soarLoja = x => !S.silenciados.has(chaveLoja(x));
+  // loja fora do ar toca a MESMA sirene do vermelho, no mesmo ritmo (e some com o "Ouvi" dela)
+  if (avisos('ALARME').some(soar) || lojasFora().some(soarLoja)) {
     if (agora - S.ultimoSom > SIRENE_A_CADA_S * 1000 && tocar('sirene')) S.ultimoSom = agora;
   } else if (avisos('CONFIRMAR').some(soar)) {
     if (agora - S.ultimoSom > LEMBRETE_A_CADA_S * 1000 && tocar('lembrete')) S.ultimoSom = agora;
