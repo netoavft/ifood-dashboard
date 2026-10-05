@@ -4226,6 +4226,11 @@ async function atdCopiar(codigo) {
   }
   msg.style.color = 'var(--farol-ok)';
   msg.textContent = 'Copiado. Cole no chat do Gestor de Pedidos.';
+  // A caixa volta ao modelo: com "12:40" ja digitado o Copiar nao recusaria
+  // mais, e o proximo cliente receberia o horario deste.
+  const modelo = ATD.respostas.find(r => r.codigo === codigo);
+  const caixa = document.getElementById('atdTxt_' + codigo);
+  if (modelo && caixa) { caixa.value = modelo.texto; atdAjustar(caixa); }
   // registro de uso: falhar aqui nao pode atrapalhar quem esta atendendo
   try { await trFetch('atd_casos', { method: 'POST', body: JSON.stringify({ tipo: 'USO', codigo }) }); } catch (e) {}
 }
