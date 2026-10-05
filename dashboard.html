@@ -4158,7 +4158,7 @@ function renderModuloAtendimento() {
 
 // Sem acento e em minusculas: quem atende digita "nao atende", "endereco".
 function atdNorm(s) {
-  return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  return String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 }
 
 // A caixa acompanha o tamanho do texto, inclusive quando a pessoa cola a
