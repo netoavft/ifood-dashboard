@@ -911,6 +911,7 @@
       <button class="sidebar-btn" id="navBtnPromocoes" onclick="mostrarModulo('promocoes')"><span class="mico">🏷️</span>Promoções</button>
       <button class="sidebar-btn" id="navBtnCancelamentos" onclick="mostrarModulo('cancelamentos')"><span class="mico">🚫</span>Cancelamentos</button>
       <button class="sidebar-btn" id="navBtnContestacoes" onclick="mostrarModulo('contestacoes')"><span class="mico">⚖️</span>Contestações</button>
+      <button class="sidebar-btn" id="navBtnAtendimento" onclick="mostrarModulo('atendimento')"><span class="mico">💬</span>Atendimento ao cliente</button>
       <button class="sidebar-btn" id="navBtnNegociacoes" onclick="mostrarModulo('negociacoes')"><span class="mico">🤝</span>Negociações</button>
       <button class="sidebar-btn" id="navBtnAvaliacoes" onclick="mostrarModulo('avaliacoes')"><span class="mico">⭐</span>Avaliações</button>
       <button class="sidebar-btn" id="navBtnQualidade" onclick="mostrarModulo('qualidade')"><span class="mico">🏅</span>Qualidade &amp; Super</button>
@@ -1051,6 +1052,10 @@
 
     <div id="modulo-contestacoes" class="modulo" style="display:none;">
       <div id="view-contestacoes"></div>
+    </div>
+
+    <div id="modulo-atendimento" class="modulo" style="display:none;">
+      <div id="view-atendimento"></div>
     </div>
 
     <div id="modulo-rotinas" class="modulo" style="display:none;">
@@ -1825,6 +1830,7 @@ function mostrarModulo(nome) {
     avaliacoes: ['modulo-avaliacoes', 'navBtnAvaliacoes'],
     relatorios: ['modulo-relatorios', 'navBtnRelatorios'],
     contestacoes: ['modulo-contestacoes', 'navBtnContestacoes'],
+    atendimento: ['modulo-atendimento', 'navBtnAtendimento'],
     cardapio: ['modulo-cardapio', 'navBtnCardapio'],
     clientes: ['modulo-clientes', 'navBtnClientes'],
     site: ['modulo-site', 'navBtnSite'],
@@ -1924,6 +1930,7 @@ function mostrarModulo(nome) {
   if (nome === 'avaliacoes') entrarAvaliacoes();
   if (nome === 'relatorios') entrarRelatorios();
   if (nome === 'contestacoes') entrarContestacoes();
+  if (nome === 'atendimento') entrarAtendimento();
   if (nome === 'estasemana') entrarEstaSemana();
   if (nome === 'qualidade') entrarQualidade();
   if (nome === 'evolucao') entrarEvolucao();
@@ -4067,6 +4074,151 @@ const ROTINAS_CONHECIDAS = [
   { id: 'extracao-mensal-clientes',          nome: 'Extração de clientes',   quando: 'Dia 03, 13:30' },
 ];
 let ROTINAS_TIMER = null;
+
+// ------------------------------------------------------------------
+// ATENDIMENTO AO CLIENTE (05/10/2026) — o banco de respostas-padrao que o
+// delivery cola no chat do Gestor de Pedidos. A fonte e' atd_respostas
+// (script/atendimento.sql), a mesma lista de rotinas/textos-contestacao.md,
+// secao "RESPOSTAS AO CLIENTE". Copiar grava um USO em atd_casos; situacao
+// sem resposta vira um caso NOVO, que a rotina de contestacao leva ao dono.
+// A caixa de texto e' editavel de proposito: a pessoa troca HH:MM e os campos
+// em MAIUSCULAS, e o Copiar recusa enquanto sobrar campo por preencher —
+// "HH:MM" indo para o cliente e' pior do que nao responder.
+// ------------------------------------------------------------------
+const ATD = { respostas: null, grupo: 'Todas' };
+
+function atdEsc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
+
+async function entrarAtendimento() {
+  const alvo = document.getElementById('view-atendimento');
+  if (!ATD.respostas) {
+    alvo.innerHTML = '<div class="contexto">Carregando respostas...</div>';
+    try {
+      ATD.respostas = await consultarTudo('atd_respostas?select=codigo,grupo,situacao,quando_usar,quando_nao,texto,depois&ativo=eq.true&order=ordem');
+    } catch (e) {
+      alvo.innerHTML = '<div class="contexto">Não foi possível carregar as respostas. Recarregue a página.</div>';
+      return;
+    }
+  }
+  renderModuloAtendimento();
+}
+
+function renderModuloAtendimento() {
+  const alvo = document.getElementById('view-atendimento');
+  const grupos = ['Todas', ...new Set(ATD.respostas.map(r => r.grupo))];
+  const campo = 'background:var(--surface-2); border:1px solid var(--line); color:var(--tx-1); border-radius:8px; font-family:inherit;';
+  const cartoes = ATD.respostas.map(r => `
+    <div class="atd-cartao" data-grupo="${atdEsc(r.grupo)}" data-busca="${atdEsc((r.situacao + ' ' + (r.quando_usar || '') + ' ' + r.texto).toLowerCase())}"
+         style="background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:14px 16px; margin-bottom:12px;">
+      <div style="display:flex; justify-content:space-between; gap:12px; align-items:baseline; flex-wrap:wrap;">
+        <div style="color:var(--tx-1); font-weight:700; font-size:15px;">${atdEsc(r.situacao)}</div>
+        <div style="color:var(--tx-5); font-size:11px; text-transform:uppercase; letter-spacing:.6px;">${atdEsc(r.grupo)}</div>
+      </div>
+      ${r.quando_usar ? `<div style="color:var(--tx-3); font-size:12.5px; margin-top:6px;"><b style="color:var(--farol-ok);">Usar quando:</b> ${atdEsc(r.quando_usar)}</div>` : ''}
+      ${r.quando_nao ? `<div style="color:var(--tx-3); font-size:12.5px; margin-top:3px;"><b style="color:var(--farol-fora);">Atenção:</b> ${atdEsc(r.quando_nao)}</div>` : ''}
+      <textarea id="atdTxt_${r.codigo}" rows="${Math.max(3, Math.ceil(r.texto.length / 95))}"
+                style="${campo} width:100%; box-sizing:border-box; margin-top:10px; padding:10px 12px; font-size:14px; line-height:1.5; resize:vertical;">${atdEsc(r.texto)}</textarea>
+      <div style="display:flex; gap:12px; align-items:center; margin-top:8px; flex-wrap:wrap;">
+        <button class="preset-btn" onclick="atdCopiar('${r.codigo}')">Copiar resposta</button>
+        <span id="atdMsg_${r.codigo}" style="font-size:12.5px; color:var(--tx-3);"></span>
+      </div>
+      ${r.depois ? `<div style="color:var(--tx-4); font-size:12.5px; margin-top:8px;"><b>Depois:</b> ${atdEsc(r.depois)}</div>` : ''}
+    </div>`).join('');
+
+  alvo.innerHTML = `
+    <div class="section-label" style="border-top:none; margin-top:4px; padding-top:4px;">Atendimento ao cliente</div>
+    <div class="contexto"><b>Discorde sem pedir desculpas</b> · só ofereça reembolso ou reenvio quando a conferência mostrar que o erro foi nosso · <b>nunca acuse o cliente</b></div>
+    <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:14px 0;">
+      <input id="atdBusca" type="search" placeholder="Buscar: atraso, faltou, não atende, pelo…" oninput="atdFiltrar()"
+             style="${campo} flex:1; min-width:220px; padding:9px 12px; font-size:14px;">
+      ${grupos.map(g => `<button class="preset-btn atd-grupo${g === ATD.grupo ? ' active' : ''}" data-g="${atdEsc(g)}" onclick="atdGrupo(this)">${atdEsc(g)}</button>`).join('')}
+    </div>
+    <div id="atdLista">${cartoes}</div>
+    <div id="atdVazio" class="contexto" style="display:none;">Nenhuma resposta para essa busca. Descreva a situação abaixo.</div>
+    <div style="background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:14px 16px; margin-top:18px;">
+      <div style="color:var(--tx-1); font-weight:700; font-size:15px;">Não achei a minha situação</div>
+      <textarea id="atdNovo" rows="3" placeholder="O que o cliente escreveu e o que aconteceu com o pedido (número, horários)."
+                style="${campo} width:100%; box-sizing:border-box; margin-top:10px; padding:10px 12px; font-size:14px; line-height:1.5; resize:vertical;"></textarea>
+      <div style="display:flex; gap:12px; align-items:center; margin-top:8px; flex-wrap:wrap;">
+        <button class="preset-btn" onclick="atdEnviarNovo()">Enviar para análise</button>
+        <span id="atdNovoMsg" style="font-size:12.5px; color:var(--tx-3);"></span>
+      </div>
+    </div>`;
+  atdFiltrar();
+}
+
+function atdGrupo(btn) {
+  ATD.grupo = btn.dataset.g;
+  document.querySelectorAll('.atd-grupo').forEach(b => b.classList.toggle('active', b === btn));
+  atdFiltrar();
+}
+
+// Filtra escondendo cartao, sem redesenhar: redesenhar apagaria o que a pessoa
+// ja preencheu nas caixas de texto.
+function atdFiltrar() {
+  const termo = (document.getElementById('atdBusca').value || '').trim().toLowerCase();
+  let vivos = 0;
+  document.querySelectorAll('.atd-cartao').forEach(c => {
+    const ok = (ATD.grupo === 'Todas' || c.dataset.grupo === ATD.grupo) && (!termo || c.dataset.busca.includes(termo));
+    c.style.display = ok ? '' : 'none';
+    if (ok) vivos++;
+  });
+  document.getElementById('atdVazio').style.display = vivos ? 'none' : '';
+}
+
+// O que ainda esta por preencher no texto: hora, valor, opcao entre colchetes e
+// campo em MAIUSCULAS (ITEM, ENDERECO, DESCRICAO DO CARDAPIO).
+function atdPendencias(texto) {
+  const p = [];
+  if (/HH:MM/.test(texto)) p.push('o horário (HH:MM)');
+  if (/\bXX\b|XX,XX/.test(texto)) p.push('o valor ou o tempo (XX)');
+  if (/\[[^\]]*\|[^\]]*\]/.test(texto)) p.push('a opção entre colchetes');
+  // lista fechada: nome de rua ou de cliente digitado em maiusculas nao pode travar o Copiar
+  (texto.match(/DESCRIÇÃO DO CARDÁPIO|ENDEREÇO|\bITEM\b/g) || []).forEach(c => p.push(c.toLowerCase()));
+  return p;
+}
+
+async function atdCopiar(codigo) {
+  const texto = document.getElementById('atdTxt_' + codigo).value.trim();
+  const msg = document.getElementById('atdMsg_' + codigo);
+  const falta = atdPendencias(texto);
+  if (falta.length) {
+    msg.style.color = 'var(--farol-fora)';
+    msg.textContent = 'Falta preencher: ' + falta.join(', ') + '.';
+    return;
+  }
+  try { await navigator.clipboard.writeText(texto); }
+  catch (e) { const t = document.getElementById('atdTxt_' + codigo); t.select(); document.execCommand('copy'); }
+  msg.style.color = 'var(--farol-ok)';
+  msg.textContent = 'Copiado. Cole no chat do Gestor de Pedidos.';
+  // registro de uso: falhar aqui nao pode atrapalhar quem esta atendendo
+  try { await trFetch('atd_casos', { method: 'POST', body: JSON.stringify({ tipo: 'USO', codigo }) }); } catch (e) {}
+}
+
+async function atdEnviarNovo() {
+  const caixa = document.getElementById('atdNovo');
+  const msg = document.getElementById('atdNovoMsg');
+  const descricao = caixa.value.trim();
+  if (descricao.length < 15) {
+    msg.style.color = 'var(--farol-fora)';
+    msg.textContent = 'Conte um pouco mais: o que o cliente escreveu e o que aconteceu.';
+    return;
+  }
+  msg.style.color = 'var(--tx-3)';
+  msg.textContent = 'Enviando...';
+  let r = null;
+  try { r = await trFetch('atd_casos', { method: 'POST', body: JSON.stringify({ tipo: 'NOVO', descricao }) }); } catch (e) {}
+  if (r && r.ok) {
+    caixa.value = '';
+    msg.style.color = 'var(--farol-ok)';
+    msg.textContent = 'Enviado. A resposta padrão para esse caso entra aqui depois da análise.';
+  } else {
+    msg.style.color = 'var(--farol-fora)';
+    msg.textContent = 'Não foi possível enviar. Tente de novo.';
+  }
+}
 
 async function entrarRotinas() {
   const alvo = document.getElementById('view-rotinas');
