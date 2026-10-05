@@ -4124,7 +4124,7 @@ function renderModuloAtendimento() {
       </div>
       ${r.quando_usar ? `<div style="color:var(--tx-3); font-size:12.5px; margin-top:6px;"><b style="color:var(--farol-ok);">Usar quando:</b> ${atdEsc(r.quando_usar)}</div>` : ''}
       ${r.quando_nao ? `<div style="color:var(--tx-3); font-size:12.5px; margin-top:3px;"><b style="color:var(--farol-fora);">Atenção:</b> ${atdEsc(r.quando_nao)}</div>` : ''}
-      <textarea id="atdTxt_${r.codigo}" rows="${Math.max(2, Math.ceil(r.texto.length / 95))}" oninput="atdAjustar(this)"
+      <textarea id="atdTxt_${r.codigo}" rows="2" oninput="atdAjustar(this)"
                 style="${campo} width:100%; box-sizing:border-box; margin-top:10px; padding:10px 12px; font-size:14px; line-height:1.5; resize:vertical;">${atdEsc(r.texto)}</textarea>
       <div style="display:flex; gap:12px; align-items:center; margin-top:8px; flex-wrap:wrap;">
         <button class="preset-btn" style="color:var(--tx-1); font-size:13px; padding:8px 16px;" onclick="atdCopiar('${r.codigo}')">Copiar resposta</button>
@@ -4162,7 +4162,8 @@ function atdNorm(s) {
 }
 
 // A caixa acompanha o tamanho do texto, inclusive quando a pessoa cola a
-// descricao do prato. Com a tela escondida scrollHeight vem zero: ai vale o rows.
+// descricao do prato. O piso sao as 2 linhas do rows (height:auto volta a ele);
+// com a tela escondida scrollHeight vem zero e fica so o piso.
 function atdAjustar(t) {
   t.style.height = 'auto';
   if (t.scrollHeight) t.style.height = (t.scrollHeight + 2) + 'px';
