@@ -262,6 +262,31 @@
   div[id^="tabela"] tr.liq td { background:var(--bg); color:var(--tx-1); font-weight:bold; border-top:2px solid var(--marca-amarelo); border-bottom:2px solid var(--marca-laranja); }
   div[id^="tabela"] tr.liq td:first-child { color:var(--tx-1); border-left:2px solid var(--marca-amarelo); }
   div[id^="tabela"] tr.liq td:last-child { border-right:2px solid var(--marca-laranja); }
+  /* Avaliacoes (06/10/2026): clicar numa loja filtra a tela; a escolhida ganha CONTORNO, nao
+     preenchimento. E a lista de reclamacoes: ate 1000 px de janela cada reclamacao vira um
+     bloco, para ninguem arrastar de lado ate o comentario (o menu lateral de 250 px so some
+     abaixo de 640, entao em 1000 sobram uns 690 para a lista). So esta lista (classe propria). */
+  #view-avaliacoes tr.aval-clic { cursor:pointer; }
+  #view-avaliacoes tr.aval-clic:hover td { background:var(--surface-2); }
+  #view-avaliacoes tr.aval-sel td { background:var(--surface-2); font-weight:700; box-shadow:inset 0 1px 0 var(--brand), inset 0 -1px 0 var(--brand); }
+  #view-avaliacoes tr.aval-sel td:first-child { box-shadow:inset 3px 0 0 var(--brand), inset 0 1px 0 var(--brand), inset 0 -1px 0 var(--brand); }
+  #view-avaliacoes tr.aval-sel td:last-child { box-shadow:inset -1px 0 0 var(--brand), inset 0 1px 0 var(--brand), inset 0 -1px 0 var(--brand); }
+  #tabelaComentarios.aval-recl td.aval-crit { white-space:normal; text-align:left; max-width:200px; }
+  #tabelaComentarios.aval-recl td.aval-txt { white-space:normal; text-align:left; max-width:420px; overflow-wrap:break-word; }
+  @media (max-width:1000px) {
+    #tabelaComentarios.aval-recl { overflow-x:visible; }
+    #tabelaComentarios.aval-recl table, #tabelaComentarios.aval-recl tbody, #tabelaComentarios.aval-recl tr { display:block; }
+    #tabelaComentarios.aval-recl tr:first-child { display:none; }
+    #tabelaComentarios.aval-recl tr { border:1px solid var(--line); border-radius:8px; padding:8px 10px; margin-bottom:8px; }
+    #tabelaComentarios.aval-recl td { display:block; position:static; border:0; padding:0; background:transparent; text-align:left; white-space:normal; overflow-wrap:break-word; }
+    #tabelaComentarios.aval-recl td:nth-child(-n+3) { display:inline; font-size:12px; color:var(--tx-3); }
+    #tabelaComentarios.aval-recl td:nth-child(2) { color:var(--tx-1); font-weight:700; }
+    #tabelaComentarios.aval-recl td:nth-child(2)::before, #tabelaComentarios.aval-recl td:nth-child(3)::before { content:' · '; color:var(--tx-4); font-weight:400; }
+    #tabelaComentarios.aval-recl td.aval-crit { max-width:none; margin-top:4px; font-size:12px; color:var(--tx-3); }
+    #tabelaComentarios.aval-recl td.aval-crit:empty, #tabelaComentarios.aval-recl td.aval-sem { display:none; }
+    #tabelaComentarios.aval-recl td.aval-crit::before { content:'Criticou: '; color:var(--tx-4); }
+    #tabelaComentarios.aval-recl td.aval-txt { max-width:none; margin-top:4px; }
+  }
 
   /* modulo Plano (20/08/2026; hierarquia e selo de estado em 22/08/2026 —
      o Neto preferia a leitura da fotografia exportada, entao o que a fazia ler
@@ -3418,6 +3443,46 @@ function avalCriticaFiltrar(i) {
   if (AVAL_CRITICA_SEL && el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 function avalCriticaLimpar() { AVAL_CRITICA_SEL = null; renderModuloAvaliacoes(); }
+// Filtro da tela por loja (06/10/2026), mecanismo do modulo evolucao: clicar numa linha de
+// "Nota por loja" (ou da tabela das lojas da critica) faz cards, graficos e reclamacoes
+// falarem so daquela loja; clicar de novo solta. A tabela por loja segue com todas.
+let AVAL_LOJA_SEL = null;        // indice da loja em LOJAS
+let AVAL_LISTA_LOJAS = [];       // ordem das linhas de "Nota por loja", para o clique achar a loja pela posicao
+let AVAL_LISTA_LOJAS_CRIT = [];  // idem, tabela das lojas da critica escolhida
+let AVAL_RECL_N = 20;            // quantas reclamacoes a lista mostra (20, +20, todas)
+let AVAL_RECL_CHAVE = '';        // periodo + filtro geral + loja + critica: mudou, a lista volta para 20
+function avalLojaFiltrar(i, daCritica) {
+  const l = (daCritica ? AVAL_LISTA_LOJAS_CRIT : AVAL_LISTA_LOJAS)[i];
+  if (l === undefined) return;
+  // O aviso "Filtrando" nasce (ou some) acima da tabela e empurra as linhas. A linha clicada
+  // tem de ficar PARADA sob o mouse, senao o segundo clique cai em outra loja: mede onde ela
+  // estava, redesenha, e rola a pagina a diferenca.
+  const linha = () => {
+    const j = (daCritica ? AVAL_LISTA_LOJAS_CRIT : AVAL_LISTA_LOJAS).indexOf(l);
+    return j < 0 ? null : (document.querySelectorAll('#' + (daCritica ? 'tabelaCriticaLojas' : 'tabelaAvalLojas') + ' tr.aval-clic')[j] || null);
+  };
+  const antes = linha();
+  const topo = antes ? antes.getBoundingClientRect().top : null;
+  AVAL_LOJA_SEL = (AVAL_LOJA_SEL === l) ? null : l;
+  renderModuloAvaliacoes();
+  const depois = linha();
+  if (topo === null || !depois) return;
+  const alvo = document.getElementById('view-avaliacoes');
+  const rolo = document.scrollingElement || document.documentElement;
+  // pagina que encolheu (loja com poucas reclamacoes) pode nao ter rolagem para chegar la: sobra espaco no fim
+  const falta = (rolo.scrollTop + depois.getBoundingClientRect().top - topo) - (rolo.scrollHeight - rolo.clientHeight);
+  if (falta > 0) alvo.style.minHeight = Math.ceil(alvo.offsetHeight + falta + 2) + 'px';
+  window.scrollBy({ top: depois.getBoundingClientRect().top - topo, behavior: 'instant' });
+}
+function avalLojaLimpar() { AVAL_LOJA_SEL = null; renderModuloAvaliacoes(); }
+function avalLimparFiltros() { AVAL_LOJA_SEL = null; AVAL_CRITICA_SEL = null; renderModuloAvaliacoes(); }
+// modo: 1 = mais 20, 2 = todas, 0 = volta para 20
+function avalReclVer(modo) {
+  AVAL_RECL_N = modo === 2 ? 99999 : modo === 1 ? AVAL_RECL_N + 20 : 20;
+  renderModuloAvaliacoes();
+  const el = document.getElementById('avalReclamacoes');
+  if (modo === 0 && el) el.scrollIntoView({ block: 'start' });
+}
 // O mesmo numero em toda tela: quantas criticas NAO tem a avaliacao delas entre as que esta
 // tela conta (mesma loja, dia do pedido, id curto e nota). Enquanto sobrar alguma — e o caso
 // de vw_avaliacoes ainda lendo a planilha — o bloco inteiro fica escondido.
@@ -3637,7 +3702,22 @@ function avaliacoesFiltradas(iniAlt = null, fimAlt = null) {
 
 function renderModuloAvaliacoes() {
   const alvo = document.getElementById('view-avaliacoes');
-  const linhas = avaliacoesFiltradas();
+  alvo.style.minHeight = '';   // folga que o clique na loja pode ter deixado (ver avalLojaFiltrar)
+  const linhasTodas = avaliacoesFiltradas();
+  // A loja escolhida so solta sozinha quando SAI do filtro geral (unidade/marca). Se ela so
+  // ficou sem avaliacao no periodo, a escolha fica e a tela diz isso — nunca mostra a rede
+  // no lugar da loja sem avisar.
+  if (AVAL_LOJA_SEL !== null && !activeLojas().has(AVAL_LOJA_SEL)) AVAL_LOJA_SEL = null;
+  const LOJA = AVAL_LOJA_SEL;
+  const linhas = LOJA === null ? linhasTodas : linhasTodas.filter(r => r[0] === LOJA);
+  if (LOJA !== null && !linhas.length) {
+    alvo.innerHTML = `<div class="contexto" style="border-color:var(--brand);">
+      <b>Filtrando:</b>
+      <button class="preset-btn active" onclick="avalLojaLimpar()">loja ${String(LOJAS[LOJA]).replace(/&/g, '&amp;').replace(/</g, '&lt;')} ✕</button>
+      <div style="margin-top:6px;">Esta loja não tem avaliação no período selecionado. Troque o período ou clique no ✕ para ver todas as lojas.</div>
+    </div>`;
+    return;
+  }
 
   if (!linhas.length) {
     alvo.innerHTML = `<div class="contexto" style="border-color:#c8102e;">
@@ -3650,18 +3730,24 @@ function renderModuloAvaliacoes() {
   const dist = [1, 2, 3, 4, 5].map(n => linhas.filter(r => r[2] === n).length);
   const pctRuins = (dist[0] + dist[1]) / total * 100;
   const pctCinco = dist[4] / total * 100;
+  // A linha TODAS da tabela por loja e sempre o total do filtro geral, com ou sem loja escolhida.
+  const totalT = linhasTodas.length;
+  const mediaT = linhasTodas.reduce((s, r) => s + r[2], 0) / totalT;
+  const pctRuinsT = linhasTodas.filter(r => r[2] <= 2).length / totalT * 100;
 
   // Janela anterior do MESMO tamanho, para os selos dos cards e a coluna de
   // comparacao da tabela por loja. Sem periodo anterior com dados a comparacao
   // some — o painel nao inventa base de comparacao.
   const antAv = periodoAnterior();
   const linhasAnt = antAv ? avaliacoesFiltradas(antAv.ini, antAv.fim) : null;
-  const aAv = linhasAnt && linhasAnt.length ? {
-    total: linhasAnt.length,
-    media: linhasAnt.reduce((s, r) => s + r[2], 0) / linhasAnt.length,
-    pctRuins: linhasAnt.filter(r => r[2] <= 2).length / linhasAnt.length * 100,
-    pctCinco: linhasAnt.filter(r => r[2] === 5).length / linhasAnt.length * 100,
+  const resumoAnt = (ls) => ls && ls.length ? {
+    total: ls.length,
+    media: ls.reduce((s, r) => s + r[2], 0) / ls.length,
+    pctRuins: ls.filter(r => r[2] <= 2).length / ls.length * 100,
+    pctCinco: ls.filter(r => r[2] === 5).length / ls.length * 100,
   } : null;
+  const aAvT = resumoAnt(linhasAnt);
+  const aAv = LOJA === null ? aAvT : resumoAnt(linhasAnt && linhasAnt.filter(r => r[0] === LOJA));
   // Media simples por loja na janela anterior (nunca mediana), para a coluna da tabela.
   const mediaAntPorLoja = new Map();
   if (linhasAnt) {
@@ -3678,15 +3764,16 @@ function renderModuloAvaliacoes() {
   const tags = [...porTag.entries()].map(([t, n]) => ({ t, n })).sort((a, b) => b.n - a.n).slice(0, 8);
 
   const porLoja = new Map();
-  linhas.forEach(r => {
+  linhasTodas.forEach(r => {
     if (!porLoja.has(r[0])) porLoja.set(r[0], { n: 0, soma: 0, ruins: 0 });
     const o = porLoja.get(r[0]);
     o.n++; o.soma += r[2]; if (r[2] <= 2) o.ruins++;
   });
   const lojas = [...porLoja.entries()]
-    .map(([i, o]) => ({ nome: LOJAS[i], n: o.n, media: o.soma / o.n, pctRuins: o.ruins / o.n * 100,
+    .map(([i, o]) => ({ idx: i, nome: LOJAS[i], n: o.n, media: o.soma / o.n, pctRuins: o.ruins / o.n * 100,
       mediaAnt: mediaAntPorLoja.has(i) ? mediaAntPorLoja.get(i) : null }))
     .sort((a, b) => a.media - b.media);
+  AVAL_LISTA_LOJAS = lojas.map(x => x.idx);
 
   // ---- O que mais criticam (vw_avaliacoes_criticas). Sem a view, tudo aqui fica vazio e a
   // lista de reclamacoes sai como sempre saiu.
@@ -3694,8 +3781,9 @@ function renderModuloAvaliacoes() {
     .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   const temCriticas = AVAL_CRITICAS !== null && AVAL_CRITICAS_BATE === true;
   const lojasCrit = activeLojas();
-  const critLinhas = (temCriticas ? AVAL_CRITICAS : []).filter(r => lojasCrit.has(r[0])
+  const critLinhasTodas = (temCriticas ? AVAL_CRITICAS : []).filter(r => lojasCrit.has(r[0])
     && (!fDataIni.value || r[1] >= fDataIni.value) && (!fDataFim.value || r[1] <= fDataFim.value));
+  const critLinhas = LOJA === null ? critLinhasTodas : critLinhasTodas.filter(r => r[0] === LOJA);
   const porCritica = new Map();
   critLinhas.forEach(r => r[3].forEach(c => porCritica.set(c, (porCritica.get(c) || 0) + 1)));
   const criticas = [...porCritica.entries()].map(([c, n]) => ({ c, n }))
@@ -3717,21 +3805,34 @@ function renderModuloAvaliacoes() {
         const k = critPorChave.get(chaveAv(r, r[5]));
         return { loja: r[0], data: r[1], nota: r[2], txt: r[4], criticas: k ? k[3] : null, aguarda: k ? k[5] : false, itens: k ? k[7] : [] };
       });
-  const comentarios = reclamacoes.slice(0, AVAL_CRITICA_SEL ? 20 : 8);
+  // A lista abre com as 20 mais recentes; "Ver mais" e "Ver todas" abrem o resto. Trocar
+  // periodo, filtro geral, loja ou critica volta para 20.
+  const chaveRecl = [fDataIni.value, fDataFim.value, [...lojasCrit].join(','), LOJA, AVAL_CRITICA_SEL].join('|');
+  if (chaveRecl !== AVAL_RECL_CHAVE) { AVAL_RECL_CHAVE = chaveRecl; AVAL_RECL_N = 20; }
+  const comentarios = reclamacoes.slice(0, AVAL_RECL_N);
   // Onde a critica escolhida mais aparece: o "Avaliações" e o MESMO numero da tabela por loja.
+  // Conta em todas as lojas do filtro geral, mesmo com uma loja escolhida.
   const critPorLoja = new Map();
-  if (AVAL_CRITICA_SEL) critLinhas.forEach(r => {
+  if (AVAL_CRITICA_SEL) critLinhasTodas.forEach(r => {
     if (r[3].includes(AVAL_CRITICA_SEL)) critPorLoja.set(r[0], (critPorLoja.get(r[0]) || 0) + 1);
   });
   const lojasDaCritica = [...critPorLoja.entries()]
-    .map(([i, n]) => ({ nome: LOJAS[i], n, aval: porLoja.has(i) ? porLoja.get(i).n : null }))
+    .map(([i, n]) => ({ idx: i, nome: LOJAS[i], n, aval: porLoja.has(i) ? porLoja.get(i).n : null }))
     .sort((a, b) => b.n - a.n || String(a.nome).localeCompare(String(b.nome)));
+  AVAL_LISTA_LOJAS_CRIT = lojasDaCritica.map(x => x.idx);
 
   alvo.innerHTML = `
   <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">O que os clientes estão dizendo</div>
   <div class="caption-label" style="text-align:center;">
     Avaliações deixadas no app após a entrega, incluindo as que ainda aguardam resposta da loja (as descartadas pelo iFood ficam fora). Os últimos 7 dias ainda recebem avaliações. Filtros de período, unidade e marca se aplicam; dia da semana e turno não.
   </div>
+  ${LOJA !== null ? `<div class="contexto" style="border-color:var(--brand);">
+    <b>Filtrando:</b>
+    <button class="preset-btn active" onclick="avalLojaLimpar()">loja ${esc(LOJAS[LOJA])} ✕</button>
+    ${AVAL_CRITICA_SEL ? `<button class="preset-btn active" onclick="avalCriticaLimpar()">crítica ${esc(AVAL_CRITICA_SEL)} ✕</button>
+    <button class="preset-btn" onclick="avalLimparFiltros()">limpar</button>` : ''}
+    <div style="font-size:12px; color:var(--tx-3); margin-top:6px;">Os cards, os gráficos e as reclamações são só desta loja. A tabela por loja continua com todas, para você trocar.</div>
+  </div>` : ''}
   <div class="cards">
     <div class="card neutral"${cardFarol('nota_media', media)}><div class="card-lbl">Nota média</div><div class="card-val">${media.toFixed(2).replace('.', ',')} ★</div>${selo(media, aAv && aAv.media)}</div>
     <div class="card neutral"><div class="card-lbl">Avaliações</div><div class="card-val">${total.toLocaleString('pt-BR')}</div>${selo(total, aAv && aAv.total, 'neutro')}</div>
@@ -3746,7 +3847,7 @@ function renderModuloAvaliacoes() {
     </div>
     <div class="chart-box" style="flex:1 1 320px; height:280px;">
       <div class="chart-title">O que mais elogiam (tags marcadas)</div>
-      <div class="chart-canvas-wrap"><canvas id="chartTags"></canvas></div>
+      ${tags.length ? `<div class="chart-canvas-wrap"><canvas id="chartTags"></canvas></div>` : `<div class="caption-label" style="text-align:center; margin-top:90px;">Nenhum elogio marcado no período.</div>`}
     </div>
     ${criticas.length ? `<div class="chart-box" style="flex:1 1 320px; height:280px;">
       <div class="chart-title">O que mais criticam (${comCritica} avaliações)</div>
@@ -3759,41 +3860,47 @@ function renderModuloAvaliacoes() {
   <div id="tabelaAvalLojas">
     <table>
       <tr><th>Loja</th><th>Avaliações</th><th>Nota média</th><th>% notas 1-2</th><th title="Compara a nota média da loja com a janela imediatamente anterior, do mesmo tamanho do período filtrado.">vs período anterior</th></tr>
-      ${lojas.map(x => `<tr><td>${x.nome}</td><td>${x.n}</td>
+      ${lojas.map((x, i) => `<tr class="aval-clic${x.idx === LOJA ? ' aval-sel' : ''}" onclick="avalLojaFiltrar(${i})" title="${x.idx === LOJA ? 'clique para voltar a todas as lojas' : 'clique para a tela mostrar só esta loja'}"><td>${x.nome}${x.idx === LOJA ? ' ✕' : ''}</td><td>${x.n}</td>
         <td${(() => { const k = (METAS_KPI || []).find(m => m.chave === 'nota_media'); if (!k) return ''; const f = farolKpi(k, x.media); const cor = (f[1] === 'fora' || f[1] === 'perto') ? ' style="color:' + f[0] + '; font-weight:bold;"' : ''; return cor + ' title="Meta da nota: ' + fmtMeta(k) + ' — ' + f[1] + '"'; })()}>${x.media.toFixed(2).replace('.', ',')}</td>
         <td>${pct(x.pctRuins)}%</td>
         <td>${variacaoSpan(x.media, x.mediaAnt)}</td></tr>`).join('')}
-      <tr class="liq"><td>TODAS</td><td>${total.toLocaleString('pt-BR')}</td>
-        <td>${media.toFixed(2).replace('.', ',')}</td><td>${pct(pctRuins)}%</td>
-        <td>${variacaoSpan(media, aAv && aAv.media)}</td></tr>
+      <tr class="liq"><td>TODAS</td><td>${totalT.toLocaleString('pt-BR')}</td>
+        <td>${mediaT.toFixed(2).replace('.', ',')}</td><td>${pct(pctRuinsT)}%</td>
+        <td>${variacaoSpan(mediaT, aAvT && aAvT.media)}</td></tr>
     </table>
   </div>
-  <div class="caption-label">Lojas com poucas avaliações oscilam muito — dê mais peso às que têm 30 ou mais.</div>
+  <div class="caption-label">Lojas com poucas avaliações oscilam muito — dê mais peso às que têm 30 ou mais. <b>Clique numa loja para a tela mostrar só ela.</b></div>
 
-  ${(comentarios.length || AVAL_CRITICA_SEL) ? `
-  <div class="section-label" id="avalReclamacoes">${AVAL_CRITICA_SEL ? 'Comentários de quem marcou esta crítica' : 'Últimas reclamações com comentário (nota ≤ 3)'}</div>
-  ${AVAL_CRITICA_SEL ? `<div class="contexto" style="border-color:var(--brand);">
+  ${(comentarios.length || AVAL_CRITICA_SEL || LOJA !== null) ? `
+  <div class="section-label" id="avalReclamacoes">${AVAL_CRITICA_SEL ? 'Comentários de quem marcou esta crítica' : 'Reclamações com comentário (nota ≤ 3)'} — ${reclamacoes.length.toLocaleString('pt-BR')} no período</div>
+  ${AVAL_CRITICA_SEL ? `${LOJA === null ? `<div class="contexto" style="border-color:var(--brand);">
     <button class="preset-btn active" onclick="avalCriticaLimpar()">${esc(AVAL_CRITICA_SEL)} ✕</button>
     <div style="font-size:12px; color:var(--tx-3); margin-top:6px;">
-      ${reclamacoes.length} comentário${reclamacoes.length === 1 ? '' : 's'} no período, de qualquer nota${reclamacoes.length > comentarios.length ? ' — abaixo, os ' + comentarios.length + ' mais recentes' : ''}.
+      Comentários de qualquer nota, não só das baixas. Clique numa loja da tabela para ver só os dela.
     </div>
-  </div>
+  </div>` : ''}
   <div id="tabelaCriticaLojas" style="margin-bottom:14px;">
     <table>
       <tr><th>Loja</th><th>Marcaram esta crítica</th><th>Avaliações</th><th>A cada 100 avaliações</th></tr>
-      ${lojasDaCritica.map(x => `<tr><td>${esc(x.nome)}</td><td>${x.n}</td><td>${x.aval === null ? '–' : x.aval}</td>
+      ${lojasDaCritica.map((x, i) => `<tr class="aval-clic${x.idx === LOJA ? ' aval-sel' : ''}" onclick="avalLojaFiltrar(${i}, 1)" title="${x.idx === LOJA ? 'clique para voltar a todas as lojas' : 'clique para a tela mostrar só esta loja'}"><td>${esc(x.nome)}${x.idx === LOJA ? ' ✕' : ''}</td><td>${x.n}</td><td>${x.aval === null ? '–' : x.aval}</td>
         <td>${x.aval ? pct(x.n / x.aval * 100) : '–'}</td></tr>`).join('')}
     </table>
   </div>` : ''}
   ${(!AVAL_CRITICA_SEL && aguardando) ? `<div class="caption-label" style="text-align:center;">${aguardando} avaliaç${aguardando === 1 ? 'ão' : 'ões'} com crítica aguardando resposta da loja no período.</div>` : ''}
-  ${comentarios.length ? `<div id="tabelaComentarios">
+  ${comentarios.length ? `<div id="tabelaComentarios" class="aval-recl">
     <table>
       <tr><th>Data</th><th>Loja</th><th>Nota</th>${temCriticas ? '<th>O que criticou</th>' : ''}<th>Comentário</th></tr>
       ${comentarios.map(x => `<tr><td>${formatarDataCurta(x.data)}</td><td>${esc(LOJAS[x.loja])}</td><td>${x.nota} ★</td>
-        ${temCriticas ? `<td style="white-space:normal; text-align:left; max-width:200px;">${x.criticas === null ? '' : (x.criticas.map(esc).join(' · ') || '–')}</td>` : ''}
-        <td style="white-space:normal; text-align:left; max-width:420px; overflow-wrap:break-word;">${esc(String(x.txt).slice(0, 180))}${x.aguarda ? ' <span style="font-size:10px; color:var(--tx-4); border:1px solid var(--line-2); border-radius:8px; padding:1px 6px; white-space:nowrap;">aguardando resposta</span>' : ''}${x.itens.length ? `<div style="font-size:11px; color:var(--tx-3); margin-top:3px; overflow-wrap:break-word;">Pediu: ${x.itens.map(esc).join(' · ')}</div>` : ''}</td></tr>`).join('')}
+        ${temCriticas ? `<td class="aval-crit${x.criticas && !x.criticas.length ? ' aval-sem' : ''}">${x.criticas === null ? '' : (x.criticas.map(esc).join(' · ') || '–')}</td>` : ''}
+        <td class="aval-txt">${esc(String(x.txt))}${x.aguarda ? ' <span style="font-size:10px; color:var(--tx-4); border:1px solid var(--line-2); border-radius:8px; padding:1px 6px; white-space:nowrap;">aguardando resposta</span>' : ''}${x.itens.length ? `<div style="font-size:11px; color:var(--tx-3); margin-top:3px; overflow-wrap:break-word;">Pediu: ${x.itens.map(esc).join(' · ')}</div>` : ''}</td></tr>`).join('')}
     </table>
-  </div>` : `<div class="caption-label" style="text-align:center;">Ninguém escreveu comentário com esta crítica no período.</div>`}` : ''}`;
+  </div>
+  ${reclamacoes.length > 20 ? `<div id="avalReclMais" style="text-align:center; margin-top:10px;">
+    <span style="font-size:12.5px; color:var(--tx-3); margin-right:8px;">Mostrando ${comentarios.length} de ${reclamacoes.length.toLocaleString('pt-BR')}</span>
+    ${comentarios.length < reclamacoes.length ? `<button class="preset-btn" onclick="avalReclVer(1)">Ver mais ${Math.min(20, reclamacoes.length - comentarios.length)}</button>
+    <button class="preset-btn" onclick="avalReclVer(2)">Ver todas</button>` : ''}
+    ${comentarios.length > 20 ? `<button class="preset-btn" onclick="avalReclVer(0)">Mostrar menos</button>` : ''}
+  </div>` : ''}` : `<div class="caption-label" style="text-align:center;">${AVAL_CRITICA_SEL ? 'Ninguém escreveu comentário com esta crítica no período.' : 'Nenhuma reclamação com comentário desta loja no período.'}</div>`}` : ''}`;
 
   destroyChart('chartNotas');
   chartInstances['chartNotas'] = new Chart(document.getElementById('chartNotas').getContext('2d'), {
@@ -3810,7 +3917,7 @@ function renderModuloAvaliacoes() {
   });
 
   destroyChart('chartTags');
-  chartInstances['chartTags'] = new Chart(document.getElementById('chartTags').getContext('2d'), {
+  if (tags.length) chartInstances['chartTags'] = new Chart(document.getElementById('chartTags').getContext('2d'), {
     type: 'bar',
     data: { labels: tags.map(x => x.t), datasets: [{ data: tags.map(x => x.n), backgroundColor: corToken('--info'), borderRadius: 4 }] },
     plugins: [pluginRotulosBarra(i => String(tags[i].n))],
