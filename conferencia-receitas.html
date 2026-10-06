@@ -211,13 +211,13 @@ function linha(i){
     </div></div>`;
 }
 function render(){
-  const a=document.activeElement, sel=a&&a.dataset?Object.keys(a.dataset).map(k=>`[data-${k}="${a.dataset[k]}"]`)[0]:null, pos=a&&a.selectionStart;
+  const a=document.activeElement, sel=a&&a.dataset&&Object.keys(a.dataset).length?Object.keys(a.dataset).map(k=>`[data-${k}="${a.dataset[k]}"]`).join(''):null, pos=a&&a.selectionStart;
   const vis=D.receitas.filter(passa); let faixa=null;
   document.getElementById('lista').innerHTML=vis.map(i=>{ let h=''; if(i.gr!==faixa){ faixa=i.gr; h=`<div class="faixa">${esc(faixa||'Sem grupo')}<span>${vis.filter(x=>x.gr===faixa).length}</span></div>`; } return h+linha(i); }).join('')||'<p class="aviso">Nada com esse filtro.</p>';
   const n=D.receitas.filter(feito).length;
   document.getElementById('filtros').innerHTML=[['falta','Ainda não conferi'],['feito','Já conferi']].map(([f,t])=>`<button data-f="${f}" class="${filtro===f?'on':''}">${t}<span>${D.receitas.filter(i=>f==='feito'?feito(i):!feito(i)).length}</span></button>`).join('');
   document.getElementById('placar').innerHTML=`<b>${n}</b> de ${D.receitas.length} receitas conferidas`;
-  if(sel){ const el=document.querySelector(sel); if(el){ el.focus(); try{el.setSelectionRange(pos,pos);}catch(e){} } }
+  if(sel){ const el=document.querySelector(sel); if(el){ el.focus({preventScroll:true}); try{el.setSelectionRange(pos,pos);}catch(e){} } }
 }
 const editando=()=>{ const a=document.activeElement; return !!(a&&a.closest&&a.closest('#lista')&&/INPUT|TEXTAREA|SELECT/.test(a.tagName)); };
 function renderSeguro(){ if(editando()){ pendente=true; return; } pendente=false; render(); }
@@ -256,6 +256,7 @@ function linhasParaEnviar(i,novo){
   const quem=(QUEM||'(sem nome)').slice(0,80), obs=((novo.obs||'').trim().slice(0,480))||null;
   // 06/10/2026: vai o nome da FICHA (é por ele que a fila marca "conferida"); nome padrão só se não houver ficha
   const ficha=String(i.f||i.nb||'').slice(0,200), out=[];
+  if(novo.naofaz) return [{ficha, materia_prima:'NAO FAZEMOS MAIS', qtd_ficha:null, qtd_medida:0, un:null, quem, observacao:obs, escala:'LOTE'}];
   // a cozinha digita em grama e em ml; no banco tudo vive em quilo e litro (mesma convenção da ficha)
   const base=(v,un)=>{ const u=unNorm(un), U=u?u.toUpperCase():null; if(v==null) return {v:null,un:(u==='g'?'KG':u==='ml'?'LT':U)};
     if(u==='g') return {v:+(v/1000).toFixed(6),un:'KG'}; if(u==='ml') return {v:+(v/1000).toFixed(6),un:'LT'}; return {v,un:U}; };
@@ -273,12 +274,13 @@ function linhasParaEnviar(i,novo){
   if(!out.length&&obs) poe('RECEITA EM TEXTO', null, 0, null);
   return out;
 }
-function avisoBom(t){ let a=document.getElementById('toast');
+function avisoBom(t,ruim){ let a=document.getElementById('toast');
   if(!a){ a=document.createElement('div'); a.id='toast'; a.setAttribute('role','status');
     a.style.cssText='position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:var(--ok);color:var(--ground);'+
       'padding:10px 16px;border-radius:999px;font:600 14px var(--body);z-index:20;box-shadow:0 4px 14px rgba(0,0,0,.25);max-width:92vw;text-align:center';
     document.body.appendChild(a); }
-  a.textContent=t; a.hidden=false; clearTimeout(a._t); a._t=setTimeout(()=>{ a.hidden=true; },4500); }
+  a.style.background=ruim?'var(--no)':'var(--ok)';
+  a.textContent=t; a.hidden=false; clearTimeout(a._t); a._t=setTimeout(()=>{ a.hidden=true; },ruim?7000:4500); }
 // digitar guarda no aparelho; só o botão Conferida manda para o banco (enviar=true).
 // 06/10/2026: o cartão só vira "conferido" no aparelho DEPOIS que o banco responde (antes era
 // marcado na hora, e fechar a aba com o envio pendurado deixava "já conferi" sem ter chegado nada);
@@ -291,23 +293,31 @@ async function gravar(i,novo,enviar){
   const linhas=linhasParaEnviar(i,novo);
   if(!linhas.length){ diz('ruim','Escreva uma quantidade ou uma observação antes de enviar.'); return false; }
   resp[i.id]={...novo, feito:false}; salvaResp();
-  enviando.add(i.id); diz('','enviando…');
+  enviando.add(i.id); render(); diz('','enviando…');
   const ctl=new AbortController(), prazo=setTimeout(()=>ctl.abort(),25000);
+  let ok=false;
   try{
     const r=await fetch(URL+'/rest/v1/ft_conferencia',{method:'POST', signal:ctl.signal,
       headers:{apikey:KEY, Authorization:'Bearer '+KEY, 'Content-Type':'application/json', Prefer:'return=minimal'},
       body:JSON.stringify(linhas)});
     if(!r.ok) throw new Error(await r.text());
-    resp[i.id]={...novo, feito:true, enviado_em:new Date().toISOString()}; salvaResp();
-    return true;
-  }catch(e){ diz('ruim','Não consegui enviar. Veja a internet e toque de novo.'); return false; }
+    ok=true;
+  }catch(e){ ok=false; }
   finally{ clearTimeout(prazo); enviando.delete(i.id); }
+  if(ok){ resp[i.id]={...novo, feito:true, enviado_em:new Date().toISOString()}; salvaResp(); return true; }
+  render(); diz('ruim','Não consegui enviar. Veja a internet e toque de novo.');
+  avisoBom('Não consegui enviar: '+i.nb+'. Veja a internet e toque de novo.', true);
+  return false;
 }
 function validar(i){
   const msg=document.getElementById('m-'+i.id); msg.className='msg ruim';
   for(let j=0;j<i.i.length;j++){ if((R(i).removidos||[]).includes(j)) continue; const v=num(valQ(i,j)); const el=document.querySelector(`[data-q="${i.id}|${j}"]`);
     if(Number.isNaN(v)){ msg.textContent='Não entendi este número. Use só algarismos e vírgula.'; el&&el.classList.add('erro'); return false; }
     if(v===null && i.g!=='sem_ficha' && i.i[j].qf!=null){ msg.textContent='Deixou em branco — se não vai, ponha 0.'; el&&el.classList.add('erro'); return false; } }
+  for(const x of (R(i).extras||[])){ const nm=String(x.mp||'').trim(), tq=String(x.q==null?'':x.q).trim();
+    if(!nm&&!tq) continue;
+    if(!nm){ msg.textContent='Falta o nome do ingrediente acrescentado.'; return false; }
+    const q=num(tq); if(q===null||Number.isNaN(q)){ msg.textContent='Falta a quantidade de '+nm+' (só algarismos e vírgula).'; return false; } }
   if(!D.semrende){
     const r=num(valR(i));
     if(Number.isNaN(r)||r===0){ msg.textContent='Confira o rendimento.'; return false; }
@@ -327,10 +337,10 @@ document.addEventListener('click',ev=>{
     b.dataset.a==='tira'?rem.add(j):rem.delete(j); n.removidos=[...rem]; delete rasc[i.id+'|'+j]; gravar(i,n); render(); return; }
   if(b.dataset.a==='tirax'){ const k=+b.dataset.k; const n=coletar(i); n.extras=(n.extras||[]).filter((_,x)=>x!==k); gravar(i,n); render(); return; }
   if(b.dataset.a==='reabre'){ const n=coletar(i); n.feito=false; gravar(i,n); abertos.add(i.id); render(); return; }
-  if(b.dataset.a==='ok'){ if(enviando.has(i.id)||!validar(i)) return; const n=coletar(i); const rot=b.textContent;
-    b.disabled=true; b.textContent='Enviando…';
-    gravar(i,n,true).then(ok=>{ if(ok){ abertos.delete(i.id); render(); avisoBom('✓ Recebido: '+i.nb); }
-      else { b.disabled=false; b.textContent=rot; } }); }
+  if(b.dataset.a==='ok'){ if(enviando.has(i.id)||!validar(i)) return; const n=coletar(i); n.naofaz=false;
+    const p=gravar(i,n,true);
+    const nb=document.querySelector(`.item[data-id="${i.id}"] [data-a="ok"]`); if(nb&&enviando.has(i.id)){ nb.disabled=true; nb.textContent='Enviando…'; }
+    p.then(ok=>{ if(ok){ abertos.delete(i.id); render(); avisoBom('✓ Recebido: '+i.nb); } }); }
 });
 const timers={};
 document.addEventListener('input',ev=>{
