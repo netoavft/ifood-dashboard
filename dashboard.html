@@ -4437,7 +4437,7 @@ async function entrarNegociacoesSoDados() {
 
 async function entrarAvaliacoesSoDados() {
   const rows = await consultarTudo(
-    "vw_avaliacoes?select=nome_loja,data,nota,tags,comentario&order=data.desc"
+    "vw_avaliacoes?select=nome_loja,data,nota,tags,comentario&order=data.desc,nome_loja,id_pedido_curto,nota,comentario,tags"
   );
   AVALIACOES = rows.map(r => [
     LOJAS.indexOf(r.nome_loja), r.data, r.nota, r.tags || [], r.comentario,
