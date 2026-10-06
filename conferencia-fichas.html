@@ -1,137 +1,336 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex">
-<title>Conferir gramatura — Cidadão do Mundo</title>
+<meta charset="utf-8">
+<title>Conferir gramatura</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 <style>
-  * { box-sizing: border-box; }
-  body { margin:0; background:#111110; color:#f2f0e9; padding:16px 14px 40px;
-         font-family:'Segoe UI', system-ui, -apple-system, sans-serif; line-height:1.5; }
-  .marca { color:#c8102e; font-weight:700; letter-spacing:.12em; font-size:11px; }
-  h1 { font-size:20px; margin:6px 0 4px; }
-  .sub { color:#a5a49a; font-size:14px; margin-bottom:14px; }
-  .prog { font-size:12px; color:#8b877c; margin-bottom:16px; }
-  .ficha { background:#1a1a19; border:1px solid #34332f; border-radius:12px;
-           margin-bottom:12px; overflow:hidden; }
-  .ficha.feita { border-color:#3fb950; }
-  .cab { padding:13px 15px; cursor:pointer; display:flex; align-items:center; gap:10px; }
-  .cab:active { background:#232321; }
-  .nome { flex:1; font-size:15px; font-weight:600; }
-  .cls { font-size:11px; color:#8b877c; margin-top:2px; font-weight:400; }
-  .ok { color:#3fb950; font-size:18px; }
-  .corpo { display:none; padding:0 15px 15px; border-top:1px solid #34332f; }
-  .ficha.aberta .corpo { display:block; }
-  .ing { display:flex; align-items:center; gap:10px; padding:9px 0;
-         border-bottom:1px solid #232321; }
-  .ing:last-of-type { border-bottom:none; }
-  .ing-nome { flex:1; font-size:13px; }
-  input[type=number] { width:82px; padding:9px; font-size:16px; text-align:right;
-                       background:#0d0d0c; color:#f2f0e9; border:1px solid #45443f;
-                       border-radius:8px; }
-  input[type=number]:focus { outline:none; border-color:#e8b04b; }
-  .un { font-size:12px; color:#8b877c; width:16px; }
-  .obs { width:100%; margin-top:10px; padding:9px; font-size:14px; background:#0d0d0c;
-         color:#f2f0e9; border:1px solid #45443f; border-radius:8px; font-family:inherit; }
-  .enviar { width:100%; margin-top:12px; padding:13px; font-size:15px; font-weight:600;
-            background:#c8102e; color:#fff; border:none; border-radius:10px; }
-  .enviar:disabled { opacity:.5; }
-  .msg { font-size:13px; margin-top:8px; text-align:center; min-height:18px; }
-  .msg.bom { color:#3fb950; }
-  .msg.ruim { color:#ff6b6b; }
-  .ajuda { background:#1a1a19; border-left:3px solid #e8b04b; border-radius:8px;
-           padding:12px 14px; font-size:13px; color:#c9c5b8; margin-bottom:16px; }
+:root{
+  --ground:#f6f1ea; --surface:#fffdfa; --surface2:#f0e9df; --ink:#221c18; --muted:#7b6f64;
+  --line:#e3d9cc; --accent:#c8102e; --accent-ink:#fff; --ok:#2e7d4f; --ok-bg:#e6f2ea;
+  --warn:#9a5b00; --warn-bg:#fbf1df; --no:#8a3a2e; --no-bg:#f6e3df; --hl:#fbf1df;
+  --body:'IBM Plex Sans',system-ui,'Segoe UI',Roboto,sans-serif;
+  --disp:'IBM Plex Sans Condensed','IBM Plex Sans',system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --ground:#1b1715; --surface:#242019; --surface2:#2d2822; --ink:#efe8df; --muted:#a69b8f;
+  --line:#3b342d; --accent:#e5453f; --ok:#6fc48f; --ok-bg:#1f3527; --warn:#e2a64a; --warn-bg:#3a2d16;
+  --no:#f09a8a; --no-bg:#3a221e; --hl:#3a2d16; }}
+:root[data-theme="dark"]{
+  --ground:#1b1715; --surface:#242019; --surface2:#2d2822; --ink:#efe8df; --muted:#a69b8f;
+  --line:#3b342d; --accent:#e5453f; --ok:#6fc48f; --ok-bg:#1f3527; --warn:#e2a64a; --warn-bg:#3a2d16;
+  --no:#f09a8a; --no-bg:#3a221e; --hl:#3a2d16; }
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);font:15px/1.45 var(--body)}
+.wrap{max-width:1180px;margin:0 auto;padding:28px 20px 60px}
+h1{font:700 30px/1.1 var(--disp);margin:0 0 6px;letter-spacing:-.01em}
+.lead{color:var(--muted);margin:0 0 16px;max-width:70ch}
+.barra{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;padding:12px 0;
+  border-top:2px solid var(--ink);border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--ground);z-index:2}
+.barra input{flex:1 1 240px;font:14px var(--body);padding:8px 10px;border:1px solid var(--ink);border-radius:6px;background:var(--surface);color:var(--ink)}
+.filtros{display:flex;gap:6px;flex-wrap:wrap}
+.filtros button{font:500 12.5px var(--body);border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:5px 11px;cursor:pointer}
+.filtros button.on{background:var(--ink);color:var(--ground);border-color:var(--ink)}
+.filtros button span{color:var(--muted);margin-left:3px;font-variant-numeric:tabular-nums}
+.filtros button.on span{color:var(--ground);opacity:.75}
+.quebra{flex-basis:100%;height:0}
+.placar{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums;width:100%}
+.placar b{color:var(--ink);font-weight:600}
+.aviso{font-size:13px;color:var(--muted);margin:10px 0 0}
+.cab{display:grid;grid-template-columns:minmax(230px,1.2fr) minmax(210px,1fr) minmax(300px,1.35fr);gap:16px;
+  padding:14px 4px 6px;font:500 11px/1.2 var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--line)}
+.item{display:grid;grid-template-columns:minmax(230px,1.2fr) minmax(210px,1fr) minmax(300px,1.35fr);gap:16px;align-items:start;
+  padding:12px 4px;border-bottom:1px solid var(--line)}
+.item.feito{background:linear-gradient(90deg, var(--ok-bg), transparent 45%)}
+.item.nao{opacity:.62}
+.nome{font-size:14px;line-height:1.3;font-weight:500}
+.sub{font-size:12px;color:var(--muted);margin-top:2px;font-variant-numeric:tabular-nums;line-height:1.4}
+.base-hoje{font-size:14px;line-height:1.3}
+.tag{display:inline-block;font:500 10.5px/1 var(--body);letter-spacing:.05em;text-transform:uppercase;padding:3px 6px;border-radius:4px;margin-top:4px}
+.tag.ok{background:var(--ok-bg);color:var(--ok)}
+.tag.warn{background:var(--warn-bg);color:var(--warn)}
+.tag.no{background:var(--no-bg);color:var(--no)}
+.tag.neutro{background:var(--surface2);color:var(--muted)}
+.dec{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.dec select{flex:1 1 220px;font:14px var(--body);padding:7px 8px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink);min-width:0}
+.dec select.sug{border-style:dashed;border-color:var(--warn);color:var(--warn)}
+.b.nao.on{background:var(--no-bg);color:var(--no);border-color:var(--no)}
+.b.on.rec{background:var(--warn-bg);color:var(--warn);border-color:var(--warn)}
+.rot{font:500 11px/1.2 var(--body);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:8px 0 3px}
+.faixa{grid-column:1/-1;margin:18px 0 0;padding:7px 4px 5px;border-bottom:2px solid var(--ink);
+  font:700 13px/1.2 var(--disp);letter-spacing:.02em;text-transform:uppercase;position:sticky;top:56px;background:var(--ground);z-index:1}
+.faixa span{float:right;font:500 12px var(--body);color:var(--muted);text-transform:none;letter-spacing:0}
+.barra select{font:13px var(--body);padding:7px 8px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink)}
+.classe{display:flex;flex-wrap:wrap;border:1px solid var(--line);border-radius:6px;overflow:hidden;width:max-content;max-width:100%}
+.classe button{font:500 12.5px var(--body);border:0;background:var(--surface);color:var(--ink);padding:6px 9px;cursor:pointer}
+.classe button+button{border-left:1px solid var(--line)}
+.classe button.on{background:var(--ink);color:var(--ground)}
+.classe button.on.nao{background:var(--no-bg);color:var(--no)}
+.nomebase{display:flex;gap:6px;margin-top:7px;align-items:center}
+.nomebase input{flex:1;font:14px var(--body);padding:7px 9px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink);min-width:0}
+.nomebase input::placeholder{color:var(--muted)}
+.b{font:500 12.5px var(--body);border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:6px;padding:6px 9px;cursor:pointer;white-space:nowrap}
+.b:hover{border-color:var(--ink)}
+.junta{font-size:12px;color:var(--muted);margin-top:3px;min-height:15px}
+.acoes-linha{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
+.b.pri{background:var(--ok-bg);color:var(--ok);border-color:var(--ok)}
+.lote{font:500 12.5px var(--body);border:1px solid var(--ok);background:var(--ok-bg);color:var(--ok);border-radius:6px;padding:6px 10px;cursor:pointer}
+.junta b{color:var(--ink);font-weight:600}
+.origem{font-size:11.5px;color:var(--muted);margin-top:3px}
+button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+mark{background:var(--hl);color:inherit;border-radius:2px}
+.mais{display:block;margin:16px auto 0}
+@media (max-width:820px){.item,.cab{grid-template-columns:1fr}.cab{display:none}}
+</style>
+<style>
+.ing{display:grid;grid-template-columns:minmax(0,1fr) 92px 70px 30px;gap:8px;align-items:center;padding:4px 0;border-bottom:1px dashed var(--line)}
+.ing .n{font-size:13.5px;line-height:1.25}
+.ing .n small{display:block;color:var(--muted);font-size:11.5px}
+.ing input{width:100%;font:14px var(--body);padding:5px 7px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink);text-align:right}
+.ing input.erro{border-color:var(--no);background:var(--no-bg)}
+.ing .s{font-size:12.5px;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums}
+.ing .s.longe{color:var(--warn);font-weight:600}
+.cabing{display:grid;grid-template-columns:minmax(0,1fr) 92px 70px 30px;gap:8px;font:500 10.5px var(--body);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:6px 0 2px}
+.cabing span:nth-child(n+2){text-align:right}
+.st{display:inline-block;font:500 10.5px/1 var(--body);letter-spacing:.05em;text-transform:uppercase;padding:3px 6px;border-radius:4px;margin-top:4px}
+.st.diferente{background:var(--warn-bg);color:var(--warn)} .st.sem_ficha{background:var(--no-bg);color:var(--no)}
+.st.sem_lote{background:var(--surface2);color:var(--muted)} .st.confere{background:var(--ok-bg);color:var(--ok)}
+.st.neutro{background:var(--surface2);color:var(--muted)}
+.msg.bom{color:var(--ok)}
+.addx{margin-top:6px}
+.x{border:0;background:none;color:var(--muted);font-size:17px;line-height:1;cursor:pointer;padding:4px;border-radius:4px}
+.x:hover{color:var(--no);background:var(--no-bg)}
+.ing.fora .n{text-decoration:line-through;color:var(--muted)}
+.ing.fora input{opacity:.35}
+textarea.obs{width:100%;min-height:44px;font:13.5px var(--body);padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink);margin-top:6px}
+.msg{font-size:12.5px;margin-top:4px;min-height:16px}
+.msg.ruim{color:var(--no)}
+.fechado .corpo{display:none}
+.item.conf{grid-template-columns:minmax(220px,1fr) minmax(360px,1.6fr)}
+.cab.conf{grid-template-columns:minmax(220px,1fr) minmax(360px,1.6fr)}
+@media (max-width:820px){.item.conf,.cab.conf{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
-  <div class="marca">CIDADÃO DO MUNDO</div>
+<div class="wrap">
   <h1>Conferir gramatura</h1>
-  <div class="sub">Oi, Lana! Aqui estão as fichas com o peso que está cadastrado hoje.</div>
-
-  <div class="ajuda">
-    <b>Como funciona:</b> toque numa ficha para abrir. Os pesos já vêm preenchidos —
-    <b>mude só o que estiver diferente</b> do que você pesou e toque em enviar.
-    Pode fazer aos poucos, uma ficha por vez.<br><br>
-    <b>Importante:</b> o peso é do ingrediente <b>já pronto</b> (batata frita, bacon frito),
-    não do que sai do pacote.
+  <p class="lead">Pese <b>uma unidade</b> de cada produto, do jeito que está sendo servida, e escreva quanto deu.
+    Os números da ficha já vêm preenchidos: mude só o que estiver diferente e toque em <b>Conferida</b>,
+    que é o que envia para nós. É em <b>grama</b>, menos onde disser outra coisa.
+    O que você escrever fica guardado neste aparelho até enviar; pode fazer aos poucos.</p>
+  <div class="barra">
+    <input type="search" id="busca" placeholder="Procurar produto ou ingrediente…" aria-label="Procurar">
+    <input id="quem" placeholder="Quem está conferindo" aria-label="Quem está conferindo" style="flex:0 1 190px;font:14px var(--body);padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink)">
+    <select id="fgr" aria-label="Grupo"></select>
+    <select id="fst" aria-label="Situação"></select>
+    <div class="quebra"></div>
+    <div class="filtros" id="filtros"></div>
+    <div class="placar" id="placar"></div>
   </div>
-
-  <div class="prog" id="prog"></div>
+  <p class="aviso" id="aviso" hidden></p>
+  <datalist id="nomes"></datalist>
+  <div class="cab conf"><div>Produto</div><div>Quanto vai em uma unidade</div></div>
   <div id="lista"></div>
+</div>
 
 <script>
-const URL = "https://rtmgzsikwglsvpopbfbw.supabase.co";
-const KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ0bWd6c2lrd2dsc3Zwb3BiZmJ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU4NDgwMjcsImV4cCI6MjEwMTQyNDAyN30.-vwbQkcuAbbonmBVCeUWXjTg54uB5MNN94QmMlBxTA4";
-const QUEM = "Lana";
-const FICHAS = [{"f": "AYRTON SENNA", "c": "BURGERS CLASSICOS", "r": 399331.86, "i": [{"mp": "HAMBURGUER DE CARNE 150G RECEITA", "q": 1.0, "un": "un"}, {"mp": "PAO BRIOCHE", "q": 1.0, "un": "un"}, {"mp": "BACON EM CUBOS FRITO RECEITA", "q": 35.0, "un": "g"}, {"mp": "MOZARELA FATIA", "q": 10.0, "un": "g"}, {"mp": "MAIONESE DE CEBOLINHA LEITE RECEITA", "q": 30.0, "un": "g"}]}, {"f": "SILVIO SANTOS", "c": "PRATOS CLASSICOS", "r": 337470.97, "i": [{"mp": "BIFE DE CARNE GRELHADO RECEITA", "q": 1.0, "un": "un"}, {"mp": "BATATA FRITA RECEITA", "q": 125.0, "un": "g"}, {"mp": "FEIJAO PRATOS RECEITA", "q": 225.0, "un": "g"}, {"mp": "ARROZ PARBOILIZADO RECEITA", "q": 220.0, "un": "g"}, {"mp": "SALADA PRATOS", "q": 1.0, "un": "un"}]}, {"f": "JESSE PINKMAN", "c": "BURGERS ESPECIAIS", "r": 289426.62, "i": [{"mp": "HAMBURGUER DE CARNE 150G RECEITA", "q": 1.0, "un": "un"}, {"mp": "PAO BRIOCHE", "q": 1.0, "un": "un"}, {"mp": "ANEIS DE CEBOLA FRITO RECEITA", "q": 35.0, "un": "g"}, {"mp": "MOZARELA FATIA", "q": 10.0, "un": "g"}, {"mp": "MOLHO BARBECUE 3,5KG", "q": 30.0, "un": "g"}, {"mp": "MAIONESE DE CEBOLINHA LEITE RECEITA", "q": 30.0, "un": "g"}]}, {"f": "ALAIN PROST", "c": "BURGERS CLASSICOS", "r": 268026.98, "i": [{"mp": "HAMBURGUER DE CARNE 150G RECEITA", "q": 1.0, "un": "un"}, {"mp": "PAO BRIOCHE", "q": 1.0, "un": "un"}, {"mp": "PEPINO AGRIDOCE", "q": 15.0, "un": "g"}, {"mp": "MOZARELA FATIA", "q": 10.0, "un": "g"}, {"mp": "MAIONESE DE CEBOLINHA LEITE RECEITA", "q": 30.0, "un": "g"}, {"mp": "TOMATE", "q": 25.0, "un": "g"}, {"mp": "ALFACE AMERICANA", "q": 15.0, "un": "g"}]}, {"f": "CIDADAO DO MUNDO BURGER", "c": "BURGERS ESPECIAIS", "r": 218032.19, "i": [{"mp": "HAMBURGUER DE CARNE 150G RECEITA", "q": 1.0, "un": "un"}, {"mp": "DISCO DE MOZARELA EMPANADO 150G RECEITA", "q": 1.0, "un": "un"}, {"mp": "PAO BRIOCHE", "q": 1.0, "un": "un"}, {"mp": "MOLHO BARBECUE 3,5KG", "q": 30.0, "un": "g"}, {"mp": "MAIONESE DE CEBOLINHA LEITE RECEITA", "q": 30.0, "un": "g"}]}, {"f": "NELSON PIQUET", "c": "BURGERS CLASSICOS", "r": 142480.86, "i": [{"mp": "HAMBURGUER DE CARNE 150G RECEITA", "q": 1.0, "un": "un"}, {"mp": "PAO BRIOCHE", "q": 1.0, "un": "un"}, {"mp": "MOZARELA FATIA", "q": 10.0, "un": "g"}, {"mp": "MAIONESE DE CEBOLINHA LEITE RECEITA", "q": 30.0, "un": "g"}]}, {"f": "RUBENS BARRICHELLO", "c": "BURGERS CLASSICOS", "r": 119161.68, "i": [{"mp": "HAMBURGUER DE CARNE 150G RECEITA", "q": 1.0, "un": "un"}, {"mp": "CHEDDAR CREMOSO RECEITA", "q": 50.0, "un": "g"}, {"mp": "PAO BRIOCHE", "q": 1.0, "un": "un"}, {"mp": "BACON EM CUBOS FRITO RECEITA", "q": 35.0, "un": "g"}, {"mp": "MAIONESE DE CEBOLINHA LEITE RECEITA", "q": 30.0, "un": "g"}]}, {"f": "CALDO DE MANDIOQUINHA COM COSTELA", "c": "CALDOS", "r": 109636.15, "i": [{"mp": "COSTELA E ACEM DESFIADO RECEITA", "q": 70.0, "un": "g"}, {"mp": "CALDO DE MANDIOQUINHA RECEITA", "q": 300.0, "un": "g"}]}, {"f": "CANJA DE GALINHA", "c": "CALDOS", "r": 107264.91, "i": [{"mp": "CANJA DE GALINHA RECEITA", "q": 400.0, "un": "g"}]}, {"f": "MAHATMA GANDHI PTS", "c": "PRATOS VEGANOS", "r": 105319.29, "i": [{"mp": "QUEIJO VEGANO DE CASTANHA RECEITA", "q": 50.0, "un": "g"}, {"mp": "HAMBURGUER DE FEIJAO COM PTS 125G RECEITA", "q": 1.0, "un": "un"}, {"mp": "CEBOLA GRELHADA RECEITA", "q": 30.0, "un": "g"}, {"mp": "FAROFA RECEITA", "q": 45.0, "un": "g"}, {"mp": "FEIJAO PRATOS RECEITA", "q": 225.0, "un": "g"}, {"mp": "ARROZ PARBOILIZADO RECEITA", "q": 220.0, "un": "g"}, {"mp": "SALADA PRATOS", "q": 1.0, "un": "un"}]}, {"f": "HONOLULU BURGER", "c": "BURGERS ESPECIAIS", "r": 105269.04, "i": [{"mp": "HAMBURGUER DE CARNE 150G RECEITA", "q": 1.0, "un": "un"}, {"mp": "PAO BRIOCHE", "q": 1.0, "un": "un"}, {"mp": "GORGONZOLA", "q": 20.0, "un": "g"}, {"mp": "GELEIA DE ABACAXI COM PIMENTA", "q": 20.0, "un": "g"}, {"mp": "CATCHUP BACON COM CEBOLA", "q": 15.0, "un": "g"}, {"mp": "MAIONESE DE CEBOLINHA LEITE RECEITA", "q": 30.0, "un": "g"}, {"mp": "CEBOLA CRISPY RECEITA", "q": 15.0, "un": "g"}]}, {"f": "JOHN LENNON", "c": "BURGERS ESPECIAIS", "r": 103038.49, "i": [{"mp": "HAMBURGUER DE CARNE 150G RECEITA", "q": 1.0, "un": "un"}, {"mp": "PAO BRIOCHE", "q": 1.0, "un": "un"}, {"mp": "BACON EM CUBOS FRITO RECEITA", "q": 35.0, "un": "g"}, {"mp": "GORGONZOLA", "q": 20.0, "un": "g"}, {"mp": "GELEIA DE PIMENTA", "q": 20.0, "un": "g"}, {"mp": "MAIONESE DE CEBOLINHA LEITE RECEITA", "q": 30.0, "un": "g"}]}, {"f": "GAUDERIO BURGER", "c": "BURGERS ESPECIAIS", "r": 89791.03, "i": [{"mp": "HAMBURGUER DE CARNE 150G RECEITA", "q": 1.0, "un": "un"}, {"mp": "COSTELA E ACEM DESFIADO RECEITA", "q": 50.0, "un": "g"}, {"mp": "REQUEIJAO CREMOSO 1,5KG", "q": 40.0, "un": "g"}, {"mp": "PAO BRIOCHE", "q": 1.0, "un": "un"}, {"mp": "BACON EM CUBOS FRITO RECEITA", "q": 35.0, "un": "g"}, {"mp": "MAIONESE DE CEBOLINHA LEITE RECEITA", "q": 25.0, "un": "g"}]}, {"f": "LONDON (BATATA)", "c": "PORCOES", "r": 84776.94, "i": [{"mp": "BATATA FRITA RECEITA", "q": 200.0, "un": "g"}, {"mp": "SACHE DE SAL", "q": 2.0, "un": "un"}]}, {"f": "SHACK CITIZEN", "c": "SMASH BURGER", "r": 75883.93, "i": [{"mp": "SMASH BURGER 60G RECEITA", "q": 2.0, "un": "un"}, {"mp": "PAO BRIOCHE", "q": 1.0, "un": "un"}, {"mp": "CHEDDAR EM FATIAS 2,27KG", "q": 30.0, "un": "g"}, {"mp": "MOLHO ESPECIAL RECEITA", "q": 20.0, "un": "g"}, {"mp": "TOMATE", "q": 25.0, "un": "g"}, {"mp": "ALFACE AMERICANA", "q": 10.0, "un": "g"}]}, {"f": "LEWIS HAMILTON", "c": "BURGERS VEGANOS", "r": 75253.8, "i": [{"mp": "PAO DE GERGELIM", "q": 1.0, "un": "un"}, {"mp": "MAIONESE VEGANA", "q": 25.0, "un": "g"}, {"mp": "QUEIJO VEGANO DE CASTANHA RECEITA", "q": 45.0, "un": "g"}, {"mp": "ANEIS DE CEBOLA FRITO RECEITA", "q": 35.0, "un": "g"}, {"mp": "HAMBURGUER DE FEIJAO COM PTS 125G RECEITA", "q": 1.0, "un": "un"}, {"mp": "MOLHO BARBECUE 3,5KG", "q": 30.0, "un": "g"}]}, {"f": "CHEECH E CHONG", "c": "BURGERS ESPECIAIS", "r": 69318.36, "i": [{"mp": "HAMBURGUER DE CARNE 150G RECEITA", "q": 1.0, "un": "un"}, {"mp": "REQUEIJAO CREMOSO 1,5KG", "q": 40.0, "un": "g"}, {"mp": "PAO BRIOCHE", "q": 1.0, "un": "un"}, {"mp": "BACON EM CUBOS FRITO RECEITA", "q": 35.0, "un": "g"}, {"mp": "MAIONESE DE CEBOLINHA LEITE RECEITA", "q": 30.0, "un": "g"}, {"mp": "CEBOLA CRISPY RECEITA", "q": 15.0, "un": "g"}]}, {"f": "CHARLES CHAPLIN", "c": "BURGERS ESPECIAIS", "r": 69172.03, "i": [{"mp": "HAMBURGUER DE CARNE 150G RECEITA", "q": 1.0, "un": "un"}, {"mp": "CHEDDAR CREMOSO RECEITA", "q": 50.0, "un": "g"}, {"mp": "PAO BRIOCHE", "q": 1.0, "un": "un"}, {"mp": "CEBOLA GRELHADA RECEITA", "q": 55.0, "un": "g"}, {"mp": "MAIONESE DE CEBOLINHA LEITE RECEITA", "q": 30.0, "un": "g"}]}, {"f": "JAMES BROWN", "c": "BURGERS ESPECIAIS", "r": 68798.62, "i": [{"mp": "HAMBURGUER DE CARNE 150G RECEITA", "q": 1.0, "un": "un"}, {"mp": "PAO BRIOCHE", "q": 1.0, "un": "un"}, {"mp": "BACON EM CUBOS FRITO RECEITA", "q": 35.0, "un": "g"}, {"mp": "CEBOLA GRELHADA RECEITA", "q": 55.0, "un": "g"}, {"mp": "MOZARELA FATIA", "q": 10.0, "un": "g"}, {"mp": "MOLHO BARBECUE 3,5KG", "q": 30.0, "un": "g"}, {"mp": "MAIONESE DE CEBOLINHA LEITE RECEITA", "q": 30.0, "un": "g"}]}, {"f": "PF DE COSTELA BOVINA", "c": "PRATOS DEFUMADOS", "r": 68052.75, "i": [{"mp": "COSTELA E ACEM DESFIADO RECEITA", "q": 130.0, "un": "g"}, {"mp": "VINAGRETE PRATOS RECEITA", "q": 60.0, "un": "g"}, {"mp": "FAROFA RECEITA", "q": 45.0, "un": "g"}, {"mp": "FEIJAO PRATOS RECEITA", "q": 225.0, "un": "g"}, {"mp": "ARROZ PARBOILIZADO RECEITA", "q": 220.0, "un": "g"}]}];
+const D = {"receitas": [{"id": "batata-individual-ef9c78", "nb": "BATATA INDIVIDUAL", "f": "BATATA INDIVIDUAL", "s": [], "g": "sem_lote", "gr": "Acompanhamentos", "fam": null, "i": [{"mp": "BATATA FRITA RECEITA", "qf": 180.0, "un": "g", "qs": null}, {"mp": "SACHE DE SAL", "qf": 2.0, "un": "un", "qs": null}], "r": null, "ru": null, "rs": null, "d": 256801.06, "lote": null, "mot": "", "av": []}, {"id": "ayrton-senna-b7f8c4", "nb": "AYRTON SENNA", "f": "AYRTON SENNA", "s": [], "g": "sem_lote", "gr": "Burgers classicos", "fam": null, "i": [{"mp": "HAMBURGUER DE CARNE 150G RECEITA", "qf": 1.0, "un": "un", "qs": null}, {"mp": "PAO BRIOCHE", "qf": 1.0, "un": "un", "qs": null}, {"mp": "BACON EM CUBOS FRITO RECEITA", "qf": 35.0, "un": "g", "qs": null}, {"mp": "MOZARELA FATIA", "qf": 10.0, "un": "g", "qs": null}, {"mp": "MAIONESE DE CEBOLINHA LEITE RECEITA", "qf": 30.0, "un": "g", "qs": null}], "r": null, "ru": null, "rs": null, "d": 426258.79, "lote": null, "mot": "", "av": []}, {"id": "alain-prost-c4f9a7", "nb": "ALAIN PROST", "f": "ALAIN PROST", "s": [], "g": "sem_lote", "gr": "Burgers classicos", "fam": null, "i": [{"mp": "HAMBURGUER DE CARNE 150G RECEITA", "qf": 1.0, "un": "un", "qs": null}, {"mp": "PAO BRIOCHE", "qf": 1.0, "un": "un", "qs": null}, {"mp": "PEPINO AGRIDOCE", "qf": 15.0, "un": "g", "qs": null}, {"mp": "MOZARELA FATIA", "qf": 10.0, "un": "g", "qs": null}, {"mp": "MAIONESE DE CEBOLINHA LEITE RECEITA", "qf": 30.0, "un": "g", "qs": null}, {"mp": "TOMATE", "qf": 25.0, "un": "g", "qs": null}, {"mp": "ALFACE AMERICANA", "qf": 15.0, "un": "g", "qs": null}], "r": null, "ru": null, "rs": null, "d": 278878.57, "lote": null, "mot": "", "av": []}, {"id": "nelson-piquet-24c41e", "nb": "NELSON PIQUET", "f": "NELSON PIQUET", "s": [], "g": "sem_lote", "gr": "Burgers classicos", "fam": null, "i": [{"mp": "HAMBURGUER DE CARNE 150G RECEITA", "qf": 1.0, "un": "un", "qs": null}, {"mp": "PAO BRIOCHE", "qf": 1.0, "un": "un", "qs": null}, {"mp": "MOZARELA FATIA", "qf": 10.0, "un": "g", "qs": null}, {"mp": "MAIONESE DE CEBOLINHA LEITE RECEITA", "qf": 30.0, "un": "g", "qs": null}], "r": null, "ru": null, "rs": null, "d": 144851.35, "lote": null, "mot": "", "av": []}, {"id": "rubens-barrichello-2b1e52", "nb": "RUBENS BARRICHELLO", "f": "RUBENS BARRICHELLO", "s": [], "g": "sem_lote", "gr": "Burgers classicos", "fam": null, "i": [{"mp": "HAMBURGUER DE CARNE 150G RECEITA", "qf": 1.0, "un": "un", "qs": null}, {"mp": "PAO BRIOCHE", "qf": 1.0, "un": "un", "qs": null}, {"mp": "CHEDDAR CREMOSO RECEITA", "qf": 50.0, "un": "g", "qs": null}, {"mp": "BACON EM CUBOS FRITO RECEITA", "qf": 35.0, "un": "g", "qs": null}, {"mp": "MAIONESE DE CEBOLINHA LEITE RECEITA", "qf": 30.0, "un": "g", "qs": null}], "r": null, "ru": null, "rs": null, "d": 121395.18, "lote": null, "mot": "", "av": []}, {"id": "jesse-pinkman-a7600a", "nb": "JESSE PINKMAN", "f": "JESSE PINKMAN", "s": [], "g": "sem_lote", "gr": "Burgers especiais", "fam": null, "i": [{"mp": "HAMBURGUER DE CARNE 150G RECEITA", "qf": 1.0, "un": "un", "qs": null}, {"mp": "PAO BRIOCHE", "qf": 1.0, "un": "un", "qs": null}, {"mp": "ANEIS DE CEBOLA FRITO RECEITA", "qf": 35.0, "un": "g", "qs": null}, {"mp": "MOZARELA FATIA", "qf": 10.0, "un": "g", "qs": null}, {"mp": "MOLHO BARBECUE 3,5KG", "qf": 30.0, "un": "g", "qs": null}, {"mp": "MAIONESE DE CEBOLINHA LEITE RECEITA", "qf": 30.0, "un": "g", "qs": null}], "r": null, "ru": null, "rs": null, "d": 292517.88, "lote": null, "mot": "", "av": []}, {"id": "cidadao-do-mundo-burger-4d2c7e", "nb": "CIDADAO DO MUNDO BURGER", "f": "CIDADAO DO MUNDO BURGER", "s": [], "g": "sem_lote", "gr": "Burgers especiais", "fam": null, "i": [{"mp": "HAMBURGUER DE CARNE 150G RECEITA", "qf": 1.0, "un": "un", "qs": null}, {"mp": "DISCO DE MOZARELA EMPANADO 150G RECEITA", "qf": 1.0, "un": "un", "qs": null}, {"mp": "PAO BRIOCHE", "qf": 1.0, "un": "un", "qs": null}, {"mp": "MOLHO BARBECUE 3,5KG", "qf": 30.0, "un": "g", "qs": null}, {"mp": "MAIONESE DE CEBOLINHA LEITE RECEITA", "qf": 30.0, "un": "g", "qs": null}], "r": null, "ru": null, "rs": null, "d": 231220.74, "lote": null, "mot": "", "av": []}, {"id": "honolulu-burger-c03c44", "nb": "HONOLULU BURGER", "f": "HONOLULU BURGER", "s": [], "g": "sem_lote", "gr": "Burgers especiais", "fam": null, "i": [{"mp": "HAMBURGUER DE CARNE 150G RECEITA", "qf": 1.0, "un": "un", "qs": null}, {"mp": "PAO BRIOCHE", "qf": 1.0, "un": "un", "qs": null}, {"mp": "GORGONZOLA", "qf": 20.0, "un": "g", "qs": null}, {"mp": "GELEIA DE ABACAXI COM PIMENTA", "qf": 20.0, "un": "g", "qs": null}, {"mp": "MAIONESE DE CEBOLINHA LEITE RECEITA", "qf": 30.0, "un": "g", "qs": null}, {"mp": "CEBOLA CRISPY RECEITA", "qf": 15.0, "un": "g", "qs": null}, {"mp": "CATCHUP GALAO 3,8KG", "qf": 15.0, "un": "g", "qs": null}], "r": null, "ru": null, "rs": null, "d": 113527.31, "lote": null, "mot": "", "av": []}, {"id": "john-lennon-ee6cbd", "nb": "JOHN LENNON", "f": "JOHN LENNON", "s": [], "g": "sem_lote", "gr": "Burgers especiais", "fam": null, "i": [{"mp": "HAMBURGUER DE CARNE 150G RECEITA", "qf": 1.0, "un": "un", "qs": null}, {"mp": "PAO BRIOCHE", "qf": 1.0, "un": "un", "qs": null}, {"mp": "BACON EM CUBOS FRITO RECEITA", "qf": 35.0, "un": "g", "qs": null}, {"mp": "GORGONZOLA", "qf": 20.0, "un": "g", "qs": null}, {"mp": "GELEIA DE PIMENTA", "qf": 20.0, "un": "g", "qs": null}, {"mp": "MAIONESE DE CEBOLINHA LEITE RECEITA", "qf": 30.0, "un": "g", "qs": null}], "r": null, "ru": null, "rs": null, "d": 107889.49, "lote": null, "mot": "", "av": []}, {"id": "gauderio-burger-8a60e9", "nb": "GAUDERIO BURGER", "f": "GAUDERIO BURGER", "s": [], "g": "sem_lote", "gr": "Burgers especiais", "fam": null, "i": [{"mp": "HAMBURGUER DE CARNE 150G RECEITA", "qf": 1.0, "un": "un", "qs": null}, {"mp": "ACEM DEFUMADO RECEITA", "qf": 50.0, "un": "g", "qs": null}, {"mp": "PAO BRIOCHE", "qf": 1.0, "un": "un", "qs": null}, {"mp": "REQUEIJAO CREMOSO 1,5KG", "qf": 40.0, "un": "g", "qs": null}, {"mp": "BACON EM CUBOS FRITO RECEITA", "qf": 35.0, "un": "g", "qs": null}, {"mp": "MAIONESE DE CEBOLINHA LEITE RECEITA", "qf": 25.0, "un": "g", "qs": null}], "r": null, "ru": null, "rs": null, "d": 95025.44, "lote": null, "mot": "", "av": []}, {"id": "lewis-hamilton-4389c7", "nb": "LEWIS HAMILTON", "f": "LEWIS HAMILTON", "s": [], "g": "sem_lote", "gr": "Burgers veganos", "fam": null, "i": [{"mp": "PAO BRIOCHE", "qf": 1.0, "un": "un", "qs": null}, {"mp": "MAIONESE VEGANA", "qf": 25.0, "un": "g", "qs": null}, {"mp": "QUEIJO VEGANO DE CASTANHA RECEITA", "qf": 45.0, "un": "g", "qs": null}, {"mp": "ANEIS DE CEBOLA FRITO RECEITA", "qf": 35.0, "un": "g", "qs": null}, {"mp": "HAMBURGUER DE FEIJAO COM PTS 125G RECEITA", "qf": 1.0, "un": "un", "qs": null}, {"mp": "MOLHO BARBECUE 3,5KG", "qf": 30.0, "un": "g", "qs": null}], "r": null, "ru": null, "rs": null, "d": 78499.13, "lote": null, "mot": "", "av": []}, {"id": "caldo-de-mandioquinha-com-costela-27e57a", "nb": "CALDO DE MANDIOQUINHA COM COSTELA", "f": "CALDO DE MANDIOQUINHA COM COSTELA", "s": [], "g": "sem_lote", "gr": "Caldos", "fam": null, "i": [{"mp": "ACEM DEFUMADO RECEITA", "qf": 70.0, "un": "g", "qs": null}, {"mp": "CALDO DE MANDIOQUINHA RECEITA", "qf": 300.0, "un": "g", "qs": null}], "r": null, "ru": null, "rs": null, "d": 120482.31, "lote": null, "mot": "", "av": []}, {"id": "canja-de-galinha-02886f", "nb": "CANJA DE GALINHA", "f": "CANJA DE GALINHA", "s": [], "g": "sem_lote", "gr": "Caldos", "fam": null, "i": [{"mp": "CANJA DE GALINHA RECEITA", "qf": 400.0, "un": "g", "qs": null}], "r": null, "ru": null, "rs": null, "d": 114152.76, "lote": null, "mot": "", "av": []}, {"id": "costelinha-acompanhamentos-46a050", "nb": "COSTELINHA + ACOMPANHAMENTOS", "f": "COSTELINHA + ACOMPANHAMENTOS", "s": [], "g": "sem_lote", "gr": "Carnes defumadas", "fam": null, "i": [{"mp": "COSTELINHA DEFUMADA RECEITA", "qf": 1000.0, "un": "g", "qs": null}, {"mp": "LONDON (BATATA)", "qf": 1.0, "un": "un", "qs": null}, {"mp": "COLESLAW RECEITA", "qf": 250.0, "un": "g", "qs": null}, {"mp": "FAROFA RECEITA", "qf": 80.0, "un": "g", "qs": null}, {"mp": "ARROZ PARBOILIZADO RECEITA", "qf": 400.0, "un": "g", "qs": null}], "r": null, "ru": null, "rs": null, "d": 75225.59, "lote": null, "mot": "", "av": []}, {"id": "feijoada-2-pessoas-ab2a6d", "nb": "FEIJOADA 2 PESSOAS", "f": "FEIJOADA 2 PESSOAS", "s": [], "g": "sem_lote", "gr": "Feijoada", "fam": null, "i": [{"mp": "FEIJOADA RECEITA", "qf": 800.0, "un": "g", "qs": null}, {"mp": "BACON EM CUBOS FRITO RECEITA", "qf": 60.0, "un": "g", "qs": null}, {"mp": "FAROFA RECEITA", "qf": 60.0, "un": "g", "qs": null}, {"mp": "VINAGRETE PRATOS RECEITA", "qf": 60.0, "un": "g", "qs": null}, {"mp": "ARROZ PARBOILIZADO RECEITA", "qf": 200.0, "un": "g", "qs": null}, {"mp": "LARANJA", "qf": 20.0, "un": "g", "qs": null}], "r": null, "ru": null, "rs": null, "d": 78497.78, "lote": null, "mot": "", "av": []}, {"id": "london-batata-495309", "nb": "LONDON (BATATA)", "f": "LONDON (BATATA)", "s": [], "g": "sem_lote", "gr": "Porcoes", "fam": null, "i": [{"mp": "BATATA FRITA RECEITA", "qf": 200.0, "un": "g", "qs": null}, {"mp": "SACHE DE SAL", "qf": 2.0, "un": "un", "qs": null}], "r": null, "ru": null, "rs": null, "d": 100365.06, "lote": null, "mot": "", "av": []}, {"id": "berlim-batata-e-onion-rings-8e8a56", "nb": "BERLIM (BATATA E ONION RINGS)", "f": "BERLIM (BATATA E ONION RINGS)", "s": [], "g": "sem_lote", "gr": "Porcoes", "fam": null, "i": [{"mp": "BATATA FRITA RECEITA", "qf": 120.0, "un": "g", "qs": null}, {"mp": "ANEIS DE CEBOLA FRITO RECEITA", "qf": 120.0, "un": "g", "qs": null}, {"mp": "SACHE DE SAL", "qf": 2.0, "un": "un", "qs": null}], "r": null, "ru": null, "rs": null, "d": 73665.88, "lote": null, "mot": "", "av": []}, {"id": "silvio-santos-780ff5", "nb": "SILVIO SANTOS", "f": "SILVIO SANTOS", "s": [], "g": "sem_lote", "gr": "Pratos classicos", "fam": null, "i": [{"mp": "BIFE DE CARNE GRELHADO RECEITA", "qf": 1.0, "un": "un", "qs": null}, {"mp": "BATATA FRITA RECEITA", "qf": 125.0, "un": "g", "qs": null}, {"mp": "FEIJAO PRATOS RECEITA", "qf": 225.0, "un": "g", "qs": null}, {"mp": "ARROZ PARBOILIZADO RECEITA", "qf": 220.0, "un": "g", "qs": null}, {"mp": "SALADA PRATOS", "qf": 1.0, "un": "un", "qs": null}], "r": null, "ru": null, "rs": null, "d": 361756.45, "lote": null, "mot": "", "av": []}, {"id": "mahatma-gandhi-pts-7e2707", "nb": "MAHATMA GANDHI PTS", "f": "MAHATMA GANDHI PTS", "s": [], "g": "sem_lote", "gr": "Pratos veganos", "fam": null, "i": [{"mp": "QUEIJO VEGANO DE CASTANHA RECEITA", "qf": 50.0, "un": "g", "qs": null}, {"mp": "CEBOLA GRELHADA RECEITA", "qf": 30.0, "un": "g", "qs": null}, {"mp": "HAMBURGUER DE FEIJAO COM PTS 125G RECEITA", "qf": 1.0, "un": "un", "qs": null}, {"mp": "FEIJAO PRATOS RECEITA", "qf": 225.0, "un": "g", "qs": null}, {"mp": "FAROFA RECEITA", "qf": 45.0, "un": "g", "qs": null}, {"mp": "ARROZ PARBOILIZADO RECEITA", "qf": 220.0, "un": "g", "qs": null}, {"mp": "SALADA PRATOS", "qf": 1.0, "un": "un", "qs": null}], "r": null, "ru": null, "rs": null, "d": 115831.69, "lote": null, "mot": "", "av": []}, {"id": "shack-citizen-198366", "nb": "SHACK CITIZEN", "f": "SHACK CITIZEN", "s": [], "g": "sem_lote", "gr": "Smash burger", "fam": null, "i": [{"mp": "SMASH BURGER 60G RECEITA", "qf": 2.0, "un": "un", "qs": null}, {"mp": "PAO BRIOCHE", "qf": 1.0, "un": "un", "qs": null}, {"mp": "CHEDDAR EM FATIAS 2,27KG", "qf": 30.0, "un": "g", "qs": null}, {"mp": "MOLHO ESPECIAL RECEITA", "qf": 20.0, "un": "g", "qs": null}, {"mp": "TOMATE", "qf": 25.0, "un": "g", "qs": null}, {"mp": "ALFACE AMERICANA", "qf": 10.0, "un": "g", "qs": null}], "r": null, "ru": null, "rs": null, "d": 79103.68, "lote": null, "mot": "", "av": []}], "nomes": ["ABACATE MP", "ABACAXI MP", "ACEM DEFUMADO E DESFIADO RECEITA", "ACEM MP", "ACUCAR MASCAVO MP", "ACUCAR MP", "AGUA COM GAS 500ML", "AGUA SANITARIA", "AGUA SEM GAS 500ML", "ALCATRA (ORELHA DE ELEFANTE) MP", "ALCOOL 70%", "ALCOOL GEL", "ALFACE AMERICANA MP", "ALHO BATIDO RECEITA", "ALHO DESCASCADO MP", "AMACIANTE DE CARNE MP", "AMIDO DE MILHO MP", "ANEIS DE CEBOLA CONGELADO MP", "ANEIS DE CEBOLA FRITO RECEITA", "ARROZ INTEGRAL MP", "ARROZ INTEGRAL RECEITA", "ARROZ PARBOILIZADO MP", "ARROZ PARBOILIZADO RECEITA", "AZEITE DE OLIVA MP", "BACARDI PRATA", "BACON EM CUBOS FRITO RECEITA", "BACON EM CUBOS MP", "BARRIGA SUINA MP", "BATATA BOLINHA MP", "BATATA CONGELADA MP", "BATATA FRITA RECEITA", "BATATA MONALISA MP", "BATATA PALHA MP", "BATATA SALSA MP", "BETERRABA MP", "BIFE DE CARNE EMPANADO RECEITA", "BIFE DE CARNE GRELHADO RECEITA", "BISTECA MP", "BOBINA TERMICA IMPRESSORA", "BOBINA/FOLHA PICOTADA 40X30", "BOBINA/SACO PICOTADO 16X30", "BOBINA/SACO PICOTADO 35X50", "BOLACHA MAIZENA MP", "BOLINHO DE CARNE RECEITA", "BOLINHO DE PERNIL RECEITA", "BOLINHO DE PTS RECEITA", "BROWNIE TRADICIONAL", "BROWNIE VEGANO RECEITA", "BUDWEISER 600ML", "CACHACA VELHO BARREIRO", "CAFE", "CALABRESA MP", "CALDA DE CARAMELO MP", "CALDA DE CHOCOLATE MP", "CALDA DE FRUTAS VERMELHAS RECEITA", "CALDA DE MORANGO MP", "CALDO DE GALINHA MP", "CALDO DE LEGUMES MP", "CALDO DE MANDIOQUINHA RECEITA", "CALDO VERDE RECEITA", "CAMPARI", "CANETA PILOT", "CANJA DE GALINHA RECEITA", "CANUDO DESCARTAVEL", "CARNE DESFIADA RECEITA", "CARNE VERMELHA (DESOSSA) MP", "CASTANHA DE CAJU MP", "CATCHUP MP", "CEBOLA CRISPY RECEITA", "CEBOLA EM PO MP", "CEBOLA GRELHADA RECEITA", "CEBOLA MP", "CEBOLA PARA CONSERVA MP", "CENOURA MP", "CHAMPIGNON FATIADO MP", "CHEDDAR CREMOSO MP", "CHEDDAR CREMOSO RECEITA", "CHEDDAR FATIADO MP", "CHEESCAKE VEGANA RECEITA", "CHEESECAKE TRADICIONAL RECEITA", "CHEIRO VERDE MP", "CHIMICHURRI MP", "CHOCOLATE VEGANO MP", "CHOPP AVELA PORTER WAY BEER", "CHOPP CURITIPA BIRD BEER", "CHOPP DE VINHO", "CHOPP IPA LOKA WAY BEER", "CHOPP MUTUM CAVALO IGNORUS", "CHOPP PILSEN BIRD BEER", "CHOPP PILSEN BRAHMA", "CHOPP PILSEN WAY BEER", "CHOPP TROOPER BODEBROWN", "COLESLAW RECEITA", "COLHER DESCARTAVEL", "CONFIT DE TOMATE CEREJA RECEITA", "COPA LOMBO MP", "COPO DESCARTAVEL 300ML", "COPO DESCARTAVEL 500ML", "COPO ISOPOR 300ML", "COPO ISOPOR 473ML", "CORONA LONG NECK 330ML", "CORONA ZERO LONG NECK 330ML", "COSTELA BOVINA DEFUMADA RECEITA", "COSTELA BOVINA MP", "COSTELINHA DEFUMADA RECEITA", "COSTELINHA SUINA MP", "COUVE MP", "CREAM CHEESE MP", "DETERGENTE", "DISCO DE MOZARELA EMPANADO RECEITA", "DISCO DE QUEIJO VEGANO EMPANADO RECEITA", "DRY HUB RECEITA", "EMBALAGEM COLADA CIDADAO (BATATA)", "EMBALAGEM LANCHE 18,5X18X5,8 - UFO BURGER", "EMBALAGEM MARMITA 3 DIVISORIAS - BAIXA GASTRONOMIA", "EMBALAGEM MARMITA 3 DIVISORIAS - CIDADAO", "EMBALAGEM MARMITA 3 DIVISORIAS FAMOSA MARMITA", "EMBALAGEM TO GO MINI LISA (BATATA)", "EMBALAGEM TO GO P CIDADAO (LONDON)", "EMBALAGEM TO GO P LISA (LONDON)", "ESCOVA PARA SANITARIOS COM SUPORTE", "ESPETINHO DE PTS RECEITA", "ESPETO DE MADEIRA MP", "ESPONJA", "ESPUMA DE GENGIBRE", "ESSENCIA DE BAUNILHA MP", "ETIQUETA PRINTEX 60X60 30M", "ETIQUETA VALIDADE", "EXTRATO DE SOJA MP", "EXTRATO DE TOMATE MP", "FACA DESCARTAVEL", "FARINHA DE MANDIOCA BIJU MP", "FARINHA DE ROSCA MP", "FARINHA DE TRIGO MP", "FARINHA PANCO MP", "FAROFA RECEITA", "FEIJAO CARIOCA MP", "FEIJAO PRATOS RECEITA", "FEIJAO PRETO MP", "FEIJAO PRETO RECEITA", "FEIJOADA RECEITA", "FIBRA LIMPEZA PESADA", "FILE C MIGNON (T BONE) MP", "FILE SIMPLES (CHULETA) MP", "FILME PVC 38CM X 1000M", "FILTRO PAPEL", "FOSFORO", "FRANGO A PASSARINHO MP", "FRANGO A PASSARINHO RECEITA", "FRANGO EMPANADO RECEITA", "FRANGO GRELHADO RECEITA", "FUMACA LIQUIDA MP", "GARFO DESCARTAVEL", "GARRAFA DESCARTAVEL 200ML", "GARRAFA DESCARTAVEL 500ML", "GAS CHOPP CO2", "GAS CHOPP MISTURA", "GAS GLP", "GAS MACARICO", "GATILHO MACARICO", "GELEIA DE ABACAXI COM PIMENTA MP", "GELEIA DE PIMENTA MP", "GELO", "GIN SEAGERS", "GLUTAMATO MONOSSODICO MP", "GORGONZOLA MP", "GRAMPO", "GUACAMOLE RECEITA", "GUARANA ANTARCTICA 2L", "GUARANA ANTARCTICA CACULINHA 200ML", "GUARANA ANTARTICA LATA 350ML", "GUARANA ANTARTICA ZERO LATA 350ML", "GUARDANAPO DESCARTAVEL", "HAMBURGUER DE CARNE RECEITA", "HAMBURGUER DE FEIJAO COM PTS RECEITA", "HEINEKEN 600ML", "ISCAS DE CARNE RECEITA", "ISCAS DE TILAPIA EMPANADA MP", "ISOPOR H102 (CHURRASCO)", "ISOPOR REDONDO MARMITAS", "LACRE DE SEGURANCA LANCHES CIDADAO", "LACRE DE SEGURANCA MARMITA GENERICO", "LARANJA MP", "LEITE INTEGRAL MP", "LEMON PEPPER MP", "LENHA", "LICOR AMARULA", "LIMAO MP", "LIMPA FORNO (FORNO GRILL)", "LINGUICA TOSCANA MP", "LOURO MP", "LUVA EMBORRACHADA M/G", "LUVA NITRILICA PRETA G SEM PO", "LUVA VINIL G SEM PO", "MACARRAO", "MAIONESE BRANCA VEGANA NOT MAYO", "MAIONESE DE CEBOLINHA LEITE RECEITA", "MAIONESE HELLMANS MP", "MANJERICAO MP", "MANTEIGA MP", "MARGARINA FUNCIONARIOS", "MARGARINA VEGANA MP", "MASCARA DESCARTAVEL", "MASSA PARA PASTEL MP", "MEXEDOR DE CAFE", "MOLHO AO SUGO RECEITA", "MOLHO BARBECUE MP", "MOLHO DE PIMENTA RECEITA", "MOLHO ESPECIAL RECEITA", "MOLHO SHOYU MP", "MORANGO CONGELADO", "MORANGO CONGELADO MP", "MOSTARDA AMARELA MP", "MOZARELA FATIA MP", "MOZARELA PECA MP", "NATA (CREME DE LEITE) MP", "OLEO DE ALGODAO", "OLEO DE SOJA MP", "OREGANO MP", "ORIGINAL 600ML", "OVOS MP", "PA DE LIXO", "PACOCA MP", "PACOTE A VACUO 15X20X12 (MINI)", "PACOTE A VACUO 24X40X12 (GRANDE)", "PACOTE VACUO 20X30X12 (PEQUENO)", "PACOTE VACUO 24X35X16 (COSTELA BOVINA)", "PALITO DE DENTE", "PANO DE CHAO ALVEJADO", "PANO MULTIUSO", "PAO TRADICIONAL", "PAO UFO BURGER", "PAPEL ALUMINIO", "PAPEL HIGIENICO", "PAPEL TOALHA COZINHAS", "PAPEL TOALHA SALAO", "PAPRICA DEFUMADA MP", "PAPRICA DOCE MP", "PASTEL DE QUEIJO RECEITA", "PASTILHA ADESIVA PARA SANITARIOS", "PATINHO/ COXAO MOLE MP", "PEITO DE FRANGO MP", "PEPINO AGRIDOCE MP", "PEPSI 2L", "PEPSI BLACK ZERO 2L", "PEPSI BLACK ZERO LATA 350ML", "PEPSI CACULINHA 200ML", "PEPSI LATA 350ML", "PERNIL DEFUMADO RECEITA", "PET GROWLER 1L", "PET GROWLER 500ML", "PIMENTA DO REINO MP", "PIMENTA JALAPENO MP", "PIMENTA MALAGUETA MP", "PIMENTA TABASCO", "PIMENTAO AMARELO MP", "PIMENTAO VERDE MP", "PIMENTAO VERMELHO MP", "POLVILHO AZEDO MP", "POTE 1 LITRO", "POTE 250ML BP742 (SOBREMESA)", "POTE 500ML", "POTE MOLHOS 50ML", "POTE MOLHOS G-695 30ML", "POTE MOLHOS G-697 60 ML", "PRATO DESCARTAVEL", "PRE PREPARO MOSCOW MULE", "PREPARADO CHA LIMAO SICILIANO", "PREPARADO CHA NATURAL", "PREPARADO CHA PESSEGO", "PTS CARAMELO GROSSO MP", "PTS CARAMELO MEDIO MP", "PTS GROSSO COZIDO RECEITA", "QUEIJO VEGANO DE CASTANHA RECEITA", "QUENTAO", "REPOLHO BRANCO MP", "REPOLHO ROXO MP", "REQUEIJAO CREMOSO (CATUPIRY) MP", "RIBBON 110X74 MISTO", "RODO PLASTICO", "SABAO EM PO", "SABONETE LIQUIDO", "SACHE DE ACUCAR", "SACHE DE AZEITE DE OLIVA", "SACHE DE CATCHUP", "SACHE DE MOSTARDA", "SACHE DE SAL", "SACHE DE VINAGRE", "SACHE DE VINAGRE BALSAMICO MP", "SACO DE LIXO AZUL 100L", "SACO DE LIXO PRETO 100L", "SACO DE LIXO PRETO 60L", "SACO KRAFT SOS 10KG LISA (PEQUENO)", "SACO KRAFT SOS 12KG CIDADAO (PEQUENO)", "SACO KRAFT SOS 20KG CIDADAO (GRANDE)", "SACO KRAFT SOS 20KG LISA (GRANDE)", "SACO PLASTICO 60 X 100 (ENCOMENDAS)", "SACO PLASTICO TALHER E SACHE", "SACOLA DELIVERY", "SAKE", "SAL GRANULADO MP", "SAL REFINADO MP", "SALADA PRATOS RECEITA", "SEDA TERMICA 30X38CM CIDADAO", "SEDA TERMICA 30X38CM VEGANETE", "SMASH BURGER RECEITA", "SOBRECOXA DE FRANGO MP", "SORVETE CHOCOLATE BELGA MP", "SORVETE DE CREME MP", "SORVETE DE MORANGO MP", "SPATEN 600ML", "STEINHAEGER", "STROGONOFF DE CARNE RECEITA", "STROGONOFF DE FRANGO RECEITA", "STROGONOFF DE PTS VEGAN RECEITA", "SUCO DE LIMAO", "SUCO DE PACOTE", "TAMPA GROWLER", "TEMPERO CHURRASCO RECEITA", "TEQUILA JOSE CUERVO", "TOMATE CEREJA MP", "TOMATE MP", "TONICA LATA 350ML", "TORRESMO DE ROLO RECEITA", "TORRESMO EM CUBOS RECEITA", "TORRESMO EM FATIAS RECEITA", "TORTA ALEMA", "TOUCA DESCARTAVEL", "UNTADOR/DESMOLDANTE", "VASSOURA", "VINAGRE DE ALCOOL MP", "VINAGRE DE MACA MP", "VINAGRETE RECEITA", "VINHO CONCHA 750ML", "VODKA NYZIA", "WHISKY JACK DANIELS", "WHISKY JACK DANIELS HONEY", "XAROPE MONIN CRANBERRY", "XAROPE MONIN LIMAO SICILIANO", "XAROPE MONIN MACA VERDE", "XAROPE MONIN MORANGO"], "semrende": true, "chave": "conferencia_gramatura", "st": {"sem_lote": "Pesar uma unidade"}, "grupos": ["Acompanhamentos", "Burgers classicos", "Burgers especiais", "Burgers veganos", "Caldos", "Carnes defumadas", "Feijoada", "Porcoes", "Pratos classicos", "Pratos veganos", "Smash burger"]};
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+const fmt=v=>v==null||v===''?'':Number(v).toLocaleString('pt-BR',{maximumFractionDigits:3,useGrouping:false});
+const semAcento=t=>String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/\s+/g,' ').trim();
+const num=t=>{ const s=String(t==null?'':t).trim(); if(s==='') return null; if(!/^\d+([.,]\d+)?$/.test(s)) return NaN; return Number(s.replace(',','.')); };
+const longe=(a,b)=>b?Math.abs(a-b)/b>0.2:a>0;
+const ST=D.st||{diferente:'Saipos diferente da planilha',sem_ficha:'Sem ficha — escrever',sem_lote:'Sem lote no Saipos',confere:'Bate com o Saipos'};
+const GRUPOS=D.grupos||['Lanches','Pratos','Pré-preparo','Produção'];
+document.getElementById('nomes').innerHTML=(D.nomes||[]).map(n=>`<option value="${esc(n)}">`).join('');
+document.getElementById('fgr').innerHTML='<option value="">Todos os grupos</option>'+GRUPOS.map(g=>`<option>${g}</option>`).join('');
+document.getElementById('fst').innerHTML='<option value="">Todas as situações</option>'+Object.entries(ST).map(([k,v])=>`<option value="${k}">${v}</option>`).join('');
 
-const feitas = JSON.parse(localStorage.getItem('conferidas') || '[]');
-
-function progresso() {
-  document.getElementById('prog').textContent =
-    feitas.length + ' de ' + FICHAS.length + ' fichas conferidas';
+// RASCUNHO NO APARELHO (06/10/2026): antes, o que se digitava vivia só na memória da tela.
+// Numa página só-leitura (quem abre por link compartilhado) nada era salvo e uma atualização
+// apagava horas de trabalho — foi o que aconteceu com a Rita. Agora todo campo é guardado aqui
+// a cada tecla e volta ao reabrir, mesmo que a gravação no banco esteja recusada.
+const CH=D.chave||'conferencia_receitas';
+const CH_RASC=CH+'_rascunho', CH_QUEM=CH+'_quem';
+let rasc={}; try{ rasc=JSON.parse(localStorage.getItem(CH_RASC)||'{}'); }catch(e){ rasc={}; }
+const salvaRasc=()=>{ try{ localStorage.setItem(CH_RASC, JSON.stringify(rasc)); }catch(e){} };
+let QUEM='Lana'; try{ QUEM=localStorage.getItem(CH_QUEM)||'Lana'; }catch(e){}
+const CH_RESP='conferencia_receitas_respostas';
+let resp={}; try{ resp=JSON.parse(localStorage.getItem(CH_RESP)||'{}'); }catch(e){ resp={}; }
+const salvaResp=()=>{ try{ localStorage.setItem(CH_RESP, JSON.stringify(resp)); }catch(e){} };
+let col=null, podeGravar=true, filtro='falta', fgr='', fst='', busca='', abertos=new Set(), pendente=false;
+const R=i=>resp[i.id]||{};
+function valQ(i,j){ const k=i.id+'|'+j; if(rasc[k]!=null) return rasc[k]; const r=R(i); if(r.itens&&r.itens[j]!=null) return r.itens[j]; const it=i.i[j]; return i.g==='sem_ficha'||it.qf==null?'':fmt(it.sai?0:it.qf); }
+function valR(i){ const k=i.id+'|r'; if(rasc[k]!=null) return rasc[k]; const r=R(i); if(r.rende!=null) return r.rende; return i.g==='sem_ficha'?'':fmt(i.r); }
+const feito=i=>!!R(i).feito;
+function passa(i){
+  if(filtro==='falta'&&feito(i)) return false; if(filtro==='feito'&&!feito(i)) return false;
+  if(fgr&&i.gr!==fgr) return false; if(fst&&i.g!==fst) return false;
+  if(busca){ const t=semAcento(i.nb+' '+(i.fam||'')+' '+i.i.map(x=>x.mp+' '+(x.orig||[]).join(' ')).join(' ')+' '+(i.s||[]).join(' '));
+    if(!semAcento(busca).split(' ').every(w=>t.includes(w))) return false; }
+  return true;
+}
+function linhaIng(i,it,j){
+  const nota = it.sai?'<small>você tirou este da receita — fica 0</small>' : it.np?'<small>ainda sem nome padrão</small>'
+    : (it.orig&&(it.orig.length>1||it.orig[0]!==it.mp))?`<small>na ficha: ${esc(it.orig.join(' + '))}</small>` : '';
+  const sai = i.g==='sem_lote' ? '' : (it.qs==null?'—':fmt(it.qs));
+  const lg = i.g!=='sem_ficha' && it.qf!=null && it.qs!=null && longe(it.qs,it.qf);
+  const fora=(R(i).removidos||[]).includes(j);
+  return `<div class="ing${fora?' fora':''}"><div class="n">${esc(it.mp)} <span class="sub">${esc((it.un||'').toLowerCase())}</span>${fora?'<small>excluído desta receita</small>':nota}</div>
+    <input inputmode="decimal" data-q="${i.id}|${j}" value="${fora?'':esc(valQ(i,j))}" ${fora?'disabled':''} placeholder="${i.g==='sem_ficha'&&it.qs?fmt(it.qs):''}" aria-label="${esc(it.mp)}">
+    <div class="s${lg?' longe':''}">${sai}</div>
+    <button class="x" data-a="${fora?'volta':'tira'}" data-id="${i.id}" data-j="${j}" title="${fora?'Voltar este ingrediente':'Excluir este ingrediente'}" aria-label="${fora?'Voltar':'Excluir'} ${esc(it.mp)}">${fora?'↺':'×'}</button></div>`;
+}
+function linha(i){
+  const r=R(i), aberto=abertos.has(i.id);
+  const extras=(r.extras||[]).map((x,k)=>`<div class="ing"><div class="n"><input list="nomes" data-xm="${i.id}|${k}" value="${esc(x.mp||'')}" placeholder="ingrediente (nome padrão)" style="text-align:left"></div>
+    <input inputmode="decimal" data-xq="${i.id}|${k}" value="${esc(x.q||'')}" placeholder="qtd"><div class="s"><input data-xu="${i.id}|${k}" value="${esc(x.un||'')}" placeholder="un" style="text-align:left"></div>
+    <button class="x" data-a="tirax" data-id="${i.id}" data-k="${k}" title="Apagar esta linha" aria-label="Apagar ingrediente acrescentado">×</button></div>`).join('');
+  const rendeSai = i.rs && i.r && longe(i.rs,i.r) ? `<div class="sub">Com os mesmos ingredientes, a planilha rende <b>${fmt(i.r)} ${esc((i.ru||'').toLowerCase())}</b> e o Saipos <b>${fmt(i.rs)}</b>.</div>` : '';
+  return `<div class="item conf${feito(i)?' feito':''}${aberto?'':' fechado'}" data-id="${i.id}">
+    <div><div class="nome">${esc(i.nb)}</div>
+      <div class="sub">${esc([i.gr,i.fam].filter(Boolean).join(' · '))}</div>
+      <span class="st ${i.g}">${ST[i.g]}</span>
+      ${i.f&&i.f!==i.nb?`<div class="sub">ficha: ${esc(i.f)}</div>`:''}
+      ${(i.s||[]).length?`<div class="sub">no Saipos: ${esc(i.s.join(' · '))}</div>`:''}
+      <div class="sub">${i.lote?`receita do Saipos lida no lote de ${esc(i.lote.q)} (${esc(i.lote.l)})`:esc(i.mot||'')}</div>
+      <div class="acoes-linha"><button class="b" data-a="abre" data-id="${i.id}">${aberto?'Fechar':'Abrir'} · ${i.i.length} ingredientes</button>
+        ${feito(i)?`<button class="b pri" data-a="reabre" data-id="${i.id}">✓ Conferida · reabrir</button>`:''}</div></div>
+    <div class="corpo">
+      ${(i.av||[]).map(a=>`<div class="aviso">⚠ ${esc(a)}</div>`).join('')}${rendeSai}
+      <div class="cabing"><span>Ingrediente</span><span>Quanto vai</span><span></span><span></span></div>
+      ${i.i.map((it,j)=>j).sort((x,y)=>semAcento(i.i[x].mp).localeCompare(semAcento(i.i[y].mp),'pt-BR')).map(j=>linhaIng(i,i.i[j],j)).join('')}${extras}
+      <button class="b addx" data-a="add" data-id="${i.id}">+ ingrediente</button>
+      ${D.semrende?'':`<div class="ing"><div class="n"><b>Rende</b></div><input inputmode="decimal" data-r="${i.id}" value="${esc(valR(i))}" placeholder="${i.g==='sem_ficha'&&i.rs?fmt(i.rs):''}">
+        <div class="s">${i.ru?esc(i.ru.toLowerCase()):''}${i.g!=='sem_lote'&&i.rs?' · '+fmt(i.rs):''}</div></div>`}
+      <textarea class="obs" data-o="${i.id}" placeholder="Observação (opcional)">${esc(rasc[i.id+'|o']!=null?rasc[i.id+'|o']:(r.obs||''))}</textarea>
+      <div class="acoes-linha"><button class="b" data-a="ok" data-id="${i.id}">Marcar como conferida</button></div>
+      <div class="msg" id="m-${i.id}"></div>
+    </div></div>`;
+}
+function render(){
+  const a=document.activeElement, sel=a&&a.dataset?Object.keys(a.dataset).map(k=>`[data-${k}="${a.dataset[k]}"]`)[0]:null, pos=a&&a.selectionStart;
+  const vis=D.receitas.filter(passa); let faixa=null;
+  document.getElementById('lista').innerHTML=vis.map(i=>{ let h=''; if(i.gr!==faixa){ faixa=i.gr; h=`<div class="faixa">${esc(faixa||'Sem grupo')}<span>${vis.filter(x=>x.gr===faixa).length}</span></div>`; } return h+linha(i); }).join('')||'<p class="aviso">Nada com esse filtro.</p>';
+  const n=D.receitas.filter(feito).length;
+  document.getElementById('filtros').innerHTML=[['falta','Ainda não conferi'],['feito','Já conferi']].map(([f,t])=>`<button data-f="${f}" class="${filtro===f?'on':''}">${t}<span>${D.receitas.filter(i=>f==='feito'?feito(i):!feito(i)).length}</span></button>`).join('');
+  document.getElementById('placar').innerHTML=`<b>${n}</b> de ${D.receitas.length} produtos conferidos`;
+  if(sel){ const el=document.querySelector(sel); if(el){ el.focus(); try{el.setSelectionRange(pos,pos);}catch(e){} } }
+}
+const editando=()=>{ const a=document.activeElement; return !!(a&&a.closest&&a.closest('#lista')&&/INPUT|TEXTAREA|SELECT/.test(a.tagName)); };
+function renderSeguro(){ if(editando()){ pendente=true; return; } pendente=false; render(); }
+document.addEventListener('focusout',()=>setTimeout(()=>{ if(pendente&&!editando()){ pendente=false; render(); } },200));
+setInterval(()=>{ if(pendente&&!editando()){ pendente=false; render(); } },1500);
+const achar=id=>D.receitas.find(x=>x.id===id);
+function aviso(t){ const a=document.getElementById('aviso'); a.textContent=t; a.hidden=false; }
+// trava visível: enquanto a página não puder gravar, a faixa vermelha fica no alto da tela
+function soLeitura(){
+  podeGravar=false;
+  let b=document.getElementById('soleitura');
+  if(!b){ b=document.createElement('div'); b.id='soleitura';
+    b.style.cssText='position:sticky;top:0;z-index:9;background:#f6e3df;color:#8a3a2e;border:1px solid #8a3a2e;'+
+      'border-radius:8px;padding:10px 12px;margin:0 0 10px;font-weight:600';
+    document.querySelector('.wrap').prepend(b); }
+  b.textContent='Esta página está só para leitura para você: o que escrever NÃO vai ser salvo para a equipe. '+
+    'Fica guardado neste aparelho. Avise o Neto para liberar a edição antes de continuar.';
 }
 
-const lista = document.getElementById('lista');
-FICHAS.forEach((f, i) => {
-  const div = document.createElement('div');
-  div.className = 'ficha' + (feitas.includes(f.f) ? ' feita' : '');
-  div.innerHTML =
-    '<div class="cab"><div class="nome">' + f.f +
-      '<div class="cls">' + f.c + ' · ' + f.i.length + ' ingredientes</div></div>' +
-      '<span class="ok">' + (feitas.includes(f.f) ? '✓' : '') + '</span></div>' +
-    '<div class="corpo">' +
-      f.i.map((it, j) =>
-        '<div class="ing"><div class="ing-nome">' + it.mp + '</div>' +
-        '<input type="number" step="0.1" min="0" id="q' + i + '_' + j + '" value="' + it.q + '">' +
-        '<span class="un">' + it.un + '</span></div>').join('') +
-      '<input class="obs" id="o' + i + '" placeholder="alguma observação? (opcional)">' +
-      '<button class="enviar" id="b' + i + '">Enviar esta ficha</button>' +
-      '<div class="msg" id="m' + i + '"></div>' +
-    '</div>';
-  lista.appendChild(div);
-
-  div.querySelector('.cab').addEventListener('click', () => div.classList.toggle('aberta'));
-
-  div.querySelector('#b' + i).addEventListener('click', async () => {
-    const btn = div.querySelector('#b' + i);
-    const msg = div.querySelector('#m' + i);
-    btn.disabled = true; msg.className = 'msg'; msg.textContent = 'enviando...';
-    const obs = div.querySelector('#o' + i).value.trim() || null;
-    const corpo = f.i.map((it, j) => ({
-      ficha: f.f,
-      materia_prima: it.mp,
-      qtd_ficha: it.un === 'g' ? it.q / 1000 : it.q,
-      qtd_medida: (() => {
-        const v = Number(div.querySelector('#q' + i + '_' + j).value);
-        return it.un === 'g' ? v / 1000 : v;
-      })(),
-      un: it.un,
-      quem: QUEM,
-      observacao: obs,
-    }));
-    try {
-      const r = await fetch(URL + '/rest/v1/ft_conferencia', {
-        method: 'POST',
-        headers: { apikey: KEY, Authorization: 'Bearer ' + KEY,
-                   'Content-Type': 'application/json', Prefer: 'return=minimal' },
-        body: JSON.stringify(corpo),
-      });
-      if (!r.ok) throw new Error(await r.text());
-      msg.className = 'msg bom'; msg.textContent = 'Enviado, obrigado!';
-      div.classList.add('feita'); div.classList.remove('aberta');
-      div.querySelector('.ok').textContent = '✓';
-      if (!feitas.includes(f.f)) { feitas.push(f.f); localStorage.setItem('conferidas', JSON.stringify(feitas)); }
-      progresso();
-    } catch (e) {
-      msg.className = 'msg ruim';
-      msg.textContent = 'Não consegui enviar. Tente de novo em instantes.';
-      btn.disabled = false;
-    }
+function coletar(i){
+  const r=R(i), itens={};
+  const fora=r.removidos||[];
+  i.i.forEach((it,j)=>{ if(fora.includes(j)) return; const v=valQ(i,j); if(String(v).trim()!=='') itens[j]=String(v).trim(); });
+  return {...r, itens, rende:String(valR(i)).trim(), obs:(rasc[i.id+'|o']!=null?rasc[i.id+'|o']:(r.obs||'')).trim()};
+}
+const URL='https://rtmgzsikwglsvpopbfbw.supabase.co', KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ0bWd6c2lrd2dsc3Zwb3BiZmJ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU4NDgwMjcsImV4cCI6MjEwMTQyNDAyN30.-vwbQkcuAbbonmBVCeUWXjTg54uB5MNN94QmMlBxTA4';
+// uma linha por ingrediente, no formato que ft_conferencia espera (a policy do banco recusa
+// qtd_medida nula ou negativa, nome vazio e texto longo demais — por isso os cortes)
+function linhasParaEnviar(i,novo){
+  const quem=(QUEM||'(sem nome)').slice(0,80), obs=((novo.obs||'').trim().slice(0,480))||null;
+  const ficha=String(i.nb||i.f||'').slice(0,200), out=[];
+  // a cozinha digita em grama; no banco tudo vive em quilo (mesma convenção da ficha)
+  const emKg=(v,un)=>String(un||'').toLowerCase()==='g'?{v:v/1000,un:'KG'}:{v,un};
+  const poe=(mp,qf,v,un)=>{ const a=emKg(v,un), b=emKg(qf==null?null:qf,un);
+    out.push({ficha, materia_prima:String(mp).slice(0,200), qtd_ficha:qf==null?null:b.v,
+      qtd_medida:a.v, un:a.un||null, quem, observacao:obs, escala:null}); };
+  i.i.forEach((it,j)=>{
+    const fora=(novo.removidos||[]).includes(j);
+    const v = fora ? 0 : num(novo.itens&&novo.itens[j]!=null?novo.itens[j]:'');
+    if(v===null||Number.isNaN(v)) return;
+    poe(it.mp, i.g==='sem_ficha'?(it.qs??null):(it.qf??null), v, it.un);
   });
+  (novo.extras||[]).forEach(x=>{ const v=num(x.q); if(!x.mp||v===null||Number.isNaN(v)) return; poe(x.mp,null,v,x.un); });
+  if(!true){ const r=num(novo.rende); if(r!==null&&!Number.isNaN(r)) poe('RENDIMENTO', i.r??null, r, i.ru); }
+  if(!out.length&&obs) poe('RECEITA EM TEXTO', null, 0, null);
+  return out;
+}
+// digitar guarda no aparelho; só o botão Conferida manda para o banco (enviar=true)
+async function gravar(i,novo,enviar){
+  resp[i.id]=novo; salvaResp();
+  if(!enviar) return true;
+  const msg=document.getElementById('m-'+i.id);
+  const diz=(c,t)=>{ if(msg){ msg.className='msg '+c; msg.textContent=t; } };
+  const linhas=linhasParaEnviar(i,novo);
+  if(!linhas.length){ diz('ruim','Escreva uma quantidade ou uma observação antes de enviar.'); return false; }
+  diz('','enviando…');
+  try{
+    const r=await fetch(URL+'/rest/v1/ft_conferencia',{method:'POST',
+      headers:{apikey:KEY, Authorization:'Bearer '+KEY, 'Content-Type':'application/json', Prefer:'return=minimal'},
+      body:JSON.stringify(linhas)});
+    if(!r.ok) throw new Error(await r.text());
+    diz('bom','Enviado, obrigado!');
+    return true;
+  }catch(e){ diz('ruim','Não consegui enviar. Veja a internet e toque de novo.'); return false; }
+}
+function validar(i){
+  const msg=document.getElementById('m-'+i.id); msg.className='msg ruim';
+  for(let j=0;j<i.i.length;j++){ if((R(i).removidos||[]).includes(j)) continue; const v=num(valQ(i,j)); const el=document.querySelector(`[data-q="${i.id}|${j}"]`);
+    if(Number.isNaN(v)){ msg.textContent='Não entendi este número. Use só algarismos e vírgula.'; el&&el.classList.add('erro'); return false; }
+    if(v===null && i.g!=='sem_ficha' && i.i[j].qf!=null){ msg.textContent='Deixou em branco — se não vai, ponha 0.'; el&&el.classList.add('erro'); return false; } }
+  if(!D.semrende){
+    const r=num(valR(i));
+    if(Number.isNaN(r)||r===0){ msg.textContent='Confira o rendimento.'; return false; }
+    if(r===null && (i.g!=='sem_ficha' || Object.keys(coletar(i).itens).length)){ msg.textContent='Falta quanto rende.'; return false; }
+    if(r!==null && i.r && (r>i.r*10||r<i.r/10) && !confirm('Rende '+fmt(r)+' contra '+fmt(i.r)+' da planilha. Está certo?')) return false;
+  }
+  const c=coletar(i);
+  if(!Object.keys(c.itens).length && !(c.extras||[]).length && !c.obs){ msg.textContent='Escreva as quantidades antes de enviar.'; return false; }
+  msg.textContent=''; return true;
+}
+document.addEventListener('click',ev=>{
+  const f=ev.target.closest('[data-f]'); if(f){ filtro=f.dataset.f; render(); return; }
+  const b=ev.target.closest('[data-a]'); if(!b) return; const i=achar(b.dataset.id);
+  if(b.dataset.a==='abre'){ abertos.has(i.id)?abertos.delete(i.id):abertos.add(i.id); render(); return; }
+  if(b.dataset.a==='add'){ const n=coletar(i); n.extras=[...(n.extras||[]),{mp:'',q:'',un:''}]; resp[i.id]=n; render(); return; }
+  if(b.dataset.a==='tira'||b.dataset.a==='volta'){ const j=+b.dataset.j; const n=coletar(i); const rem=new Set(n.removidos||[]);
+    b.dataset.a==='tira'?rem.add(j):rem.delete(j); n.removidos=[...rem]; delete rasc[i.id+'|'+j]; gravar(i,n); render(); return; }
+  if(b.dataset.a==='tirax'){ const k=+b.dataset.k; const n=coletar(i); n.extras=(n.extras||[]).filter((_,x)=>x!==k); gravar(i,n); render(); return; }
+  if(b.dataset.a==='reabre'){ const n=coletar(i); n.feito=false; gravar(i,n); abertos.add(i.id); render(); return; }
+  if(b.dataset.a==='ok'){ if(!validar(i)) return; const n=coletar(i); n.feito=true;
+    gravar(i,n,true).then(ok=>{ if(ok){ abertos.delete(i.id); } else { n.feito=false; resp[i.id]=n; salvaResp(); } render(); }); }
 });
-progresso();
+const timers={};
+document.addEventListener('input',ev=>{
+  const t=ev.target;
+  if(t.id==='busca'){ busca=t.value; render(); return; }
+  if(t.id==='quem'){ QUEM=t.value.trim(); try{ localStorage.setItem(CH_QUEM,QUEM); }catch(e){} return; }
+  const d=t.dataset; let i,chave;
+  if(d.q){ const [id,j]=d.q.split('|'); i=achar(id); chave=id+'|'+j; rasc[chave]=t.value; t.classList.remove('erro'); }
+  else if(d.r){ i=achar(d.r); chave=d.r+'|r'; rasc[chave]=t.value; }
+  else if(d.o){ i=achar(d.o); chave=d.o+'|o'; rasc[chave]=t.value; }
+  else if(d.xm||d.xq||d.xu){ const [id,k]=(d.xm||d.xq||d.xu).split('|'); i=achar(id); const n=coletar(i); n.extras=[...(n.extras||[])];
+    n.extras[k]={...n.extras[k],[d.xm?'mp':d.xq?'q':'un']:t.value}; resp[i.id]=n; chave=id+'|x'; }
+  else return;
+  salvaRasc();
+  clearTimeout(timers[chave]); timers[chave]=setTimeout(()=>{ const n=coletar(i); gravar(i,n); },900);
+});
+document.addEventListener('change',ev=>{ if(ev.target.id==='fgr'){ fgr=ev.target.value; render(); } if(ev.target.id==='fst'){ fst=ev.target.value; render(); } });
+
+document.getElementById('quem').value=QUEM;
+render();
 </script>
+
 </body>
 </html>

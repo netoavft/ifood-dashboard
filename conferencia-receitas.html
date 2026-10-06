@@ -98,6 +98,8 @@ mark{background:var(--hl);color:inherit;border-radius:2px}
 .st{display:inline-block;font:500 10.5px/1 var(--body);letter-spacing:.05em;text-transform:uppercase;padding:3px 6px;border-radius:4px;margin-top:4px}
 .st.diferente{background:var(--warn-bg);color:var(--warn)} .st.sem_ficha{background:var(--no-bg);color:var(--no)}
 .st.sem_lote{background:var(--surface2);color:var(--muted)} .st.confere{background:var(--ok-bg);color:var(--ok)}
+.st.neutro{background:var(--surface2);color:var(--muted)}
+.msg.bom{color:var(--ok)}
 .addx{margin-top:6px}
 .x{border:0;background:none;color:var(--muted);font-size:17px;line-height:1;cursor:pointer;padding:4px;border-radius:4px}
 .x:hover{color:var(--no);background:var(--no-bg)}
@@ -140,9 +142,9 @@ const fmt=v=>v==null||v===''?'':Number(v).toLocaleString('pt-BR',{maximumFractio
 const semAcento=t=>String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/\s+/g,' ').trim();
 const num=t=>{ const s=String(t==null?'':t).trim(); if(s==='') return null; if(!/^\d+([.,]\d+)?$/.test(s)) return NaN; return Number(s.replace(',','.')); };
 const longe=(a,b)=>b?Math.abs(a-b)/b>0.2:a>0;
-const ST={diferente:'Saipos diferente da planilha',sem_ficha:'Sem ficha — escrever',sem_lote:'Sem lote no Saipos',confere:'Bate com o Saipos'};
-const GRUPOS=['Lanches','Pratos','Pré-preparo','Produção'];
-document.getElementById('nomes').innerHTML=D.nomes.map(n=>`<option value="${esc(n)}">`).join('');
+const ST=D.st||{diferente:'Saipos diferente da planilha',sem_ficha:'Sem ficha — escrever',sem_lote:'Sem lote no Saipos',confere:'Bate com o Saipos'};
+const GRUPOS=D.grupos||['Lanches','Pratos','Pré-preparo','Produção'];
+document.getElementById('nomes').innerHTML=(D.nomes||[]).map(n=>`<option value="${esc(n)}">`).join('');
 document.getElementById('fgr').innerHTML='<option value="">Todos os grupos</option>'+GRUPOS.map(g=>`<option>${g}</option>`).join('');
 document.getElementById('fst').innerHTML='<option value="">Todas as situações</option>'+Object.entries(ST).map(([k,v])=>`<option value="${k}">${v}</option>`).join('');
 
@@ -150,7 +152,8 @@ document.getElementById('fst').innerHTML='<option value="">Todas as situações<
 // Numa página só-leitura (quem abre por link compartilhado) nada era salvo e uma atualização
 // apagava horas de trabalho — foi o que aconteceu com a Rita. Agora todo campo é guardado aqui
 // a cada tecla e volta ao reabrir, mesmo que a gravação no banco esteja recusada.
-const CH_RASC='conferencia_receitas_rascunho', CH_QUEM='conferencia_receitas_quem';
+const CH=D.chave||'conferencia_receitas';
+const CH_RASC=CH+'_rascunho', CH_QUEM=CH+'_quem';
 let rasc={}; try{ rasc=JSON.parse(localStorage.getItem(CH_RASC)||'{}'); }catch(e){ rasc={}; }
 const salvaRasc=()=>{ try{ localStorage.setItem(CH_RASC, JSON.stringify(rasc)); }catch(e){} };
 let QUEM='Rita'; try{ QUEM=localStorage.getItem(CH_QUEM)||'Rita'; }catch(e){}
@@ -200,8 +203,8 @@ function linha(i){
       <div class="cabing"><span>Ingrediente</span><span>${i.g==='sem_ficha'?'Quanto':'Planilha'}</span><span>${i.g==='sem_lote'?'':'Saipos'}</span><span></span></div>
       ${i.i.map((it,j)=>j).sort((x,y)=>semAcento(i.i[x].mp).localeCompare(semAcento(i.i[y].mp),'pt-BR')).map(j=>linhaIng(i,i.i[j],j)).join('')}${extras}
       <button class="b addx" data-a="add" data-id="${i.id}">+ ingrediente</button>
-      <div class="ing"><div class="n"><b>Rende</b></div><input inputmode="decimal" data-r="${i.id}" value="${esc(valR(i))}" placeholder="${i.g==='sem_ficha'&&i.rs?fmt(i.rs):''}">
-        <div class="s">${i.ru?esc(i.ru.toLowerCase()):''}${i.g!=='sem_lote'&&i.rs?' · '+fmt(i.rs):''}</div></div>
+      ${D.semrende?'':`<div class="ing"><div class="n"><b>Rende</b></div><input inputmode="decimal" data-r="${i.id}" value="${esc(valR(i))}" placeholder="${i.g==='sem_ficha'&&i.rs?fmt(i.rs):''}">
+        <div class="s">${i.ru?esc(i.ru.toLowerCase()):''}${i.g!=='sem_lote'&&i.rs?' · '+fmt(i.rs):''}</div></div>`}
       <textarea class="obs" data-o="${i.id}" placeholder="Observação (opcional)">${esc(rasc[i.id+'|o']!=null?rasc[i.id+'|o']:(r.obs||''))}</textarea>
       <div class="acoes-linha"><button class="b" data-a="ok" data-id="${i.id}">Marcar como conferida</button></div>
       <div class="msg" id="m-${i.id}"></div>
@@ -255,7 +258,7 @@ function linhasParaEnviar(i,novo){
     poe(it.mp, i.g==='sem_ficha'?(it.qs??null):(it.qf??null), v, it.un);
   });
   (novo.extras||[]).forEach(x=>{ const v=num(x.q); if(!x.mp||v===null||Number.isNaN(v)) return; poe(x.mp,null,v,x.un); });
-  const r=num(novo.rende); if(r!==null&&!Number.isNaN(r)) poe('RENDIMENTO', i.r??null, r, i.ru);
+  if(!false){ const r=num(novo.rende); if(r!==null&&!Number.isNaN(r)) poe('RENDIMENTO', i.r??null, r, i.ru); }
   if(!out.length&&obs) poe('RECEITA EM TEXTO', null, 0, null);
   return out;
 }
@@ -282,10 +285,14 @@ function validar(i){
   for(let j=0;j<i.i.length;j++){ if((R(i).removidos||[]).includes(j)) continue; const v=num(valQ(i,j)); const el=document.querySelector(`[data-q="${i.id}|${j}"]`);
     if(Number.isNaN(v)){ msg.textContent='Não entendi este número. Use só algarismos e vírgula.'; el&&el.classList.add('erro'); return false; }
     if(v===null && i.g!=='sem_ficha' && i.i[j].qf!=null){ msg.textContent='Deixou em branco — se não vai, ponha 0.'; el&&el.classList.add('erro'); return false; } }
-  const r=num(valR(i));
-  if(Number.isNaN(r)||r===0){ msg.textContent='Confira o rendimento.'; return false; }
-  if(r===null && (i.g!=='sem_ficha' || Object.keys(coletar(i).itens).length)){ msg.textContent='Falta quanto rende.'; return false; }
-  if(r!==null && i.r && (r>i.r*10||r<i.r/10) && !confirm('Rende '+fmt(r)+' contra '+fmt(i.r)+' da planilha. Está certo?')) return false;
+  if(!D.semrende){
+    const r=num(valR(i));
+    if(Number.isNaN(r)||r===0){ msg.textContent='Confira o rendimento.'; return false; }
+    if(r===null && (i.g!=='sem_ficha' || Object.keys(coletar(i).itens).length)){ msg.textContent='Falta quanto rende.'; return false; }
+    if(r!==null && i.r && (r>i.r*10||r<i.r/10) && !confirm('Rende '+fmt(r)+' contra '+fmt(i.r)+' da planilha. Está certo?')) return false;
+  }
+  const c=coletar(i);
+  if(!Object.keys(c.itens).length && !(c.extras||[]).length && !c.obs){ msg.textContent='Escreva as quantidades antes de enviar.'; return false; }
   msg.textContent=''; return true;
 }
 document.addEventListener('click',ev=>{
