@@ -3400,6 +3400,42 @@ const negRespondivel = r => (r[4] || '') !== 'APOS A ENTREGA';
 const negSemResposta = r => negRespondivel(r) && (r[9] || '') === 'CLIENTE' && !r[5];
 const negPosEntrega  = r => (r[4] || '') === 'APOS A ENTREGA';
 let AVALIACOES = null;
+// Criticas marcadas pelos clientes (vw_avaliacoes_criticas, API Review). null = ainda nao
+// carregou OU a view nao respondeu: o bloco "O que mais criticam" some e o resto da tela segue.
+// cols: loja, data (dia do pedido), nota, criticas[], comentario, aguardando resposta, id curto,
+//       itens do pedido[] (o que o cliente pediu, ja escrito pela view; [] quando o iFood nao guarda mais)
+let AVAL_CRITICAS = null;
+let AVAL_CRITICAS_TENTOU = false; // a leitura das criticas sai UMA vez por visita ao painel
+let AVAL_CRITICAS_BATE = null;    // true = toda critica tem a avaliacao dela nesta tela; so assim o bloco aparece
+let AVAL_CRITICA_SEL = null;     // critica escolhida no grafico: recorta a lista de comentarios
+let AVAL_LISTA_CRITICAS = [];    // ordem das barras, para o clique achar o nome pela posicao
+function avalCriticaFiltrar(i) {
+  const c = AVAL_LISTA_CRITICAS[i];
+  if (!c) return;
+  AVAL_CRITICA_SEL = (AVAL_CRITICA_SEL === c) ? null : c;
+  renderModuloAvaliacoes();
+  const el = document.getElementById('avalReclamacoes');
+  if (AVAL_CRITICA_SEL && el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+function avalCriticaLimpar() { AVAL_CRITICA_SEL = null; renderModuloAvaliacoes(); }
+// O mesmo numero em toda tela: quantas criticas NAO tem a avaliacao delas entre as que esta
+// tela conta (mesma loja, dia do pedido, id curto e nota). Enquanto sobrar alguma — e o caso
+// de vw_avaliacoes ainda lendo a planilha — o bloco inteiro fica escondido.
+function avalCriticasSemPar() {
+  const tem = new Set(AVALIACOES.map(r => [r[0], r[1], r[5], r[2]].join('|')));
+  return AVAL_CRITICAS.filter(r => !tem.has([r[0], r[1], r[6], r[2]].join('|'))).length;
+}
+async function conferirCriticasAval() {
+  if (AVAL_CRITICAS === null || AVALIACOES === null || AVAL_CRITICAS_BATE !== null) return;
+  let fora = avalCriticasSemPar();
+  if (fora) {
+    // Pode ser so o importador gravando entre uma leitura e a outra: le as duas de novo, uma vez.
+    try { await entrarAvaliacoesSoDados(); await carregarCriticasAval(); } catch (e) { /* fica com o que tinha */ }
+    fora = AVAL_CRITICAS === null ? 0 : avalCriticasSemPar();
+  }
+  AVAL_CRITICAS_BATE = AVAL_CRITICAS !== null && fora === 0;
+  if (fora) console.warn('Criticas: ' + fora + ' sem a avaliacao correspondente nesta tela — o bloco fica escondido.');
+}
 let RELATORIOS = null;
 
 async function entrarNegociacoes() {
@@ -3580,10 +3616,15 @@ function renderModuloNegociacoes() {
 
 async function entrarAvaliacoes() {
   const alvo = document.getElementById('view-avaliacoes');
-  if (AVALIACOES === null) {
-    alvo.innerHTML = '<div class="contexto">Carregando avaliações...</div>';
-    await entrarAvaliacoesSoDados();
+  const lerCriticas = AVAL_CRITICAS === null && !AVAL_CRITICAS_TENTOU;
+  if (AVALIACOES === null || lerCriticas) {
+    if (AVALIACOES === null) alvo.innerHTML = '<div class="contexto">Carregando avaliações...</div>';
+    await Promise.all([
+      AVALIACOES === null ? entrarAvaliacoesSoDados() : null,
+      lerCriticas ? carregarCriticasAval() : null,
+    ]);
   }
+  await conferirCriticasAval();
   renderModuloAvaliacoes();
 }
 
@@ -3647,7 +3688,44 @@ function renderModuloAvaliacoes() {
       mediaAnt: mediaAntPorLoja.has(i) ? mediaAntPorLoja.get(i) : null }))
     .sort((a, b) => a.media - b.media);
 
-  const comentarios = linhas.filter(r => r[2] <= 3 && r[4]).slice(0, 8);
+  // ---- O que mais criticam (vw_avaliacoes_criticas). Sem a view, tudo aqui fica vazio e a
+  // lista de reclamacoes sai como sempre saiu.
+  const esc = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  const temCriticas = AVAL_CRITICAS !== null && AVAL_CRITICAS_BATE === true;
+  const lojasCrit = activeLojas();
+  const critLinhas = (temCriticas ? AVAL_CRITICAS : []).filter(r => lojasCrit.has(r[0])
+    && (!fDataIni.value || r[1] >= fDataIni.value) && (!fDataFim.value || r[1] <= fDataFim.value));
+  const porCritica = new Map();
+  critLinhas.forEach(r => r[3].forEach(c => porCritica.set(c, (porCritica.get(c) || 0) + 1)));
+  const criticas = [...porCritica.entries()].map(([c, n]) => ({ c, n }))
+    .sort((a, b) => b.n - a.n || a.c.localeCompare(b.c));
+  AVAL_LISTA_CRITICAS = criticas.map(x => x.c);
+  if (AVAL_CRITICA_SEL && !AVAL_LISTA_CRITICAS.includes(AVAL_CRITICA_SEL)) AVAL_CRITICA_SEL = null;
+  const comCritica = critLinhas.filter(r => r[3].length).length;
+  const aguardando = critLinhas.filter(r => r[5]).length;
+  // Liga cada reclamacao da lista de sempre a linha dela na view nova (mesma loja, dia, id
+  // curto, nota e texto) para mostrar as criticas marcadas, o "aguardando resposta" e o que o
+  // cliente pediu.
+  // Reclamacao sem linha la (so a planilha antiga tem) fica com criticas = null: nao se sabe.
+  const chaveAv = (r, curto) => [r[0], r[1], curto, r[2], r[4] || ''].join('|');
+  const critPorChave = new Map(critLinhas.map(r => [chaveAv(r, r[6]), r]));
+  const reclamacoes = AVAL_CRITICA_SEL
+    ? critLinhas.filter(r => r[4] && r[3].includes(AVAL_CRITICA_SEL))
+        .map(r => ({ loja: r[0], data: r[1], nota: r[2], txt: r[4], criticas: r[3], aguarda: r[5], itens: r[7] }))
+    : linhas.filter(r => r[2] <= 3 && r[4]).map(r => {
+        const k = critPorChave.get(chaveAv(r, r[5]));
+        return { loja: r[0], data: r[1], nota: r[2], txt: r[4], criticas: k ? k[3] : null, aguarda: k ? k[5] : false, itens: k ? k[7] : [] };
+      });
+  const comentarios = reclamacoes.slice(0, AVAL_CRITICA_SEL ? 20 : 8);
+  // Onde a critica escolhida mais aparece: o "Avaliações" e o MESMO numero da tabela por loja.
+  const critPorLoja = new Map();
+  if (AVAL_CRITICA_SEL) critLinhas.forEach(r => {
+    if (r[3].includes(AVAL_CRITICA_SEL)) critPorLoja.set(r[0], (critPorLoja.get(r[0]) || 0) + 1);
+  });
+  const lojasDaCritica = [...critPorLoja.entries()]
+    .map(([i, n]) => ({ nome: LOJAS[i], n, aval: porLoja.has(i) ? porLoja.get(i).n : null }))
+    .sort((a, b) => b.n - a.n || String(a.nome).localeCompare(String(b.nome)));
 
   alvo.innerHTML = `
   <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">O que os clientes estão dizendo</div>
@@ -3670,7 +3748,12 @@ function renderModuloAvaliacoes() {
       <div class="chart-title">O que mais elogiam (tags marcadas)</div>
       <div class="chart-canvas-wrap"><canvas id="chartTags"></canvas></div>
     </div>
+    ${criticas.length ? `<div class="chart-box" style="flex:1 1 320px; height:280px;">
+      <div class="chart-title">O que mais criticam (${comCritica} avaliações)</div>
+      <div class="chart-canvas-wrap"><canvas id="chartCriticas"></canvas></div>
+    </div>` : ''}
   </div>
+  ${criticas.length ? `<div class="caption-label" style="text-align:center;">Clique numa crítica para ler os comentários e ver em que loja ela mais aparece.</div>` : ''}
 
   <div class="section-label">Nota por loja — piores primeiro</div>
   <div id="tabelaAvalLojas">
@@ -3687,15 +3770,30 @@ function renderModuloAvaliacoes() {
   </div>
   <div class="caption-label">Lojas com poucas avaliações oscilam muito — dê mais peso às que têm 30 ou mais.</div>
 
-  ${comentarios.length ? `
-  <div class="section-label">Últimas reclamações com comentário (nota ≤ 3)</div>
-  <div id="tabelaComentarios">
+  ${(comentarios.length || AVAL_CRITICA_SEL) ? `
+  <div class="section-label" id="avalReclamacoes">${AVAL_CRITICA_SEL ? 'Comentários de quem marcou esta crítica' : 'Últimas reclamações com comentário (nota ≤ 3)'}</div>
+  ${AVAL_CRITICA_SEL ? `<div class="contexto" style="border-color:var(--brand);">
+    <button class="preset-btn active" onclick="avalCriticaLimpar()">${esc(AVAL_CRITICA_SEL)} ✕</button>
+    <div style="font-size:12px; color:var(--tx-3); margin-top:6px;">
+      ${reclamacoes.length} comentário${reclamacoes.length === 1 ? '' : 's'} no período, de qualquer nota${reclamacoes.length > comentarios.length ? ' — abaixo, os ' + comentarios.length + ' mais recentes' : ''}.
+    </div>
+  </div>
+  <div id="tabelaCriticaLojas" style="margin-bottom:14px;">
     <table>
-      <tr><th>Data</th><th>Loja</th><th>Nota</th><th>Comentário</th></tr>
-      ${comentarios.map(r => `<tr><td>${formatarDataCurta(r[1])}</td><td>${LOJAS[r[0]]}</td><td>${r[2]} ★</td>
-        <td style="white-space:normal; text-align:left; max-width:420px;">${String(r[4]).slice(0, 180)}</td></tr>`).join('')}
+      <tr><th>Loja</th><th>Marcaram esta crítica</th><th>Avaliações</th><th>A cada 100 avaliações</th></tr>
+      ${lojasDaCritica.map(x => `<tr><td>${esc(x.nome)}</td><td>${x.n}</td><td>${x.aval === null ? '–' : x.aval}</td>
+        <td>${x.aval ? pct(x.n / x.aval * 100) : '–'}</td></tr>`).join('')}
     </table>
-  </div>` : ''}`;
+  </div>` : ''}
+  ${(!AVAL_CRITICA_SEL && aguardando) ? `<div class="caption-label" style="text-align:center;">${aguardando} avaliaç${aguardando === 1 ? 'ão' : 'ões'} com crítica aguardando resposta da loja no período.</div>` : ''}
+  ${comentarios.length ? `<div id="tabelaComentarios">
+    <table>
+      <tr><th>Data</th><th>Loja</th><th>Nota</th>${temCriticas ? '<th>O que criticou</th>' : ''}<th>Comentário</th></tr>
+      ${comentarios.map(x => `<tr><td>${formatarDataCurta(x.data)}</td><td>${esc(LOJAS[x.loja])}</td><td>${x.nota} ★</td>
+        ${temCriticas ? `<td style="white-space:normal; text-align:left; max-width:200px;">${x.criticas === null ? '' : (x.criticas.map(esc).join(' · ') || '–')}</td>` : ''}
+        <td style="white-space:normal; text-align:left; max-width:420px; overflow-wrap:break-word;">${esc(String(x.txt).slice(0, 180))}${x.aguarda ? ' <span style="font-size:10px; color:var(--tx-4); border:1px solid var(--line-2); border-radius:8px; padding:1px 6px; white-space:nowrap;">aguardando resposta</span>' : ''}${x.itens.length ? `<div style="font-size:11px; color:var(--tx-3); margin-top:3px; overflow-wrap:break-word;">Pediu: ${x.itens.map(esc).join(' · ')}</div>` : ''}</td></tr>`).join('')}
+    </table>
+  </div>` : `<div class="caption-label" style="text-align:center;">Ninguém escreveu comentário com esta crítica no período.</div>`}` : ''}`;
 
   destroyChart('chartNotas');
   chartInstances['chartNotas'] = new Chart(document.getElementById('chartNotas').getContext('2d'), {
@@ -3726,6 +3824,32 @@ function renderModuloAvaliacoes() {
       },
     },
   });
+
+  // O que mais criticam: clique na barra recorta a lista de comentarios; clicar de novo solta.
+  destroyChart('chartCriticas');
+  if (criticas.length) {
+    chartInstances['chartCriticas'] = new Chart(document.getElementById('chartCriticas').getContext('2d'), {
+      type: 'bar',
+      data: { labels: criticas.map(x => x.c), datasets: [{ data: criticas.map(x => x.n),
+        backgroundColor: criticas.map(x => AVAL_CRITICA_SEL === x.c ? corToken('--brand') : corToken('--info')), borderRadius: 4 }] },
+      plugins: [pluginRotulosBarra(i => String(criticas[i].n))],
+      options: {
+        indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+        layout: { padding: { right: 8 } },
+        // o redesenho destroi este grafico: espera o Chart.js terminar de tratar o clique
+        onClick: (_e, els) => { if (els.length) { const i = els[0].index; setTimeout(() => avalCriticaFiltrar(i), 0); } },
+        onHover: (e, els) => { e.native.target.style.cursor = els.length ? 'pointer' : 'default'; },
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: (c) => `${c.raw} de ${comCritica} avaliações com crítica (${pct(c.raw / comCritica * 100)}%)` } },
+        },
+        scales: {
+          x: { beginAtZero: true, max: criticas[0].n * 1.2, grid: { color: corToken('--line') } },
+          y: { grid: { display: false }, ticks: { font: { size: 10 } } },
+        },
+      },
+    });
+  }
 }
 
 async function entrarRelatorios() {
@@ -4437,11 +4561,31 @@ async function entrarNegociacoesSoDados() {
 
 async function entrarAvaliacoesSoDados() {
   const rows = await consultarTudo(
-    "vw_avaliacoes?select=nome_loja,data,nota,tags,comentario&order=data.desc,nome_loja,id_pedido_curto,nota,comentario,tags"
+    "vw_avaliacoes?select=nome_loja,data,nota,tags,comentario,id_pedido_curto&order=data.desc,nome_loja,id_pedido_curto,nota,comentario,tags"
   );
   AVALIACOES = rows.map(r => [
-    LOJAS.indexOf(r.nome_loja), r.data, r.nota, r.tags || [], r.comentario,
+    LOJAS.indexOf(r.nome_loja), r.data, r.nota, r.tags || [], r.comentario, r.id_pedido_curto,
   ]);
+}
+
+// Criticas marcadas (bloco "O que mais criticam"). Nunca derruba o modulo: se a view ainda
+// nao existir ou der erro, fica null e o bloco some (tenta de novo so ao recarregar a pagina).
+// A ordem e completa (nenhuma linha empata em todas as colunas) — a leitura em paginas de
+// 1.000 nao pula nem repete.
+async function carregarCriticasAval() {
+  AVAL_CRITICAS_TENTOU = true;
+  try {
+    const rows = await consultarTudo(
+      "vw_avaliacoes_criticas?select=nome_loja,data,nota,criticas,comentario,aguardando_resposta,id_pedido_curto,itens_pedido&order=data.desc,nome_loja,id_pedido_curto,nota,avaliada_em,comentario,criticas"
+    );
+    AVAL_CRITICAS = rows.map(r => [
+      LOJAS.indexOf(r.nome_loja), r.data, r.nota, r.criticas || [], r.comentario,
+      r.aguardando_resposta === true, r.id_pedido_curto, (r.itens_pedido || []).filter(t => t && String(t).trim()),
+    ]);
+  } catch (e) {
+    AVAL_CRITICAS = null;
+    console.warn('Críticas das avaliações indisponíveis — o bloco fica escondido.', e);
+  }
 }
 
 // Comparacao entre as unidades: pedidos por semana, uma linha por unidade.
