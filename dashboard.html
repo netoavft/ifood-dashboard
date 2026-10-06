@@ -3652,7 +3652,7 @@ function renderModuloAvaliacoes() {
   alvo.innerHTML = `
   <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">O que os clientes estão dizendo</div>
   <div class="caption-label" style="text-align:center;">
-    Avaliações deixadas no app após a entrega. Filtros de período, unidade e marca se aplicam; dia da semana e turno não.
+    Avaliações deixadas no app após a entrega, incluindo as que ainda aguardam resposta da loja (as descartadas pelo iFood ficam fora). Os últimos 7 dias ainda recebem avaliações. Filtros de período, unidade e marca se aplicam; dia da semana e turno não.
   </div>
   <div class="cards">
     <div class="card neutral"${cardFarol('nota_media', media)}><div class="card-lbl">Nota média</div><div class="card-val">${media.toFixed(2).replace('.', ',')} ★</div>${selo(media, aAv && aAv.media)}</div>
@@ -15850,10 +15850,16 @@ function alertasAgora() {
          (prazoMin ? ' — prazo mais curto ' + ddmm(prazoMin) : '') });
   if (rotinasRuins.length) agora.push({ cor: '#ff6b6b', link: 'rotinas',
     txt: '<b>Rotina com problema:</b> ' + rotinasRuins.map(r => r.rotina + ' (' + r.status + ')').join(', ') });
-  // Corte 9: avaliações/negociações entram pela rotina de TERÇA 14:00 (semana fechada),
-  // então até 8 dias de idade é o normal na segunda. 9+ = a rotina de terça falhou.
-  if (idade(maxAv) !== null && idade(maxAv) > 9) agora.push({ cor: '#f5a623', link: 'avaliacoes',
-    txt: '<b>Fonte parada:</b> avaliações vão só até ' + ddmm(maxAv) + ' — a rotina de terça 14:00 não trouxe; ver Sistema → Rotinas' });
+  // Avaliações (desde a troca de fonte, 06/10/2026): vêm da API Review na importação diária
+  // das 07:00 (e nas leituras extras, quando instaladas). A data é o dia do PEDIDO; a API
+  // mostra a avaliação ~1 dia depois de feita: medido em 06/10, a idade era 2 logo depois da
+  // carga e é 3 na manhã seguinte, antes de a carga terminar. Corte 4 (5+ dias = a importação
+  // não trouxe) até haver 2 semanas de medição; com 3 o aviso acenderia em manhã normal ou
+  // feriado. Loja parada sozinha e carga com falha aparecem antes, em Sistema → Rotinas.
+  // Negociações seguem na rotina de TERÇA 14:00 (semana fechada): até 8 dias é o normal na
+  // segunda; 9+ = a rotina de terça falhou.
+  if (idade(maxAv) !== null && idade(maxAv) > 4) agora.push({ cor: '#f5a623', link: 'avaliacoes',
+    txt: '<b>Fonte parada:</b> avaliações vão só até ' + ddmm(maxAv) + ' — a importação diária das 07:00 não trouxe; ver Sistema → Rotinas' });
   if (idade(maxNeg) !== null && idade(maxNeg) > 9) agora.push({ cor: '#f5a623', link: 'negociacoes',
     txt: '<b>Fonte parada:</b> negociações vão só até ' + ddmm(maxNeg) + ' — a rotina de terça 14:00 não trouxe; ver Sistema → Rotinas' });
   return agora;
