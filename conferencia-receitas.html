@@ -194,7 +194,7 @@ function linha(i){
       ${(i.s||[]).length?`<div class="sub">no Saipos: ${esc(i.s.join(' · '))}</div>`:''}
       <div class="sub">${i.lote?`receita do Saipos lida no lote de ${esc(i.lote.q)} (${esc(i.lote.l)})`:esc(i.mot||'')}</div>
       <div class="acoes-linha"><button class="b" data-a="abre" data-id="${i.id}">${aberto?'Fechar':'Abrir'} · ${i.i.length} ingredientes</button>
-        ${feito(i)?`<button class="b" data-a="reabre" data-id="${i.id}">Conferida · reabrir</button>`:''}</div></div>
+        ${feito(i)?`<button class="b pri" data-a="reabre" data-id="${i.id}">✓ Conferida · reabrir</button>`:''}</div></div>
     <div class="corpo">
       ${(i.av||[]).map(a=>`<div class="aviso">⚠ ${esc(a)}</div>`).join('')}${rendeSai}
       <div class="cabing"><span>Ingrediente</span><span>${i.g==='sem_ficha'?'Quanto':'Planilha'}</span><span>${i.g==='sem_lote'?'':'Saipos'}</span><span></span></div>
@@ -203,7 +203,7 @@ function linha(i){
       <div class="ing"><div class="n"><b>Rende</b></div><input inputmode="decimal" data-r="${i.id}" value="${esc(valR(i))}" placeholder="${i.g==='sem_ficha'&&i.rs?fmt(i.rs):''}">
         <div class="s">${i.ru?esc(i.ru.toLowerCase()):''}${i.g!=='sem_lote'&&i.rs?' · '+fmt(i.rs):''}</div></div>
       <textarea class="obs" data-o="${i.id}" placeholder="Observação (opcional)">${esc(rasc[i.id+'|o']!=null?rasc[i.id+'|o']:(r.obs||''))}</textarea>
-      <div class="acoes-linha"><button class="b pri" data-a="ok" data-id="${i.id}">Conferida</button></div>
+      <div class="acoes-linha"><button class="b" data-a="ok" data-id="${i.id}">Marcar como conferida</button></div>
       <div class="msg" id="m-${i.id}"></div>
     </div></div>`;
 }
