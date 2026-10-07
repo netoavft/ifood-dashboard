@@ -287,6 +287,32 @@
     #tabelaComentarios.aval-recl td.aval-crit::before { content:'Criticou: '; color:var(--tx-4); }
     #tabelaComentarios.aval-recl td.aval-txt { max-width:none; margin-top:4px; }
   }
+  /* Avaliacoes (06/10/2026, noite): a lista de reclamacoes com PEDIDO e AVALIACAO em colunas
+     proprias, cabecalho que ordena e o selo "nova". Classe aval-dt = a view ja traz as horas;
+     sem ela a lista segue no desenho de cima. Na tela estreita as duas datas ficam numa linha. */
+  #tabelaComentarios.aval-dt th.aval-ord { cursor:pointer; user-select:none; }
+  #tabelaComentarios.aval-dt th.aval-ord:hover, #tabelaComentarios.aval-dt th.aval-ord-sel { color:var(--tx-1); }
+  #tabelaComentarios.aval-dt td:first-child { white-space:nowrap; }
+  #tabelaComentarios.aval-dt td.aval-loja { white-space:normal; min-width:130px; }
+  #tabelaComentarios.aval-dt .aval-turno { display:block; font-size:11px; color:var(--tx-3); }
+  #view-avaliacoes .aval-nova { font-size:10px; font-weight:700; color:var(--tx-1); border:1px solid var(--brand); border-radius:8px; padding:1px 6px; white-space:nowrap; }
+  #view-avaliacoes .aval-ordem { display:none; }
+  @media (max-width:1000px) {
+    #view-avaliacoes .aval-ordem { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin:0 0 8px; }
+    #tabelaComentarios.aval-dt td:nth-child(-n+4) { display:inline; font-size:12px; color:var(--tx-3); font-weight:400; }
+    #tabelaComentarios.aval-dt td:nth-child(1)::before { content:'Pedido '; color:var(--tx-4); }
+    #tabelaComentarios.aval-dt td:nth-child(2)::before { content:' · Avaliou '; color:var(--tx-4); font-weight:400; }
+    #tabelaComentarios.aval-dt td:nth-child(3) { color:var(--tx-1); font-weight:700; }
+    #tabelaComentarios.aval-dt td:nth-child(3)::before { content:'\A'; white-space:pre; }
+    #tabelaComentarios.aval-dt td:nth-child(4)::before { content:' · '; color:var(--tx-4); font-weight:400; }
+    #tabelaComentarios.aval-dt td.aval-vz { display:none; }
+    #tabelaComentarios.aval-dt .aval-turno { display:inline; font-size:12px; }
+    #tabelaComentarios.aval-dt .aval-turno::before { content:'· '; color:var(--tx-4); }
+    #tabelaComentarios.aval-dt .aval-ano { display:none; }
+  }
+  @media (max-width:340px) {   /* celular pequeno: sem a palavra "Pedido", as duas datas cabem numa linha */
+    #tabelaComentarios.aval-dt td:nth-child(1)::before { content:''; }
+  }
 
   /* modulo Plano (20/08/2026; hierarquia e selo de estado em 22/08/2026 —
      o Neto preferia a leitura da fotografia exportada, entao o que a fazia ler
@@ -3464,6 +3490,72 @@ let AVAL_LISTA_LOJAS = [];       // ordem das linhas de "Nota por loja", para o 
 let AVAL_LISTA_LOJAS_CRIT = [];  // idem, tabela das lojas da critica escolhida
 let AVAL_RECL_N = 20;            // quantas reclamacoes a lista mostra (20, +20, todas)
 let AVAL_RECL_CHAVE = '';        // periodo + filtro geral + loja + critica: mudou, a lista volta para 20
+// Datas da lista de reclamacoes (06/10/2026, noite). AVAL_CRIT_DATAS = a view ja traz pedido_em,
+// avaliado_em e visto_em (script/sql/avaliacoes_datas_e_novas.sql). false = view antiga: a lista
+// sai como sempre saiu — sem hora, sem ordenar e sem "novas" — e nada da erro na tela.
+let AVAL_CRIT_DATAS = false;
+let AVAL_SO_NOVAS = false;       // a lista mostra so as reclamacoes que chegaram nas ultimas 24 h
+let AVAL_RECL_ORD = { col: 'aval', dir: -1 };   // a lista ABRE pela avaliacao mais recente (o que chegou agora)
+// coluna, nome na tela, sentido do primeiro clique (-1 = maior/mais recente primeiro), dica
+const AVAL_ORD_COLS = [
+  ['ped', 'Pedido', -1, 'Dia e hora do pedido (horário de Curitiba) e o turno, pela mesma regra do filtro de turno do painel.'],
+  ['aval', 'Avaliação', -1, 'Dia e hora em que o cliente avaliou. O iFood só libera a avaliação cerca de 24 horas depois.'],
+  ['loja', 'Loja', 1, ''],
+  ['nota', 'Nota', 1, ''],
+];
+// Mecanismo do Contas a pagar (cpOrdenar): clicar no nome da coluna ordena; de novo, inverte.
+// A ordem vale para a lista inteira (antes do "Ver mais") e trocar de ordem volta para 20.
+function avalReclOrdenar(col) {
+  const def = AVAL_ORD_COLS.find(c => c[0] === col);
+  if (!def) return;
+  AVAL_RECL_ORD = AVAL_RECL_ORD.col === col ? { col, dir: -AVAL_RECL_ORD.dir } : { col, dir: def[2] };
+  AVAL_RECL_N = 20;
+  renderModuloAvaliacoes();
+}
+// "N reclamações novas desde ontem": clicar mostra so elas; clicar de novo solta. A pagina NAO
+// rola ate a lista: o botao clicado tem de ficar PARADO sob o mouse, senao o segundo clique cai
+// em outra coisa (cabecalho que ordena, loja). Mesmo cuidado de avalLojaFiltrar: mede onde a
+// ancora estava (id do bloco de quem foi clicado), redesenha e rola a diferenca. Mede pela BASE
+// do bloco: o chip do titulo da lista, quando some, pode levar uma linha do titulo junto, e o
+// que tem de ficar parado e a lista logo abaixo (senao o cabecalho que ordena sobe para o mouse).
+function avalNovasFiltrar(ancora) {
+  const el = () => ancora ? document.getElementById(ancora) : null;
+  const antes = el();
+  const base = antes ? antes.getBoundingClientRect().bottom : null;
+  AVAL_SO_NOVAS = !AVAL_SO_NOVAS;
+  renderModuloAvaliacoes();
+  const depois = el();
+  if (base === null || !depois) return;
+  const alvo = document.getElementById('view-avaliacoes');
+  const rolo = document.scrollingElement || document.documentElement;
+  // lista que encolheu (so as novas) pode nao deixar rolagem para chegar la: sobra espaco no fim
+  const falta = (rolo.scrollTop + depois.getBoundingClientRect().bottom - base) - (rolo.scrollHeight - rolo.clientHeight);
+  if (falta > 0) alvo.style.minHeight = Math.ceil(alvo.offsetHeight + falta + 2) + 'px';
+  const d = depois.getBoundingClientRect().bottom - base;
+  if (d) window.scrollBy({ top: d, behavior: 'instant' });
+}
+// TURNO pela hora do pedido — a MESMA regra do filtro de turno do painel (coluna TURNO do export
+// do iFood, fato_pedidos.turno; medida em 06/10/2026: as 5.734 avaliacoes casam com o pedido e a
+// hora da o mesmo turno em todas): 0h e 1h madrugada, 10h a 14h almoço, 15h e 16h café da tarde,
+// 17h a 23h jantar. Das 2h as 9h nunca houve pedido: fica sem turno, nao se inventa.
+function avalTurno(h) {
+  return (h === 0 || h === 1) ? 'madrugada' : (h >= 10 && h <= 14) ? 'almoço'
+    : (h === 15 || h === 16) ? 'café da tarde' : (h >= 17 && h <= 23) ? 'jantar' : '';
+}
+// 'AAAA-MM-DDTHH:MM:SS' (horario de Curitiba, como a view manda) em pedacos para a tela.
+// So o dia ('AAAA-MM-DD') = sem hora. Nada reconhecivel = null.
+function avalDataHora(s) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}))?/.exec(s || '');
+  return m ? { dia: m[3] + '/' + m[2], ano: m[1], hora: m[4] ? m[4] + ':' + m[5] : '', h: m[4] ? +m[4] : null } : null;
+}
+// "Nova" = entrou no nosso banco nas ultimas 24 horas (coluna visto_em). Devolve o corte como
+// texto no horario de Curitiba, para comparar com o que a view manda; null = o navegador nao
+// soube escrever a hora (ai ninguem e nova). Avaliacao SEM visto_em (ja existia quando a coluna
+// nasceu) nunca e nova: nao se sabe quando chegou e nao se chuta.
+function avalCorteNovas() {
+  const c = new Date(Date.now() - 24 * 3600 * 1000).toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T');
+  return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/.test(c) ? c : null;
+}
 function avalLojaFiltrar(i, daCritica) {
   const l = (daCritica ? AVAL_LISTA_LOJAS_CRIT : AVAL_LISTA_LOJAS)[i];
   if (l === undefined) return;
@@ -3488,7 +3580,7 @@ function avalLojaFiltrar(i, daCritica) {
   window.scrollBy({ top: depois.getBoundingClientRect().top - topo, behavior: 'instant' });
 }
 function avalLojaLimpar() { AVAL_LOJA_SEL = null; renderModuloAvaliacoes(); }
-function avalLimparFiltros() { AVAL_LOJA_SEL = null; AVAL_CRITICA_SEL = null; renderModuloAvaliacoes(); }
+function avalLimparFiltros() { AVAL_LOJA_SEL = null; AVAL_CRITICA_SEL = null; AVAL_SO_NOVAS = false; renderModuloAvaliacoes(); }
 // modo: 1 = mais 20, 2 = todas, 0 = volta para 20
 function avalReclVer(modo) {
   AVAL_RECL_N = modo === 2 ? 99999 : modo === 1 ? AVAL_RECL_N + 20 : 20;
@@ -3812,16 +3904,44 @@ function renderModuloAvaliacoes() {
   // Reclamacao sem linha la (so a planilha antiga tem) fica com criticas = null: nao se sabe.
   const chaveAv = (r, curto) => [r[0], r[1], curto, r[2], r[4] || ''].join('|');
   const critPorChave = new Map(critLinhas.map(r => [chaveAv(r, r[6]), r]));
-  const reclamacoes = AVAL_CRITICA_SEL
+  // comDatas = a view ja traz a hora do pedido, a da avaliacao e a de entrada (visto_em). Sem
+  // isso a lista sai como sempre saiu: so o dia do pedido, na ordem do pedido, sem "novas".
+  const comDatas = temCriticas && AVAL_CRIT_DATAS;
+  if (!comDatas) AVAL_SO_NOVAS = false;
+  const corteNovas = comDatas ? avalCorteNovas() : null;
+  const ehNova = (visto) => !!(visto && corteNovas && String(visto).slice(0, 19) >= corteNovas);
+  const reclTodas = AVAL_CRITICA_SEL
     ? critLinhas.filter(r => r[4] && r[3].includes(AVAL_CRITICA_SEL))
-        .map(r => ({ loja: r[0], data: r[1], nota: r[2], txt: r[4], criticas: r[3], aguarda: r[5], itens: r[7] }))
+        .map(r => ({ loja: r[0], data: r[1], nota: r[2], txt: r[4], criticas: r[3], aguarda: r[5], itens: r[7], ped: r[8], aval: r[9], nova: ehNova(r[10]) }))
     : linhas.filter(r => notaRuim(r) && r[4]).map(r => {
         const k = critPorChave.get(chaveAv(r, r[5]));
-        return { loja: r[0], data: r[1], nota: r[2], txt: r[4], criticas: k ? k[3] : null, aguarda: k ? k[5] : false, itens: k ? k[7] : [] };
+        return { loja: r[0], data: r[1], nota: r[2], txt: r[4], criticas: k ? k[3] : null, aguarda: k ? k[5] : false, itens: k ? k[7] : [],
+          ped: k ? k[8] : null, aval: k ? k[9] : null, nova: k ? ehNova(k[10]) : false };
       });
-  // A lista abre com as 20 mais recentes; "Ver mais" e "Ver todas" abrem o resto. Trocar
-  // periodo, filtro geral, loja ou critica volta para 20.
-  const chaveRecl = [fDataIni.value, fDataFim.value, [...lojasCrit].join(','), LOJA, AVAL_CRITICA_SEL].join('|');
+  // "Novas desde ontem" conta na lista que a tela mostraria (periodo, filtro geral, loja e
+  // critica): o numero da linha do topo e o da lista filtrada sao sempre o mesmo.
+  const nNovas = reclTodas.filter(x => x.nova).length;
+  const reclamacoes = AVAL_SO_NOVAS ? reclTodas.filter(x => x.nova) : reclTodas;
+  if (comDatas) {
+    const o = AVAL_RECL_ORD;
+    const valor = { ped: x => x.ped || x.data, aval: x => x.aval || '', nota: x => x.nota }[o.col];
+    reclamacoes.sort((a, b) => {
+      if (o.col === 'loja') return String(LOJAS[a.loja]).localeCompare(String(LOJAS[b.loja]), 'pt-BR') * o.dir;   // A a Z como se le, com acento
+      const va = valor(a), vb = valor(b);
+      if (va === '' && vb !== '') return 1;    // sem hora da avaliacao: sempre no fim
+      if (vb === '' && va !== '') return -1;
+      return (va < vb ? -1 : va > vb ? 1 : 0) * o.dir;
+    });
+  }
+  const novasTxt = (n) => (n ? n.toLocaleString('pt-BR') + ' ' : '') + (AVAL_CRITICA_SEL
+    ? (n === 0 ? 'Nenhum comentário novo' : n === 1 ? 'comentário novo' : 'comentários novos')
+    : (n === 0 ? 'Nenhuma reclamação nova' : n === 1 ? 'reclamação nova' : 'reclamações novas'))
+    + ' desde ontem' + (AVAL_CRITICA_SEL ? ' com esta crítica' : '');
+  const novasLinha = (comDatas && (nNovas || AVAL_SO_NOVAS)) ? `<div id="avalNovas" style="text-align:center; margin:10px 0 2px;"><button class="preset-btn${AVAL_SO_NOVAS ? ' active' : ''}" onclick="avalNovasFiltrar('avalNovas')" title="${AVAL_SO_NOVAS ? 'clique para voltar a ver todas' : 'chegaram ao painel nas últimas 24 horas — clique para a lista mostrar só elas'}">${novasTxt(nNovas)}${AVAL_SO_NOVAS ? ' ✕' : ''}</button></div>
+  ` : '';
+  // A lista abre com as 20 primeiras; "Ver mais" e "Ver todas" abrem o resto. Trocar periodo,
+  // filtro geral, loja, critica, "so as novas" ou a ordem volta para 20.
+  const chaveRecl = [fDataIni.value, fDataFim.value, [...lojasCrit].join(','), LOJA, AVAL_CRITICA_SEL, AVAL_SO_NOVAS].join('|');
   if (chaveRecl !== AVAL_RECL_CHAVE) { AVAL_RECL_CHAVE = chaveRecl; AVAL_RECL_N = 20; }
   const comentarios = reclamacoes.slice(0, AVAL_RECL_N);
   // Onde a critica escolhida mais aparece: o "Avaliações" e o MESMO numero da tabela por loja.
@@ -3840,7 +3960,7 @@ function renderModuloAvaliacoes() {
   <div class="caption-label" style="text-align:center;">
     Avaliações deixadas no app após a entrega, incluindo as que ainda aguardam resposta da loja (as descartadas pelo iFood ficam fora). Os últimos 7 dias ainda recebem avaliações. Filtros de período, unidade e marca se aplicam; dia da semana e turno não.
   </div>
-  ${LOJA !== null ? `<div class="contexto" style="border-color:var(--brand);">
+  ${novasLinha}${LOJA !== null ? `<div class="contexto" style="border-color:var(--brand);">
     <b>Filtrando:</b>
     <button class="preset-btn active" onclick="avalLojaLimpar()">loja ${esc(LOJAS[LOJA])} ✕</button>
     ${AVAL_CRITICA_SEL ? `<button class="preset-btn active" onclick="avalCriticaLimpar()">crítica ${esc(AVAL_CRITICA_SEL)} ✕</button>
@@ -3885,8 +4005,8 @@ function renderModuloAvaliacoes() {
   </div>
   <div class="caption-label">Lojas com poucas avaliações oscilam muito — dê mais peso às que têm 30 ou mais. <b>Clique numa loja para a tela mostrar só ela.</b></div>
 
-  ${(comentarios.length || AVAL_CRITICA_SEL || LOJA !== null) ? `
-  <div class="section-label" id="avalReclamacoes">${AVAL_CRITICA_SEL ? 'Comentários de quem marcou esta crítica' : 'Reclamações com comentário (nota ≤ ' + NOTA_RUIM_ATE + ')'} — ${reclamacoes.length.toLocaleString('pt-BR')} no período</div>
+  ${(comentarios.length || AVAL_CRITICA_SEL || LOJA !== null || AVAL_SO_NOVAS) ? `
+  <div class="section-label" id="avalReclamacoes">${AVAL_CRITICA_SEL ? 'Comentários de quem marcou esta crítica' : 'Reclamações com comentário (nota ≤ ' + NOTA_RUIM_ATE + ')'} — ${reclamacoes.length.toLocaleString('pt-BR')}${AVAL_SO_NOVAS ? (AVAL_CRITICA_SEL ? (reclamacoes.length === 1 ? ' novo' : ' novos') : (reclamacoes.length === 1 ? ' nova' : ' novas')) : ''} no período${AVAL_SO_NOVAS ? ` <button class="preset-btn active" style="margin-left:8px; text-transform:none; letter-spacing:0; vertical-align:middle;" onclick="avalNovasFiltrar('avalReclamacoes')" title="clique para voltar a ver todas">só as novas ✕</button>` : ''}</div>
   ${AVAL_CRITICA_SEL ? `${LOJA === null ? `<div class="contexto" style="border-color:var(--brand);">
     <button class="preset-btn active" onclick="avalCriticaLimpar()">${esc(AVAL_CRITICA_SEL)} ✕</button>
     <div style="font-size:12px; color:var(--tx-3); margin-top:6px;">
@@ -3901,20 +4021,33 @@ function renderModuloAvaliacoes() {
     </table>
   </div>` : ''}
   ${(!AVAL_CRITICA_SEL && aguardando) ? `<div class="caption-label" style="text-align:center;">${aguardando} avaliaç${aguardando === 1 ? 'ão' : 'ões'} com crítica aguardando resposta da loja no período.</div>` : ''}
-  ${comentarios.length ? `<div id="tabelaComentarios" class="aval-recl">
+  ${comentarios.length ? `${comDatas ? `<div class="aval-ordem"><span style="font-size:12px; color:var(--tx-3);">Ordenar:</span>${AVAL_ORD_COLS.map(c => `<button class="preset-btn${AVAL_RECL_ORD.col === c[0] ? ' active' : ''}" onclick="avalReclOrdenar('${c[0]}')">${c[1]}${AVAL_RECL_ORD.col === c[0] ? (AVAL_RECL_ORD.dir > 0 ? ' ▲' : ' ▼') : ''}</button>`).join('')}</div>
+  <div id="tabelaComentarios" class="aval-recl aval-dt">
+    <table>
+      <tr>${AVAL_ORD_COLS.map(c => `<th class="aval-ord${AVAL_RECL_ORD.col === c[0] ? ' aval-ord-sel' : ''}" onclick="avalReclOrdenar('${c[0]}')" title="${c[3] ? c[3] + ' ' : ''}Clique para ordenar; de novo, inverte.">${c[1]}${AVAL_RECL_ORD.col === c[0] ? (AVAL_RECL_ORD.dir > 0 ? ' ▲' : ' ▼') : ''}</th>`).join('')}<th>O que criticou</th><th>Comentário</th></tr>
+      ${comentarios.map(x => {
+        const p = avalDataHora(x.ped || x.data) || { dia: formatarDataCurta(x.data), ano: '', hora: '', h: null };
+        const a = avalDataHora(x.aval);
+        const turno = p.h === null ? '' : avalTurno(p.h);
+        return `<tr><td>${p.dia}${p.ano ? `<span class="aval-ano">/${p.ano}</span>` : ''}${p.hora ? ' ' + p.hora : ''}${turno ? ` <span class="aval-turno">${turno}</span>` : ''}</td><td${a ? '' : ' class="aval-vz"'}>${a ? `${a.dia}<span class="aval-ano">/${a.ano}</span>${a.hora ? ' ' + a.hora : ''}` : ''}</td><td class="aval-loja">${esc(LOJAS[x.loja])}</td><td>${x.nota} ★</td>
+        <td class="aval-crit${x.criticas && !x.criticas.length ? ' aval-sem' : ''}">${x.criticas === null ? '' : (x.criticas.map(esc).join(' · ') || '–')}</td>
+        <td class="aval-txt">${x.nova ? '<span class="aval-nova" title="chegou ao painel nas últimas 24 horas">nova</span> ' : ''}${esc(String(x.txt))}${x.aguarda ? ' <span style="font-size:10px; color:var(--tx-4); border:1px solid var(--line-2); border-radius:8px; padding:1px 6px; white-space:nowrap;">aguardando resposta</span>' : ''}${x.itens.length ? `<div style="font-size:11px; color:var(--tx-3); margin-top:3px; overflow-wrap:break-word;">Pediu: ${x.itens.map(esc).join(' · ')}</div>` : ''}</td></tr>`; }).join('')}
+    </table>
+  </div>
+  <div class="caption-label">Horário de Curitiba. O iFood libera a avaliação cerca de 24 horas depois de feita.${AVAL_CRITICAS.some(r => r[10]) ? '' : ' A marca “nova” aparece a partir da próxima que chegar.'}</div>` : `<div id="tabelaComentarios" class="aval-recl">
     <table>
       <tr><th>Data</th><th>Loja</th><th>Nota</th>${temCriticas ? '<th>O que criticou</th>' : ''}<th>Comentário</th></tr>
       ${comentarios.map(x => `<tr><td>${formatarDataCurta(x.data)}</td><td>${esc(LOJAS[x.loja])}</td><td>${x.nota} ★</td>
         ${temCriticas ? `<td class="aval-crit${x.criticas && !x.criticas.length ? ' aval-sem' : ''}">${x.criticas === null ? '' : (x.criticas.map(esc).join(' · ') || '–')}</td>` : ''}
         <td class="aval-txt">${esc(String(x.txt))}${x.aguarda ? ' <span style="font-size:10px; color:var(--tx-4); border:1px solid var(--line-2); border-radius:8px; padding:1px 6px; white-space:nowrap;">aguardando resposta</span>' : ''}${x.itens.length ? `<div style="font-size:11px; color:var(--tx-3); margin-top:3px; overflow-wrap:break-word;">Pediu: ${x.itens.map(esc).join(' · ')}</div>` : ''}</td></tr>`).join('')}
     </table>
-  </div>
+  </div>`}
   ${reclamacoes.length > 20 ? `<div id="avalReclMais" style="text-align:center; margin-top:10px;">
     <span style="font-size:12.5px; color:var(--tx-3); margin-right:8px;">Mostrando ${comentarios.length} de ${reclamacoes.length.toLocaleString('pt-BR')}</span>
     ${comentarios.length < reclamacoes.length ? `<button class="preset-btn" onclick="avalReclVer(1)">Ver mais ${Math.min(20, reclamacoes.length - comentarios.length)}</button>
     <button class="preset-btn" onclick="avalReclVer(2)">Ver todas</button>` : ''}
     ${comentarios.length > 20 ? `<button class="preset-btn" onclick="avalReclVer(0)">Mostrar menos</button>` : ''}
-  </div>` : ''}` : `<div class="caption-label" style="text-align:center;">${AVAL_CRITICA_SEL ? 'Ninguém escreveu comentário com esta crítica no período.' : 'Nenhuma reclamação com comentário desta loja no período.'}</div>`}` : ''}`;
+  </div>` : ''}` : `<div class="caption-label" style="text-align:center;">${AVAL_SO_NOVAS ? (AVAL_CRITICA_SEL ? 'Nenhum comentário novo' : 'Nenhuma reclamação nova') + ' desde ontem neste recorte. Clique em “só as novas ✕” para ver todas.' : AVAL_CRITICA_SEL ? 'Ninguém escreveu comentário com esta crítica no período.' : 'Nenhuma reclamação com comentário desta loja no período.'}</div>`}` : ''}`;
 
   destroyChart('chartNotas');
   chartInstances['chartNotas'] = new Chart(document.getElementById('chartNotas').getContext('2d'), {
@@ -4697,20 +4830,32 @@ async function entrarAvaliacoesSoDados() {
 // nao existir ou der erro, fica null e o bloco some (tenta de novo so ao recarregar a pagina).
 // A ordem e completa (nenhuma linha empata em todas as colunas) — a leitura em paginas de
 // 1.000 nao pula nem repete.
+// 06/10/2026 (noite): cols 8, 9 e 10 = pedido_em, avaliado_em e visto_em (data e hora no horario
+// de Curitiba; null quando a view ainda nao traz ou nao se sabe). A leitura pede as colunas
+// novas; se a view ainda for a antiga (o SQL das datas nao rodou), le do jeito antigo e
+// AVAL_CRIT_DATAS fica false — a tela nunca depende da ordem em que painel e banco mudam.
 async function carregarCriticasAval() {
   AVAL_CRITICAS_TENTOU = true;
+  const COLS = "nome_loja,data,nota,criticas,comentario,aguardando_resposta,id_pedido_curto,itens_pedido";
+  const ORDEM = "&order=data.desc,nome_loja,id_pedido_curto,nota,avaliada_em,comentario,criticas";
+  let rows = null, comDatas = true;
   try {
-    const rows = await consultarTudo(
-      "vw_avaliacoes_criticas?select=nome_loja,data,nota,criticas,comentario,aguardando_resposta,id_pedido_curto,itens_pedido&order=data.desc,nome_loja,id_pedido_curto,nota,avaliada_em,comentario,criticas"
-    );
-    AVAL_CRITICAS = rows.map(r => [
-      LOJAS.indexOf(r.nome_loja), r.data, r.nota, r.criticas || [], r.comentario,
-      r.aguardando_resposta === true, r.id_pedido_curto, (r.itens_pedido || []).filter(t => t && String(t).trim()),
-    ]);
+    rows = await consultarTudo("vw_avaliacoes_criticas?select=" + COLS + ",pedido_em,avaliado_em,visto_em" + ORDEM);
   } catch (e) {
-    AVAL_CRITICAS = null;
-    console.warn('Críticas das avaliações indisponíveis — o bloco fica escondido.', e);
+    comDatas = false;
+    try {
+      rows = await consultarTudo("vw_avaliacoes_criticas?select=" + COLS + ORDEM);
+    } catch (e2) {
+      rows = null;
+      console.warn('Críticas das avaliações indisponíveis — o bloco fica escondido.', e2);
+    }
   }
+  AVAL_CRIT_DATAS = rows !== null && comDatas;
+  AVAL_CRITICAS = rows === null ? null : rows.map(r => [
+    LOJAS.indexOf(r.nome_loja), r.data, r.nota, r.criticas || [], r.comentario,
+    r.aguardando_resposta === true, r.id_pedido_curto, (r.itens_pedido || []).filter(t => t && String(t).trim()),
+    r.pedido_em || null, r.avaliado_em || null, r.visto_em || null,
+  ]);
 }
 
 // Comparacao entre as unidades: pedidos por semana, uma linha por unidade.
