@@ -297,6 +297,19 @@
   #tabelaComentarios.aval-dt .aval-turno { display:block; font-size:11px; color:var(--tx-3); }
   #view-avaliacoes .aval-nova { font-size:10px; font-weight:700; color:var(--tx-1); border:1px solid var(--brand); border-radius:8px; padding:1px 6px; white-space:nowrap; }
   #view-avaliacoes .aval-ordem { display:none; }
+  /* Avaliacoes (06/10/2026, noite): aviso "Dia ruim na cozinha" no topo do modulo. Cada dia ruim
+     e um botao de linha inteira; escolhido = contorno igual ao dos botoes (.preset-btn.active),
+     nunca preenchimento. O X do escolhido ja
+     ocupa o lugar dele quando esta escondido: clicar nao muda o tamanho de nada dentro do aviso. */
+  #view-avaliacoes .aval-dr-caixa { text-align:left; border-color:var(--farol-perto); margin-bottom:12px; }
+  #view-avaliacoes .aval-dr { display:block; width:100%; margin-top:6px; padding:7px 10px; background:transparent; border:1px solid var(--line); border-radius:8px; color:var(--tx-2); font:inherit; line-height:1.5; text-align:left; white-space:normal; }
+  #view-avaliacoes button.aval-dr { cursor:pointer; }
+  #view-avaliacoes button.aval-dr:hover { background:var(--surface-2); color:var(--tx-1); }
+  #view-avaliacoes .aval-dr.aval-dr-sel { background:var(--surface-2); border-color:var(--marca-amarelo); color:var(--tx-1); }
+  #view-avaliacoes .aval-dr-mais { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-top:6px; font-size:12px; color:var(--tx-3); }
+  #view-avaliacoes .aval-dr-x { visibility:hidden; }
+  #view-avaliacoes .aval-dr-sel .aval-dr-x, #view-avaliacoes .preset-btn.active .aval-dr-x { visibility:visible; }
+  @media (max-width:700px) { #view-avaliacoes .aval-dr-mais { gap:8px; } #view-avaliacoes .aval-dr-mais .preset-btn { min-height:40px; } }
   @media (max-width:1000px) {
     #view-avaliacoes .aval-ordem { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin:0 0 8px; }
     #tabelaComentarios.aval-dt td:nth-child(-n+4) { display:inline; font-size:12px; color:var(--tx-3); font-weight:400; }
@@ -3581,6 +3594,154 @@ function avalLojaFiltrar(i, daCritica) {
 }
 function avalLojaLimpar() { AVAL_LOJA_SEL = null; renderModuloAvaliacoes(); }
 function avalLimparFiltros() { AVAL_LOJA_SEL = null; AVAL_CRITICA_SEL = null; AVAL_SO_NOVAS = false; renderModuloAvaliacoes(); }
+// "DIA RUIM NA COZINHA" (06/10/2026, noite). A regra, num lugar so: a MESMA critica marcada em
+// AVAL_DIARUIM_MIN ou mais avaliacoes de nota ruim (1 a NOTA_RUIM_ATE), em pedidos do MESMO dia,
+// na MESMA unidade (cozinha: UNIDADES[lojaToUnidade[loja]], a mesma ligacao do filtro de unidade).
+// Janela FIXA: pedidos dos ultimos AVAL_DIARUIM_DIAS dias (hoje contando), horario de Curitiba —
+// nao depende do filtro de periodo; respeita o filtro geral de unidade/marca. Um aviso por
+// unidade e dia: a critica mais repetida faz a linha, as outras do mesmo dia vem logo abaixo
+// (sao quase sempre as mesmas avaliacoes: quem da nota ruim marca em media 2 criticas).
+// AVAL_DIARUIM_MIN_UNIDADE: limite proprio de uma unidade, pela grafia de dim_lojas.
+// Agua Verde = 5 porque ela recebe 36 avaliacoes por dia (as outras, 6 a 10): medido em
+// 07/10/2026 sobre 96 dias, com 3 ela acenderia em 28 dias — o mesmo que embaralhar as criticas
+// ao acaso da (26) — e a caixa ficaria acesa em 89 de 92 dias. Com 5 sao 6 dias contra 3 no
+// acaso. Nas outras unidades 3 e raro de verdade (1 dia em 96). O dia e o do calendario, como
+// no resto do modulo (pedido da madrugada conta no dia em que foi feito).
+const AVAL_DIARUIM_MIN = 3;
+const AVAL_DIARUIM_MIN_UNIDADE = { 'AGUA VERDE': 5 };
+const AVAL_DIARUIM_DIAS = 7;
+let AVAL_DIA_SEL = null;         // dia ruim escolhido { u: unidade, d: 'AAAA-MM-DD', c: critica }: recorta a lista de reclamacoes
+let AVAL_LISTA_DIAS = [];        // ordem dos botoes do aviso, para o clique achar o caso pela posicao
+const AVAL_DIAS_SEMANA = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
+const avalMesmoDia = (a, b) => !!a && !!b && a.u === b.u && a.d === b.d && a.c === b.c;
+const avalUnidadeDaLoja = (i) => UNIDADES[lojaToUnidade[i]];
+const avalUnidadeNome = (u) => (SERIE_UNIDADE[u] && SERIE_UNIDADE[u].nome) || u;
+const avalEsc = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+// { ini, fim } em 'AAAA-MM-DD'; null = o navegador nao soube escrever a data (ai nao ha aviso).
+function avalDiaRuimJanela() {
+  const hoje = new Date(Date.now()).toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(hoje)) return null;
+  const d = new Date(hoje + 'T12:00:00Z');
+  d.setUTCDate(d.getUTCDate() - (AVAL_DIARUIM_DIAS - 1));
+  return { ini: d.toISOString().slice(0, 10), fim: hoje };
+}
+// Devolve [{ u, d, aval (avaliacoes da unidade naquele dia), casos: [{ u, d, c, n, lojas, de, ate }] }],
+// do dia mais recente para o mais antigo. Sem criticas carregadas e conferidas, devolve [].
+// de/ate = primeira e ultima hora dos pedidos; '' quando a view ainda nao traz a hora.
+function avalDiasRuins() {
+  if (AVAL_CRITICAS === null || AVAL_CRITICAS_BATE !== true || AVALIACOES === null) return [];
+  const jan = avalDiaRuimJanela();
+  if (!jan) return [];
+  const ativas = activeLojas();
+  const grupos = new Map();
+  AVAL_CRITICAS.forEach(r => {
+    if (!notaRuim(r) || r[1] < jan.ini || r[1] > jan.fim || !ativas.has(r[0])) return;
+    const u = avalUnidadeDaLoja(r[0]);
+    if (u === undefined) return;
+    [...new Set(r[3])].forEach(c => {
+      const k = u + '|' + r[1] + '|' + c;
+      if (!grupos.has(k)) grupos.set(k, { u, d: r[1], c, linhas: [] });
+      grupos.get(k).linhas.push(r);
+    });
+  });
+  const dias = new Map();
+  grupos.forEach(g => {
+    if (g.linhas.length < (AVAL_DIARUIM_MIN_UNIDADE[g.u] || AVAL_DIARUIM_MIN)) return;
+    const horas = AVAL_CRIT_DATAS ? g.linhas.map(r => (avalDataHora(r[8]) || {}).hora || '').sort() : [];
+    const comHora = horas.length > 0 && horas.every(Boolean);
+    const k = g.u + '|' + g.d;
+    if (!dias.has(k)) dias.set(k, { u: g.u, d: g.d, casos: [],
+      aval: AVALIACOES.filter(a => a[1] === g.d && ativas.has(a[0]) && avalUnidadeDaLoja(a[0]) === g.u).length });
+    dias.get(k).casos.push({ u: g.u, d: g.d, c: g.c, n: g.linhas.length, lojas: new Set(g.linhas.map(r => r[0])).size,
+      de: comHora ? horas[0] : '', ate: comHora ? horas[horas.length - 1] : '' });
+  });
+  const lista = [...dias.values()];
+  lista.forEach(x => x.casos.sort((a, b) => b.n - a.n || a.c.localeCompare(b.c, 'pt-BR')));
+  return lista.sort((a, b) => (a.d < b.d ? 1 : a.d > b.d ? -1 : 0)
+    || avalUnidadeNome(a.u).localeCompare(avalUnidadeNome(b.u), 'pt-BR'));
+}
+// "Água Verde, quinta 01/10"
+function avalDiaRuimRotulo(x) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(x.d);
+  return avalUnidadeNome(x.u) + ', ' + (m ? AVAL_DIAS_SEMANA[new Date(+m[1], +m[2] - 1, +m[3]).getDay()] + ' ' + m[3] + '/' + m[2] : x.d);
+}
+// O aviso pronto. Sem dia ruim devolve '' (nem titulo). clicavel = false nas telas sem lista
+// (periodo sem avaliacao): as linhas saem como texto.
+function avalDiaRuimHtml(dias, clicavel) {
+  if (!dias.length) return '';
+  let i = 0;
+  const blocos = dias.map(x => {
+    const p = x.casos[0], iP = i++;
+    const frase = avalEsc(avalDiaRuimRotulo(x)) + ': <b>' + avalEsc(p.c) + ' em ' + p.n + ' notas ruins</b> no mesmo dia ('
+      + x.aval.toLocaleString('pt-BR') + (x.aval === 1 ? ' avaliação' : ' avaliações') + ' do dia)'
+      + (p.de ? (p.de === p.ate ? ', pedidos às ' + p.de : ', pedidos das ' + p.de + ' às ' + p.ate) : '')
+      + ', em ' + p.lojas + (p.lojas === 1 ? ' loja' : ' lojas') + '.';
+    const outros = x.casos.slice(1).map(c => {
+      const j = i++;
+      return clicavel
+        ? `<button class="preset-btn${avalMesmoDia(AVAL_DIA_SEL, c) ? ' active' : ''}" id="avalDR${j}" onclick="avalDiaFiltrar(${j})" title="${avalMesmoDia(AVAL_DIA_SEL, c) ? 'clique para voltar a ver todas as reclamações' : 'clique para ler estas reclamações na lista abaixo'}">${avalEsc(c.c)} em ${c.n}<span class="aval-dr-x"> ✕</span></button>`
+        : `<span>${avalEsc(c.c)} em ${c.n}</span>`;
+    });
+    return (clicavel
+      ? `<button class="aval-dr${avalMesmoDia(AVAL_DIA_SEL, p) ? ' aval-dr-sel' : ''}" id="avalDR${iP}" onclick="avalDiaFiltrar(${iP})" title="${avalMesmoDia(AVAL_DIA_SEL, p) ? 'clique para voltar a ver todas as reclamações' : 'clique para ler estas reclamações na lista abaixo'}">${frase}<span class="aval-dr-x"> ✕</span></button>`
+      : `<div class="aval-dr">${frase}</div>`)
+      + (outros.length ? `<div class="aval-dr-mais"><span>No mesmo dia também:</span>${outros.join(clicavel ? '' : '<span>·</span>')}</div>` : '');
+  });
+  const excecoes = Object.keys(AVAL_DIARUIM_MIN_UNIDADE).map(u => AVAL_DIARUIM_MIN_UNIDADE[u] + ' na ' + avalUnidadeNome(u));
+  const regra = 'A mesma crítica em ' + AVAL_DIARUIM_MIN + ' ou mais notas ruins (1 a ' + NOTA_RUIM_ATE + ') em pedidos do mesmo dia, na mesma unidade'
+    + (excecoes.length ? ' (' + excecoes.join(', ') + ', que recebe mais avaliações)' : '') + '.';
+  return `<div class="contexto aval-dr-caixa" id="avalDiaRuim">
+    <span title="${avalEsc(regra)}"><b>Dia ruim na cozinha</b> — pedidos dos últimos ${AVAL_DIARUIM_DIAS} dias</span>
+    ${blocos.join('\n    ')}
+    <div style="font-size:12px; color:var(--tx-3); margin-top:8px;">Vale olhar o turno, a expedição e a entrega. Ontem e hoje ainda estão sendo avaliados.${clicavel ? '' : ' Para ler as reclamações, escolha um período com avaliações.'}</div>${(clicavel && AVAL_DIA_SEL) ? `
+    <div class="aval-dr-mais"><button class="preset-btn" onclick="avalDiaLer()">ler as reclamações ↓</button></div>` : ''}
+  </div>
+  `;
+}
+// Redesenha o modulo sem tirar de baixo do mouse o que foi clicado (mesmo cuidado de
+// avalLojaFiltrar e avalNovasFiltrar): mede a borda do alvo, muda o estado, redesenha e rola a
+// diferenca. Dentro do aviso nada muda de tamanho ao clicar; a medida cobre o resto da pagina.
+function avalRedesenharParado(pegar, borda, mudar) {
+  const antes = pegar();
+  const ref = antes ? antes.getBoundingClientRect()[borda] : null;
+  mudar();
+  renderModuloAvaliacoes();
+  const depois = pegar();
+  if (ref === null || !depois) return;
+  const alvo = document.getElementById('view-avaliacoes');
+  const rolo = document.scrollingElement || document.documentElement;
+  // pagina que encolheu pode nao deixar rolagem para chegar la: sobra espaco no fim
+  const falta = (rolo.scrollTop + depois.getBoundingClientRect()[borda] - ref) - (rolo.scrollHeight - rolo.clientHeight);
+  if (falta > 0) alvo.style.minHeight = Math.ceil(alvo.offsetHeight + falta + 2) + 'px';
+  const d = depois.getBoundingClientRect()[borda] - ref;
+  if (d) window.scrollBy({ top: d, behavior: 'instant' });
+}
+// Clicar num dia ruim: a lista de baixo mostra so as reclamacoes dele; clicar de novo solta.
+// O caso ja diz a critica: a critica escolhida no grafico sai. A loja escolhida fica se for da
+// mesma unidade (a lista mostra so as dela); de outra unidade, sai. "So as novas" continua valendo.
+function avalDiaFiltrar(i) {
+  const k = AVAL_LISTA_DIAS[i];
+  if (!k) return;
+  avalRedesenharParado(() => {
+    const j = AVAL_LISTA_DIAS.findIndex(x => avalMesmoDia(x, k));
+    return j < 0 ? null : document.getElementById('avalDR' + j);
+  }, 'top', () => {
+    if (avalMesmoDia(AVAL_DIA_SEL, k)) { AVAL_DIA_SEL = null; return; }
+    AVAL_DIA_SEL = { u: k.u, d: k.d, c: k.c };
+    AVAL_CRITICA_SEL = null;
+    if (AVAL_LOJA_SEL !== null && avalUnidadeDaLoja(AVAL_LOJA_SEL) !== k.u) AVAL_LOJA_SEL = null;
+  });
+}
+// O X do titulo da lista. Mede pela BASE do titulo, como avalNovasFiltrar: o que tem de ficar
+// parado e a lista logo abaixo.
+function avalDiaLimpar(ancora) {
+  avalRedesenharParado(() => ancora ? document.getElementById(ancora) : null, 'bottom', () => { AVAL_DIA_SEL = null; });
+}
+function avalDiaLer() {
+  const el = document.getElementById('avalReclamacoes');
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
 // modo: 1 = mais 20, 2 = todas, 0 = volta para 20
 function avalReclVer(modo) {
   AVAL_RECL_N = modo === 2 ? 99999 : modo === 1 ? AVAL_RECL_N + 20 : 20;
@@ -3814,9 +3975,18 @@ function renderModuloAvaliacoes() {
   // no lugar da loja sem avisar.
   if (AVAL_LOJA_SEL !== null && !activeLojas().has(AVAL_LOJA_SEL)) AVAL_LOJA_SEL = null;
   const LOJA = AVAL_LOJA_SEL;
+  // Dia ruim na cozinha (ver avalDiasRuins): nao depende do periodo. O caso escolhido solta
+  // sozinho quando some do aviso, quando ha critica escolhida no grafico ou loja de outra unidade,
+  // e nas duas telas "sem avaliacao no periodo" (ali nao ha lista: o aviso vira texto).
+  const diasRuins = avalDiasRuins();
+  AVAL_LISTA_DIAS = diasRuins.flatMap(x => x.casos);
+  if (AVAL_DIA_SEL && (!AVAL_LISTA_DIAS.some(c => avalMesmoDia(c, AVAL_DIA_SEL)) || AVAL_CRITICA_SEL
+    || (LOJA !== null && avalUnidadeDaLoja(LOJA) !== AVAL_DIA_SEL.u))) AVAL_DIA_SEL = null;
+  const DIA = AVAL_DIA_SEL;
   const linhas = LOJA === null ? linhasTodas : linhasTodas.filter(r => r[0] === LOJA);
   if (LOJA !== null && !linhas.length) {
-    alvo.innerHTML = `<div class="contexto" style="border-color:var(--brand);">
+    AVAL_DIA_SEL = null;
+    alvo.innerHTML = avalDiaRuimHtml(diasRuins, false) + `<div class="contexto" style="border-color:var(--brand);">
       <b>Filtrando:</b>
       <button class="preset-btn active" onclick="avalLojaLimpar()">loja ${String(LOJAS[LOJA]).replace(/&/g, '&amp;').replace(/</g, '&lt;')} ✕</button>
       <div style="margin-top:6px;">Esta loja não tem avaliação no período selecionado. Troque o período ou clique no ✕ para ver todas as lojas.</div>
@@ -3825,7 +3995,8 @@ function renderModuloAvaliacoes() {
   }
 
   if (!linhas.length) {
-    alvo.innerHTML = `<div class="contexto" style="border-color:#c8102e;">
+    AVAL_DIA_SEL = null;
+    alvo.innerHTML = avalDiaRuimHtml(diasRuins, false) + `<div class="contexto" style="border-color:#c8102e;">
       Não há avaliações no período selecionado. A base começa em <b>24/06/2026</b>.</div>`;
     return;
   }
@@ -3910,8 +4081,11 @@ function renderModuloAvaliacoes() {
   if (!comDatas) AVAL_SO_NOVAS = false;
   const corteNovas = comDatas ? avalCorteNovas() : null;
   const ehNova = (visto) => !!(visto && corteNovas && String(visto).slice(0, 19) >= corteNovas);
-  const reclTodas = AVAL_CRITICA_SEL
-    ? critLinhas.filter(r => r[4] && r[3].includes(AVAL_CRITICA_SEL))
+  const diaLinhas = DIA ? AVAL_CRITICAS.filter(r => r[1] === DIA.d && notaRuim(r) && r[3].includes(DIA.c) && lojasCrit.has(r[0])
+    && avalUnidadeDaLoja(r[0]) === DIA.u && (LOJA === null || r[0] === LOJA))
+    .map(r => r[4] ? r : Object.assign(r.slice(), { 4: '(sem comentário)' })) : null;
+  const reclTodas = (diaLinhas || AVAL_CRITICA_SEL)
+    ? (diaLinhas || critLinhas.filter(r => r[4] && r[3].includes(AVAL_CRITICA_SEL)))
         .map(r => ({ loja: r[0], data: r[1], nota: r[2], txt: r[4], criticas: r[3], aguarda: r[5], itens: r[7], ped: r[8], aval: r[9], nova: ehNova(r[10]) }))
     : linhas.filter(r => notaRuim(r) && r[4]).map(r => {
         const k = critPorChave.get(chaveAv(r, r[5]));
@@ -3936,12 +4110,12 @@ function renderModuloAvaliacoes() {
   const novasTxt = (n) => (n ? n.toLocaleString('pt-BR') + ' ' : '') + (AVAL_CRITICA_SEL
     ? (n === 0 ? 'Nenhum comentário novo' : n === 1 ? 'comentário novo' : 'comentários novos')
     : (n === 0 ? 'Nenhuma reclamação nova' : n === 1 ? 'reclamação nova' : 'reclamações novas'))
-    + ' desde ontem' + (AVAL_CRITICA_SEL ? ' com esta crítica' : '');
+    + ' desde ontem' + (DIA ? ' neste dia ruim' : AVAL_CRITICA_SEL ? ' com esta crítica' : '');
   const novasLinha = (comDatas && (nNovas || AVAL_SO_NOVAS)) ? `<div id="avalNovas" style="text-align:center; margin:10px 0 2px;"><button class="preset-btn${AVAL_SO_NOVAS ? ' active' : ''}" onclick="avalNovasFiltrar('avalNovas')" title="${AVAL_SO_NOVAS ? 'clique para voltar a ver todas' : 'chegaram ao painel nas últimas 24 horas — clique para a lista mostrar só elas'}">${novasTxt(nNovas)}${AVAL_SO_NOVAS ? ' ✕' : ''}</button></div>
   ` : '';
   // A lista abre com as 20 primeiras; "Ver mais" e "Ver todas" abrem o resto. Trocar periodo,
   // filtro geral, loja, critica, "so as novas" ou a ordem volta para 20.
-  const chaveRecl = [fDataIni.value, fDataFim.value, [...lojasCrit].join(','), LOJA, AVAL_CRITICA_SEL, AVAL_SO_NOVAS].join('|');
+  const chaveRecl = [fDataIni.value, fDataFim.value, [...lojasCrit].join(','), LOJA, AVAL_CRITICA_SEL, AVAL_SO_NOVAS, DIA ? DIA.u + DIA.d + DIA.c : ''].join('|');
   if (chaveRecl !== AVAL_RECL_CHAVE) { AVAL_RECL_CHAVE = chaveRecl; AVAL_RECL_N = 20; }
   const comentarios = reclamacoes.slice(0, AVAL_RECL_N);
   // Onde a critica escolhida mais aparece: o "Avaliações" e o MESMO numero da tabela por loja.
@@ -3960,7 +4134,7 @@ function renderModuloAvaliacoes() {
   <div class="caption-label" style="text-align:center;">
     Avaliações deixadas no app após a entrega, incluindo as que ainda aguardam resposta da loja (as descartadas pelo iFood ficam fora). Os últimos 7 dias ainda recebem avaliações. Filtros de período, unidade e marca se aplicam; dia da semana e turno não.
   </div>
-  ${novasLinha}${LOJA !== null ? `<div class="contexto" style="border-color:var(--brand);">
+  ${avalDiaRuimHtml(diasRuins, true)}${novasLinha}${LOJA !== null ? `<div class="contexto" style="border-color:var(--brand);">
     <b>Filtrando:</b>
     <button class="preset-btn active" onclick="avalLojaLimpar()">loja ${esc(LOJAS[LOJA])} ✕</button>
     ${AVAL_CRITICA_SEL ? `<button class="preset-btn active" onclick="avalCriticaLimpar()">crítica ${esc(AVAL_CRITICA_SEL)} ✕</button>
@@ -4005,8 +4179,8 @@ function renderModuloAvaliacoes() {
   </div>
   <div class="caption-label">Lojas com poucas avaliações oscilam muito — dê mais peso às que têm 30 ou mais. <b>Clique numa loja para a tela mostrar só ela.</b></div>
 
-  ${(comentarios.length || AVAL_CRITICA_SEL || LOJA !== null || AVAL_SO_NOVAS) ? `
-  <div class="section-label" id="avalReclamacoes">${AVAL_CRITICA_SEL ? 'Comentários de quem marcou esta crítica' : 'Reclamações com comentário (nota ≤ ' + NOTA_RUIM_ATE + ')'} — ${reclamacoes.length.toLocaleString('pt-BR')}${AVAL_SO_NOVAS ? (AVAL_CRITICA_SEL ? (reclamacoes.length === 1 ? ' novo' : ' novos') : (reclamacoes.length === 1 ? ' nova' : ' novas')) : ''} no período${AVAL_SO_NOVAS ? ` <button class="preset-btn active" style="margin-left:8px; text-transform:none; letter-spacing:0; vertical-align:middle;" onclick="avalNovasFiltrar('avalReclamacoes')" title="clique para voltar a ver todas">só as novas ✕</button>` : ''}</div>
+  ${(comentarios.length || AVAL_CRITICA_SEL || LOJA !== null || AVAL_SO_NOVAS || DIA) ? `
+  <div class="section-label" id="avalReclamacoes">${DIA ? 'Reclamações do dia ruim — ' + esc(avalDiaRuimRotulo(DIA)) + ', ' + esc(DIA.c) : AVAL_CRITICA_SEL ? 'Comentários de quem marcou esta crítica' : 'Reclamações com comentário (nota ≤ ' + NOTA_RUIM_ATE + ')'} — ${reclamacoes.length.toLocaleString('pt-BR')}${AVAL_SO_NOVAS ? (AVAL_CRITICA_SEL ? (reclamacoes.length === 1 ? ' novo' : ' novos') : (reclamacoes.length === 1 ? ' nova' : ' novas')) : ''}${DIA ? '' : ' no período'}${AVAL_SO_NOVAS ? ` <button class="preset-btn active" style="margin-left:8px; text-transform:none; letter-spacing:0; vertical-align:middle;" onclick="avalNovasFiltrar('avalReclamacoes')" title="clique para voltar a ver todas">só as novas ✕</button>` : ''}${DIA ? ` <button class="preset-btn active" style="margin-left:8px; text-transform:none; letter-spacing:0; vertical-align:middle;" onclick="avalDiaLimpar('avalReclamacoes')" title="clique para voltar a ver todas as reclamações">dia ruim ✕</button>` : ''}</div>
   ${AVAL_CRITICA_SEL ? `${LOJA === null ? `<div class="contexto" style="border-color:var(--brand);">
     <button class="preset-btn active" onclick="avalCriticaLimpar()">${esc(AVAL_CRITICA_SEL)} ✕</button>
     <div style="font-size:12px; color:var(--tx-3); margin-top:6px;">
@@ -4047,7 +4221,7 @@ function renderModuloAvaliacoes() {
     ${comentarios.length < reclamacoes.length ? `<button class="preset-btn" onclick="avalReclVer(1)">Ver mais ${Math.min(20, reclamacoes.length - comentarios.length)}</button>
     <button class="preset-btn" onclick="avalReclVer(2)">Ver todas</button>` : ''}
     ${comentarios.length > 20 ? `<button class="preset-btn" onclick="avalReclVer(0)">Mostrar menos</button>` : ''}
-  </div>` : ''}` : `<div class="caption-label" style="text-align:center;">${AVAL_SO_NOVAS ? (AVAL_CRITICA_SEL ? 'Nenhum comentário novo' : 'Nenhuma reclamação nova') + ' desde ontem neste recorte. Clique em “só as novas ✕” para ver todas.' : AVAL_CRITICA_SEL ? 'Ninguém escreveu comentário com esta crítica no período.' : 'Nenhuma reclamação com comentário desta loja no período.'}</div>`}` : ''}`;
+  </div>` : ''}` : `<div class="caption-label" style="text-align:center;">${AVAL_SO_NOVAS ? (AVAL_CRITICA_SEL ? 'Nenhum comentário novo' : 'Nenhuma reclamação nova') + ' desde ontem neste recorte. Clique em “só as novas ✕” para ver todas.' : DIA ? 'Nenhuma reclamação desta loja neste dia ruim. Clique no ✕ da loja para ver as das outras lojas.' : AVAL_CRITICA_SEL ? 'Ninguém escreveu comentário com esta crítica no período.' : 'Nenhuma reclamação com comentário desta loja no período.'}</div>`}` : ''}`;
 
   destroyChart('chartNotas');
   chartInstances['chartNotas'] = new Chart(document.getElementById('chartNotas').getContext('2d'), {
