@@ -18174,7 +18174,7 @@ async function entrarSemana() {
       consultarTudo(`vw_sem_funil?select=*&semana=gte.${desde}`), consultarTudo(`vw_sem_compras?select=*&semana=gte.${desde}`),
       consultarTudo(`vw_tr_cmv_semanal?select=unidade,semana,valor&semana=gte.${desde}`), consultarTudo(`vw_sem_despesas?select=*&semana=gte.${desde}`),
       consultarTudo(`vw_sem_recebido?select=*&semana=gte.${desde}`), consultarTudo('vw_sem_caixa_hoje?select=*'),
-      consultarTudo(`vw_fin_contas_pagar?select=unidade,sentido,situacao,vencimento,credito,debito&ativa=eq.true&vencimento=lt.${fxSomaDias(segAtual, 14)}`),
+      consultarTudo(`vw_fin_contas_pagar?select=unidade,sentido,situacao,vencimento,credito,debito,subtipo,origem&ativa=eq.true&vencimento=lt.${fxSomaDias(segAtual, 14)}`),
       consultarTudo('vw_mes_cmv_parcial?select=*'),
     ]);
     // Meta de mercadoria: DADO, nao constante. Ate 12/09/2026 esta tela tinha
@@ -18220,7 +18220,9 @@ function fxCaixaLoja(u) {
   const mediaSem = rec4.length ? fxSoma(rec4, 'recebido') / rec4.length : 0;
   const diasRest = Math.max(0, Math.round((new Date(fim + 'T12:00:00') - new Date(FX_S.hoje + 'T12:00:00')) / 86400000) + 1);
   const esperado = mediaSem * diasRest / 7, recLanc = fxSoma(receberAte, 'credito'), pagar = fxSoma(pagarAte, 'debito');
-  return { u, banco, cofre, recLanc, esperado, pagar, vencidas: fxSoma(venc, 'debito'), nVenc: venc.length, pagarProx: fxSoma(pagarProx, 'debito'), sobra: banco + cofre + recLanc + esperado - pagar, diasRest, mediaSem, fim };
+  // o que esta loja recebe de OUTRA loja da Rede ate domingo: conta para ela, nao para a soma da Rede (07/10/2026)
+  const recEntre = fxSoma(receberAte.filter(projEntreLojas), 'credito');
+  return { u, banco, cofre, recLanc, recEntre, esperado, pagar, vencidas: fxSoma(venc, 'debito'), nVenc: venc.length, pagarProx: fxSoma(pagarProx, 'debito'), sobra: banco + cofre + recLanc + esperado - pagar, diasRest, mediaSem, fim };
 }
 function renderSemana() {
   const alvo = document.getElementById('view-semana');
@@ -18291,8 +18293,8 @@ function renderSemana() {
       <li><span>A pagar até domingo<small>${c.nVenc ? `inclui ${c.nVenc} conta(s) vencida(s): ${fxMil(c.vencidas)}` : 'nenhuma vencida'}</small></span><b>− ${fxMil(c.pagar)}</b></li>
       <li class="res ${c.sobra >= 0 ? 'pos' : 'neg'}"><span>${c.sobra >= 0 ? 'Vai sobrar' : 'Vai faltar'}</span><b>${fxMil(Math.abs(c.sobra))}</b></li></ul>
       <div class="fx-mandar">${c.u !== 'AGUA VERDE' ? (c.sobra > 0 ? `Pode mandar para a Água Verde esta semana: <b>até ${fxMil(c.sobra)}</b>` : `Não pode mandar nada esta semana — faltam ${fxMil(Math.abs(c.sobra))}`) : `Próxima semana já tem <b>${fxMil(c.pagarProx)}</b> a pagar lançados.`}</div></div>`; });
-  if (us.length > 1) { const sT = cxs.reduce((s, c) => s + c.sobra, 0);
-    h += `<div class="fx-caixa"><h4>Rede</h4><ul><li><span>Banco + cofres hoje</span><b>${fxMil(cxs.reduce((s, c) => s + c.banco + c.cofre, 0))}</b></li><li><span>A receber até domingo (lançado + vendas esperadas)</span><b>+ ${fxMil(cxs.reduce((s, c) => s + c.recLanc + c.esperado, 0))}</b></li><li><span>A pagar até domingo</span><b>− ${fxMil(cxs.reduce((s, c) => s + c.pagar, 0))}</b></li><li class="res ${sT >= 0 ? 'pos' : 'neg'}"><span>${sT >= 0 ? 'Vai sobrar' : 'Vai faltar'}</span><b>${fxMil(Math.abs(sT))}</b></li></ul><div class="fx-mandar">Filiais podem mandar para a AV: <b>${fxMil(cxs.filter(c => c.u !== 'AGUA VERDE' && c.sobra > 0).reduce((s, c) => s + c.sobra, 0))}</b> · próxima semana a pagar na rede: <b>${fxMil(cxs.reduce((s, c) => s + c.pagarProx, 0))}</b></div></div>`; }
+  if (us.length > 1) { const entreL = cxs.reduce((s, c) => s + (c.recEntre || 0), 0); const sT = cxs.reduce((s, c) => s + c.sobra, 0) - entreL;
+    h += `<div class="fx-caixa"><h4>Rede</h4><ul><li><span>Banco + cofres hoje</span><b>${fxMil(cxs.reduce((s, c) => s + c.banco + c.cofre, 0))}</b></li><li><span>A receber até domingo (lançado + vendas esperadas)${entreL > 0.005 ? `<small>sem ${fxMil(entreL)} que a Água Verde recebe das filiais</small>` : ''}</span><b>+ ${fxMil(cxs.reduce((s, c) => s + c.recLanc + c.esperado, 0) - entreL)}</b></li><li><span>A pagar até domingo</span><b>− ${fxMil(cxs.reduce((s, c) => s + c.pagar, 0))}</b></li><li class="res ${sT >= 0 ? 'pos' : 'neg'}"><span>${sT >= 0 ? 'Vai sobrar' : 'Vai faltar'}</span><b>${fxMil(Math.abs(sT))}</b></li></ul><div class="fx-mandar">Filiais podem mandar para a AV: <b>${fxMil(cxs.filter(c => c.u !== 'AGUA VERDE' && c.sobra > 0).reduce((s, c) => s + c.sobra, 0))}</b> · próxima semana a pagar na rede: <b>${fxMil(cxs.reduce((s, c) => s + c.pagarProx, 0))}</b></div></div>`; }
   h += '</div><div class="fx-nota">XP, Participações e cartões de crédito ficam fora — é o caixa do dia a dia. "Vendas que ainda devem cair" é a média do que caiu nas contas nas últimas 4 semanas, proporcional aos dias que faltam; não é promessa. Conta a pagar só aparece se está lançada no Saipos.</div>';
   // 6 despesas
   const L = fxLojas(), at = FX_S.despesas.filter(r => r.semana === W && L.includes(r.unidade));
@@ -19577,6 +19579,14 @@ function renderModuloDRE() {
 // recebimentos REAIS. O que nao foi lancado no Saipos nao aparece aqui.
 // ------------------------------------------------------------------
 let PROJ_PAGAR = null;    // vw_fin_contas_pagar
+// COBRANCA ENTRE LOJAS DA REDE (dono, 07/10/2026: "pode tirar do a receber na projecao da Rede").
+// A cobranca de lista e de beneficio que a Agua Verde tem contra o Ahu e o Sao Braz entra em
+// vw_fin_contas_pagar como A RECEBER (origem LISTAS) e a saida da filial NAO existe do outro
+// lado. Para uma loja sozinha e' dinheiro de verdade; na conta da REDE e' dinheiro que so troca
+// de bolso (07/10: R$ 47.878,79 a mais na projecao). O Boqueirao NAO e' da Rede: a cobranca
+// dele (RECEITAS BOQUEIRAO) continua contando. Um predicado so, usado pela projecao de 45 dias,
+// pelo total de "Pagar as contas de hoje" e pelo cartao Rede de "A semana".
+const projEntreLojas = (r) => r.origem === 'LISTAS' && r.subtipo !== 'RECEITAS BOQUEIRAO' && Number(r.credito) > 0;
 let PROJ_BENEF = null;    // benefício iFood semanal (quadro da Hellen)
 let PROJ_RECEB = null;    // vw_fin_receitas_diarias (ultimas semanas)
 let PROJ_ANCORA = null;   // vw_fin_saldo_banco_atual: saldo REAL do banco (OFX diario)
@@ -19602,7 +19612,7 @@ async function entrarProjecao() {
   const corte = new Date(); corte.setDate(corte.getDate() - 35);
   const corteIso = corte.toISOString().slice(0, 10);
   const [pagar, receb, ancora, vencStatus, caixaDia, comAtacado, recebSub, benefSem, benefXp, benefCobr, _fin, atacadoReceber] = await Promise.all([
-    consultarTudo('vw_fin_contas_pagar?select=vencimento,conta,conta_exibida,unidade,situacao,dias_vencida,sentido,subtipo,tipo,natureza,descricao,credito,debito&order=vencimento'),
+    consultarTudo('vw_fin_contas_pagar?select=vencimento,conta,conta_exibida,unidade,situacao,dias_vencida,sentido,subtipo,tipo,natureza,descricao,credito,debito,origem&order=vencimento'),
     consultarTudo(`vw_fin_receitas_diarias?select=data,recebido&data=gte.${corteIso}&order=data`),
     consultarTudo('vw_fin_saldo_banco_atual?select=conta,data_saldo,saldo_banco,idade_dias,saldo_saipos,diferenca'),
     consultarTudo('vw_fin_vencidas_status?select=vencimento,conta,subtipo,tipo,descricao,debito,dias_vencida,data_debito_banco,achou_no_banco'),
@@ -19979,6 +19989,11 @@ function projCaixaTabela() {
     return v;
   };
   const soma = (c) => doDia.reduce((s, r) => s + parte(r, c), 0);
+  // TOTAL SEM FILTRO = a Rede: o que uma loja tem a receber da outra em ate 7 dias nao e'
+  // dinheiro novo (07/10/2026). Com unidade ou conta escolhida, vale para aquela conta.
+  const entre7 = (!PROJ_FILTRO.unidade && !PROJ_FILTRO.conta && PROJ_PAGAR)
+    ? PROJ_PAGAR.filter(r => projEntreLojas(r) && ['VENCIDA', 'VENCE HOJE', 'PROXIMOS 7 DIAS'].includes(r.situacao))
+        .reduce((s, r) => s + Number(r.credito), 0) : 0;
   const linhaConta = (r, fora) => {
     const falta = r.sobra_hoje < -0.005;
     const venc  = r.vencido > 0.005;
@@ -20003,7 +20018,7 @@ function projCaixaTabela() {
       <td style="text-align:right;${soma('vencido') > 0.005 ? 'color:#f85149' : ''}"><b>${reais(soma('vencido'))}</b></td>
       <td style="text-align:right"><b>${reais(soma('vence_hoje'))}</b></td>
       <td style="text-align:right;${soma('sobra_hoje') < -0.005 ? 'color:#f85149' : ''}"><b>${reais(soma('sobra_hoje'))}</b></td>
-      <td style="text-align:right"><b>${reais(soma('sobra_7_dias'))}</b></td></tr>${fora}</tbody>`;
+      <td style="text-align:right"><b>${reais(soma('sobra_7_dias') - entre7)}</b>${entre7 > 0.005 ? `<div style="font-weight:400;font-size:11px;opacity:.7">sem ${reais(entre7)} que uma loja recebe da outra</div>` : ''}</td></tr>${fora}</tbody>`;
 }
 
 // A LISTA QUE COMPOE OS NUMEROS DE CIMA. O quadro diz "R$ 41.753,76 vencidos";
@@ -20203,8 +20218,10 @@ function renderModuloProjecao() {
   if (temAncora) (PROJ_VENC || []).filter(v => v.achou_no_banco)
     .forEach(v => jaSaiuBanco.add(`${v.vencimento}|${v.debito}|${v.descricao || ''}`));
   const pagarDia = {}, receberDia = {}, itensDia = {};
-  let vencidas = 0, jaPagasSemBaixa = 0;
+  let vencidas = 0, jaPagasSemBaixa = 0, entreLojasFora = 0;
   PROJ_PAGAR.forEach(r => {
+    // a projecao e' da Rede: o que uma loja tem a receber da outra nao e' dinheiro novo
+    if (projEntreLojas(r)) { entreLojasFora += r.credito; return; }
     if (r.vencimento < hojeIso && jaSaiuBanco.has(`${r.vencimento}|${r.debito}|${r.descricao || ''}`)) {
       jaPagasSemBaixa += r.debito - r.credito;
       return;
@@ -20401,6 +20418,7 @@ function renderModuloProjecao() {
       <div style="font-size:12px; color:#a5a49a; margin-top:6px;">
         Contas a receber já lançadas no Saipos entram por cima disso, na data do vencimento —
         R$ ${fmt(dias.reduce((s, d) => s + (receberDia[d] || 0), 0))} nos próximos ${HORIZONTE} dias.
+        ${entreLojasFora > 0.005 ? `Fica de fora o que a Água Verde tem a receber do Ahú e do São Braz (lista do mês e benefício): R$ ${fmt(entreLojasFora)} — na Rede é dinheiro que só troca de bolso.` : ''}
       </div>
     </details>`;
 
