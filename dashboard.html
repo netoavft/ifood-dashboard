@@ -17227,7 +17227,7 @@ function aplicarLojaFin() {
     DFC_CONF = (DFC_CONF_RAW || []).filter(r => minhas.has(r.conta));
   }
   if (DRE_RAW) {
-    DRE_FIN = porLojaFin(DRE_RAW, ['mes', 'natureza', 'tipo', 'subtipo', 'ordem'],
+    DRE_FIN = porLojaFin(fxSemListaNaRede(DRE_RAW), ['mes', 'natureza', 'tipo', 'subtipo', 'ordem'],
                          ['credito', 'debito']);
     DRE_FIN.forEach(r => { r.credito = Number(r.credito); r.debito = Number(r.debito); });
     DRE_VENDAS = porLojaFin(DRE_VENDAS_RAW, ['mes', 'canal'], ['vendas', 'receita']);
@@ -17245,7 +17245,7 @@ function seletorLojaFin() {
         + (v === LOJA_FIN ? 'font-weight:700;border:2px solid #c8102e' : 'border:1px solid #bbb')
         + '">' + rot + '</button>').join('')
     + '<span style="opacity:.65;font-size:12px">'
-    + (LOJA_FIN === 'REDE' ? 'Somando as três lojas.' : 'Só esta loja.')
+    + (LOJA_FIN === 'REDE' ? 'Somando as três lojas (a mercadoria que a Água Verde manda para as filiais não conta).' : 'Só esta loja.')
     + '</span></div>';
 }
 
@@ -17285,6 +17285,17 @@ document.addEventListener('click', (e) => {
 // Fontes: views vw_fin_* e vw_sem_*/mv_sem_* (script/sql/fechamento_semana.sql).
 const FX_TODAS = ['AGUA VERDE', 'AHU', 'SÃO BRAZ'];
 const fxLojas = () => LOJA_FIN === 'REDE' ? FX_TODAS : [LOJA_FIN];
+// LISTA ENTRE LOJAS NA REDE (dono, 07/10/2026: "pode tirar a lista inteira da visao Rede").
+// A lista e' receita da Agua Verde (LISTAS AHU / LISTAS SAO BRAZ) e mercadoria da filial
+// (MERCADORIAS AV) no MESMO valor: na soma das tres e' a rede vendendo para ela mesma. O
+// resultado em reais nao muda; receita e mercadoria ficavam infladas (set/26: R$ 45.137,48 de
+// cada lado, mercadoria 41,1% em vez de 38,1%). Os 19% do preco da lista saem junto: sao
+// receita da AV e custo da filial, nenhum cliente pagou. POR LOJA NADA MUDA. Um predicado so,
+// usado pela DRE, pelo Placar, pelo Fechamento e pela Analise de despesas; a copia em Python
+// esta em script/gerar_dre_pagina.py (LISTA_INTERNA). Mudou aqui, muda la.
+const fxListaInterna = (r) => (r.natureza === 'RECEITAS' && (r.subtipo === 'LISTAS AHU' || r.subtipo === 'LISTAS SAO BRAZ'))
+  || r.subtipo === 'MERCADORIAS AV';
+const fxSemListaNaRede = (linhas) => (LOJA_FIN === 'REDE' && linhas) ? linhas.filter(r => !fxListaInterna(r)) : linhas;
 const fxN = v => Number(v) || 0;
 const fxSoma = (rows, campo) => rows.reduce((s, r) => s + fxN(r[campo]), 0);
 function fxMil(v) {
@@ -17397,7 +17408,7 @@ async function entrarFechamento() {
 }
 function fxMesCalc(mes) {
   const L = fxLojas();
-  const rows = FX_M.dre.filter(r => r.mes === mes && L.includes(r.unidade));
+  const rows = fxSemListaNaRede(FX_M.dre.filter(r => r.mes === mes && L.includes(r.unidade)));
   const s = (pred, sinal = 1) => rows.reduce((a, r) => a + (pred(r) ? (fxN(r.credito) - fxN(r.debito)) * sinal : 0), 0);
   const v = FX_M.vendas.filter(r => r.mes === mes && L.includes(r.unidade));
   const canais = {}; v.forEach(r => { canais[r.canal] = (canais[r.canal] || 0) + fxN(r.faturamento); });
@@ -17683,7 +17694,7 @@ function plcMeta(chave, meses) {
 // A composicao de cada numero — o terceiro nivel da quebra.
 function plcComposicao(id, meses) {
   const L = fxLojas();
-  const linhasDre = FX_M.dre.filter(r => meses.includes(r.mes) && L.includes(r.unidade));
+  const linhasDre = fxSemListaNaRede(FX_M.dre.filter(r => meses.includes(r.mes) && L.includes(r.unidade)));
   const porTipo = (tipos) => {
     const m = {};
     linhasDre.forEach(r => {
@@ -17815,6 +17826,11 @@ function renderPlacar() {
       return { u, v, vb: agB ? valorDe(t, agB) : null, pct, meta, base: ag.base };
     });
     const somaLoja = porLoja.reduce((s, l) => s + (l.v || 0), 0);
+    // Na REDE a lista entre lojas nao conta (07/10/2026): a soma das tres lojas e o numero da
+    // Rede diferem exatamente pela lista. A linha extra mostra essa diferenca em vez de esconder.
+    const redeV = (LOJA_FIN === 'REDE' && t.un === 'R$' && t.id !== 'caixa') ? valorDe(t, A) : null;
+    const listaFora = redeV !== null ? somaLoja - redeV : 0;
+    const temListaFora = Math.abs(listaFora) > 0.5;
     // CAIXA NAO TEM "de cada R$ 100" nem parte do total: ele pode ser negativo, e
     // "-36,8% do caixa da rede" nao quer dizer nada. Coluna vazia e' melhor que
     // numero que o leitor tenta interpretar. Medido na tela em 12/09: o Ahu deu
@@ -17828,7 +17844,8 @@ function renderPlacar() {
         <td>${temPct ? fxPct1(l.pct) : (t.un === 'n' && somaLoja > 0 ? fxPct1((l.v || 0) / somaLoja * 100) : '—')}</td>
         <td>${l.vb !== null && l.vb !== undefined ? fxVar(l.v, l.vb, '') : '—'}</td>
         <td>${l.meta && l.pct !== null ? fxPill(fxFarol(l.pct, l.meta.meta, l.meta.sentido)) : '—'}</td></tr>`).join('')}
-      <tr class="liq"><td>${LOJA_FIN === 'REDE' ? 'REDE (as três)' : 'A soma das três'}</td><td>${fmtDe(t, somaLoja)}</td><td>—</td><td>—</td><td>—</td></tr>
+      ${temListaFora ? `<tr><td>(−) mercadoria entre as lojas (não conta na Rede)</td><td>${fmtDe(t, -listaFora)}</td><td>—</td><td>—</td><td>—</td></tr>` : ''}
+      <tr class="liq"><td>${LOJA_FIN === 'REDE' ? 'REDE (as três)' : 'A soma das três'}</td><td>${fmtDe(t, temListaFora ? redeV : somaLoja)}</td><td>—</td><td>—</td><td>—</td></tr>
     </table></div>`;
 
     const tabPer = `<div id="tabelaPlacarPeriodo"><table>
@@ -19207,7 +19224,8 @@ function renderModuloDRE() {
   if (dreAberto.has('RECBRUTA')) canais.forEach(c => {
     corpo += linha('dfc-linha', c, porCanal[c], { kind: 'ganho' });
   });
-  corpo += linha('dfc-bloco', '(+) OUTRAS RECEITAS DA OPERAÇÃO (atacado, empresas, listas às filiais, royalties)', outrasRec, { chave: 'OUTREC', kind: 'ganho' });
+  corpo += linha('dfc-bloco', LOJA_FIN === 'REDE' ? '(+) OUTRAS RECEITAS DA OPERAÇÃO (atacado, empresas, royalties)'
+    : '(+) OUTRAS RECEITAS DA OPERAÇÃO (atacado, empresas, listas às filiais, royalties)', outrasRec, { chave: 'OUTREC', kind: 'ganho' });
   corpo += blocoSubtipos('OUTREC', r => r.natureza === 'RECEITAS' && !SUBT_PDV.includes(r.subtipo), 1, 'ganho');
   // Bloco de deducoes na estrutura do Matheus (03/09/2026): o que os canais e
   // o fisco levam antes de a receita ser nossa. A linha-mae e' a nossa conta
@@ -19480,6 +19498,7 @@ function renderModuloDRE() {
     Em cada célula: valor, <b>%</b> sobre tudo que entrou (venda do PDV + outras receitas: atacado, listas das filiais, Boqueirão)
     e <b>▲▼</b> (variação vs mês anterior). Na Água Verde a mercadoria inclui o que foi comprado para produzir as listas e o atacado;
     nas filiais, a lista paga à Água Verde está dentro da mercadoria (linha Mercadorias AV).
+    Na visão Rede a lista entre as lojas não entra na receita nem na mercadoria: é a rede vendendo para ela mesma.
     Marcação colorida só aparece quando a linha está <b>fora da meta</b> (âmbar = perto, vermelho = longe) —
     sem marcação, está tudo dentro. Clique nas linhas com ▶ para abrir o detalhe.
   </div>
@@ -20565,7 +20584,7 @@ function renderModuloDespesas() {
   // cabeçalho — e é por isso que ela nunca batia com a DRE nem com o Placar. Conferido
   // depois da mudança: ago/26 na Água Verde dá mercadoria R$ 286.448,48 e pessoas
   // R$ 165.890,05, exatamente os dois números do Placar.
-  const DESP = DESP_DET.filter(r => LOJA_FIN === 'REDE' || r.unidade === LOJA_FIN);
+  const DESP = fxSemListaNaRede(DESP_DET.filter(r => LOJA_FIN === 'REDE' || r.unidade === LOJA_FIN));
   const ctx = plcCtx('despesas');
   const chaveCtx = ctx ? ctx.tile + '|' + ctx.meses.join(',') + '|' + ctx.loja : null;
   if (chaveCtx !== despCtxChave) { despCtxChave = chaveCtx; despAberto.clear(); }
