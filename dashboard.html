@@ -3425,6 +3425,19 @@ const negRespondivel = r => (r[4] || '') !== 'APOS A ENTREGA';
 const negSemResposta = r => negRespondivel(r) && (r[9] || '') === 'CLIENTE' && !r[5];
 const negPosEntrega  = r => (r[4] || '') === 'APOS A ENTREGA';
 let AVALIACOES = null;
+// NOTA RUIM = NOTA 1, 2 OU 3 (dono, 06/10/2026: "o que considero notas ruins que baixam a
+// media"; ate entao a conta era so de notas 1 e 2). A regra mora SO AQUI. Card e quadro por
+// loja do modulo Avaliacoes, lista de reclamacoes, Placar/Indicadores, "Esta semana" e gerador
+// de relatorio chamam estas linhas: o mesmo numero em toda tela. O indicador e' o
+// pct_notas_ruins de metas_kpi (o nome e a meta vem do banco). Mudar a regra = mudar o 3
+// daqui, o NOTA_RUIM_ATE de script/resumo_semanal_dados.py e o nome da meta no banco, JUNTOS.
+const NOTA_RUIM_ATE = 3;
+const NOTA_RUIM_ROT = 'notas 1 a ' + NOTA_RUIM_ATE;   // como a tela chama
+const notaRuim = r => r[2] <= NOTA_RUIM_ATE;           // r = linha de avaliacao (r[2] = nota)
+function notasRuins(ls) {                              // quantas sao e que % fazem de uma lista de avaliacoes
+  const n = ls.filter(notaRuim).length;
+  return { n, pct: ls.length ? n / ls.length * 100 : null };
+}
 // Criticas marcadas pelos clientes (vw_avaliacoes_criticas, API Review). null = ainda nao
 // carregou OU a view nao respondeu: o bloco "O que mais criticam" some e o resto da tela segue.
 // cols: loja, data (dia do pedido), nota, criticas[], comentario, aguardando resposta, id curto,
@@ -3728,12 +3741,13 @@ function renderModuloAvaliacoes() {
   const total = linhas.length;
   const media = linhas.reduce((s, r) => s + r[2], 0) / total;
   const dist = [1, 2, 3, 4, 5].map(n => linhas.filter(r => r[2] === n).length);
-  const pctRuins = (dist[0] + dist[1]) / total * 100;
+  const ruinsSel = notasRuins(linhas);   // notas 1 a 3 do que a tela mostra (rede ou loja escolhida)
+  const pctRuins = ruinsSel.pct;
   const pctCinco = dist[4] / total * 100;
   // A linha TODAS da tabela por loja e sempre o total do filtro geral, com ou sem loja escolhida.
   const totalT = linhasTodas.length;
   const mediaT = linhasTodas.reduce((s, r) => s + r[2], 0) / totalT;
-  const pctRuinsT = linhasTodas.filter(r => r[2] <= 2).length / totalT * 100;
+  const ruinsT = notasRuins(linhasTodas);
 
   // Janela anterior do MESMO tamanho, para os selos dos cards e a coluna de
   // comparacao da tabela por loja. Sem periodo anterior com dados a comparacao
@@ -3743,7 +3757,7 @@ function renderModuloAvaliacoes() {
   const resumoAnt = (ls) => ls && ls.length ? {
     total: ls.length,
     media: ls.reduce((s, r) => s + r[2], 0) / ls.length,
-    pctRuins: ls.filter(r => r[2] <= 2).length / ls.length * 100,
+    pctRuins: notasRuins(ls).pct,
     pctCinco: ls.filter(r => r[2] === 5).length / ls.length * 100,
   } : null;
   const aAvT = resumoAnt(linhasAnt);
@@ -3767,10 +3781,10 @@ function renderModuloAvaliacoes() {
   linhasTodas.forEach(r => {
     if (!porLoja.has(r[0])) porLoja.set(r[0], { n: 0, soma: 0, ruins: 0 });
     const o = porLoja.get(r[0]);
-    o.n++; o.soma += r[2]; if (r[2] <= 2) o.ruins++;
+    o.n++; o.soma += r[2]; if (notaRuim(r)) o.ruins++;
   });
   const lojas = [...porLoja.entries()]
-    .map(([i, o]) => ({ idx: i, nome: LOJAS[i], n: o.n, media: o.soma / o.n, pctRuins: o.ruins / o.n * 100,
+    .map(([i, o]) => ({ idx: i, nome: LOJAS[i], n: o.n, media: o.soma / o.n, ruins: o.ruins, pctRuins: o.ruins / o.n * 100,
       mediaAnt: mediaAntPorLoja.has(i) ? mediaAntPorLoja.get(i) : null }))
     .sort((a, b) => a.media - b.media);
   AVAL_LISTA_LOJAS = lojas.map(x => x.idx);
@@ -3801,7 +3815,7 @@ function renderModuloAvaliacoes() {
   const reclamacoes = AVAL_CRITICA_SEL
     ? critLinhas.filter(r => r[4] && r[3].includes(AVAL_CRITICA_SEL))
         .map(r => ({ loja: r[0], data: r[1], nota: r[2], txt: r[4], criticas: r[3], aguarda: r[5], itens: r[7] }))
-    : linhas.filter(r => r[2] <= 3 && r[4]).map(r => {
+    : linhas.filter(r => notaRuim(r) && r[4]).map(r => {
         const k = critPorChave.get(chaveAv(r, r[5]));
         return { loja: r[0], data: r[1], nota: r[2], txt: r[4], criticas: k ? k[3] : null, aguarda: k ? k[5] : false, itens: k ? k[7] : [] };
       });
@@ -3837,7 +3851,7 @@ function renderModuloAvaliacoes() {
     <div class="card neutral"${cardFarol('nota_media', media)}><div class="card-lbl">Nota média</div><div class="card-val">${media.toFixed(2).replace('.', ',')} ★</div>${selo(media, aAv && aAv.media)}</div>
     <div class="card neutral"><div class="card-lbl">Avaliações</div><div class="card-val">${total.toLocaleString('pt-BR')}</div>${selo(total, aAv && aAv.total, 'neutro')}</div>
     <div class="card pos"><div class="card-lbl">Nota 5</div><div class="card-val">${pct(pctCinco)}%</div>${selo(pctCinco, aAv && aAv.pctCinco)}</div>
-    <div class="card neutral"${cardFarol('pct_notas_ruins', pctRuins)}><div class="card-lbl">Notas 1 e 2</div><div class="card-val">${pct(pctRuins)}%</div><div class="card-pct">${dist[0] + dist[1]} clientes insatisfeitos</div>${selo(pctRuins, aAv && aAv.pctRuins, 'menorMelhor')}</div>
+    <div class="card neutral"${cardFarol('pct_notas_ruins', pctRuins)}><div class="card-lbl">Notas 1 a ${NOTA_RUIM_ATE}</div><div class="card-val">${pct(pctRuins)}%</div><div class="card-pct">${ruinsSel.n.toLocaleString('pt-BR')} ${ruinsSel.n === 1 ? 'cliente insatisfeito' : 'clientes insatisfeitos'}</div>${selo(pctRuins, aAv && aAv.pctRuins, 'menorMelhor')}</div>
   </div>
 
   <div style="display:flex; flex-wrap:wrap; gap:14px; align-items:stretch; margin-top:14px;">
@@ -3859,20 +3873,20 @@ function renderModuloAvaliacoes() {
   <div class="section-label">Nota por loja — piores primeiro</div>
   <div id="tabelaAvalLojas">
     <table>
-      <tr><th>Loja</th><th>Avaliações</th><th>Nota média</th><th>% notas 1-2</th><th title="Compara a nota média da loja com a janela imediatamente anterior, do mesmo tamanho do período filtrado.">vs período anterior</th></tr>
+      <tr><th>Loja</th><th>Avaliações</th><th>Nota média</th><th title="Quantas avaliações com nota de 1 a ${NOTA_RUIM_ATE} a loja recebeu no período.">Notas 1 a ${NOTA_RUIM_ATE}</th><th title="As notas de 1 a ${NOTA_RUIM_ATE} divididas por todas as avaliações da loja no período.">% notas 1 a ${NOTA_RUIM_ATE}</th><th title="Compara a nota média da loja com a janela imediatamente anterior, do mesmo tamanho do período filtrado.">vs período anterior</th></tr>
       ${lojas.map((x, i) => `<tr class="aval-clic${x.idx === LOJA ? ' aval-sel' : ''}" onclick="avalLojaFiltrar(${i})" title="${x.idx === LOJA ? 'clique para voltar a todas as lojas' : 'clique para a tela mostrar só esta loja'}"><td>${x.nome}${x.idx === LOJA ? ' ✕' : ''}</td><td>${x.n}</td>
         <td${(() => { const k = (METAS_KPI || []).find(m => m.chave === 'nota_media'); if (!k) return ''; const f = farolKpi(k, x.media); const cor = (f[1] === 'fora' || f[1] === 'perto') ? ' style="color:' + f[0] + '; font-weight:bold;"' : ''; return cor + ' title="Meta da nota: ' + fmtMeta(k) + ' — ' + f[1] + '"'; })()}>${x.media.toFixed(2).replace('.', ',')}</td>
-        <td>${pct(x.pctRuins)}%</td>
+        <td>${x.ruins}</td><td>${pct(x.pctRuins)}%</td>
         <td>${variacaoSpan(x.media, x.mediaAnt)}</td></tr>`).join('')}
       <tr class="liq"><td>TODAS</td><td>${totalT.toLocaleString('pt-BR')}</td>
-        <td>${mediaT.toFixed(2).replace('.', ',')}</td><td>${pct(pctRuinsT)}%</td>
+        <td>${mediaT.toFixed(2).replace('.', ',')}</td><td>${ruinsT.n.toLocaleString('pt-BR')}</td><td>${pct(ruinsT.pct)}%</td>
         <td>${variacaoSpan(mediaT, aAvT && aAvT.media)}</td></tr>
     </table>
   </div>
   <div class="caption-label">Lojas com poucas avaliações oscilam muito — dê mais peso às que têm 30 ou mais. <b>Clique numa loja para a tela mostrar só ela.</b></div>
 
   ${(comentarios.length || AVAL_CRITICA_SEL || LOJA !== null) ? `
-  <div class="section-label" id="avalReclamacoes">${AVAL_CRITICA_SEL ? 'Comentários de quem marcou esta crítica' : 'Reclamações com comentário (nota ≤ 3)'} — ${reclamacoes.length.toLocaleString('pt-BR')} no período</div>
+  <div class="section-label" id="avalReclamacoes">${AVAL_CRITICA_SEL ? 'Comentários de quem marcou esta crítica' : 'Reclamações com comentário (nota ≤ ' + NOTA_RUIM_ATE + ')'} — ${reclamacoes.length.toLocaleString('pt-BR')} no período</div>
   ${AVAL_CRITICA_SEL ? `${LOJA === null ? `<div class="contexto" style="border-color:var(--brand);">
     <button class="preset-btn active" onclick="avalCriticaLimpar()">${esc(AVAL_CRITICA_SEL)} ✕</button>
     <div style="font-size:12px; color:var(--tx-3); margin-top:6px;">
@@ -4074,7 +4088,9 @@ async function gerarRelatorioAdHoc() {
   const negResp = negs.filter(negRespondivel).length;
   const negAtraso = negs.filter(r => (r[3] || '').includes('ATRASO')).length;
   const notaMedia = avs.length ? avs.reduce((s, r) => s + r[2], 0) / avs.length : null;
-  const pctRuins = avs.length ? avs.filter(r => r[2] <= 2).length / avs.length * 100 : 0;
+  const ruinsRel = notasRuins(avs);
+  const pctRuins = ruinsRel.pct === null ? 0 : ruinsRel.pct;
+  const kRuins = (METAS_KPI || []).find(k => k.chave === 'pct_notas_ruins');
 
   const linha = (nome, atual, anterior, formato, tipo = 'maiorMelhor') => {
     const f = formato === 'int' ? (v) => Math.round(v).toLocaleString('pt-BR')
@@ -4099,7 +4115,9 @@ async function gerarRelatorioAdHoc() {
   if (negSem > 0) alertas.push(alerta(`<b style="color:#ff6b6b;">${negSem} negociações sem resposta</b> (${pct(negResp ? negSem / negResp * 100 : 0)}% das ${negResp} que dependem da loja) — resposta evita cancelamento automático.`, 'negociacoes', 'Negociações'));
   if (negs.length && negAtraso / negs.length > 0.4) alertas.push(alerta(`<b style="color:#ff6b6b;">${pct(negAtraso / negs.length * 100)}% das negociações por atraso</b> — olhar preparo/despacho no pico.`, 'negociacoes', 'Negociações'));
   if (notaMedia !== null && notaMedia < 4.6) alertas.push(alerta(`<b style="color:#ff6b6b;">Nota média ${notaMedia.toFixed(2).replace('.', ',')}</b> abaixo do padrão da rede (4,6+).`, 'avaliacoes', 'Avaliações'));
-  if (pctRuins > 5) alertas.push(alerta(`<b style="color:#ff6b6b;">${pct(pctRuins)}% de notas 1-2</b> no período.`, 'avaliacoes', 'Avaliações'));
+  // Notas ruins: quem decide e' o farol do indicador (metas_kpi), o mesmo do card e do Placar.
+  // Aqui nao ha numero solto (ate 06/10/2026 era um "mais de 5%" escrito a mao).
+  if (avs.length && kRuins && farolKpi(kRuins, pctRuins)[1] === 'fora') alertas.push(alerta(`<b style="color:#ff6b6b;">${pct(pctRuins)}% de ${NOTA_RUIM_ROT}</b> no período (${ruinsRel.n.toLocaleString('pt-BR')} de ${avs.length.toLocaleString('pt-BR')} avaliações) — meta: até ${fmtKpi(kRuins.unidade, Number(kRuins.meta))}.`, 'avaliacoes', 'Avaliações'));
   if (m.valorCanceladoPct > 1.2) alertas.push(alerta(`<b style="color:#ff6b6b;">Cancelamentos em ${pct(m.valorCanceladoPct)}% do bruto</b> — acima do normal (~0,9%).`, 'cancelamentos', 'Cancelamentos'));
   if (!alertas.length) alertas.push('<li>Nenhum alerta pelas regras automáticas — período dentro dos padrões.</li>');
 
@@ -4120,7 +4138,7 @@ async function gerarRelatorioAdHoc() {
     </table>
     <h3>Qualidade e pós-venda</h3>
     <ul>
-      <li>Avaliações: <b>${avs.length}</b>${notaMedia !== null ? ` — nota média <b>${notaMedia.toFixed(2).replace('.', ',')}</b>, ${pct(pctRuins)}% de notas 1-2` : ''}</li>
+      <li>Avaliações: <b>${avs.length}</b>${notaMedia !== null ? ` — nota média <b>${notaMedia.toFixed(2).replace('.', ',')}</b>, ${pct(pctRuins)}% de ${NOTA_RUIM_ROT} (${ruinsRel.n})` : ''}</li>
       <li>Negociações: <b>${negs.length}</b> — ${negSem} sem resposta, ${negAtraso} por atraso</li>
       ${motivos.length ? `<li>Top motivos de cancelamento: ${motivos.map(x => `${x.responsavel} (${x.n})`).join(' · ')}</li>` : ''}
     </ul>
@@ -5168,7 +5186,7 @@ function computeKpisSemana(ini, fim) {
     pedidos_semana: m.totalPedidos,
     margem_pct: m.liquidoPct,
     nota_media: avs.length ? avs.reduce((s, r) => s + r[2], 0) / avs.length : null,
-    pct_notas_ruins: avs.length ? avs.filter(r => r[2] <= 2).length / avs.length * 100 : null,
+    pct_notas_ruins: notasRuins(avs).pct,
     taxa_cancelamento: m.nFullPct, // so cancelamentos TOTAIS (parciais ficam no modulo Cancelamentos)
     neg_sem_resposta_pct: negResp ? negSem / negResp * 100 : null,
     neg_atraso_pct: negs.length ? negAtraso / negs.length * 100 : null,
@@ -16022,7 +16040,7 @@ const HOME_ACAO = {
   nota_media:           { modulo: 'avaliacoes',    rot: 'Avaliações',
                           texto: 'abrir Avaliações, piores lojas primeiro, e ler os comentários' },
   pct_notas_ruins:      { modulo: 'avaliacoes',    rot: 'Avaliações',
-                          texto: 'abrir Avaliações e tratar as lojas com notas 1-2 da semana' },
+                          texto: 'abrir Avaliações e tratar as lojas com ' + NOTA_RUIM_ROT + ' da semana' },
   taxa_cancelamento:    { modulo: 'cancelamentos', rot: 'Cancelamentos',
                           texto: 'abrir Cancelamentos e ver o motivo dominante da semana' },
   neg_sem_resposta_pct: { modulo: null,            rot: '',
