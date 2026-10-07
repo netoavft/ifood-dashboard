@@ -12832,7 +12832,9 @@ function renderLucroUni() {
   // igual pagando comissao cheia. E' o MINIMO — supoe vender exatamente o mesmo
   // depois do aumento; se a venda cair, precisa subir mais. A receita e' a venda
   // bruta da DRE (PDV + outras receitas), a mesma base dos percentuais de la.
-  const receitaRede = somaRede('receita');
+  // 07/10/2026: na Rede (sem loja escolhida) a lista entre lojas nao e' receita. A view ja
+  // entrega receita_propria (= receita − lista recebida das filiais), a base da Rede na DRE.
+  const receitaRede = ctxLoja ? somaRede('receita') : somaRede('receita_propria');
   const pctPreco = receitaRede > 0 ? benefRede / receitaRede * 100 : 0;
 
   // ---- caixa: onde o dinheiro esta hoje. Cartao de credito fica de fora — e
@@ -17245,7 +17247,8 @@ function seletorLojaFin() {
         + (v === LOJA_FIN ? 'font-weight:700;border:2px solid #c8102e' : 'border:1px solid #bbb')
         + '">' + rot + '</button>').join('')
     + '<span style="opacity:.65;font-size:12px">'
-    + (LOJA_FIN === 'REDE' ? 'Somando as três lojas (a mercadoria que a Água Verde manda para as filiais não conta).' : 'Só esta loja.')
+    + (LOJA_FIN === 'REDE' ? (['dre', 'fechamento', 'placar', 'despesas'].includes(MODULO_ATUAL)
+        ? 'Somando as três lojas (a mercadoria que a Água Verde manda para as filiais não conta).' : 'Somando as três lojas.') : 'Só esta loja.')
     + '</span></div>';
 }
 
@@ -17293,6 +17296,10 @@ const fxLojas = () => LOJA_FIN === 'REDE' ? FX_TODAS : [LOJA_FIN];
 // receita da AV e custo da filial, nenhum cliente pagou. POR LOJA NADA MUDA. Um predicado so,
 // usado pela DRE, pelo Placar, pelo Fechamento e pela Analise de despesas; a copia em Python
 // esta em script/gerar_dre_pagina.py (LISTA_INTERNA). Mudou aqui, muda la.
+// RISCO CONHECIDO: o lado da filial e' reconhecido so pelo nome MERCADORIAS AV. Hoje esse subtipo
+// so vem do ajuste das listas (credito na AV = debito na filial, todo mes). Se alguem lancar no
+// Saipos uma despesa de filial nessa categoria, a Rede perde o custo sem perder a receita — o
+// portao (conferir_numeros_painel.py, "listas: receita da AV x custo das filiais") acusa.
 const fxListaInterna = (r) => (r.natureza === 'RECEITAS' && (r.subtipo === 'LISTAS AHU' || r.subtipo === 'LISTAS SAO BRAZ'))
   || r.subtipo === 'MERCADORIAS AV';
 const fxSemListaNaRede = (linhas) => (LOJA_FIN === 'REDE' && linhas) ? linhas.filter(r => !fxListaInterna(r)) : linhas;
@@ -17828,7 +17835,9 @@ function renderPlacar() {
     const somaLoja = porLoja.reduce((s, l) => s + (l.v || 0), 0);
     // Na REDE a lista entre lojas nao conta (07/10/2026): a soma das tres lojas e o numero da
     // Rede diferem exatamente pela lista. A linha extra mostra essa diferenca em vez de esconder.
-    const redeV = (LOJA_FIN === 'REDE' && t.un === 'R$' && t.id !== 'caixa') ? valorDe(t, A) : null;
+    // O numero da Rede e' calculado SEMPRE, com qualquer loja escolhida la em cima: a tabela
+    // mostra as tres lojas e o total tem de ser o mesmo nos dois casos. So a mercadoria difere.
+    const redeV = t.id === 'merc' ? valorDe(t, LOJA_FIN === 'REDE' ? A : plcComLoja('REDE', () => plcAgrega(atual.meses))) : null;
     const listaFora = redeV !== null ? somaLoja - redeV : 0;
     const temListaFora = Math.abs(listaFora) > 0.5;
     // CAIXA NAO TEM "de cada R$ 100" nem parte do total: ele pode ser negativo, e
@@ -17845,7 +17854,7 @@ function renderPlacar() {
         <td>${l.vb !== null && l.vb !== undefined ? fxVar(l.v, l.vb, '') : '—'}</td>
         <td>${l.meta && l.pct !== null ? fxPill(fxFarol(l.pct, l.meta.meta, l.meta.sentido)) : '—'}</td></tr>`).join('')}
       ${temListaFora ? `<tr><td>(−) mercadoria entre as lojas (não conta na Rede)</td><td>${fmtDe(t, -listaFora)}</td><td>—</td><td>—</td><td>—</td></tr>` : ''}
-      <tr class="liq"><td>${LOJA_FIN === 'REDE' ? 'REDE (as três)' : 'A soma das três'}</td><td>${fmtDe(t, temListaFora ? redeV : somaLoja)}</td><td>—</td><td>—</td><td>—</td></tr>
+      <tr class="liq"><td>${(LOJA_FIN === 'REDE' || temListaFora) ? 'REDE (as três)' : 'A soma das três'}</td><td>${fmtDe(t, temListaFora ? redeV : somaLoja)}</td><td>—</td><td>—</td><td>—</td></tr>
     </table></div>`;
 
     const tabPer = `<div id="tabelaPlacarPeriodo"><table>
