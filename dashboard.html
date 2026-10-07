@@ -19430,7 +19430,8 @@ function renderModuloDRE() {
           <div class="card-pct" style="color:${folga >= 0 ? 'var(--farol-ok)' : 'var(--farol-fora)'};">vendeu ${pct(Math.abs(folga))}% ${folga >= 0 ? 'acima' : 'ABAIXO'} do ponto</div></div>` : ''}
       </div>
       <div class="caption-label" style="text-align:center;">
-        Os demais indicadores estão na própria tabela: o % ao lado de cada número é a fatia da receita bruta,
+        Os demais indicadores estão na própria tabela: o % ao lado de cada número é a fatia de tudo que entrou
+        (venda do PDV + outras receitas da operação: atacado, listas das filiais, Boqueirão),
         colorido pela meta (verde dentro, âmbar perto, vermelho fora). Prime Cost = CMV + pessoal, os dois maiores
         custos da casa. Ponto de equilíbrio = (pessoal + comerciais + administrativas + outras) ÷ margem de
         contribuição % — quanto precisava faturar para empatar. Metas editáveis na tabela <b>fin_metas_dre</b>;
@@ -19446,7 +19447,9 @@ function renderModuloDRE() {
   <div class="caption-label" style="text-align:center;">
     Resultado mês a mês da empresa inteira, direto do Saipos desde jan/2026 — <b>não segue os filtros do topo</b>.
     Receitas = vendas do PDV por canal (bruto); despesas por <b>competência</b> (data de emissão da NF).
-    Em cada célula: valor, <b>%</b> da receita bruta e <b>▲▼</b> (variação vs mês anterior).
+    Em cada célula: valor, <b>%</b> sobre tudo que entrou (venda do PDV + outras receitas: atacado, listas das filiais, Boqueirão)
+    e <b>▲▼</b> (variação vs mês anterior). Na Água Verde a mercadoria inclui o que foi comprado para produzir as listas e o atacado;
+    nas filiais, a lista paga à Água Verde está dentro da mercadoria (linha Mercadorias AV).
     Marcação colorida só aparece quando a linha está <b>fora da meta</b> (âmbar = perto, vermelho = longe) —
     sem marcação, está tudo dentro. Clique nas linhas com ▶ para abrir o detalhe.
   </div>
