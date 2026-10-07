@@ -310,6 +310,26 @@
   #view-avaliacoes .aval-dr-x { visibility:hidden; }
   #view-avaliacoes .aval-dr-sel .aval-dr-x, #view-avaliacoes .preset-btn.active .aval-dr-x { visibility:visible; }
   @media (max-width:700px) { #view-avaliacoes .aval-dr-mais { gap:8px; } #view-avaliacoes .aval-dr-mais .preset-btn { min-height:40px; } }
+  /* Avaliacoes (07/10/2026): quadro "Reclamacoes para a cozinha". Recolhido por padrao; dentro,
+     um bloco por dia de chegada e, em cada unidade, o texto pronto (caixa de texto so de leitura)
+     com o botao Copiar. So tokens. No celular os botoes e as linhas que abrem tem 40 px ou mais e
+     a letra da caixa sobe para 16 px (abaixo disso o iPhone da zoom na tela ao tocar na caixa). */
+  #view-avaliacoes details.aval-coz { text-align:left; margin:12px 0 4px; padding:2px 14px; background:var(--zebra); border:1px solid var(--line); border-radius:10px; }
+  #view-avaliacoes details.aval-coz > summary { cursor:pointer; padding:9px 0; color:var(--tx-2); font-size:14px; }
+  #view-avaliacoes details.aval-coz > summary b, #view-avaliacoes .aval-coz-cab b { color:var(--tx-1); }
+  #view-avaliacoes details.aval-coz > summary:hover, #view-avaliacoes details.aval-coz-bloco > summary:hover { color:var(--tx-1); }
+  #view-avaliacoes .aval-coz-nota { margin:0 0 8px; font-size:12.5px; color:var(--tx-3); }
+  #view-avaliacoes details.aval-coz-bloco { padding:1px 0 4px; border-top:1px solid var(--line); }
+  #view-avaliacoes details.aval-coz-bloco > summary { cursor:pointer; padding:9px 0; color:var(--tx-2); font-size:13.5px; }
+  #view-avaliacoes details.aval-coz-bloco[open] > summary { color:var(--tx-1); font-weight:700; }
+  #view-avaliacoes .aval-coz-cab { display:flex; flex-wrap:wrap; gap:8px; align-items:center; justify-content:space-between; margin:10px 0 6px; color:var(--tx-2); font-size:13.5px; }
+  #view-avaliacoes textarea.aval-coz-txt { display:block; width:100%; box-sizing:border-box; padding:10px 12px; background:var(--surface-2); border:1px solid var(--line); border-radius:8px; color:var(--tx-1); font-size:13px; line-height:1.5; resize:vertical; }
+  #view-avaliacoes .aval-coz-sem { margin:8px 0; font-size:12.5px; color:var(--tx-3); }
+  @media (max-width:700px) {
+    #view-avaliacoes .aval-coz .preset-btn { min-height:40px; }
+    #view-avaliacoes textarea.aval-coz-txt { font-size:16px; }
+    #view-avaliacoes details.aval-coz > summary, #view-avaliacoes details.aval-coz-bloco > summary { padding:12px 0; }
+  }
   @media (max-width:1000px) {
     #view-avaliacoes .aval-ordem { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin:0 0 8px; }
     #tabelaComentarios.aval-dt td:nth-child(-n+4) { display:inline; font-size:12px; color:var(--tx-3); font-weight:400; }
@@ -3742,6 +3762,396 @@ function avalDiaLer() {
   const el = document.getElementById('avalReclamacoes');
   if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
+// "RECLAMACOES PARA A COZINHA" (07/10/2026). Quadro de trabalho do dia, dentro do modulo: um texto
+// por unidade, pronto para o dono copiar e mandar. O painel nao envia nada.
+// O CORTE, num lugar so (avalCozBlocos): cada bloco e UM DIA DE CHEGADA — as reclamacoes que
+// entraram no nosso banco naquele dia (visto_em, dia de Curitiba). Cada reclamacao tem uma
+// chegada so, entao cai em um bloco so: nenhuma se perde, nenhuma se repete. De manha manda-se o
+// bloco de ONTEM, que ja fechou; o de hoje ainda esta enchendo. Ficam AVAL_COZ_DIAS dias na tela,
+// cada um com o seu Copiar (fim de semana sem ninguem abrir nao se perde).
+// Reclamacao SEM hora de chegada (ja estava no banco quando a coluna nasceu) nao tem a chegada
+// chutada: vai para um bloco pelo dia em que o cliente AVALIOU, e o titulo do bloco diz isso.
+// Nao depende do periodo nem dos filtros de loja/critica do modulo; respeita o filtro geral de
+// unidade/marca. So existe quando a view ja traz as horas (AVAL_CRIT_DATAS).
+// O RELOGIO DO QUADRO E A HORA EM QUE AS RECLAMACOES FORAM LIDAS (AVAL_COZ_LIDO), nao a hora de
+// agora: "hoje", "ontem" e "ate HH:MM" falam do que o painel leu. Painel que ficou aberto nao
+// pode dizer "nenhuma para copiar hoje" com dado velho: se o dia virou desde a leitura, o quadro
+// esconde os blocos e le de novo (avalCozVigia); no mesmo dia, le de novo ao abrir o quadro ou ao
+// voltar para a aba quando a leitura tem mais de AVAL_COZ_RELER_MIN minutos.
+// DIA SEM NENHUMA CHEGADA NA REDE INTEIRA (todas as unidades, sem filtro) nao e "dia sem
+// reclamacao": o mais provavel e a leitura nao ter rodado. O bloco diz isso e manda conferir.
+// O QUE ENTRA, num lugar so: nota ruim (1 a NOTA_RUIM_ATE) entra inteira; nota 4 ou 5 com
+// critica marcada entra conforme AVAL_COZ_NOTA_BOA: 'resumida' (quem ESCREVEU comentario entra
+// inteira, igual a nota ruim; quem so marcou a critica entra em uma linha), 'inteira' (todas
+// inteiras) ou 'fora'. Medido em 07/10/2026 sobre 28 dias: sao 82 das 208 reclamacoes e so 25
+// delas trazem comentario — e e no comentario que aparece o que a cozinha precisa ler (a batata
+// frita crua de 04/10 no Ahu veio numa nota 4).
+const AVAL_COZ_DIAS = 7;
+const AVAL_COZ_NOTA_BOA = 'resumida';
+const AVAL_COZ_COMENT_MAX = 300;       // o comentario vai inteiro: o maior medido tem 300 letras; acima disso corta numa palavra
+const AVAL_COZ_OLHAR_MIN = 2;          // "O que olhar hoje": a mesma critica em 2 clientes ou mais da unidade
+const AVAL_COZ_OLHAR_MAX = 3;          // no maximo 3 criticas nessa linha
+const AVAL_COZ_RELER_MIN = 10;         // leitura com mais de 10 minutos: le de novo ao abrir o quadro ou ao voltar para a aba
+const AVAL_COZ_ESPERA_MS = 1500;       // quanto o Copiar espera o navegador responder antes de tentar o jeito antigo
+// Abrir e fechar: o estado so muda no CLIQUE da pessoa no titulo (onclick, antes de o navegador
+// abrir ou fechar). Nao usar ontoggle: ele tambem dispara quando a tela e redesenhada com um bloco
+// ja aberto, e o bloco aberto por padrao ficaria marcado como escolha da pessoa.
+let AVAL_COZ_ABERTO = false;                 // o quadro abre recolhido
+const AVAL_COZ_BLOCO_ABERTO = new Map();     // bloco -> aberto? (o que a pessoa abriu ou fechou nesta visita)
+const AVAL_COZ_COPIADO = new Map();          // botao -> { hm, texto }: o que ja foi copiado nesta visita
+let AVAL_COZ_LIDO = null;                    // quando as reclamacoes foram lidas do banco (ms; gravado por carregarCriticasAval)
+let AVAL_COZ_RELENDO = false;                // tem uma releitura em andamento
+let AVAL_COZ_RELER_TENTOU = 0;               // quando foi a ultima tentativa de reler (ms)
+let AVAL_COZ_RELER_FALHOU = false;           // a ultima tentativa nao conseguiu
+// { hoje: 'AAAA-MM-DD', hm: 'HH:MM' } no horario de Curitiba; null = o navegador nao soube escrever.
+function avalCozAgora(ms) {
+  const s = new Date(ms === undefined ? Date.now() : ms).toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' });
+  return /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(s) ? { hoje: s.slice(0, 10), hm: s.slice(11, 16) } : null;
+}
+function avalCozDiaMais(iso, n) {
+  const d = new Date(iso + 'T12:00:00Z');
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+// 'AAAA-MM-DD...' -> { dia: '06/10', sem: 'terça' }
+function avalCozDia(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || '');
+  return m ? { dia: m[3] + '/' + m[2], sem: AVAL_DIAS_SEMANA[new Date(+m[1], +m[2] - 1, +m[3]).getDay()] } : { dia: String(iso || ''), sem: '' };
+}
+const avalCozCmp = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+const avalCozPlural = (n) => n + (n === 1 ? ' reclamação' : ' reclamações');
+// Nome de item e de critica numa linha so (quebra de linha e tab viram um espaco).
+const avalCozLinha = (s) => String(s == null ? '' : s).split(/\s+/).filter(Boolean).join(' ');
+// Comentario numa linha so; passou do tamanho, corta no fim de uma palavra e poe reticencias.
+function avalCozCorta(s, max) {
+  const t = String(s == null ? '' : s).split(/\s+/).filter(Boolean).join(' ');
+  const c = Array.from(t);
+  if (c.length <= max) return t;
+  let r = c.slice(0, max);
+  const i = r.lastIndexOf(' ');
+  if (i >= max * 0.6) r = r.slice(0, i);
+  return r.join('').replace(/[ .,;:!?-]+$/, '') + '…';
+}
+// "domingo 04/10 às 15:32 (café da tarde)" — a hora e o turno do PEDIDO (avalTurno, a regra do painel)
+function avalCozQuando(r) {
+  const p = avalDataHora(r[8] || r[1]);
+  if (!p) return '';
+  const turno = p.h === null ? '' : avalTurno(p.h);
+  return avalCozDia(r[8] || r[1]).sem + ' ' + p.dia + (p.hora ? ' às ' + p.hora : '') + (turno ? ' (' + turno + ')' : '');
+}
+// O TEXTO de uma unidade num bloco. Texto puro: nenhum sinal que o WhatsApp leia como negrito,
+// lista ou citacao; nenhum dado do cliente alem do que ele escreveu. linhas = linhas de
+// AVAL_CRITICAS da unidade naquele bloco; acendeu = os dias ruins que ACENDERAM neste bloco
+// (avalCozAcendeu). Bloco que ja fechou tem texto fixo: nada aqui depende do dia de hoje.
+function avalCozTexto(u, rotulo, linhas, acendeu) {
+  const out = [avalUnidadeNome(u) + ' — reclamações do iFood'];
+  if (!linhas.length) { out.push(rotulo + ': nenhuma reclamação.'); return out.join('\n'); }
+  const ruins = linhas.filter(notaRuim);
+  out.push(rotulo + ': ' + avalCozPlural(linhas.length) + (ruins.length === linhas.length ? ''
+    : !ruins.length ? ', nenhuma com nota de 1 a ' + NOTA_RUIM_ATE : ', ' + ruins.length + ' com nota de 1 a ' + NOTA_RUIM_ATE));
+  const ordem = (a, b) => a[2] - b[2] || avalCozCmp(a[8] || a[1], b[8] || b[1]) || avalCozCmp(a[6], b[6]) || avalCozCmp(a[4] || '', b[4] || '');
+  const escreveu = (r) => avalCozCorta(r[4], AVAL_COZ_COMENT_MAX) !== '';
+  const criticas = (r) => r[3].map(avalCozLinha).filter(Boolean);
+  const inteiras = AVAL_COZ_NOTA_BOA === 'inteira' ? linhas : linhas.filter(r => notaRuim(r) || (AVAL_COZ_NOTA_BOA === 'resumida' && escreveu(r)));
+  const resumidas = AVAL_COZ_NOTA_BOA === 'resumida' ? linhas.filter(r => !notaRuim(r) && !escreveu(r)) : [];
+  // por loja; a loja com a nota mais baixa vem primeiro e, dentro dela, a nota mais baixa primeiro
+  const lojas = new Map();
+  inteiras.forEach(r => { if (!lojas.has(r[0])) lojas.set(r[0], []); lojas.get(r[0]).push(r); });
+  const pior = (l) => Math.min(...lojas.get(l).map(r => r[2]));
+  [...lojas.keys()].sort((a, b) => pior(a) - pior(b) || a - b).forEach(l => {
+    out.push('', avalCozLinha(LOJAS[l]));
+    lojas.get(l).sort(ordem).forEach(r => {
+      out.push('• Nota ' + r[2] + ' — pedido de ' + avalCozQuando(r));
+      const cr = criticas(r), it = r[7].map(avalCozLinha).filter(Boolean);
+      if (cr.length) out.push('Criticou: ' + cr.join(', '));
+      if (it.length) out.push('Pediu: ' + it.join('; '));
+      const c = avalCozCorta(r[4], AVAL_COZ_COMENT_MAX);
+      if (c) out.push('Cliente: “' + c + '”');
+    });
+  });
+  if (resumidas.length) {
+    out.push('', 'Nota 4 ou 5, só marcaram a crítica:');
+    resumidas.sort((a, b) => a[2] - b[2] || a[0] - b[0] || ordem(a, b)).forEach(r => {
+      out.push('• Nota ' + r[2] + ' — ' + avalCozLinha(LOJAS[r[0]]) + ', ' + avalCozQuando(r) + ': ' + criticas(r).join(', '));
+    });
+  }
+  // "O que olhar hoje": so com repeticao (a mesma critica em AVAL_COZ_OLHAR_MIN clientes ou mais,
+  // qualquer nota) ou com dia ruim na cozinha que acendeu neste bloco.
+  const conta = new Map();
+  linhas.forEach(r => new Set(criticas(r)).forEach(c => conta.set(c, (conta.get(c) || 0) + 1)));
+  const rep = [...conta.entries()].filter(x => x[1] >= AVAL_COZ_OLHAR_MIN)
+    .sort((a, b) => b[1] - a[1] || avalCozCmp(a[0], b[0])).slice(0, AVAL_COZ_OLHAR_MAX);
+  const partes = [];
+  if (rep.length) partes.push(rep.map(x => x[0] + ' (' + x[1] + ' clientes)').join(', ') + '.');
+  acendeu.forEach(x => {
+    const d = avalCozDia(x.d);
+    partes.push((partes.length ? 'Dia ruim na cozinha' : 'dia ruim na cozinha') + ': ' + d.sem + ' ' + d.dia + ', '
+      + x.casos.map(c => avalCozLinha(c.c) + ' em ' + c.n).join(', ') + ' notas ruins no mesmo dia.');
+  });
+  if (partes.length) out.push('', 'O que olhar hoje: ' + partes.join(' '));
+  return out.join('\n');
+}
+// O "dia ruim na cozinha" dentro do texto. A regra e a do aviso do topo (avalDiasRuins): a mesma
+// critica em AVAL_DIARUIM_MIN ou mais notas ruins (AVAL_DIARUIM_MIN_UNIDADE na unidade que tem
+// limite proprio), em pedidos do mesmo dia, na mesma unidade, dentro do filtro geral. A diferenca
+// e QUANDO se conta: aqui, so o que tinha chegado ate o dia do bloco — e o aviso entra UMA vez,
+// no bloco em que chegou a reclamacao que completou o limite. Assim a cozinha nao recebe o mesmo
+// aviso em tres manhas seguidas e o texto de um bloco que ja fechou nao muda depois.
+// No bloco de hoje a conta e a mesma do aviso do topo (tudo o que chegou ate agora).
+// Devolve [{ d (dia do pedido), casos: [{ c, n }] }], do dia mais recente para o mais antigo.
+function avalCozAcendeu(u, d, tipo, ativas) {
+  const min = AVAL_DIARUIM_MIN_UNIDADE[u] || AVAL_DIARUIM_MIN;
+  const chegou = (r) => String(r[10] || r[9] || '').slice(0, 10);
+  const g = new Map();
+  AVAL_CRITICAS.forEach(r => {
+    if (!notaRuim(r) || !ativas.has(r[0]) || avalUnidadeDaLoja(r[0]) !== u) return;
+    const ch = chegou(r);
+    if (!ch || ch > d) return;
+    new Set(r[3]).forEach(c => {
+      const k = r[1] + '|' + c;
+      if (!g.has(k)) g.set(k, { d: r[1], c, ate: 0, aqui: 0, comHora: false });
+      const x = g.get(k);
+      x.ate++;
+      if (ch === d) { x.aqui++; if (r[10]) x.comHora = true; }
+    });
+  });
+  const dias = new Map();
+  g.forEach(x => {
+    // acendeu aqui = ja passa do limite e, sem as deste dia, nao passava. Na transicao (o mesmo dia
+    // com bloco "chegaram" e bloco "avaliadas") o aviso fica no bloco "chegaram".
+    if (x.ate < min || x.ate - x.aqui >= min || (x.comHora ? 'c' : 'a') !== tipo) return;
+    if (!dias.has(x.d)) dias.set(x.d, { d: x.d, casos: [] });
+    dias.get(x.d).casos.push({ c: x.c, n: x.ate });
+  });
+  const lista = [...dias.values()];
+  lista.forEach(x => x.casos.sort((a, b) => b.n - a.n || avalCozCmp(a.c, b.c)));
+  return lista.sort((a, b) => avalCozCmp(b.d, a.d));
+}
+// Os blocos, do mais novo para o mais antigo. null = o quadro nao aparece (sem criticas
+// conferidas, sem as horas na view, ou relogio que o navegador nao soube escrever).
+// "Hoje" e o dia em que as reclamacoes foram LIDAS (lido); virou = o dia de agora ja e outro.
+// Cada bloco: { chave, tipo ('c' = chegaram, 'a' = avaliadas), d, hoje, semLeitura, titulo (na
+//   tela), rotulo (no texto), n, unidades: [{ u, n, texto }] }.
+function avalCozBlocos() {
+  if (AVAL_CRITICAS === null || AVAL_CRITICAS_BATE !== true || !AVAL_CRIT_DATAS || AVAL_COZ_LIDO === null) return null;
+  const ag = avalCozAgora(AVAL_COZ_LIDO), real = avalCozAgora();
+  if (!ag || !real) return null;
+  const ativas = activeLojas();
+  const dias = [];
+  for (let i = 0; i < AVAL_COZ_DIAS; i++) dias.push(avalCozDiaMais(ag.hoje, -i));
+  // inicio = o primeiro dia com chegada marcada (antes dele ninguem sabe quando chegou);
+  // ultima = a chegada mais recente, para a tela provar que a leitura esta em dia;
+  // chegouNaRede = os dias em que chegou alguma coisa em QUALQUER unidade (sem filtro nenhum)
+  let inicio = null, ultima = null;
+  const chegouNaRede = new Set();
+  AVAL_CRITICAS.forEach(r => {
+    if (!r[10]) return;
+    const v = String(r[10]);
+    chegouNaRede.add(v.slice(0, 10));
+    if (inicio === null || v.slice(0, 10) < inicio) inicio = v.slice(0, 10);
+    if (ultima === null || v.slice(0, 16) > ultima) ultima = v.slice(0, 16);
+  });
+  const porBloco = new Map();
+  AVAL_CRITICAS.forEach(r => {
+    if (!ativas.has(r[0]) || (!notaRuim(r) && AVAL_COZ_NOTA_BOA === 'fora')) return;
+    const k = r[10] ? 'c' + String(r[10]).slice(0, 10) : r[9] ? 'a' + String(r[9]).slice(0, 10) : null;
+    if (k === null) return;
+    if (!porBloco.has(k)) porBloco.set(k, []);
+    porBloco.get(k).push(r);
+  });
+  const unidades = [...new Set([...ativas].map(avalUnidadeDaLoja).filter(u => u !== undefined))]
+    .sort((a, b) => UNIDADES.indexOf(a) - UNIDADES.indexOf(b));
+  const blocos = [];
+  dias.forEach((d, i) => {
+    [['c', inicio !== null && d >= inicio], ['a', false]].forEach(([tipo, sempre]) => {
+      const linhas = porBloco.get(tipo + d) || [];
+      if (!linhas.length && !sempre) return;
+      const x = avalCozDia(d), quando = x.dia + ' (' + x.sem + ')';
+      const hoje = tipo === 'c' && i === 0;
+      const rotulo = tipo === 'a' ? 'Avaliadas pelo cliente em ' + quando
+        : hoje ? 'Chegaram hoje, ' + quando + ', até ' + ag.hm : 'Chegaram em ' + quando;
+      const titulo = tipo === 'a' ? 'Avaliadas em ' + quando + ', antes de o painel marcar a chegada'
+        : hoje ? rotulo : i === 1 ? 'Chegaram ontem, ' + quando : rotulo;
+      blocos.push({ chave: tipo + d, tipo, d, hoje, titulo, rotulo, n: linhas.length,
+        semLeitura: tipo === 'c' && !hoje && !chegouNaRede.has(d),
+        unidades: unidades.map(u => {
+          const L = linhas.filter(r => avalUnidadeDaLoja(r[0]) === u);
+          return { u, n: L.length, texto: avalCozTexto(u, rotulo, L, L.length ? avalCozAcendeu(u, d, tipo, ativas) : []) };
+        }) });
+    });
+  });
+  // as unidades que o filtro geral deixou de fora (o painel abre sem as lojas de outra gestao)
+  const fora = UNIDADES.filter(u => !unidades.includes(u)).map(avalUnidadeNome);
+  return { blocos, hoje: ag.hoje, ontem: dias[1], inicio, ultima, lido: ag, virou: real.hoje !== ag.hoje, fora };
+}
+// "Ahú e São Braz" / "Ahú, Boqueirão e São Braz"
+const avalCozLista = (nomes) => (nomes.length <= 1 ? nomes.join('') : nomes.slice(0, -1).join(', ') + ' e ' + nomes[nomes.length - 1]);
+// "Sem reclamação nesse dia: Ahú e São Braz." ('' quando toda unidade tem reclamacao)
+function avalCozSem(b) {
+  const nomes = b.unidades.filter(x => !x.n).map(x => avalUnidadeNome(x.u));
+  return nomes.length ? 'Sem reclamação nesse dia: ' + avalCozLista(nomes) + '.' : '';
+}
+// O texto do "Copiar todas": os textos das unidades com reclamacao, um depois do outro, e a linha das sem.
+function avalCozJuntar(textos, sem) {
+  return textos.join('\n\n——————\n\n') + (sem ? '\n\n' + sem : '');
+}
+// O quadro pronto. '' = nada muda na tela (view sem as horas, ou nenhum bloco nos ultimos dias).
+function avalCozHtml() {
+  const q = avalCozBlocos();
+  if (!q || !q.blocos.length) return '';
+  const x = avalCozDia(q.hoje);
+  const botaoLer = `<button class="preset-btn" id="avalCozAtualizar" onclick="avalCozReler()">Atualizar</button>`;
+  if (q.virou) {
+    // O painel ficou aberto de um dia para o outro: nada do que esta lido pode ser chamado de
+    // "hoje" ou "ontem". Esconde os blocos e le de novo; se nao conseguir, manda recarregar.
+    setTimeout(avalCozVigia, 0);
+    const lendo = AVAL_COZ_RELENDO || !AVAL_COZ_RELER_FALHOU;
+    return `<details class="aval-coz" id="avalCoz"${AVAL_COZ_ABERTO ? ' open' : ''}>
+    <summary onclick="AVAL_COZ_ABERTO = !this.parentNode.open"><b>Reclamações para a cozinha</b> — <span id="avalCozResumo">${lendo ? 'atualizando…' : 'não consegui atualizar: recarregue a página'}</span></summary>
+    <div class="aval-coz-cab"><span id="avalCozLido">O painel ficou aberto de um dia para o outro: o que estava aqui foi lido em ${x.dia} às ${q.lido.hm}. ${lendo ? 'Lendo de novo…' : 'Não consegui ler de novo. Recarregue a página antes de copiar.'}</span>${botaoLer}</div>
+  </details>
+  `;
+  }
+  const bOntem = q.blocos.find(b => b.tipo === 'c' && b.d === q.ontem) || null;
+  const bHoje = q.blocos.find(b => b.hoje) || null;
+  const nHoje = bHoje ? bHoje.n : 0;
+  const jaHoje = nHoje ? nHoje + (nHoje === 1 ? ' já chegou hoje' : ' já chegaram hoje') + ' até ' + q.lido.hm : '';
+  const resumo = !bOntem ? (nHoje ? nHoje + (nHoje === 1 ? ' chegou hoje' : ' chegaram hoje') + ' até ' + q.lido.hm : 'últimos ' + AVAL_COZ_DIAS + ' dias')
+    : bOntem.semLeitura ? 'ontem não chegou nada: confira a leitura' + (jaHoje ? ' · ' + jaHoje : '')
+    : bOntem.n ? bOntem.n + ' para copiar hoje' + (jaHoje ? ' · ' + jaHoje : '')
+    : jaHoje ? 'nenhuma de ontem · ' + jaHoje + ': veja o bloco de hoje' : 'nenhuma para copiar hoje';
+  // abre sozinho o bloco de ontem (o que se manda de manha); se ele esta vazio e ja chegou algo
+  // hoje, o de hoje; sem nenhum dos dois, o primeiro que tiver reclamacao
+  const padrao = ((bOntem && bOntem.n) ? bOntem : (bHoje && bHoje.n) ? bHoje : bOntem || q.blocos.find(b => b.n) || q.blocos[0]).chave;
+  const rotuloBotao = (id, texto, parado) => {
+    const c = AVAL_COZ_COPIADO.get(id);
+    return (c && c.texto === texto) ? 'Copiado' + (c.hm ? ' às ' + c.hm : '') + ' ✓' : parado;
+  };
+  const ult = q.ultima ? avalDataHora(q.ultima) : null;
+  const lido = AVAL_COZ_RELENDO ? 'Lendo de novo…'
+    : (AVAL_COZ_RELER_FALHOU ? 'Não consegui ler de novo agora. O que está aqui foi lido às ' : 'Lido às ') + q.lido.hm + '.'
+      + (ult ? ' Última chegada do iFood: ' + ult.dia + ' às ' + ult.hora + '.' : '');
+  return `<details class="aval-coz" id="avalCoz"${AVAL_COZ_ABERTO ? ' open' : ''}>
+    <summary onclick="AVAL_COZ_ABERTO = !this.parentNode.open; setTimeout(avalCozVigia, 0)"><b>Reclamações para a cozinha</b> — <span id="avalCozResumo">${resumo}</span></summary>
+    <div class="aval-coz-nota">Cada bloco é o que chegou do iFood naquele dia; de manhã, mande o de ontem. Mostra sempre os últimos ${AVAL_COZ_DIAS} dias, qualquer que seja o período escolhido acima.${q.fora.length ? ' Fora do filtro de cima: ' + avalEsc(avalCozLista(q.fora)) + '.' : ''}</div>
+    <div class="aval-coz-cab"><span id="avalCozLido">${lido}</span>${botaoLer}</div>
+    ${q.blocos.map(b => {
+      const aberto = AVAL_COZ_BLOCO_ABERTO.has(b.chave) ? AVAL_COZ_BLOCO_ABERTO.get(b.chave) : b.chave === padrao;
+      const com = b.unidades.map(x => ({ x, i: UNIDADES.indexOf(x.u) })).filter(o => o.x.n);   // i = a unidade, nao a posicao: o botao e o mesmo com ou sem filtro
+      const sem = avalCozSem(b);
+      const idTodas = 'avalCozB_' + b.chave + '_todas';
+      return `<details class="aval-coz-bloco" id="avalCozK_${b.chave}"${aberto ? ' open' : ''}>
+      <summary onclick="AVAL_COZ_BLOCO_ABERTO.set('${b.chave}', !this.parentNode.open)">${avalEsc(b.titulo)}: ${b.semLeitura ? 'nada chegou — confira a leitura' : b.n ? avalCozPlural(b.n) : 'nenhuma reclamação'}</summary>
+      ${!b.n ? `<div class="aval-coz-sem">${b.semLeitura ? 'Nesse dia não chegou nenhuma reclamação do iFood, em nenhuma unidade. Pode ser que a leitura não tenha rodado: confira em Sistema → Rotinas. Se foi isso, elas aparecem no bloco do dia seguinte.' : b.hoje ? 'Nenhuma reclamação chegou hoje até ' + q.lido.hm + '.' : 'Nenhuma reclamação chegou nesse dia.'}</div>` : `${b.unidades.length > 1 ? `<div class="aval-coz-cab"><span>Uma mensagem por unidade, ou todas de uma vez:</span><button class="preset-btn" id="${idTodas}" onclick="avalCozCopiar('${b.chave}', 'todas')">${rotuloBotao(idTodas, avalCozJuntar(com.map(o => o.x.texto), sem), 'Copiar todas')}</button></div>` : ''}
+      ${com.map(o => {
+        const id = 'avalCozB_' + b.chave + '_' + o.i;
+        return `<div class="aval-coz-cab"><span><b>${avalEsc(avalUnidadeNome(o.x.u))}</b> — ${avalCozPlural(o.x.n)}</span><button class="preset-btn" id="${id}" onclick="avalCozCopiar('${b.chave}', ${o.i})">${rotuloBotao(id, o.x.texto, 'Copiar')}</button></div>
+      <textarea class="aval-coz-txt" id="avalCozT_${b.chave}_${o.i}" readonly rows="${Math.min(Math.max(o.x.texto.split('\n').length + 1, 4), 14)}">${avalEsc(o.x.texto)}</textarea>`; }).join('\n      ')}
+      ${sem ? `<div class="aval-coz-sem" id="avalCozS_${b.chave}">${avalEsc(sem)}</div>` : ''}`}
+    </details>`; }).join('\n    ')}
+  </details>
+  `;
+}
+// Redesenha SO o quadro (o resto do modulo fica parado).
+function avalCozRedesenhar() {
+  const el = document.getElementById('avalCoz');
+  if (!el) return;
+  const t = document.createElement('template');
+  t.innerHTML = avalCozHtml().trim();
+  if (t.content.firstElementChild) el.replaceWith(t.content.firstElementChild);
+}
+// Le as avaliacoes e as reclamacoes de novo. Se a leitura falhar, fica tudo como estava (o resto
+// do modulo nao perde nada) e o quadro avisa. Se nada mudou, so o quadro e redesenhado.
+async function avalCozReler() {
+  if (AVAL_COZ_RELENDO) return;
+  AVAL_COZ_RELENDO = true;
+  AVAL_COZ_RELER_FALHOU = false;
+  AVAL_COZ_RELER_TENTOU = Date.now();
+  avalCozRedesenhar();
+  const antes = [AVALIACOES, AVAL_CRITICAS, AVAL_CRIT_DATAS, AVAL_CRITICAS_BATE, AVAL_COZ_LIDO];
+  let ok = false;
+  try {
+    await entrarAvaliacoesSoDados();
+    await carregarCriticasAval();
+    AVAL_CRITICAS_BATE = null;
+    await conferirCriticasAval();
+    ok = AVAL_CRITICAS !== null && AVAL_CRIT_DATAS && AVAL_CRITICAS_BATE === true;
+  } catch (e) {
+    ok = false;
+  }
+  if (!ok) {
+    [AVALIACOES, AVAL_CRITICAS, AVAL_CRIT_DATAS, AVAL_CRITICAS_BATE, AVAL_COZ_LIDO] = antes;
+    AVAL_COZ_RELER_FALHOU = true;
+  }
+  AVAL_COZ_RELENDO = false;
+  const mudou = ok && (JSON.stringify(antes[0]) !== JSON.stringify(AVALIACOES) || JSON.stringify(antes[1]) !== JSON.stringify(AVAL_CRITICAS));
+  if (mudou && MODULO_ATUAL === 'avaliacoes') renderModuloAvaliacoes();
+  else avalCozRedesenhar();
+}
+// Vigia a idade da leitura. Roda sozinha de minuto em minuto (so para a virada do dia), ao voltar
+// para a aba e ao abrir o quadro. Le de novo quando o dia virou desde a leitura ou — fora da
+// ronda do minuto — quando a leitura tem mais de AVAL_COZ_RELER_MIN minutos. Depois de uma
+// tentativa que falhou, espera um minuto antes da proxima.
+function avalCozVigia(soVirada) {
+  if (AVAL_COZ_RELENDO || AVAL_COZ_LIDO === null || !AVAL_CRIT_DATAS || document.hidden || !document.getElementById('avalCoz')) return;
+  const agora = Date.now(), a = avalCozAgora(agora), l = avalCozAgora(AVAL_COZ_LIDO);
+  if (!a || !l) return;
+  const virou = a.hoje !== l.hoje;
+  if (!virou && (soVirada === true || agora - AVAL_COZ_LIDO < AVAL_COZ_RELER_MIN * 60000)) return;
+  if (AVAL_COZ_RELER_TENTOU && agora - AVAL_COZ_RELER_TENTOU < 60000) return;
+  avalCozReler();
+}
+document.addEventListener('visibilitychange', () => avalCozVigia());
+setInterval(() => avalCozVigia(true), 60000);
+// Copiar: o que vai para a area de transferencia e EXATAMENTE o texto que esta na caixa da tela
+// (qual = a unidade, pela posicao em UNIDADES, ou 'todas'). O botao confirma com a hora, sem alert(),
+// e fica assim (e o lembrete de que aquela ja foi copiada nesta visita).
+// Se o navegador recusar a copia direta — ou nao responder em AVAL_COZ_ESPERA_MS — tenta o jeito
+// antigo (caixa escondida + copiar); se os dois falharem, o botao avisa e o texto da unidade fica
+// selecionado para a pessoa copiar com o dedo.
+function avalCozCopiar(chave, qual) {
+  const bloco = document.getElementById('avalCozK_' + chave);
+  const botao = document.getElementById('avalCozB_' + chave + '_' + qual);
+  if (!bloco || !botao) return;
+  const areas = qual === 'todas' ? [...bloco.querySelectorAll('textarea.aval-coz-txt')]
+    : [document.getElementById('avalCozT_' + chave + '_' + qual)].filter(Boolean);
+  if (!areas.length) return;
+  const sem = qual === 'todas' ? document.getElementById('avalCozS_' + chave) : null;
+  const texto = avalCozJuntar(areas.map(a => a.value), sem ? sem.textContent : '');
+  const reserva = () => {
+    const t = document.createElement('textarea');
+    t.value = texto;
+    t.setAttribute('readonly', '');
+    t.style.cssText = 'position:fixed; top:0; left:0; width:1px; height:1px; opacity:0;';
+    document.body.appendChild(t);
+    t.focus();
+    t.select();
+    t.setSelectionRange(0, texto.length);
+    let ok = false;
+    try { ok = document.execCommand('copy') === true; } catch (e) { ok = false; }
+    t.remove();
+    return ok;
+  };
+  // true = o navegador copiou; false = recusou; null = nao respondeu a tempo
+  const direto = new Promise(resolve => {
+    let pedido;
+    try { pedido = navigator.clipboard.writeText(texto); } catch (e) { resolve(false); return; }
+    Promise.resolve(pedido).then(() => resolve(true), () => resolve(false));
+    setTimeout(() => resolve(null), AVAL_COZ_ESPERA_MS);
+  });
+  direto.then(ok => ok === true || reserva()).then(ok => {
+    const b = document.getElementById(botao.id) || botao;   // a tela pode ter sido redesenhada no meio
+    if (ok) {
+      const ag = avalCozAgora();
+      AVAL_COZ_COPIADO.set(botao.id, { hm: ag ? ag.hm : '', texto });
+      b.textContent = 'Copiado' + (ag ? ' às ' + ag.hm : '') + ' ✓';
+      return;
+    }
+    AVAL_COZ_COPIADO.delete(botao.id);
+    b.textContent = qual === 'todas' ? 'Não consegui copiar — copie unidade por unidade' : 'Não consegui copiar — o texto ficou selecionado';
+    if (qual !== 'todas') { areas[0].focus(); areas[0].select(); }
+  });
+}
 // modo: 1 = mais 20, 2 = todas, 0 = volta para 20
 function avalReclVer(modo) {
   AVAL_RECL_N = modo === 2 ? 99999 : modo === 1 ? AVAL_RECL_N + 20 : 20;
@@ -3957,6 +4367,7 @@ async function entrarAvaliacoes() {
   }
   await conferirCriticasAval();
   renderModuloAvaliacoes();
+  avalCozVigia();
 }
 
 function avaliacoesFiltradas(iniAlt = null, fimAlt = null) {
@@ -3986,7 +4397,7 @@ function renderModuloAvaliacoes() {
   const linhas = LOJA === null ? linhasTodas : linhasTodas.filter(r => r[0] === LOJA);
   if (LOJA !== null && !linhas.length) {
     AVAL_DIA_SEL = null;
-    alvo.innerHTML = avalDiaRuimHtml(diasRuins, false) + `<div class="contexto" style="border-color:var(--brand);">
+    alvo.innerHTML = avalDiaRuimHtml(diasRuins, false) + avalCozHtml() + `<div class="contexto" style="border-color:var(--brand);">
       <b>Filtrando:</b>
       <button class="preset-btn active" onclick="avalLojaLimpar()">loja ${String(LOJAS[LOJA]).replace(/&/g, '&amp;').replace(/</g, '&lt;')} ✕</button>
       <div style="margin-top:6px;">Esta loja não tem avaliação no período selecionado. Troque o período ou clique no ✕ para ver todas as lojas.</div>
@@ -3996,7 +4407,7 @@ function renderModuloAvaliacoes() {
 
   if (!linhas.length) {
     AVAL_DIA_SEL = null;
-    alvo.innerHTML = avalDiaRuimHtml(diasRuins, false) + `<div class="contexto" style="border-color:#c8102e;">
+    alvo.innerHTML = avalDiaRuimHtml(diasRuins, false) + avalCozHtml() + `<div class="contexto" style="border-color:#c8102e;">
       Não há avaliações no período selecionado. A base começa em <b>24/06/2026</b>.</div>`;
     return;
   }
@@ -4134,7 +4545,7 @@ function renderModuloAvaliacoes() {
   <div class="caption-label" style="text-align:center;">
     Avaliações deixadas no app após a entrega, incluindo as que ainda aguardam resposta da loja (as descartadas pelo iFood ficam fora). Os últimos 7 dias ainda recebem avaliações. Filtros de período, unidade e marca se aplicam; dia da semana e turno não.
   </div>
-  ${avalDiaRuimHtml(diasRuins, true)}${novasLinha}${LOJA !== null ? `<div class="contexto" style="border-color:var(--brand);">
+  ${avalDiaRuimHtml(diasRuins, true)}${avalCozHtml()}${novasLinha}${LOJA !== null ? `<div class="contexto" style="border-color:var(--brand);">
     <b>Filtrando:</b>
     <button class="preset-btn active" onclick="avalLojaLimpar()">loja ${esc(LOJAS[LOJA])} ✕</button>
     ${AVAL_CRITICA_SEL ? `<button class="preset-btn active" onclick="avalCriticaLimpar()">crítica ${esc(AVAL_CRITICA_SEL)} ✕</button>
@@ -5010,6 +5421,7 @@ async function entrarAvaliacoesSoDados() {
 // AVAL_CRIT_DATAS fica false — a tela nunca depende da ordem em que painel e banco mudam.
 async function carregarCriticasAval() {
   AVAL_CRITICAS_TENTOU = true;
+  AVAL_COZ_LIDO = Date.now();   // o relogio do quadro 'Reclamacoes para a cozinha' e a hora desta leitura
   const COLS = "nome_loja,data,nota,criticas,comentario,aguardando_resposta,id_pedido_curto,itens_pedido";
   const ORDEM = "&order=data.desc,nome_loja,id_pedido_curto,nota,avaliada_em,comentario,criticas";
   let rows = null, comDatas = true;
