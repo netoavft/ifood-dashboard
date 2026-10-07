@@ -19820,7 +19820,8 @@ function blocoAtacadoReceber() {
   return `
   <div class="section-label">Atacado — a receber e inadimplência (portal do ePadoca)</div>
   <div class="caption-label" style="text-align:center;">Boletos do atacado em aberto no portal do ePadoca, por vencimento. Prazo padrão 7 dias (Quermesse Bom Retiro 7/14).
-    Os boletos a vencer já estão somados no fluxo dia a dia acima. Portal lido em ${lidoEm ? dd(lidoEm) + ' ' + lidoEm.slice(11, 16) : '—'}.</div>
+    Os boletos a vencer já estão somados no fluxo dia a dia acima. Ficam de fora os boletos já dados como perda ou pagos por fora do portal —
+    lá eles continuam em aberto, então o total do portal pode ser maior. Portal lido em ${lidoEm ? dd(lidoEm) + ' ' + lidoEm.slice(11, 16) : '—'}.</div>
   <div class="cards cards-3">
     <div class="card"><div class="card-lbl">A receber (boletos em aberto)</div><div class="card-val">${reais(soma(L))}</div><div class="card-pct">${L.length} boleto${L.length > 1 ? 's' : ''}</div></div>
     <div class="card"><div class="card-lbl">Vence nos próximos 7 dias</div><div class="card-val">${reais(soma(sete))}</div><div class="card-pct">${sete.length} boleto${sete.length !== 1 ? 's' : ''}</div></div>
