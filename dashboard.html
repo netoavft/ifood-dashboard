@@ -20418,7 +20418,7 @@ function renderModuloProjecao() {
       <div style="font-size:12px; color:#a5a49a; margin-top:6px;">
         Contas a receber já lançadas no Saipos entram por cima disso, na data do vencimento —
         R$ ${fmt(dias.reduce((s, d) => s + (receberDia[d] || 0), 0))} nos próximos ${HORIZONTE} dias.
-        ${entreLojasFora > 0.005 ? `Fica de fora o que a Água Verde tem a receber do Ahú e do São Braz (lista do mês e benefício): R$ ${fmt(entreLojasFora)} — na Rede é dinheiro que só troca de bolso.` : ''}
+        ${entreLojasFora > 0.005 ? `Ficam de fora as cobranças em aberto da Água Verde contra o Ahú e o São Braz (listas e benefício): R$ ${fmt(entreLojasFora)} — na Rede é dinheiro que só troca de bolso.` : ''}
       </div>
     </details>`;
 
@@ -20441,8 +20441,10 @@ function renderModuloProjecao() {
     Próximos ${HORIZONTE} dias, dia a dia: contas a pagar lançadas no Saipos + receita projetada
     (média por dia da semana das últimas 4 semanas). <b>Esta tela é sempre da rede</b> — saldos, contas a pagar
     e receita das três lojas juntas; o botão de loja das outras telas do financeiro não vale aqui.
-    <b>O que não está lançado no Saipos não aparece</b> — com duas exceções que entram sozinhas:
-    as cobranças das filiais (listas e benefício) e o envio do benefício para a XP.
+    <b>O que não está lançado no Saipos não aparece</b>, fora o que o painel põe sozinho: boletos do atacado,
+    cobrança do Boqueirão e pagamentos fora da folha.
+    <b>Não entram:</b> o que a Água Verde tem a receber do Ahú e do São Braz pelas listas e pelo benefício${entreLojasFora > 0.005 ? ` (R$ ${fmt(entreLojasFora)} em aberto)` : ''}
+    — na Rede é dinheiro que só troca de bolso; a cobrança continua na tela Contas a pagar — e o envio do benefício para a XP.
   </div>
   <div id="projCaixaWrap">${blocoCaixaDoDia()}</div>
   ${blocoAtacadoReceber()}
