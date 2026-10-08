@@ -22200,6 +22200,7 @@ function ctgRender() {
   h += `<div class="contexto" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
       <b>${CTG.unidade}</b>
       ${f ? `<span>folha de <b>${f.data.split('-').reverse().join('/')}</b> · ${f.escopo === 'CURVA_A' ? 'curva A' : f.escopo.toLowerCase()} · ${aberta ? 'aberta' : 'fechada'}</span>` : '<span>nenhuma folha ainda</span>'}
+      ${aberta ? `<button class="preset-btn" onclick="ctgImprimir()">Imprimir folha para contar</button>` : ''}
       ${aberta ? '' : `<button class="preset-btn" onclick="ctgAbrir('CURVA_A')">Abrir contagem da curva A</button>
                        <button class="preset-btn" onclick="ctgAbrir('GERAL')">Abrir contagem geral</button>`}
       ${dia !== 3 && !aberta ? `<span style="color:var(--tx-4);">hoje não é quarta</span>` : ''}
@@ -22214,6 +22215,88 @@ function ctgRender() {
 
   h += aberta ? ctgHtmlContar(f) : ctgHtmlConferencia(f);
   alvo.innerHTML = h;
+}
+
+// ---- A FOLHA IMPRESSA (dono, 08/10/2026: "vamos criar uma listagem impressa que possamos
+// separar por grupo, pra facilitar"). A pessoa conta com o papel na mao, anota, e a folha volta
+// para o painel — digitada aqui ou pela foto, que eu transcrevo e ela confere antes de gravar.
+// A folha e CEGA de proposito: nao traz o esperado. E cada linha tem NUMERO, que e o que torna a
+// transcricao da foto conferivel ("linha 14 = 3,5") sem depender de ler o nome escrito a mao.
+const CTG_GRUPO_ORDEM = ['CARNES', 'CONGELADOS', 'LATICINIOS', 'HORTIFRUTI', 'SECOS', 'PAES',
+  'BEBIDAS', 'CHOPES', 'DOCES', 'VEGANOS'];
+
+function ctgGrupoDe(i) {
+  if (i.subgrupo) return i.subgrupo;
+  if (i.grupo_receita) return 'PREPAROS · ' + i.grupo_receita;
+  if (i.tipo === 'RECEITA') return 'PREPAROS';
+  return 'OUTROS';
+}
+
+async function ctgImprimir() {
+  const f = CTG.folha;
+  if (!f) { alert('Abra a folha de contagem primeiro.'); return; }
+  let base = CTG.base;
+  if (!base) {
+    const u = encodeURIComponent(CTG.unidade);
+    base = CTG.base = await consultarTudo(
+      `vw_est_saldo_inicial?select=nome_saipos,nome_base,tipo,subgrupo,grupo_receita,un_saipos,qtd,situacao&unidade=eq.${u}`);
+  }
+  // o que nao se conta: o que ele mandou dar baixa, o que esta fora do controle e o "nao usa"
+  const fora = ['BAIXADO POR ELE', 'FORA DO CONTROLE DE ESTOQUE', 'MARCADO NAO USA'];
+  const curvaA = new Set(CTG.escopo.filter((i) => i.curva === 'A').map((i) => i.nome_saipos));
+  const itens = base.filter((i) => !fora.includes(i.situacao))
+                    .filter((i) => f.escopo === 'GERAL' || curvaA.has(i.nome_saipos));
+  if (!itens.length) { alert('Nada para imprimir nesta folha.'); return; }
+
+  const porGrupo = {};
+  itens.forEach((i) => { const g = ctgGrupoDe(i); (porGrupo[g] = porGrupo[g] || []).push(i); });
+  const ordem = (g) => { const k = CTG_GRUPO_ORDEM.indexOf(g); return k < 0 ? 50 : k; };
+  const grupos = Object.keys(porGrupo).sort((a, b) => ordem(a) - ordem(b) || a.localeCompare(b));
+
+  const w = window.open('', '_blank');
+  if (!w) { alert('O navegador bloqueou a janela de impressão — libere pop-ups para este site.'); return; }
+  let n = 0;
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
+    <title>Contagem ${f.data} — ${CTG.unidade}</title><style>
+    body { font-family:Arial, sans-serif; color:#000; margin:18px 24px; }
+    .cab { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:2px solid #000; padding-bottom:6px; }
+    h1 { font-size:18px; margin:0; }
+    .cod { font-size:26px; font-weight:bold; letter-spacing:1px; }
+    .sub { font-size:11.5px; color:#45443f; margin:3px 0 0; }
+    .assina { font-size:12px; margin:10px 0 0; }
+    .assina span { display:inline-block; border-bottom:1px solid #000; width:190px; margin:0 18px 0 4px; }
+    h2 { font-size:13px; text-transform:uppercase; background:#eee; border:1px solid #999;
+         padding:4px 6px; margin:0 0 4px; page-break-after:avoid; }
+    .grupo { page-break-before:always; padding-top:10px; }
+    .grupo:first-of-type { page-break-before:auto; }
+    table { width:100%; border-collapse:collapse; page-break-inside:auto; }
+    td, th { border-bottom:1px solid #bbb; padding:5px 6px; font-size:12.5px; text-align:left; }
+    tr { page-break-inside:avoid; }
+    th { font-size:10px; text-transform:uppercase; color:#45443f; }
+    .n { width:30px; color:#45443f; font-size:11px; }
+    .un { width:46px; }
+    .box { width:120px; border:1px solid #000 !important; height:26px; }
+    @media print { .naoimprime { display:none; } body { margin:10px 14px; } }
+  </style></head><body>
+    <button class="naoimprime" onclick="window.print()" style="float:right; padding:8px 14px;">Imprimir / salvar PDF</button>
+    <div class="cab">
+      <div><h1>Contagem de estoque — ${CTG.unidade}</h1>
+        <div class="sub">${f.escopo === 'CURVA_A' ? 'curva A' : f.escopo.toLowerCase()} ·
+          ${itens.length} itens · conte e escreva o número na caixa · item que não existe mais, risque</div></div>
+      <div style="text-align:right;"><div class="cod">FOLHA ${f.id}</div>
+        <div class="sub">${f.data.split('-').reverse().join('/')}</div></div>
+    </div>
+    <div class="assina">Contado por:<span></span> Conferido por:<span></span> Hora:<span style="width:90px;"></span></div>
+    ${grupos.map((g) => `<div class="grupo"><h2>${g} — ${porGrupo[g].length} itens</h2><table>
+      <tr><th class="n">#</th><th>Item</th><th class="un">Un</th><th class="box">Contado</th></tr>
+      ${porGrupo[g].map((i) => { n += 1; return `<tr><td class="n">${n}</td>
+        <td>${i.nome_saipos}${i.nome_base && i.nome_base !== i.nome_saipos ? `<br><span style="font-size:10px; color:#45443f;">${i.nome_base}</span>` : ''}</td>
+        <td class="un">${(i.un_saipos || '').toLowerCase()}</td><td class="box"></td></tr>`; }).join('')}
+    </table></div>`).join('')}
+  </body></html>`);
+  w.document.close();
+  w.focus();
+  setTimeout(() => { try { w.print(); } catch (e) {} }, 400);
 }
 
 function ctgHtmlContar(f) {
