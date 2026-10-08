@@ -13452,7 +13452,11 @@ async function trTelaPedido(unidadeEscolhida) {
   // sem cobranca na lista). Boqueirao segue com a grade unica.
   const temEscolha = ['AHU', 'SÃO BRAZ'].includes(unidade);
   if (temEscolha && !trPedidoOrigem) {
-    alvo.innerHTML = `<div class="contexto" style="max-width:560px;">
+    // quem volta aqui na duvida ve, ANTES de escolher, o que ja foi enviado. A tela espera
+    // essa leitura para abrir (o aviso entrando depois empurraria os botoes para baixo bem na
+    // hora do toque); se a leitura falhar, a escolha abre do mesmo jeito, sem o aviso.
+    const ab = await trPedidoAbertas(unidade).catch(() => null);
+    alvo.innerHTML = `<div style="max-width:560px;">${trPedidoJaEnviadoHtml(ab, 'Escolher abaixo começa um pedido <b>novo</b>.')}</div><div class="contexto" style="max-width:560px;">
       <b>O que você vai pedir para ${unidade}?</b><br>
       <div style="display:flex; gap:10px; margin-top:10px; flex-wrap:wrap;">
         <button class="preset-btn tr-btn-cheio" style="padding:14px 18px;" onclick="trPedidoOrigem='CIDADAO'; trTelaPedido('${unidade}')">🏭 Produção Cidadão<br><span style="font-weight:400; font-size:12px;">o que a Água Verde produz — cobrado na lista</span></button>
@@ -13461,9 +13465,10 @@ async function trTelaPedido(unidadeEscolhida) {
     return;
   }
   const origemPedido = temEscolha ? trPedidoOrigem : null;
-  const [r, ra, regras, sit] = await Promise.all([
+  // ab: os pedidos desta filial ja enviados e ainda nao separados — para o aviso do alto
+  const [r, ab, regras, sit] = await Promise.all([
     trFetch(`vw_tr_itens_pedido?unidade=eq.${encodeURIComponent(unidade)}&order=item`),
-    trFetch(`tr_listas?fonte=eq.PAINEL&status=eq.SOLICITADA&unidade=eq.${encodeURIComponent(unidade)}&select=id,data_pedido&order=id.desc`),
+    trPedidoAbertas(unidade),
     trAcompanhaRegras(),
     trTabelaSituacao(unidade),
   ]);
@@ -13471,7 +13476,6 @@ async function trTelaPedido(unidadeEscolhida) {
   let itens = await r.json();
   const grade = itens;
   if (origemPedido) itens = itens.filter(i => (i.origem || 'CIDADAO') === origemPedido);
-  const abertas = ra.ok ? await ra.json() : [];
   const dataCusto = itens.find(i => i.custo_atualizado_em)?.custo_atualizado_em;
   // item com 2a embalagem (ex.: pernil desfiado) vira DUAS linhas na tela,
   // uma por pacote — o envio soma tudo numa linha so da lista
@@ -13494,8 +13498,7 @@ async function trTelaPedido(unidadeEscolhida) {
         + ` <button class="preset-btn" onclick="trPedidoOrigem=null; trTelaPedido('${unidade}')">trocar</button>` : ''}
       — preencha só o que precisa; itens em branco ficam fora.
       ${trTabelaFrasePedido(sit, dataCusto)}</div>
-    ${abertas.length ? `<div class="contexto" style="margin:8px 0;">✏️ Esqueceu um item? Pedido lançado e ainda não separado dá para corrigir:
-      ${abertas.map(a => `<button class="preset-btn" onclick="trEditarPedido(${a.id})">editar lista #${a.id}${a.data_pedido ? ' (' + a.data_pedido.slice(8,10) + '/' + a.data_pedido.slice(5,7) + ')' : ''}</button>`).join(' ')}</div>` : ''}
+    ${trPedidoJaEnviadoHtml(ab, 'O que você preencher abaixo vira um pedido <b>novo</b>.')}
     <input id="trPedidoBusca" type="search" class="trc-in" placeholder="buscar item... (o que você digitou continua guardado)" oninput="trPedidoFiltra()"
       style="width:100%; max-width:360px; margin:8px 0; border-radius:8px; padding:8px 10px;">
     <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:0 18px;">
@@ -13522,6 +13525,7 @@ async function trTelaPedido(unidadeEscolhida) {
     </div>
     <div id="trPedidoResumo" class="contexto" style="margin-top:10px;" hidden></div>`;
   trAvulsoN = 0;
+  window._trPedidoPendente = null;   // tela nova: o que esta aberto no banco aparece no aviso do alto
   trPedidoSoma();
 }
 
@@ -13569,19 +13573,88 @@ function trLerGrade(itens, prefixo) {
   });
   return { escolhidos, erros };
 }
-// Resumo antes de enviar (dono, 01/10/2026): a pessoa le o que esta pedindo, na
-// embalagem e na medida, antes de a lista nascer. Serve para login sem valores.
-function trRevisarPedido() {
-  const msg = document.getElementById('trPedidoMsg');
-  const box = document.getElementById('trPedidoResumo');
-  const { escolhidos, erros } = trLerGrade(window._trItensPedido, 'trq_');
+// ---- O RETORNO DO BOTAO (dono, 08/10/2026) ----
+// A Loana: "quando fazem o pedido e apertamos botao enviar, nao acontece nada no app e eles
+// ficam na duvida se o pedido foi feito ou nao". A mensagem existia — 12px ao lado do botao
+// de CIMA — enquanto o resumo que a pessoa estava lendo sumia e a grade continuava
+// preenchida; na duvida, o pedido ia de novo. Agora, nas tres acoes da filial (enviar o
+// pedido, salvar a correcao, registrar o recebimento):
+//  - enquanto grava, o botao fica apagado e diz o que esta fazendo, e o segundo toque nao
+//    grava de novo;
+//  - deu certo: a tela MUDA — um quadro no lugar do que a pessoa estava olhando;
+//  - deu errado: o erro aparece onde a pessoa esta, e o que ela digitou continua la.
+// So a tela mudou: o que vai para o banco e exatamente o que ia.
+// Envio em andamento: uma lista por toque.
+let trPedidoEnviando = false;
+// os itens fora da grade, lidos de um jeito so (resumo e envio): nome em MAIUSCULA, como na base
+function trPedidoAvulsos() {
   const avulsos = [];
   for (let k = 1; k <= trAvulsoN; k++) {
     const n = document.getElementById('trav_n_' + k);
+    if (!n) continue;
+    const nome = n.value.trim().toUpperCase();
     const q = Number(document.getElementById('trav_q_' + k)?.value || 0);
-    if (n && n.value.trim() && q > 0) avulsos.push(`${n.value.trim().toUpperCase()} — ${trNum(q, 3)} ${document.getElementById('trav_u_' + k).value.toLowerCase()} (fora da grade, sem preço)`);
+    if (nome && q > 0) avulsos.push({ item: nome, un_medida: document.getElementById('trav_u_' + k).value, qtd_solicitada: q });
   }
-  if (!escolhidos.length && !avulsos.length) { box.hidden = true; msg.textContent = 'Nenhuma quantidade preenchida.'; msg.style.color = '#f5a623'; return; }
+  return avulsos;
+}
+// Os pedidos da filial que ja foram ENVIADOS e ainda nao foram separados (SOLICITADA), com dia
+// e hora e quantos itens cada um tem. A contagem vem da fila (vw_tr_fila_separacao); se essa
+// leitura falhar, o aviso sai do mesmo jeito, sem ela.
+async function trPedidoAbertas(unidade) {
+  const u = encodeURIComponent(unidade);
+  const [ra, rf] = await Promise.all([
+    trFetch(`tr_listas?fonte=eq.PAINEL&status=eq.SOLICITADA&unidade=eq.${u}&select=id,data_pedido,importado_em&order=id.desc`),
+    trFetch(`vw_tr_fila_separacao?unidade=eq.${u}&status=eq.SOLICITADA&select=id,itens`).catch(() => null),
+  ]);
+  const abertas = ra.ok ? await ra.json() : [];
+  const nItens = {};
+  if (rf && rf.ok) (await rf.json()).forEach(x => { nItens[x.id] = Number(x.itens); });
+  return { abertas, nItens };
+}
+// O aviso do alto do Novo pedido: o que ja foi enviado e esta aguardando a separacao. E o que
+// responde ao "sera que o pedido foi?" de quem volta a tela na duvida (o botao de corrigir
+// continua). rodape = a frase do fim, que muda entre a grade e a tela de escolha.
+function trPedidoJaEnviadoHtml(ab, rodape) {
+  const abertas = (ab && ab.abertas) || [], nItens = (ab && ab.nItens) || {};
+  if (!abertas.length) return '';
+  return `<div id="trPedidoJaEnviado" class="contexto" style="margin:8px 0; text-align:left;">
+      <span class="tr-conv" style="font-weight:800;">✅ ${abertas.length === 1 ? 'Pedido já enviado' : abertas.length + ' pedidos já enviados'}</span>
+      — a Água Verde já recebeu e ${abertas.length === 1 ? 'ele está' : 'eles estão'} aguardando a separação. <b>Não precisa enviar de novo.</b>
+      ${abertas.map(a => `<div style="margin-top:8px; display:flex; gap:6px 10px; align-items:center; flex-wrap:wrap;">
+        <span>Lista <b>#${a.id}</b> · enviada em ${(a.importado_em && trDiaHoraTxt(a.importado_em)) || trDiaMes(a.data_pedido)}${a.id in nItens ? (nItens[a.id] > 0 ? ` · ${nItens[a.id]} ${nItens[a.id] === 1 ? 'item' : 'itens'}` : ' · <span class="tr-tag">sem nenhum item</span>') : ''}</span>
+        <button class="preset-btn" onclick="trEditarPedido(${a.id})">✏️ esqueci um item — corrigir</button></div>`).join('')}
+      <div class="tr-det" style="margin-top:8px; font-size:12.5px;">${rodape}</div>
+    </div>`;
+}
+// As linhas do pedido como a pessoa le — na embalagem e na medida, sem valor em reais (serve
+// igual para login sem valores). O MESMO texto no resumo e no quadro "Pedido enviado".
+function trPedidoLinhasTxt(escolhidos, avulsos, comPreco) {
+  return escolhidos.map(({ i, q }) => {
+    const un = (i.un_medida || 'un').toLowerCase();
+    return i.emb_fator
+      ? `${i.item} — <b>${trNum(q)} ${trEmbPlural(i.emb_nome, q)}</b> <span class="tr-det">= ${trNum(q * i.emb_fator, 3)} ${un}</span>`
+      : `${i.item} — <b>${trNum(q, 3)} ${un}</b>`;
+  }).concat(avulsos.map(a => `${trEscH(a.item)} — ${trNum(a.qtd_solicitada, 3)} ${a.un_medida.toLowerCase()} (fora da grade${comPreco ? ', sem preço' : ''})`));
+}
+// Resumo antes de enviar (dono, 01/10/2026): a pessoa le o que esta pedindo, na
+// embalagem e na medida, antes de a lista nascer. Serve para login sem valores.
+function trRevisarPedido() {
+  // envio em andamento: o resumo aberto e o que esta indo — nao se refaz por cima
+  if (trPedidoEnviando) return;
+  const msg = document.getElementById('trPedidoMsg');
+  const box = document.getElementById('trPedidoResumo');
+  if (!msg || !box) return;
+  const { escolhidos, erros } = trLerGrade(window._trItensPedido, 'trq_');
+  const avulsos = trPedidoAvulsos();
+  if (!escolhidos.length && !avulsos.length) {
+    // dito na caixa, embaixo do botao (antes: 12px em amarelo claro, ao lado dele)
+    msg.textContent = '';
+    box.hidden = false;
+    box.innerHTML = '<b>Nenhuma quantidade preenchida.</b> Escreva quanto precisa ao lado de cada item e toque de novo em “Conferir e enviar”.';
+    box.scrollIntoView({ block: 'nearest' });
+    return;
+  }
   if (erros.length) {
     box.hidden = false;
     box.innerHTML = `<b>Corrija antes de enviar</b> — embalagem sai inteira ou pela metade:<br>${erros.join('<br>')}`;
@@ -13592,14 +13665,10 @@ function trRevisarPedido() {
   msg.textContent = '';
   box.hidden = false;
   box.innerHTML = `<b>Você está pedindo para ${window._trPedidoUnidade}:</b>
-    <div style="margin:6px 0; font-size:12.5px; line-height:1.6;">${escolhidos.map(({ i, q }) => {
-      const un = (i.un_medida || 'un').toLowerCase();
-      return i.emb_fator
-        ? `${i.item} — <b>${trNum(q)} ${trEmbPlural(i.emb_nome, q)}</b> <span class="tr-det">= ${trNum(q * i.emb_fator, 3)} ${un}</span>`
-        : `${i.item} — <b>${trNum(q, 3)} ${un}</b>`;
-    }).concat(avulsos).join('<br>')}</div>
-    <button class="preset-btn tr-btn-cheio" onclick="trCriarPedido()">Está certo — enviar pedido</button>
-    <button class="preset-btn" onclick="document.getElementById('trPedidoResumo').hidden = true">voltar e corrigir</button>`;
+    <div style="margin:6px 0; font-size:12.5px; line-height:1.6;">${trPedidoLinhasTxt(escolhidos, avulsos, true).join('<br>')}</div>
+    <button id="trPedidoBtnEnviar" class="preset-btn tr-btn-cheio" onclick="trCriarPedido()">Está certo — enviar pedido</button>
+    <button id="trPedidoBtnVoltar" class="preset-btn" onclick="trResumoFecha()">voltar e corrigir</button>
+    <div id="trPedidoErro" style="margin-top:12px; padding-top:10px; border-top:2px solid var(--brand); color:var(--brand);" hidden></div>`;
   box.scrollIntoView({ block: 'nearest' });
 }
 
@@ -13608,6 +13677,7 @@ function trqTem(el) { el.classList.toggle('tem', el.value !== ''); el.style.bord
 // O resumo e uma foto dos campos: mexeu em qualquer campo, ele fecha — o botao
 // "Esta certo — enviar" so existe ao lado de um resumo que bate com a grade.
 function trResumoFecha() {
+  if (trPedidoEnviando) return;   // no meio do envio o resumo fica de pe, com o botao dizendo "Enviando…"
   const box = document.getElementById('trPedidoResumo');
   if (box && !box.hidden) { box.hidden = true; const m = document.getElementById('trPedidoMsg'); if (m) m.textContent = ''; }
 }
@@ -13828,74 +13898,238 @@ function trAddAvulso() {
   document.getElementById('trAvulsos').appendChild(d);
 }
 
+// "08/10 às 18:01": dia e hora de Sao Paulo de um carimbo do banco (sem carimbo, agora).
+// Carimbo que o navegador nao consegue ler devolve '' e quem chama decide o que mostrar:
+// a hora de AGORA nunca entra no lugar da hora em que um pedido antigo foi enviado.
+function trDiaHoraTxt(carimbo) {
+  // o banco manda os segundos com ate 6 casas (as vezes 5, as vezes 1) e ha navegador que
+  // so le 3: como a tela mostra ate o minuto, a fracao sai inteira antes de ler
+  const d = carimbo ? new Date(String(carimbo).replace(/\.\d+/, '')) : new Date();
+  if (isNaN(d.getTime())) return '';
+  const p = {};
+  new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+    .formatToParts(d).forEach(x => { p[x.type] = x.value; });
+  return `${p.day}/${p.month} às ${p.hour}:${p.minute}`;
+}
+// Sobe a tela ate o quadro. No celular o menu do painel fica PRESO no alto da tela (a
+// barra dos modulos) e cobriria o titulo do quadro: a rolagem desconta a altura dele.
+function trSobeAte(el) {
+  if (!el) return;
+  const menu = document.querySelector('.sidebar');
+  const r = menu ? menu.getBoundingClientRect() : null;
+  const preso = r && getComputedStyle(menu).position === 'sticky' && r.width >= window.innerWidth - 1 ? r.height : 0;
+  el.style.scrollMarginTop = (preso + 12) + 'px';
+  el.scrollIntoView({ block: 'start' });
+}
+// os dois botoes do resumo enquanto o pedido esta indo: apagados, e o de enviar diz "Enviando…"
+// (ou "Conferindo…", quando a tela esta perguntando ao banco se o pedido entrou)
+function trPedidoBotoes(enviando, fazendo) {
+  const b = document.getElementById('trPedidoBtnEnviar'), v = document.getElementById('trPedidoBtnVoltar');
+  if (b) { b.disabled = enviando; b.textContent = enviando ? (fazendo || 'Enviando…') : 'Está certo — enviar pedido'; b.style.opacity = enviando ? '.6' : ''; b.style.cursor = enviando ? 'wait' : ''; }
+  if (v) { v.disabled = enviando; v.style.opacity = enviando ? '.5' : ''; v.style.cursor = enviando ? 'not-allowed' : ''; }
+}
+// O envio nao deu certo: o erro aparece DENTRO do resumo, onde a pessoa esta. O resumo e
+// refeito com o que esta na grade AGORA (ele e sempre a foto dos campos), o botao de enviar
+// volta a ficar de pe e a grade continua preenchida.
+// titulo = o que aconteceu, em letra grande; detalhe = o que fazer; motivo = o que o sistema
+// respondeu, em cinza (para quem for ajudar).
+function trPedidoFalhou(titulo, detalhe, motivo) {
+  trPedidoEnviando = false;
+  trRevisarPedido();
+  const box = document.getElementById('trPedidoResumo');
+  if (!box) return;
+  box.hidden = false;
+  let e = document.getElementById('trPedidoErro');
+  if (!e) {
+    box.insertAdjacentHTML('beforeend', '<div id="trPedidoErro" style="margin-top:12px; padding-top:10px; border-top:2px solid var(--brand); color:var(--brand);"></div>');
+    e = document.getElementById('trPedidoErro');
+  }
+  e.innerHTML = `<div style="font-size:16px; font-weight:800; line-height:1.3;">⚠️ ${titulo}</div>
+    <div style="margin-top:4px; font-weight:600;">${detalhe}</div>
+    ${motivo ? `<div class="tr-det" style="margin-top:6px; font-size:12px;">O que o sistema respondeu: ${trEscH(motivo)}</div>` : ''}`;
+  e.hidden = false;
+  e.scrollIntoView({ block: 'nearest' });
+}
+// A internet caiu DEPOIS de a lista ser aberta e nao se sabe se os itens entraram: a tela
+// pergunta ao banco. Entraram -> quadro "Pedido enviado". Nao entraram -> apaga a lista vazia
+// (a mesma limpeza de quando o banco recusa os itens) e libera para enviar de novo. Sem
+// resposta -> diz que nao sabe, pede para NAO reenviar e deixa o botao de conferir.
+async function trPedidoConfere() {
+  const p = window._trPedidoPendente;
+  if (!p || !p.lista || trPedidoEnviando) return;
+  trPedidoEnviando = true;
+  trPedidoBotoes(true, 'Conferindo…');
+  try {
+    const r = await trFetch(`tr_lista_itens?id_lista=eq.${p.lista.id}&select=id`);
+    if (!r.ok) throw new Error(await trErroDe(r));
+    const n = (await r.json()).length;
+    if (n > 0) { window._trPedidoPendente = null; p.n = n; trPedidoEnviadoTela(p); return; }
+    await trFetch(`tr_listas?id=eq.${p.lista.id}`, { method: 'DELETE' });
+    window._trPedidoPendente = null;
+    trPedidoFalhou('O pedido NÃO entrou', 'A internet caiu no meio e nada foi criado. O que você digitou continua aqui: pode enviar de novo.');
+  } catch (e) {
+    trPedidoFalhou('A internet caiu no meio do envio', `Não deu para confirmar se a lista #${p.lista.id} ficou com os itens. NÃO envie de novo ainda: quando a internet voltar, toque no botão abaixo.<br>
+      <button class="preset-btn" style="margin-top:8px;" onclick="trPedidoConfere()">conferir se o pedido entrou</button>`);
+  } finally {
+    trPedidoEnviando = false;
+    trPedidoBotoes(false);
+  }
+}
+// O QUADRO "PEDIDO ENVIADO": entra no lugar da grade — e a tela sobe ate ele. Diz o numero da
+// lista, a filial, dia e hora (o carimbo do banco), quantos itens, os dois caminhos (antes da
+// lista: no celular, 20 linhas empurrariam os botoes para fora da tela) e as MESMAS linhas do
+// resumo. Sem preco e sem total, de proposito, para qualquer login: valor quem mostra e a
+// aba Conferencia (em preparo na central), que le do banco.
+function trPedidoEnviadoTela(p) {
+  const alvo = document.getElementById('trTelaConteudo');
+  if (!alvo) return;
+  const id = p.lista.id, n = Number(p.n || 0);
+  const origem = p.origem === 'FORNECEDOR' ? ' · 🛒 Fornecedor' : p.origem === 'CIDADAO' ? ' · 🏭 Produção Cidadão' : '';
+  alvo.innerHTML = `
+    <div id="trPedidoEnviado" class="contexto" style="text-align:left; margin:8px 0; padding:16px;">
+      <div class="tr-conv" style="font-size:22px; font-weight:800; line-height:1.2;">✅ Pedido enviado</div>
+      <div style="margin-top:6px; font-size:15px;">Lista <b>#${id}</b> · <b>${p.unidade}</b>${origem}</div>
+      <div>${trDiaHoraTxt(p.lista.importado_em) || trDiaHoraTxt()} · <b>${n} ${n === 1 ? 'item' : 'itens'}</b>${p.nAvulsos ? ` <span class="tr-det">(${p.nAvulsos} fora da grade)</span>` : ''}</div>
+      <div style="margin-top:10px;">A Água Verde <b>já recebeu</b> este pedido: ele está na fila de separação. <b>Não precisa enviar de novo.</b></div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:14px;">
+        <button class="preset-btn" style="padding:12px 16px;" onclick="trPedidoOrigem=null; trTelaPedido()">📝 Fazer outro pedido</button>
+        <button class="preset-btn" style="padding:12px 16px;" onclick="trEditarPedido(${id})">✏️ Esqueci um item — corrigir este pedido</button>
+      </div>
+      <div class="tr-det" style="margin-top:10px; font-size:12.5px;">Dá para corrigir até a separação começar. Para acompanhar o pedido: aba ✅ Conferência.</div>
+      <div class="tr-secao">O que foi pedido</div>
+      <div style="font-size:13px; line-height:1.7;">${p.linhas.join('<br>')}</div>
+    </div>`;
+  trSobeAte(document.getElementById('trPedidoEnviado'));
+}
+// O quadro no alto da tela de corrigir, logo depois de salvar (trSalvarEdicao)
+function trEditSalvoHtml(id, unidade, aviso) {
+  if (!aviso || !aviso.salvo) return '';
+  return `<div id="trEditSalvo" class="contexto" style="text-align:left; margin:8px 0; padding:14px 16px;">
+      ${aviso.mudou ? `<div class="tr-conv" style="font-size:20px; font-weight:800; line-height:1.2;">✅ Alterações salvas</div>
+      <div style="margin-top:4px;">Lista <b>#${id}</b> · ${unidade} · ${aviso.salvo}. A Água Verde já vê o pedido corrigido — abaixo, como ele ficou.</div>`
+      : `<div style="font-size:16px; font-weight:800;">Nada foi alterado</div>
+      <div style="margin-top:4px;">Nenhuma quantidade mudou: a lista <b>#${id}</b> continua como estava.</div>`}
+      ${trTela === 'pedido' ? `<div style="margin-top:10px;"><button class="preset-btn" onclick="trTelaSet('pedido')">pronto — voltar para Novo pedido</button></div>` : ''}
+    </div>`;
+}
+// O quadro que entra no lugar da conferencia depois de registrar o recebimento
+// (trFecharConferencia). As diferencas vem de vw_tr_divergencias, como antes; divs = null
+// quer dizer que essa leitura falhou — ai o quadro nao afirma nada e manda ver a lista.
+function trConfFechadaTela(id, divs) {
+  const alvo = document.getElementById('trTelaConteudo');
+  if (!alvo) return;
+  alvo.innerHTML = `
+    <div id="trConfFechada" class="contexto" style="text-align:left; margin:8px 0; padding:16px;">
+      <div class="tr-conv" style="font-size:22px; font-weight:800; line-height:1.2;">✅ Recebimento registrado</div>
+      <div style="margin-top:6px; font-size:15px;">Lista <b>#${id}</b> conferida e fechada · ${trDiaHoraTxt()}</div>
+      <div style="margin-top:10px;">${!Array.isArray(divs) ? 'Para ver se algum item veio diferente do separado, toque em “ver esta lista”.'
+        : divs.length
+        ? `<b>${divs.length} ${divs.length === 1 ? 'item veio diferente' : 'itens vieram diferentes'} do separado:</b><br>`
+          + divs.map(d => `${d.item} — ${d.diferenca > 0 ? 'sobrou' : 'faltou'} ${trNum(Math.abs(d.diferenca), 3)} ${(d.un_medida || '').toLowerCase()}`).join('<br>')
+        : 'O recebimento <b>bateu 100%</b> com a separação.'}</div>
+      <div class="tr-det" style="margin-top:8px; font-size:12.5px;">A cobrança não sai agora: entra no fechamento do mês.</div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:16px;">
+        <button class="preset-btn" style="padding:12px 16px;" onclick="trConfAba='ABERTAS'; trListaAberta=null; trTelaConferencia();">← voltar para as listas</button>
+        <button class="preset-btn" style="padding:12px 16px;" onclick="trConfAba='FINALIZADAS'; trListaAberta=${id}; trTelaConferencia();">ver esta lista</button>
+      </div>
+    </div>`;
+  trSobeAte(document.getElementById('trConfFechada'));
+}
+
 async function trCriarPedido() {
-  const msg = document.getElementById('trPedidoMsg');
+  // uma lista por toque: enquanto o primeiro envio nao voltou do banco, o segundo toque nao
+  // faz nada (o botao tambem fica apagado, dizendo "Enviando…")
+  if (trPedidoEnviando) return;
+  // a internet caiu no envio anterior e nao se sabe se aquela lista ficou com os itens:
+  // antes de abrir OUTRA lista, a tela confere aquela
+  if (window._trPedidoPendente) return trPedidoConfere();
   // a trava fica AQUI, no envio (o atributo step do campo nao impede nada: a
   // tela nao e um <form>) — embalagem so sai inteira ou pela metade
   const { escolhidos, erros } = trLerGrade(window._trItensPedido, 'trq_');
-  if (erros.length) { trRevisarPedido(); return; }
-  const resumo = document.getElementById('trPedidoResumo');
-  if (resumo) resumo.hidden = true;
   // itens fora da grade: nome digitado vira MAIUSCULA (padrao da base); se o
   // nome bater com um item da grade, o banco precifica normal em vez de avulso
-  const avulsos = [];
-  for (let k = 1; k <= trAvulsoN; k++) {
-    const n = document.getElementById('trav_n_' + k);
-    if (!n) continue;
-    const nome = n.value.trim().toUpperCase();
-    const q = Number(document.getElementById('trav_q_' + k)?.value || 0);
-    if (nome && q > 0) avulsos.push({ item: nome, un_medida: document.getElementById('trav_u_' + k).value, qtd_solicitada: q });
+  const avulsos = trPedidoAvulsos();
+  // campo fora da regra ou nada preenchido: quem diz e o resumo, na caixa
+  if (erros.length || (!escolhidos.length && !avulsos.length)) { trRevisarPedido(); return; }
+  const unidade = window._trPedidoUnidade;
+  // a foto do que esta indo AGORA — e o que o quadro "Pedido enviado" mostra
+  const pedido = { unidade, origem: trPedidoOrigem, nAvulsos: avulsos.length,
+    linhas: trPedidoLinhasTxt(escolhidos, avulsos, TR_OP.veValores !== false) };
+  trPedidoEnviando = true;
+  trPedidoBotoes(true);
+  let lista = null;
+  try {
+    const rl = await trFetch('tr_listas', {
+      method: 'POST', headers: { Prefer: 'return=representation' },
+      body: JSON.stringify({ unidade, fonte: 'PAINEL', data_pedido: trHoje() }),
+    });
+    if (!rl.ok) {
+      return trPedidoFalhou('O pedido NÃO foi enviado', 'Nada foi criado e o que você digitou continua aqui. Toque em enviar de novo.', await trErroDe(rl));
+    }
+    lista = (await rl.json())[0];
+    if (!lista || lista.id == null) {
+      lista = null;
+      return trPedidoFalhou('O envio NÃO foi confirmado', 'O sistema não devolveu o número da lista. Avise o Neto antes de enviar de novo.');
+    }
+    pedido.lista = lista;
+    // Uma linha por ITEM na lista: as duas embalagens do mesmo item (pernil)
+    // somam na mesma linha, com a observacao guardando o pedido original.
+    // E TODAS as linhas com as MESMAS chaves (observacao: null quando nao ha) —
+    // o PostgREST recusa lote com objetos de campos diferentes ("All object
+    // keys must match"; mordeu no 1o pedido real do Ahu em 04/09/2026).
+    const porItem = {};
+    escolhidos.forEach(x => {
+      const qtd = x.i.emb_fator ? Math.round(x.q * x.i.emb_fator * 1000) / 1000 : x.q;
+      const p = porItem[x.i.item] = porItem[x.i.item] ||
+        { id_lista: lista.id, item: x.i.item, un_medida: x.i.un_medida, qtd_solicitada: 0, obs: [] };
+      p.qtd_solicitada = Math.round((p.qtd_solicitada + qtd) * 1000) / 1000;
+      if (x.i.emb_fator) p.obs.push(`${x.q} ${x.i.emb_nome}(s)`);
+    });
+    // pote automatico: soma na MESMA linha do pote (uma linha por item — se a
+    // filial tambem pediu caixa, fica tudo junto), com a parte automatica em qtd_auto
+    Object.entries(trPotesDe(escolhidos)).forEach(([pi, pt]) => {
+      const cat = (window._trGradePedido || []).find(x => x.item === pi);
+      const p = porItem[pi] = porItem[pi] ||
+        { id_lista: lista.id, item: pi, un_medida: cat?.un_medida || 'UN', qtd_solicitada: 0, obs: [] };
+      p.qtd_solicitada = Math.round((p.qtd_solicitada + pt.n) * 1000) / 1000;
+      p.auto = pt.n;
+      p.autoObs = 'automático: ' + pt.partes.join(' + ');
+    });
+    pedido.n = Object.keys(porItem).length + avulsos.length;
+    // o pote que entra sozinho tambem aparece no quadro (a contagem de itens ja o inclui)
+    Object.values(porItem).filter(p => p.auto != null).forEach(p => pedido.linhas.push(
+      `${p.item} — <b>${trNum(p.auto, 3)} ${(p.un_medida || 'un').toLowerCase()}</b> <span class="tr-det">vai junto, entra sozinho</span>`));
+    const ri = await trFetch('tr_lista_itens', {
+      method: 'POST',
+      body: JSON.stringify(Object.values(porItem).map(p => ({
+        id_lista: p.id_lista, item: p.item, un_medida: p.un_medida, qtd_solicitada: p.qtd_solicitada,
+        observacao: [p.obs.length ? 'pedido: ' + p.obs.join(' + ') : null, p.autoObs].filter(Boolean).join(' · ') || null,
+        qtd_auto: p.auto ?? null,
+      })).concat(avulsos.map(a => ({ id_lista: lista.id, item: a.item, un_medida: a.un_medida,
+        qtd_solicitada: a.qtd_solicitada, observacao: null, qtd_auto: null })))),
+    });
+    if (!ri.ok) {
+      const erro = await trErroDe(ri);
+      // desfaz a lista vazia para nao poluir a fila da separacao
+      await trFetch(`tr_listas?id=eq.${lista.id}`, { method: 'DELETE' });
+      lista = null;
+      return trPedidoFalhou('O pedido NÃO entrou', 'Nada foi criado e o que você digitou continua aqui. Pode tentar de novo.', erro);
+    }
+    trPedidoEnviadoTela(pedido);
+  } catch (e) {
+    // o fetch nem voltou: a internet caiu no meio (antes a tela ficava em "Enviando..." para sempre)
+    if (lista) {
+      // a lista foi aberta e a resposta dos itens nao chegou — a tela pergunta ao banco
+      window._trPedidoPendente = pedido;
+      trPedidoEnviando = false;
+      await trPedidoConfere();
+    } else {
+      trPedidoFalhou('O pedido NÃO foi enviado', 'A tela não conseguiu falar com o sistema (a internet caiu?). O que você digitou continua aqui: quando a internet voltar, toque em enviar de novo.');
+    }
+  } finally {
+    trPedidoEnviando = false;
+    trPedidoBotoes(false);
   }
-  if (!escolhidos.length && !avulsos.length) { msg.textContent = 'Nenhuma quantidade preenchida.'; msg.style.color = '#f5a623'; return; }
-  msg.textContent = 'Enviando...'; msg.style.color = '#8a897e';
-  const rl = await trFetch('tr_listas', {
-    method: 'POST', headers: { Prefer: 'return=representation' },
-    body: JSON.stringify({ unidade: window._trPedidoUnidade, fonte: 'PAINEL', data_pedido: trHoje() }),
-  });
-  if (!rl.ok) { msg.textContent = 'Não deu: ' + await trErroDe(rl); msg.style.color = '#ff6b6b'; return; }
-  const lista = (await rl.json())[0];
-  // Uma linha por ITEM na lista: as duas embalagens do mesmo item (pernil)
-  // somam na mesma linha, com a observacao guardando o pedido original.
-  // E TODAS as linhas com as MESMAS chaves (observacao: null quando nao ha) —
-  // o PostgREST recusa lote com objetos de campos diferentes ("All object
-  // keys must match"; mordeu no 1o pedido real do Ahu em 04/09/2026).
-  const porItem = {};
-  escolhidos.forEach(x => {
-    const qtd = x.i.emb_fator ? Math.round(x.q * x.i.emb_fator * 1000) / 1000 : x.q;
-    const p = porItem[x.i.item] = porItem[x.i.item] ||
-      { id_lista: lista.id, item: x.i.item, un_medida: x.i.un_medida, qtd_solicitada: 0, obs: [] };
-    p.qtd_solicitada = Math.round((p.qtd_solicitada + qtd) * 1000) / 1000;
-    if (x.i.emb_fator) p.obs.push(`${x.q} ${x.i.emb_nome}(s)`);
-  });
-  // pote automatico: soma na MESMA linha do pote (uma linha por item — se a
-  // filial tambem pediu caixa, fica tudo junto), com a parte automatica em qtd_auto
-  Object.entries(trPotesDe(escolhidos)).forEach(([pi, pt]) => {
-    const cat = (window._trGradePedido || []).find(x => x.item === pi);
-    const p = porItem[pi] = porItem[pi] ||
-      { id_lista: lista.id, item: pi, un_medida: cat?.un_medida || 'UN', qtd_solicitada: 0, obs: [] };
-    p.qtd_solicitada = Math.round((p.qtd_solicitada + pt.n) * 1000) / 1000;
-    p.auto = pt.n;
-    p.autoObs = 'automático: ' + pt.partes.join(' + ');
-  });
-  const ri = await trFetch('tr_lista_itens', {
-    method: 'POST',
-    body: JSON.stringify(Object.values(porItem).map(p => ({
-      id_lista: p.id_lista, item: p.item, un_medida: p.un_medida, qtd_solicitada: p.qtd_solicitada,
-      observacao: [p.obs.length ? 'pedido: ' + p.obs.join(' + ') : null, p.autoObs].filter(Boolean).join(' · ') || null,
-      qtd_auto: p.auto ?? null,
-    })).concat(avulsos.map(a => ({ id_lista: lista.id, item: a.item, un_medida: a.un_medida,
-      qtd_solicitada: a.qtd_solicitada, observacao: null, qtd_auto: null })))),
-  });
-  if (!ri.ok) {
-    const erro = await trErroDe(ri);
-    // desfaz a lista vazia para nao poluir a fila da separacao
-    await trFetch(`tr_listas?id=eq.${lista.id}`, { method: 'DELETE' });
-    msg.textContent = 'O pedido não entrou (' + erro + ') — nada foi criado, pode tentar de novo.';
-    msg.style.color = '#ff6b6b'; return;
-  }
-  msg.textContent = `Pedido enviado — lista #${lista.id} com ${Object.keys(porItem).length + avulsos.length} itens`
-    + (avulsos.length ? ` (${avulsos.length} fora da grade, entram sem preço até a vinculação)` : '') + '. A separação já enxerga.';
-  msg.style.color = '#3fb950';
 }
 
 // ---- edicao de pedido salvo (dono, 04/09/2026) ----
@@ -13904,7 +14138,7 @@ async function trCriarPedido() {
 // Desde 01/10/2026 a correcao e na MESMA unidade do pedido (embalagem), tanto
 // nas linhas que ja estao na lista quanto na inclusao de item novo — ver
 // "UMA LINGUA SO". So fica na medida (kg/un) o que nao tem embalagem unica.
-async function trEditarPedido(id) {
+async function trEditarPedido(id, aviso) {
   const alvo = document.getElementById('trTelaConteudo');
   const rl = await trFetch(`tr_listas?id=eq.${id}&select=id,unidade,status`);
   const lista = (await rl.json())[0];
@@ -13912,7 +14146,7 @@ async function trEditarPedido(id) {
   // ENVIADA (11/09/2026 — consertar pedido errado sem excluir a lista)
   const podeCorrigir = ['DONO', 'SEPARACAO'].includes(TR_OP.papel) && lista && ['SEPARADA', 'ENVIADA'].includes(lista.status);
   if (!lista || (lista.status !== 'SOLICITADA' && !podeCorrigir)) {
-    alvo.innerHTML = `<div class="contexto">A lista #${id} está <b>${lista ? lista.status : '?'}</b> — só dá para editar
+    alvo.innerHTML = `${trEditSalvoHtml(id, lista ? lista.unidade : '', aviso)}<div class="contexto">A lista #${id} está <b>${lista ? lista.status : '?'}</b> — só dá para editar
       antes de a separação começar (dono e compras corrigem até ENVIADA). <button class="preset-btn" onclick="trTelaPedido(${lista ? `'${lista.unidade}'` : ''})">← voltar</button></div>`;
     return;
   }
@@ -13957,6 +14191,7 @@ async function trEditarPedido(id) {
       + (x.emb2_fator ? ' ou ' + x.emb2_nome + ' de ' + trEmbDesc({ un_medida: x.un_medida, emb_fator: x.emb2_fator }) : '');
   });
   alvo.innerHTML = `
+    ${trEditSalvoHtml(id, lista.unidade, aviso)}
     <div class="caption-label"><button class="preset-btn" onclick="trListaAberta=${id}; trTelaSeparacao();">← lista</button>
       Editando a lista <b>#${id}</b> · ${lista.unidade} — corrija as quantidades (<b>0 tira o item</b>), preencha
       os que faltam na grade de baixo e <b>salve uma vez só</b>. Linha mexida ganha o selo ✏️.</div>
@@ -13997,6 +14232,8 @@ async function trEditarPedido(id) {
       <span id="trEditMsg2" class="tr-edit-msg" style="font-size:12px; margin-left:8px;"></span>
     </div>`;
   trAvulsoN = 0;
+  // acabou de salvar: a tela sobe ate o quadro "Alteracoes salvas"
+  trSobeAte(document.getElementById('trEditSalvo'));
 }
 // A tela de corrigir tem DOIS botoes de salvar (em cima e no fim da grade): o
 // aviso sai ao lado dos dois — quem toca no de baixo le a resposta ali mesmo.
@@ -14048,7 +14285,28 @@ function trObsPote(obs, pedido, autoExtra) {
   const outros = partes.filter(s => !s.startsWith('pedido:') && !s.startsWith('automático:'));
   return [ped, auto, ...outros].filter(Boolean).join(' · ') || null;
 }
+// Salvar a correcao, com o retorno do botao (08/10/2026): enquanto grava, os dois botoes
+// ficam apagados dizendo "Salvando…" e o segundo toque nao grava de novo (o item incluido
+// entraria duas vezes). Quem grava e trSalvarEdicaoGrava — a mesma de sempre.
+let trEditSalvando = false;
 async function trSalvarEdicao() {
+  if (trEditSalvando) return;
+  trEditSalvando = true;
+  const botoes = (on) => document.querySelectorAll('button[onclick="trSalvarEdicao()"]').forEach(b => {
+    b.disabled = on; b.textContent = on ? 'Salvando…' : 'Salvar alterações'; b.style.opacity = on ? '.6' : '';
+  });
+  botoes(true);
+  try { await trSalvarEdicaoGrava(); }
+  catch (e) {
+    // o fetch nem voltou (antes a tela ficava em "Salvando..." para sempre)
+    trEditAviso(`<b>A internet caiu no meio.</b> Parte das mudanças pode ter sido salva — veja como a lista ficou antes de salvar de novo:
+      <button class="preset-btn" onclick="trEditarPedido(${window._trEdit ? Number(window._trEdit.id) : 0})">ver como ficou</button>`, 'var(--brand)');
+  } finally {
+    trEditSalvando = false;
+    botoes(false);
+  }
+}
+async function trSalvarEdicaoGrava() {
   // todo aviso desta funcao sai nos DOIS lugares (ao lado do botao de cima e do
   // de baixo): `msg` escreve em todos os .tr-edit-msg de uma vez
   const alvos = () => document.querySelectorAll('.tr-edit-msg');
@@ -14181,7 +14439,11 @@ async function trSalvarEdicao() {
     }
   }
   msg.textContent = 'Alterações salvas — a separação já vê a lista corrigida.'; msg.style.color = '#3fb950';
-  setTimeout(() => trEditarPedido(id), 900);
+  // a tela reabre na hora, com o quadro "Alteracoes salvas" no alto (antes: 12px ao lado do
+  // botao, que sumia em 0,9 s quando a tela se redesenhava igual). mudou = quantas linhas
+  // foram de fato gravadas; zero = a pessoa salvou sem mexer em nada, e o quadro diz isso.
+  // Se so esta releitura falhar, fica o aviso de salvo ao lado dos botoes (tudo ja foi gravado).
+  try { await trEditarPedido(id, { salvo: trDiaHoraTxt(), mudou: Object.keys(gravado).length + rows.length + potesNaLista.length }); } catch (e) { /* salvo; so nao deu para redesenhar */ }
 }
 
 // ---- tela: tabela de precos (so leitura) ----
@@ -14384,7 +14646,9 @@ async function trTabelaSituacao(unidade) {
 // a frase do topo do Novo pedido: de onde vem o preco deste pedido
 function trTabelaFrasePedido(sit, dataCusto) {
   if (!sit || !sit.tabela_mensal) {
-    return `O preço é congelado pelo sistema no ato (Formação de preços${dataCusto ? ' de ' + dataCusto.slice(8,10) + '/' + dataCusto.slice(5,7) : ''}).`;
+    // a planilha Formacao de precos deixou de ser fonte em 07/10/2026 (dono): o custo vem da
+    // ultima nota e da ficha. A data que aparecia aqui era a da carga da planilha (24/08).
+    return 'Vale o preço do dia em que o pedido é feito.';
   }
   const mes = trMesNome(sit.mes), fim = trTabelaValeAte(sit);
   if (!sit.tem_tabela) return `A tabela de ${mes} abre com o primeiro pedido do mês: o preço de hoje fica valendo até ${fim}.`;
@@ -15117,11 +15381,59 @@ async function trAbrirConferencia(id) {
   trConfRecontar();
 }
 
+// Registrar o recebimento, com o retorno do botao (08/10/2026): enquanto grava, o botao
+// fica apagado dizendo "Registrando…" e o segundo toque nao grava de novo. Antes, a mensagem
+// de "Fechada" ficava 4 s ao lado do botao ainda de pe; um segundo toque trocava o texto por
+// um "Nao deu" falso (o banco recusa mexer em lista ja fechada). Quem grava e
+// trFecharConferenciaGrava — a mesma de sempre.
+let trConfFechando = false;
 async function trFecharConferencia(id) {
-  const msg = document.getElementById('trConfMsg');
-  if (!document.getElementById('trConfOk').checked) {
-    msg.textContent = 'Marque a caixa de conferência — é o compromisso de que foi item a item.'; msg.style.color = '#f5a623'; return;
+  if (trConfFechando) return;
+  // sem a caixa marcada nada vai ser gravado: o aviso sai ja, sem o botao piscar "Registrando…"
+  // (o botao trocando de tamanho empurrava o aviso para fora da tela)
+  const cx = document.getElementById('trConfOk');
+  if (cx && !cx.checked) { trConfFaltaCaixa(document.getElementById('trConfMsg')); return; }
+  trConfFechando = true;
+  const botoes = (on) => document.querySelectorAll('button[onclick^="trFecharConferencia("]').forEach(b => {
+    b.disabled = on; b.textContent = on ? 'Registrando…' : 'Registrar recebimento e fechar a lista'; b.style.opacity = on ? '.6' : '';
+  });
+  botoes(true);
+  try { await trFecharConferenciaGrava(id); }
+  catch (e) {
+    // o fetch nem voltou (antes a tela ficava em "Registrando..." para sempre)
+    const msg = document.getElementById('trConfMsg');
+    if (msg) {
+      msg.innerHTML = '<b>A internet caiu no meio</b> e não deu para confirmar o registro. Os campos continuam preenchidos: quando a internet voltar, toque de novo em registrar.';
+      msg.style.color = 'var(--brand)';
+    }
+  } finally {
+    trConfFechando = false;
+    botoes(false);
   }
+}
+// Tocou em registrar sem marcar a caixa "Conferi item a item" (revisao de 08/10/2026): o
+// aviso sai embaixo do botao, em letra de ler, e a caixa que falta fica contornada. Antes
+// eram 12px em amarelo claro sobre o creme, no meio do "tudo igual ao separado" — para quem
+// tocou, o botao nao tinha feito nada. Marcou a caixa, o aviso e o contorno somem.
+function trConfFaltaCaixa(msg) {
+  const cx = document.getElementById('trConfOk'), rot = cx ? cx.closest('label') : null;
+  if (msg) msg.innerHTML = '<span style="display:block; margin-top:8px; font-size:14px; font-weight:600; line-height:1.4; color:var(--brand);">'
+    + '<b>Falta marcar a caixa “Conferi item a item”</b>, logo acima deste botão. Sem ela nada é registrado.</span>';
+  if (rot) { rot.style.outline = '2px solid var(--brand)'; rot.style.outlineOffset = '4px'; rot.style.borderRadius = '6px'; }
+  // o aviso nasce embaixo do botao: se o botao estava no pe da tela, a tela desce o que falta
+  const aviso = msg ? msg.querySelector('span') : null;
+  if (aviso) aviso.scrollIntoView({ block: 'nearest' });
+  if (cx && !cx.dataset.avisa) {
+    cx.dataset.avisa = '1';
+    cx.addEventListener('change', () => {
+      if (rot) rot.style.outline = '';
+      if (msg && cx.checked && msg.querySelector('span')) msg.textContent = '';
+    });
+  }
+}
+async function trFecharConferenciaGrava(id) {
+  const msg = document.getElementById('trConfMsg');
+  if (!document.getElementById('trConfOk').checked) { trConfFaltaCaixa(msg); return; }
   // Linha contada (01/10/2026): a contagem tem de estar escrita e ser inteira ou
   // meia — conferida ANTES de mexer no status, para nao deixar a lista pela metade.
   const ruins = [];
@@ -15155,15 +15467,13 @@ async function trFecharConferencia(id) {
   }
   const rf = await trRpc('tr_fechar_lista', { p_id: id });
   if (!rf.ok) { msg.textContent = 'Quantidades salvas, mas não fechou: ' + await trErroDe(rf); msg.style.color = '#ff6b6b'; return; }
-  const rd = await trFetch(`vw_tr_divergencias?id_lista=eq.${id}`);
-  const divs = rd.ok ? await rd.json() : [];
-  msg.style.color = '#3fb950';
-  msg.textContent = (divs.length
-    ? `Fechada com ${divs.length} diferença(s): ` + divs.slice(0, 4).map(d => `${d.item} (${d.diferenca > 0 ? 'sobrou' : 'faltou'} ${Math.abs(d.diferenca)})`).join(' · ')
-    : 'Fechada — recebimento bateu 100% com a separação. ✔')
-    + ' A cobrança não sai agora: entra no fechamento do mês.';
+  // a lista ja esta fechada. Se so a leitura das diferencas falhar, o quadro sai SEM dizer se
+  // bateu ou nao (divs = null) — a tela antiga dizia "bateu 100%" tambem nesse caso
+  let divs = null;
+  try { const rd = await trFetch(`vw_tr_divergencias?id_lista=eq.${id}`); if (rd.ok) divs = await rd.json(); } catch (e) { divs = null; }
   trListaAberta = null;
-  setTimeout(trTelaConferencia, 4000);
+  // o quadro entra no lugar da lista, na hora (antes: 12px ao lado do botao por 4 s)
+  trConfFechadaTela(id, divs);
 }
 
 // ---- tela: contas a pagar (FILIAL ve as suas; DONO baixa) ----
