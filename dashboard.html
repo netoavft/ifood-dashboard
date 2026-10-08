@@ -5045,8 +5045,12 @@ const ROTINAS_CONHECIDAS = [
   // 28/08 quando ela e a de lançamento viraram uma só. Resultado: a linha da
   // conciliação aparecia como "nunca registrada" e a rotina que roda de verdade
   // não aparecia — cinco dias de execuções invisíveis nesta tela.
-  { id: 'conciliacao-e-lancamento-diario',   nome: 'Conciliação e lançamento', quando: 'Seg–sex, 20 em 20 min das 09:40 às 13:40 (mini PC)' },
+  { id: 'conciliacao-e-lancamento-diario',   nome: 'Conciliação e lançamento', quando: 'Seg–sex, 20 em 20 min das 09:00 às 16:40 (mini PC)' },
   { id: 'extracao-diaria-promocoes',         nome: 'Extração de promoções',  quando: 'Todo dia 12:30' },
+  // 08/10/2026: exporta do Saipos a Movimentacao de estoque das 3 lojas e carrega no banco
+  // (rotinas/extracao-diaria-estoque-saipos.md). Sem esta linha, PARCIAL e PULADA dela nao
+  // entram em "Pedindo atencao agora" (a tela so olha as rotinas desta lista).
+  { id: 'extracao-diaria-estoque-saipos',    nome: 'Estoque do Saipos',      quando: 'Todo dia 05:40 (reserva 17:40)' },
   { id: 'extracao-semanal-cardapio',         nome: 'Extração de cardápio',   quando: 'Segunda 14:00' },
   { id: 'resumo-semanal-ifood',              nome: 'Resumo semanal',         quando: 'Segunda 17:00' },
   { id: 'extracao-semanal-relatorios-rede',  nome: 'Relatórios da rede',     quando: 'Terça 14:00' },
