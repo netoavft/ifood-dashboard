@@ -12262,6 +12262,12 @@ let FICHA_LINHA_ABERTA = null;
 // as 12 sem custo entre 311 so' abrindo uma a uma.
 let FICHA_SO_SEM_CUSTO = false;
 function fichaSoSemCusto() { FICHA_SO_SEM_CUSTO = !FICHA_SO_SEM_CUSTO; renderModuloFichas(); }
+// FORA DE LINHA (08/10/2026). O dono tira o produto de linha e a ficha continua guardada
+// no banco; a tela mostrava todas. Quem diz o que saiu e' a coluna fora_de_linha de
+// vw_ft_lista (a decisao mora em ft_produto_fora_de_linha) — a tela so' tira da busca e
+// avisa quantas sao. Desligado = escondidas. View sem a coluna = nada escondido.
+let FICHA_VER_FORA = false;
+function fichaVerFora() { FICHA_VER_FORA = !FICHA_VER_FORA; renderModuloFichas(); }
 
 async function entrarFichas() {
   const alvo = document.getElementById('view-fichas');
@@ -12576,12 +12582,18 @@ function renderModuloFichas() {
   const soVendaveis = document.getElementById('fichaSoVendaveis');
   const esconderPrep = soVendaveis ? soVendaveis.checked : true;
 
-  const semCusto = lista.filter(f => !nu(f.custo)).length;
+  // Fora de linha sai da busca e das contagens do cabecalho; o botao do aviso traz de
+  // volta. FICHAS.lista continua INTEIRA de proposito: a trava de nome repetido
+  // (fichaSalvar) e o atalho que vem do Preco alvo (irParaFicha) precisam enxergar todas.
+  const foraLinha = lista.filter(f => f.fora_de_linha);
+  const emLinha = FICHA_VER_FORA ? lista : lista.filter(f => !f.fora_de_linha);
+
+  const semCusto = emLinha.filter(f => !nu(f.custo)).length;
 
   // Com o botao "sem custo" ligado a lista e' exatamente essas fichas — inclusive as de
   // preparacao, para o numero do botao bater com o que aparece na escolha.
-  const visiveis = (FICHA_SO_SEM_CUSTO ? lista.filter(f => !nu(f.custo))
-                                       : lista.filter(f => !(esconderPrep && f.e_preparacao)))
+  const visiveis = (FICHA_SO_SEM_CUSTO ? emLinha.filter(f => !nu(f.custo))
+                                       : emLinha.filter(f => !(esconderPrep && f.e_preparacao)))
                    .sort((a,b) => a.ficha.localeCompare(b.ficha, 'pt-BR'));
 
   // Lista suspensa em vez de tabela (pedido do dono, 19/08): com 246 fichas a
@@ -12593,6 +12605,7 @@ function renderModuloFichas() {
   const opcoes = visiveis.map(f => {
     const marca = [f.e_preparacao ? 'preparação' : null,
                    f.fonte === 'MANUAL' ? 'criada no painel' : null,
+                   f.fora_de_linha ? 'FORA DE LINHA' : null,
                    !nu(f.custo) ? 'SEM CUSTO' : null].filter(Boolean).join(', ');
     return `<option value="${esc(f.ficha)}">R$ ${fmt(nu(f.custo))}` +
            `${f.ingredientes ? ' · ' + f.ingredientes + ' ingr.' : ''}` +
@@ -12606,6 +12619,13 @@ function renderModuloFichas() {
     if (!linhas.length) return '<div class="contexto">Ficha sem linhas de composição.</div>';
     const total = linhas.reduce((s,l) => s + nu(l.valor_total), 0);
     const vendas = (lista.find(f => f.ficha === nome) || {}).nomes_de_venda;
+    // Ficha fora de linha aberta (pelo botao do aviso, pelo nome inteiro digitado ou
+    // vinda do Preco alvo): diz que saiu e desde quando; o motivo fica no title.
+    const daLista = lista.find(f => f.ficha === nome) || {};
+    const foraDesde = daLista.fora_de_linha_desde ? daLista.fora_de_linha_desde.split('-').reverse().join('/') : '';
+    const avisoFora = daLista.fora_de_linha ? `<div class="contexto" style="text-align:left;" title="${esc(daLista.fora_de_linha_motivo || '')}">
+        <b>Fora de linha${foraDesde ? ' desde ' + foraDesde : ''}.</b> Não aparece mais na busca.${
+        nu(vendas) ? ' Se ainda sair venda com o nome ligado a ela, o custo continua vindo desta ficha.' : ''}</div>` : '';
     const corpo = linhas.map(l => {
       const aberto = FICHA_LINHA_ABERTA === l.materia_prima;
       const semPreco = l.origem_do_preco === 'SEM CADASTRO';
@@ -12622,6 +12642,7 @@ function renderModuloFichas() {
     const origem = FICHA_LINHA_ABERTA ? origemDoCusto(FICHA_LINHA_ABERTA) : '';
     return `
       <div class="section-label">${esc(nome)}</div>
+      ${avisoFora}
       <div class="caption-label" style="text-align:center;">
         Composição igual à Base FT da planilha. Clique num ingrediente para ver de onde vem o custo dele.
         ${nu(vendas) ? nu(vendas) + ' nome' + (nu(vendas) > 1 ? 's' : '') + ' de venda apontam para esta ficha.'
@@ -12688,9 +12709,10 @@ function renderModuloFichas() {
   alvo.innerHTML = `
     <div class="section-label" style="border-top:none; margin-top:0; padding-top:0;">Fichas técnicas</div>
     <div class="caption-label" style="text-align:center;" title="Ficha criada aqui fica numa tabela própria (ft_fichas_manual) e é reaplicada depois de cada carga da planilha; se o mesmo nome existir nos dois lugares, vale o da planilha.">
-      ${lista.length} fichas — ${lista.filter(f=>!f.e_preparacao).length} vendáveis e
-      ${lista.filter(f=>f.e_preparacao).length} de preparação (base que outra ficha consome).
+      ${emLinha.length} fichas — ${emLinha.filter(f=>!f.e_preparacao).length} vendáveis e
+      ${emLinha.filter(f=>f.e_preparacao).length} de preparação (base que outra ficha consome).
       ${semCusto ? `<button class="preset-btn ${FICHA_SO_SEM_CUSTO ? 'active' : ''}" onclick="fichaSoSemCusto()" title="${FICHA_SO_SEM_CUSTO ? 'voltar para a lista completa' : 'trocar a lista de escolha por essas fichas'}"><b style="color:#ff6b6b;">${semCusto} sem custo calculado</b>${FICHA_SO_SEM_CUSTO ? ' ✕' : ' ›'}</button>` : ''}
+      ${foraLinha.length ? `<button class="preset-btn ${FICHA_VER_FORA ? 'active' : ''}" onclick="fichaVerFora()" title="${FICHA_VER_FORA ? 'esconder de novo as fichas fora de linha' : 'produto que saiu de linha: a ficha continua guardada, só não aparece na busca. Clique para ver.'}">${foraLinha.length} fora de linha ${FICHA_VER_FORA ? 'na lista ✕' : (foraLinha.length > 1 ? 'não aparecem ›' : 'não aparece ›')}</button>` : ''}
       Pode criar e editar ficha aqui — reimportar a planilha não apaga o que você criar.</div>
     ${FICHA_MSG ? '<div class="contexto" style="border-color:#3fb950; text-align:left;">' + FICHA_MSG + '</div>' : ''}
     <div class="ficha-busca-linha">
