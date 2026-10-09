@@ -17713,7 +17713,7 @@ const FX_COMPOSICAO = { CUSTO: 'merc', PESSOAL: 'pess', VENDA: 'venda', ADMIN: '
 // balde em vez de bater perto: em VENDA e' a entrega sob demanda (vem de
 // vw_canal_custo_mes) e em TAXAS e' o ICMS (DEDUCOES DA RECEITA).
 // 01/10/2026: os anuncios do iFood sairam de VENDA; estao em TAXAS, com nome, como na DRE.
-const FX_RESTO_ROT = { VENDA: 'entrega sob demanda (cobrada pelo iFood)',
+const FX_RESTO_ROT = { VENDA: 'outros fretes cobrados pelo iFood',
                        TAXAS: 'ICMS e outras deduções da receita' };
 let FX_BALDE = null;
 function fxAbrirBalde(id) { FX_BALDE = (FX_BALDE === id) ? null : id; renderFechamento(); }
@@ -18361,6 +18361,14 @@ function renderFechamento() {
     // 01/10/2026: a comissao de vendedor entra em TAXAS com nome proprio (como na DRE),
     // em vez de sumir na linha de resto junto com o ICMS.
     if (FX_BALDE === 'TAXAS' && Math.abs(a.comissoes) > 0.5) comp.push({ k: 'Comissões de vendedores', v: a.comissoes });
+    // 09/10/2026 (dono): o frete do iFood entra em VENDA com o nome de cada linha (Full Service e sob
+    // demanda), como na DRE, em vez de uma linha de resto chamada "entrega sob demanda".
+    if (FX_BALDE === 'VENDA') {
+      const fretes = {};
+      FX_M.canal.filter(r => r.mes === mes && fxLojas().includes(r.unidade) && r.classe === 'LOGISTICA')
+        .forEach(r => { const k = r.rotulo || r.linha; fretes[k] = (fretes[k] || 0) + fxN(r.custo); });
+      Object.entries(fretes).forEach(([k, v]) => { if (Math.abs(v) > 0.5) comp.push({ k, v }); });
+    }
     const resto = bSel[4] - comp.reduce((s, c) => s + c.v, 0);
     const linhasComp = Math.abs(resto) > 0.5
       ? comp.concat([{ k: FX_RESTO_ROT[FX_BALDE] || 'outros lançamentos deste balde', v: resto }])
@@ -19618,7 +19626,12 @@ function renderModuloDRE() {
         corpo += linha('dfc-grupo', DRE_TIPO_ROTULO[t] || t, somar(predT, -1), { chave: 'GT:' + t, kind: 'custo' });
         corpo += blocoSubtipos('GT:' + t, predT, -1, 'custo');
       });
-      if (chave === 'VENDA' && sobDemandaIf.some(v => Math.abs(v) > 0.005)) corpo += linha('dfc-grupo', 'iFood — entrega sob demanda (descontada no repasse)', sobDemandaIf, { kind: 'custo' });
+      // 09/10/2026 (dono): "uma linha frete iFood e outra do frete sob demanda" — cada linha da classe
+      // LOGISTICA sai com o nome que vem do banco (Full Service: comissao por raio e taxa de entrega
+      // repassada; sob demanda), como ja e' feito com a classe CANAL nas deducoes. A soma nao muda.
+      if (chave === 'VENDA') canalOrdem.filter(k => canalClasse[k] === 'LOGISTICA').forEach(k => {
+        if (canalLinha[k].some(v => Math.abs(v) > 0.005)) corpo += linha('dfc-grupo', (canalRotulo[k] || k) + ' — descontado no repasse', canalLinha[k], { kind: 'custo' });
+      });
     }
   };
   blocoGrupo(0);
