@@ -19971,6 +19971,14 @@ let PROJ_FILTRO = { unidade: '', conta: '' };  // filtros do quadro de pagamento
 let PROJ_RECEB_LOJA = null;   // vw_fin_receitas_diarias_conta -> { loja: { 'AAAA-MM-DD': recebido } }; null = sem seletor de loja
 let PROJ_FERIADOS = {};       // feriados -> { 'AAAA-MM-DD': nome }
 let PROJ_DIA = { loja: '', aberto: {} };   // estado do bloco: loja escolhida ('' = Rede) e dias abertos
+// O que costuma sair + limite do banco + atacado sem contar em dobro + saldo de partida do meio do dia (10/10/2026).
+// As leituras sao OPCIONAIS: sem elas (objeto ainda nao instalado no banco, erro, login que nao le) a tela fica como
+// era — sem a coluna, sem a linha pontilhada, sem a faixa, sem os avisos novos e com a media de entrada inteira.
+let PROJ_COSTUMA = null;        // vw_fin_saida_costuma_sair -> { loja: { 'AAAA-MM-DD': { cheia, ritmo, MERCADORIA, MOTOBOYS, DIARISTAS, RESTO } } }
+let PROJ_COSTUMA_INFO = null;   // por loja: { porSemana: { peca: R$ }, janela: [de, ate], pagaAV: R$ por semana que a filial paga a Agua Verde }
+let PROJ_LIMITE = null;         // { cfg: fin_limite_conta, dias: vw_fin_limite_dia, meses: vw_fin_limite_mes (meses do banco ja fechados) }
+let PROJ_ATACADO = null;        // vw_fin_receitas_diarias_conta.recebido_atacado -> { porLoja: { loja: { dia: R$ } }, rede: { dia: R$ } }; null = sem a coluna
+let PROJ_FORA_EXTRATO = null;   // vw_fin_pago_fora_do_extrato -> uma linha por conta de caixa com extrato (o que o Saipos ja pagou e o extrato ainda nao mostra); null = sem a view
 
 // contas que nao sao caixa operacional (investimentos, pessoais e cartoes)
 const PROJ_FORA_CAIXA = ['XP INVESTIMENTOS', 'PARTICIPACOES', 'FABIO PESSOAL'];
@@ -19986,7 +19994,13 @@ async function entrarProjecao() {
   if (PROJ_PAGAR === null) alvo.innerHTML = '<div class="contexto">Carregando projeção...</div>';
   const corte = new Date(); corte.setDate(corte.getDate() - 35);
   const corteIso = corte.toISOString().slice(0, 10);
-  const [pagar, receb, ancora, vencStatus, caixaDia, comAtacado, recebSub, benefSem, benefXp, benefCobr, _fin, atacadoReceber, recebConta, feriados] = await Promise.all([
+  // ate onde a tela projeta (45 dias, com um dia de folga): so esse pedaco da estimativa e' pedido;
+  // e de onde pedir o mes do banco (62 dias para tras: sempre traz INTEIRO o mes do banco que fechou por ultimo)
+  const fimProj = new Date(); fimProj.setDate(fimProj.getDate() + 46);
+  const fimProjIso = fimProj.toISOString().slice(0, 10);
+  const corteLim = new Date(); corteLim.setDate(corteLim.getDate() - 62);
+  const corteLimIso = corteLim.toISOString().slice(0, 10);
+  const [pagar, receb, ancora, vencStatus, caixaDia, comAtacado, recebSub, benefSem, benefXp, benefCobr, _fin, atacadoReceber, recebConta, feriados, costumaSair, limiteCfg, limiteDias, limiteMeses, recebAtacado, foraExtrato] = await Promise.all([
     consultarTudo('vw_fin_contas_pagar?select=vencimento,conta,conta_exibida,unidade,situacao,dias_vencida,sentido,subtipo,tipo,natureza,descricao,credito,debito,origem&order=vencimento'),
     consultarTudo(`vw_fin_receitas_diarias?select=data,recebido&data=gte.${corteIso}&order=data`),
     consultarTudo('vw_fin_saldo_banco_atual?select=conta,data_saldo,saldo_banco,idade_dias,saldo_saipos,diferenca'),
@@ -20006,7 +20020,44 @@ async function entrarProjecao() {
     // conta (so para o seletor de loja; se a view faltar, o bloco mostra so a Rede), e os feriados
     consultarTudo(`vw_fin_receitas_diarias_conta?select=data,unidade,recebido&data=gte.${corteIso}&order=data`).catch(() => null),
     consultarTudo(`feriados?select=data,nome&data=gte.${corteIso}&order=data`).catch(() => []),
+    // O que costuma sair e ninguem lanca antes (ESTIMATIVA calculada no banco) e o limite do banco. Opcionais.
+    consultarTudo(`vw_fin_saida_costuma_sair?select=unidade,dia,peca,estimativa,estimativa_ritmo_pago,por_semana,janela_ini,janela_fim,paga_agua_verde_por_semana&dia=lte.${fimProjIso}&order=dia,unidade,peca`).catch(() => null),
+    consultarTudo('fin_limite_conta?select=*&order=conta').catch(() => null),
+    consultarTudo(`vw_fin_limite_dia?select=conta,dia,mes_banco_ini,mes_banco_fim,dia_util,fato,sem_extrato,saldo,data_extrato,extrato_lido_em,extrato_parcial&mes_banco_ini=gte.${corteLimIso}&order=conta,dia`).catch(() => null),
+    consultarTudo('vw_fin_limite_mes?select=conta,mes_banco_ini,mes_banco_fim,dias_negativo,dias_sem_extrato,juros_pela_conta,juros_debitado,data_debito,erro_pct&order=conta,mes_banco_ini').catch(() => null),
+    // Atacado sem contar em dobro: a parte de ATACADO da receita que caiu na conta (o banco e' quem diz o que e' atacado). Opcional.
+    consultarTudo(`vw_fin_receitas_diarias_conta?select=data,unidade,recebido_atacado&recebido_atacado=neq.0&data=gte.${corteIso}&order=data`).catch(() => null),
+    // Saldo de partida do meio do dia: o que o Saipos ja tem pago na conta e o extrato ainda nao mostra (a conta e' do banco). Opcional.
+    consultarTudo('vw_fin_pago_fora_do_extrato?select=conta,unidade,data_extrato,extrato_lido_em,extrato_parcial,extrato_antigo,pago_fora_do_extrato,pagamentos&order=conta').catch(() => null),
   ]);
+  PROJ_COSTUMA = null; PROJ_COSTUMA_INFO = null;
+  if (costumaSair && costumaSair.length) {
+    const porLoja = {}, info = {};
+    costumaSair.forEach(r => {
+      const doDia = (porLoja[r.unidade] = porLoja[r.unidade] || {});
+      const x = (doDia[r.dia] = doDia[r.dia] || { cheia: 0, ritmo: 0 });
+      const v = Number(r.estimativa) || 0;
+      x[r.peca] = (x[r.peca] || 0) + v;
+      x.cheia += v;
+      x.ritmo += Number(r.estimativa_ritmo_pago) || 0;
+      const i = (info[r.unidade] = info[r.unidade] || { porSemana: {}, janela: null, pagaAV: 0 });
+      if (r.por_semana != null) { i.porSemana[r.peca] = Number(r.por_semana); i.janela = [r.janela_ini, r.janela_fim]; }
+      if (r.paga_agua_verde_por_semana != null) i.pagaAV = Number(r.paga_agua_verde_por_semana);
+    });
+    PROJ_COSTUMA = porLoja; PROJ_COSTUMA_INFO = info;
+  }
+  PROJ_LIMITE = (limiteCfg && limiteCfg.length && limiteDias && limiteDias.length) ? { cfg: limiteCfg, dias: limiteDias, meses: limiteMeses || [] } : null;
+  PROJ_ATACADO = null;
+  if (recebAtacado) {
+    const porLoja = {}, rede = {};
+    recebAtacado.forEach(r => {
+      const v = Number(r.recebido_atacado) || 0;
+      if (r.unidade) { const u = porLoja[r.unidade] || (porLoja[r.unidade] = {}); u[r.data] = (u[r.data] || 0) + v; }
+      rede[r.data] = (rede[r.data] || 0) + v;
+    });
+    PROJ_ATACADO = { porLoja, rede };
+  }
+  PROJ_FORA_EXTRATO = foraExtrato || null;
   PROJ_FERIADOS = {};
   (feriados || []).forEach(f => { PROJ_FERIADOS[f.data] = f.nome; });
   PROJ_RECEB_LOJA = null;
@@ -20579,13 +20630,20 @@ function blocoSaldoDiaADia() {
   const dm = (s) => s.slice(8, 10) + '/' + s.slice(5, 7);
   const dow = (s) => new Date(s + 'T00:00:00').getDay();
   const rot = (s) => `${dm(s)} (${SEM[dow(s)]})`;
-  const reais = (v) => 'R$ ' + fmt(v);
+  const reais = (v) => (v < -0.005 ? '−' : '') + 'R$ ' + fmt(Math.abs(v));   // negativo sempre com o sinal na frente
   const bonusDia = P.bonusDia || {};   // so existe quando o bonus entra no motor (fase 3)
+  // a ESTIMATIVA do que costuma sair e ninguem lanca antes (vem do banco, pelo motor); sem ela o bloco fica como era
+  const temCostuma = !!P.costumaDia;
+  const costumaDia = P.costumaDia || {};
+  const reaisInt = (v) => (v < -0.5 ? '−' : '') + 'R$ ' + fxInt(Math.abs(v));   // estimativa vai sem centavos
+  const PECAS_EST = [['MERCADORIA', 'mercadoria que ainda não está lançada'], ['MOTOBOYS', 'motoboys'], ['DIARISTAS', 'diaristas'],
+                     ['RESTO', 'o resto (rescisão, complemento de salário, férias, manutenção e outros)']];
 
   // de hoje ate o SEGUNDO repasse de quarta: de 9 a 15 linhas
   let fim = 0;
   for (let i = 1, quartas = 0; i < P.dias.length && quartas < 2; i++) { if (dow(P.dias[i]) === 3) quartas++; fim = i; }
-  const jan = P.dias.slice(0, fim + 1).map((d, i) => ({ d, i, saldo: P.serieSaldo[i] }));
+  const jan = P.dias.slice(0, fim + 1).map((d, i) => ({ d, i, saldo: P.serieSaldo[i],
+    costuma: temCostuma ? P.serieCostuma[i] : null, ritmo: temCostuma ? P.serieRitmo[i] : null }));
   const ultimo = jan[jan.length - 1].d;
   const pior = jan.reduce((a, b) => (b.saldo < a.saldo ? b : a));
   const volta = jan.find(x => x.d > pior.d && x.saldo >= 0);
@@ -20600,6 +20658,18 @@ function blocoSaldoDiaADia() {
        Fecha no negativo em ${uteisNeg} dos ${uteis.length} dias úteis até ${dm(ultimo)}.`
     : `<b style="font-size:15px;">Não fica negativo até ${rot(ultimo)}.</b>
        Dia mais apertado: ${rot(pior.d)}, com ${reais(pior.saldo)}.`;
+  // a mesma pergunta com a ESTIMATIVA do que costuma sair. Dois numeros = do saldo com a estimativa menor de saida ao
+  // saldo com a maior; cada ponta tem o SEU pior dia (podem ser dias diferentes).
+  const piorC = temCostuma ? jan.reduce((a, b) => (b.costuma < a.costuma ? b : a)) : null;   // com a estimativa maior
+  const piorR = temCostuma ? jan.reduce((a, b) => (b.ritmo < a.ritmo ? b : a)) : null;       // com a estimativa menor
+  const voltaC = piorC ? jan.find(x => x.d > piorC.d && x.costuma >= 0) : null;
+  const fraseCostuma = !piorC ? '' : `<div style="margin-top:6px;"><b>Com o que costuma sair</b> <span style="color:var(--amber-2);">estimativa</span>:
+       ${piorC.costuma < -0.005
+         ? `${Math.abs(piorR.ritmo - piorC.costuma) < 500 ? `pior dia ${rot(piorC.d)}, com ${fxMil(piorC.costuma)}`
+              : (piorR.d === piorC.d ? `pior dia ${rot(piorC.d)}, de ${fxMil(piorR.ritmo)} a ${fxMil(piorC.costuma)}`
+                                     : `no pior dia, ${fxMil(piorR.ritmo)} em ${dm(piorR.d)} ou ${fxMil(piorC.costuma)} em ${dm(piorC.d)}`)}.
+            ${voltaC ? `Volta ao azul em <b>${rot(voltaC.d)}</b>.` : `<b>Não volta ao azul até ${rot(ultimo)}.</b>`}`
+         : `não fica negativo até ${rot(ultimo)}; dia mais apertado ${rot(piorC.d)}, com ${fxMil(piorC.costuma)}.`}</div>`;
 
   const seletor = !PROJ_RECEB_LOJA ? '' : `<div style="display:flex; gap:6px; flex-wrap:wrap; justify-content:center; margin:8px 0;">
       ${PROJ_DIA_LOJAS.map(([u, nome], i) => `<button class="preset-btn${u === loja ? ' active' : ''}" onclick="projDiaLoja(${i})">${nome}</button>`).join('')}</div>`;
@@ -20609,7 +20679,7 @@ function blocoSaldoDiaADia() {
   const linhaPartida = `<tr title="${trEscH(partidaTxt)}">
       <td><b>Caixa agora</b> <span style="color:var(--tx-5); font-size:11px;">${P.temAncora && P.dataExtrato ? 'extrato do banco de ' + dm(P.dataExtrato) : 'pelo Saipos'}</span></td>
       <td></td><td></td>
-      <td style="font-weight:700; color:var(${P.caixaOper < -0.005 ? '--farol-fora' : '--farol-ok'});">${reais(P.caixaOper)}</td></tr>`;
+      <td style="font-weight:700; color:var(${P.caixaOper < -0.005 ? '--farol-fora' : '--farol-ok'});">${reais(P.caixaOper)}</td>${temCostuma ? '<td></td>' : ''}</tr>`;
 
   const nome = (r) => trEscH((r.origem === 'BONUS' ? 'Bônus do iFood → aplicação — ' : '') + (r.descricao || r.subtipo || '').slice(0, 60));
   const item = (txt, v, conta) => `<div style="display:flex; justify-content:space-between; gap:10px; padding:2px 0; font-size:12px;">
@@ -20617,7 +20687,9 @@ function blocoSaldoDiaADia() {
       <span style="white-space:nowrap; color:var(${v > 0 ? '--farol-ok' : '--tx-2'});">${v > 0 ? '+' : '−'} ${reais(Math.abs(v))}</span></div>`;
 
   const linhas = jan.map(({ d, i, saldo }) => {
-    const media = P.serieMedia[i], rec = P.receberDia[d] || 0, bonus = bonusDia[d] || 0;
+    const media = P.serieMedia[i], rec = P.receberDia[d] || 0, bonus = bonusDia[d] || 0, est = costumaDia[d] || {};
+    const semAtac = (P.serieSemAtacado || [])[i] || 0;   // atacado que a media e os boletos contariam duas vezes neste dia (o motor ja tirou do saldo)
+    const dicaEst = PECAS_EST.filter(([k]) => (est[k] || 0) > 0.5).map(([k, n]) => `${n.split(' (')[0]}: ${reaisInt(est[k])}`).join(' · ');
     const sai = (P.pagarDia[d] || 0) + bonus;
     const itens = (P.itensDia[d] || []).slice().sort((a, b) => (b.debito - b.credito) - (a.debito - a.credito));
     const saidas = itens.filter(r => r.debito > r.credito), entradas = itens.filter(r => r.credito > r.debito);
@@ -20627,18 +20699,21 @@ function blocoSaldoDiaADia() {
     if (PROJ_FERIADOS[d]) marcas.push('feriado · banco fechado');
     else if (dow(d) === 3 && i > 0) marcas.push('dia do repasse do iFood');
     const ePior = d === pior.d && pior.saldo < -0.005;
-    const detalhe = !PROJ_DIA.aberto[d] ? '' : `<tr><td colspan="4" style="text-align:left; white-space:normal; padding:8px 12px 10px 22px; color:var(--tx-3);">
+    const detalhe = !PROJ_DIA.aberto[d] ? '' : `<tr><td colspan="${temCostuma ? 5 : 4}" style="text-align:left; white-space:normal; padding:8px 12px 10px 22px; color:var(--tx-3);">
         ${media > 0.005 ? item(`Entrada pela média — ${SEM[dow(d)]}, 4 semanas`, media, '') : ''}
+        ${semAtac > 0.005 ? item(`Atacado que a média e os boletos contariam duas vezes <span style="color:var(--tx-5);">· vale o maior dos dois, somado desde hoje</span>`, -semAtac, '') : ''}
         ${entradas.map(r => item(nome(r), r.credito - r.debito, r.conta_exibida)).join('')}
         ${saidas.slice(0, 15).map(r => item(nome(r), r.credito - r.debito, r.conta_exibida)).join('')}
         ${saidas.length > 15 ? item(`e mais ${saidas.length - 15} conta(s) menores`, -saidas.slice(15).reduce((s, r) => s + r.debito - r.credito, 0), '') : ''}
         ${media <= 0.005 && !itens.length ? 'Nada lançado para este dia.' : ''}
+        ${PECAS_EST.filter(([k]) => (est[k] || 0) > 0.5).map(([k, n]) => item(`<span style="color:var(--amber-2);">estimativa</span> — ${n}`, -est[k], '')).join('')}
       </td></tr>`;
     return `<tr onclick="projDiaAbrir('${d}')" style="cursor:pointer;${fechado(d) && i > 0 ? ' opacity:.7;' : ''}">
         <td><b>${rot(d)}</b>${marcas.length ? ` <span style="color:var(--tx-5); font-size:11px;">${marcas.join(' · ')}</span>` : ''}${ePior ? ` <b style="color:var(--farol-fora); font-size:11px;">pior dia</b>` : ''}</td>
-        <td>${media + rec > 0.005 ? reais(media + rec) : '—'}</td>
+        <td>${media + rec - semAtac > 0.005 ? reais(media + rec - semAtac) : '—'}</td>
         <td title="${trEscH(dica)}">${sai > 0.005 ? reais(sai) : '—'}${bonus > 0.005 ? `<div style="font-size:11px; color:var(--amber-2);">com ${reais(bonus)} de bônus → aplicação</div>` : ''}</td>
-        <td style="font-weight:700; color:var(${saldo < -0.005 ? '--farol-fora' : '--farol-ok'});">${reais(saldo)}</td></tr>${detalhe}`;
+        <td style="font-weight:700; color:var(${saldo < -0.005 ? '--farol-fora' : '--farol-ok'});">${reais(saldo)}</td>${temCostuma
+          ? `<td title="${trEscH(dicaEst ? 'Estimativa do dia — ' + dicaEst : 'Sem estimativa para este dia')}" style="font-weight:700; color:var(${jan[i].costuma < -0.005 ? '--farol-fora' : '--farol-ok'});">${reaisInt(jan[i].costuma)}</td>` : ''}</tr>${detalhe}`;
   }).join('');
 
   // avisos de UMA linha, so quando o caso acontece
@@ -20664,19 +20739,62 @@ function blocoSaldoDiaADia() {
     if (recebe > 0.005) avisos.push(`Conta com ${reais(recebe)} que o Ahú e o São Braz pagam à Água Verde até ${dm(ultimo)}.`);
   }
   if (loja === 'AGUA VERDE') avisos.push('Água Verde = Itaú AV + conta da folha + Santander + cofre (a conta da folha e o cartão são pagos pelo Itaú AV).');
+  // atacado sem contar em dobro: a regra em UMA frase, com os dois numeros (do motor)
+  if (P.atacado && P.atacado.fora > 0.005) {
+    avisos.push(`<b>O atacado não conta duas vezes:</b> de hoje até cada dia, a projeção soma o que for maior — os boletos a receber (${reais(P.atacado.boletos)}) ou o que costuma entrar de atacado pela média (${fxMil(P.atacado.semana)} por semana). Nunca os dois.`);
+  }
+  // saldo de partida do meio do dia: quanto o Saipos ja tem pago que o extrato ainda nao mostra (o numero vem do banco,
+  // de vw_fin_pago_fora_do_extrato). So aviso: o saldo de partida e a regra "ja saiu do banco" nao mudam. Vai primeiro na lista.
+  const DE_QUEM = { 'AGUA VERDE': 'da Água Verde', 'AHU': 'do Ahú', 'SÃO BRAZ': 'do São Braz' };
+  const foraExt = projForaDoExtrato(loja);
+  if (foraExt && foraExt.total > 0.005) {
+    const lojasFora = Object.keys(foraExt.porLoja);
+    const deQuem = loja ? `${DE_QUEM[loja] || 'desta loja'} e da Rede`
+      : (lojasFora.length === 1 ? `${DE_QUEM[lojasFora[0]] || 'da loja'} e da Rede`
+        : `da Rede (${lojasFora.map(u => `${(PROJ_DIA_LOJAS.find(x => x[0] === u) || ['', u])[1]} ${reais(foraExt.porLoja[u])}`).join(' · ')})`);
+    avisos.unshift(projForaDoExtratoFrase(foraExt, deQuem));
+  }
+  if (temCostuma && PROJ_COSTUMA_INFO) {
+    // extrato atrasado: dizer ate que dia o saldo de partida enxerga (conta com extrato de antes do ultimo dia util)
+    let ultUtil = fxSomaDias(P.hojeIso, -1);
+    while (fechado(ultUtil)) ultUtil = fxSomaDias(ultUtil, -1);
+    const atrasadas = P.partida.filter(c => c.dataSaldo && c.dataSaldo < ultUtil);
+    if (atrasadas.length) avisos.push(`<b style="color:var(--amber-2);">Saldo de partida com extrato antigo:</b> ${atrasadas.map(c => `${trEscH(c.conta)} até ${dm(c.dataSaldo)}`).join(' · ')}. O que entrou ou saiu depois disso e antes de hoje não está nesta conta.`);
+    // quanto cada peca costuma somar por semana (o numero que a view devolve), para conferir de cabeca
+    const lojasInfo = loja ? [loja] : Object.keys(PROJ_COSTUMA_INFO);
+    const porSem = (k) => lojasInfo.reduce((s, u) => s + (((PROJ_COSTUMA_INFO[u] || {}).porSemana || {})[k] || 0), 0);
+    const info0 = PROJ_COSTUMA_INFO[lojasInfo[0]] || {};
+    const jn = info0.janela;
+    const pagoDe = jn ? ` (pago de ${dm(jn[0])} a ${dm(jn[1])})` : '';
+    avisos.push(`Costuma sair por semana${pagoDe}: mercadoria ${fxMil(porSem('MERCADORIA'))} · motoboys ${fxMil(porSem('MOTOBOYS'))} · diaristas ${fxMil(porSem('DIARISTAS'))}. A coluna usa a estimativa maior de saída; onde aparecem dois números, vão da menor à maior.`);
+    // a filial: a coluna nova NAO tem o que a loja costuma pagar a Agua Verde pela lista e pelo bonus. O numero vem do
+    // banco e so conta o que casa dos dois lados (saiu da filial e entrou na Agua Verde, mesmo dia e mesmo valor)
+    if (SUB_FILIAL[loja] && info0.pagaAV > 0.005) avisos.push(`<b style="color:var(--amber-2);">Fora da coluna “Com o que costuma sair”:</b> o que a loja costuma pagar à Água Verde pela lista e pelo bônus — ${fxMil(info0.pagaAV)} por semana${pagoDe}.`);
+    // HOJE: o extrato de hoje ja fechou o dia (a estimativa de hoje sai) ou e' do meio do dia (a estimativa fica, e a tela diz)
+    const estHoje = (costumaDia[P.hojeIso] || {}).cheia || 0;
+    if (P.costumaForaHoje > 0.5) avisos.push(`O extrato de hoje já fechou o dia: a estimativa de hoje (${fxMil(P.costumaForaHoje)}) ficou de fora, para não contar duas vezes o que já saiu.`);
+    else if (P.extratoParcialHoje && estHoje > 0.5) avisos.push(`<b style="color:var(--amber-2);">O extrato de hoje é do meio do dia:</b> a estimativa de hoje (${fxMil(estHoje)}) continua na conta. O que já saiu hoje pode estar contado duas vezes: por esse lado, o saldo de hoje pode estar pior do que o real.`);
+    // titulo a pagar sem classificacao no plano de contas: esta no saldo, mas nao abate a estimativa
+    const semClasse = PROJ_PAGAR.filter(r => (!loja || r.unidade === loja) && r.debito > 0 && (r.natureza === 'SEM CLASSIFICACAO' || r.tipo === 'SEM CLASSIFICACAO'))
+      .reduce((s, r) => s + r.debito, 0);
+    if (semClasse > 0.005) avisos.push(`<b style="color:var(--amber-2);">${reais(semClasse)} a pagar sem classificação no Saipos:</b> estão no saldo, mas não abatem a estimativa — pode estar contando duas vezes. Classificar no Saipos.`);
+  }
   if (loja) avisos.push('Só este bloco muda de loja; o resto da tela continua da Rede.');
   avisos.push('O quadro "Pagar as contas de hoje", logo abaixo, não conta o que entra na semana: por isso a "sobra em 7 dias" de lá é bem menor que o saldo daqui.');
 
   return `
   <div class="section-label">Saldo dia a dia até ${dm(ultimo)} — ${nomeLoja}</div>
-  <div class="contexto" style="text-align:left; border-color:var(${pior.saldo < -0.005 ? '--farol-fora' : '--farol-ok'});">${frase}</div>
+  <div class="contexto" style="text-align:left; border-color:var(${pior.saldo < -0.005 || (piorC && piorC.costuma < -0.005) ? '--farol-fora' : '--farol-ok'});">${frase}${fraseCostuma}</div>
   ${seletor}
+  ${projFaixaLimite(loja)}
   <div id="tabelaSaldoDia"><table>
-    <thead><tr><th>Dia</th><th>Entra</th><th>Sai</th><th>Saldo no fim do dia</th></tr></thead>
+    <thead><tr><th>Dia</th><th>Entra</th><th>Sai</th><th>Saldo no fim do dia</th>${temCostuma ? '<th>Com o que costuma sair <span style="font-weight:400; color:var(--amber-2);">estimativa</span></th>' : ''}</tr></thead>
     <tbody>${linhaPartida}${linhas}</tbody></table></div>
   <div class="caption-label" style="text-align:left;">
     <b>Entra</b> = média do que caiu na conta nesse dia da semana (4 semanas) + o que está lançado a receber.
-    <b>Sai</b> = contas já lançadas (compra que ainda não chegou, motoboy e diária dos próximos dias não entram). Clique no dia para ver as contas.
+    ${temCostuma
+      ? `<b>Sai</b> e <b>Saldo</b> = só as contas já lançadas. <b>Com o que costuma sair</b> = o mesmo saldo menos a <b>estimativa</b> do que sai todo mês e ninguém lança antes: mercadoria, motoboys e diaristas (média das 4 últimas semanas pagas) e o resto (média de 3 meses), sempre descontado o que já está lançado. Clique no dia para ver as contas.`
+      : `<b>Sai</b> = contas já lançadas (compra que ainda não chegou, motoboy e diária dos próximos dias não entram). Clique no dia para ver as contas.`}
     ${avisos.map(a => `<div style="margin-top:4px;">${a}</div>`).join('')}
   </div>`;
 }
@@ -20728,6 +20846,275 @@ function projBonusQuartas(hojeIso, horizonte) {
 }
 
 // ------------------------------------------------------------------
+// O QUE COSTUMA SAIR E NINGUEM LANCA ANTES (passo 6 do plano das telas; dono, 10/10/2026: "pode sim incluir
+// todas as projecoes de despesas"). A conta NAO e' feita aqui: quem calcula e' o banco, na view
+// vw_fin_saida_costuma_sair (mercadoria, motoboys e diaristas pela media das 4 ultimas semanas pagas; "o resto"
+// pela media de 3 meses; sempre menos o que ja esta lancado, nunca negativo). A tela so SOMA, dia a dia, por cima
+// do saldo lancado. '' = Rede = as lojas todas somadas (o que uma loja paga a outra nao esta na view).
+// Devolve { dias: { 'AAAA-MM-DD': { cheia, ritmo, MERCADORIA, MOTOBOYS, DIARISTAS, RESTO } }, foraHoje } ou null
+// (view nao instalada). cheia = a estimativa MAIOR de saida (cada conta completa o que costuma somar);
+// ritmo = a MENOR (titulo lancado acima do costume abate o que falta).
+// REDE = TODAS as lojas com conta de caixa: se a view nao trouxe alguma (login que so ve a propria loja), a Rede
+// fica SEM a coluna — soma pela metade nao aparece como se fosse a Rede.
+// HOJE SEM DOBRO: a estimativa de hoje de uma loja so fica de fora quando o extrato de HOJE ja FECHOU o dia em todas
+// as contas de banco dela (lojasFechadasHoje, que vem do motor) — ai o que saiu hoje ja esta no saldo. Com extrato do
+// MEIO do dia a estimativa de hoje FICA inteira (lado prudente). O que ficou de fora volta em foraHoje.
+// ------------------------------------------------------------------
+function projCostumaDia(unidade, hojeIso, lojasFechadasHoje) {
+  if (!PROJ_COSTUMA) return null;
+  const lojas = unidade ? [unidade] : [...new Set((DFC_CONTAS_RAW || [])
+    .filter(c => c.unidade && !c.conta.startsWith('CREDITO') && !PROJ_FORA_CAIXA.includes(c.conta)).map(c => c.unidade))];
+  if (!lojas.length || lojas.some(u => !PROJ_COSTUMA[u])) return null;
+  const dias = {};
+  let foraHoje = 0;
+  lojas.forEach(u => Object.keys(PROJ_COSTUMA[u]).forEach(dia => {
+    const x = PROJ_COSTUMA[u][dia];
+    if (dia === hojeIso && lojasFechadasHoje && lojasFechadasHoje.has(u)) { foraHoje += x.cheia; return; }
+    const s = (dias[dia] = dias[dia] || { cheia: 0, ritmo: 0 });
+    Object.keys(x).forEach(k => { s[k] = (s[k] || 0) + x[k]; });
+  }));
+  return { dias, foraHoje };
+}
+
+// ------------------------------------------------------------------
+// SALDO DE PARTIDA DO MEIO DO DIA (10/10/2026). O saldo de partida e' o do ultimo extrato. Quando o extrato foi
+// baixado antes de o dia fechar, o que saiu da conta depois nao esta nele — e o que ja foi baixado no Saipos saiu da
+// lista de contas a pagar: some dos dois lados, e a projecao fica melhor que o real ate o proximo extrato.
+// QUANTO: quem diz e' o banco, na view vw_fin_pago_fora_do_extrato (o que esta pago no Saipos na conta, do dia do
+// extrato em diante, e ainda nao aparece nele). A tela NAO mexe no saldo de partida: so avisa, com o numero.
+// So entra a conta cuja linha da view fala do MESMO extrato do saldo de partida. Conta com extrato antigo vem sem
+// numero (la falta tambem o que entrou depois) e continua no aviso de extrato antigo. '' = Rede.
+// Devolve { total, contas: [{ nome, unidade, valor, dia, hora, parcial }], porLoja: { loja: R$ } } ou null (sem a view).
+// ------------------------------------------------------------------
+function projForaDoExtrato(unidade) {
+  if (!PROJ_FORA_EXTRATO) return null;
+  const ancora = {};
+  (PROJ_ANCORA || []).forEach(a => { ancora[a.conta] = a; });
+  const contas = [], porLoja = {};
+  let total = 0;
+  (DFC_CONTAS_RAW || []).forEach(c => {
+    if (c.conta.startsWith('CREDITO') || PROJ_FORA_CAIXA.includes(c.conta)) return;
+    if (unidade && c.unidade !== unidade) return;
+    const a = ancora[c.conta], r = PROJ_FORA_EXTRATO.find(x => x.conta === c.conta);
+    if (!a || !r || r.data_extrato !== a.data_saldo || r.pago_fora_do_extrato == null) return;
+    const valor = Number(r.pago_fora_do_extrato) || 0;
+    if (valor < 0.005) return;
+    contas.push({ nome: c.apelido || c.conta, unidade: c.unidade, valor, dia: r.data_extrato,
+                  hora: String(r.extrato_lido_em || '').slice(11, 16).replace(':', 'h'), parcial: !!r.extrato_parcial });
+    porLoja[c.unidade] = (porLoja[c.unidade] || 0) + valor;
+    total += valor;
+  });
+  return { total, contas, porLoja };
+}
+// A frase do aviso — um jeito so, para o bloco e para a faixa do limite. deQuem = de quem sao os numeros ("da Água Verde e da Rede").
+function projForaDoExtratoFrase(F, deQuem) {
+  if (!F || F.total < 0.005) return '';
+  const SEM = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
+  const dia = (s) => `${SEM[new Date(s + 'T00:00:00').getDay()]} ${s.slice(8, 10)}/${s.slice(5, 7)}`;
+  const quando = (c) => c.parcial && c.hora ? `das ${c.hora} de ${dia(c.dia)}` : `de ${dia(c.dia)}`;
+  const fim = `o próximo extrato, os números ${deQuem} estão esse tanto, ou mais, melhores que o real. O que saiu do banco depois do extrato e ainda não foi lançado no Saipos não entra nesta conta.`;
+  if (F.contas.length === 1) {
+    const c = F.contas[0];
+    return `<b style="color:var(--amber-2);">O saldo de ${trEscH(c.nome)} é do extrato ${quando(c)}.</b> Depois dele o Saipos tem pelo menos <b>R$ ${fmt(c.valor)}</b> pagos nessa conta que ainda não aparecem no banco: até ${fim}`;
+  }
+  return `<b style="color:var(--amber-2);">O saldo de partida não tem tudo o que o Saipos já pagou.</b> São pelo menos <b>R$ ${fmt(F.total)}</b> pagos que ainda não aparecem no banco — ${F.contas.map(c => `${trEscH(c.nome)} (extrato ${quando(c)}): R$ ${fmt(c.valor)}`).join(' · ')}. Até ${fim}`;
+}
+
+// ------------------------------------------------------------------
+// LIMITE DO BANCO (dono, 10/10/2026: "o limite tem uma regra ... pensa nisso tambem no fluxo" e, com o print dos
+// juros, "nao posso mais deixar isso acontecer"). Os DADOS do limite moram em fin_limite_conta (limite, taxa, dias
+// sem juros, dia em que o mes do banco vira, renovacao, fonte e data); o calendario do mes do banco e o saldo com
+// que o banco FECHOU cada dia vem de vw_fin_limite_dia. Aqui so se conta dia e se soma saldo:
+//   - FATO = o dia passado em que a view sabe o saldo (dia util com saldo carregado do proprio dia; sabado, domingo
+//     e feriado valem o ultimo dia util — e' assim que o banco conta os dias);
+//   - SEM EXTRATO = dia passado sem saldo carregado: NAO e' fato; entra pelo ultimo saldo conhecido, como estimativa,
+//     e a faixa diz quantos sao;
+//   - de hoje em diante e' a projecao da LOJA da conta (o mesmo projCalc do bloco: a conta da folha e o cartao sao
+//     pagos por ela), e dia com o banco fechado repete o ultimo dia util;
+//   - juros = saldo negativo de cada dia x taxa do mes / 30, parando no limite. Ate N dias no mes do banco nao
+//     cobra; passou de N, cobra de todos (cobra_de_todos) ou so dos que passaram.
+// Tres series por dia: lanc (so o lancado), bom (com a estimativa MENOR de saida) e ruim (com a MAIOR). Sem a view
+// da estimativa, as tres sao o lancado. Cada serie tem o SEU dia mais fundo — e FATO e PROJECAO tem cada um o seu:
+// piorFato = o dia mais fundo que o banco ja fechou (saldo da CONTA); piorProj = o mais fundo de hoje em diante
+// (saldo da LOJA). A faixa nunca mistura os dois na mesma frase.
+// ------------------------------------------------------------------
+function projLimiteCalc(cfg) {
+  const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+  const hojeIso = hoje.toISOString().slice(0, 10);
+  const conta = (DFC_CONTAS_RAW || []).find(c => c.conta === cfg.conta);
+  const loja = conta ? conta.unidade : '';   // '' = a conta do limite nao esta entre as contas ativas do painel
+  const P = (loja && PROJ_RECEB_LOJA) ? projCalc(loja) : null;
+  const idx = {};
+  if (P) P.dias.forEach((d, i) => { idx[d] = i; });
+  const limite = Number(cfg.limite), taxaDia = Number(cfg.taxa_mes_pct) / 100 / 30, gratis = Number(cfg.dias_sem_juros);
+  const meses = [];
+  let ult = null;   // o saldo do ultimo dia com banco aberto
+  PROJ_LIMITE.dias.filter(d => d.conta === cfg.conta).forEach(d => {
+    let x, tipo;
+    if (d.fato || d.sem_extrato) {
+      if (d.saldo == null) return;              // dia passado sem nenhum saldo antes dele
+      const s = Number(d.saldo);
+      x = ult = { lanc: s, bom: s, ruim: s };
+      tipo = d.fato ? 'fato' : 'semExtrato';
+    } else if (!P || !(d.dia in idx)) {
+      return;                                   // depois de onde a tela projeta
+    } else if (d.dia_util || !ult) {
+      const i = idx[d.dia], lanc = P.serieSaldo[i];
+      x = ult = { lanc, bom: P.costumaDia ? P.serieRitmo[i] : lanc, ruim: P.costumaDia ? P.serieCostuma[i] : lanc };
+      tipo = 'proj';
+    } else {
+      x = ult;                                  // banco fechado: vale o saldo do ultimo dia util
+      tipo = 'proj';
+    }
+    let m = meses[meses.length - 1];
+    if (!m || m.ini !== d.mes_banco_ini) meses.push(m = { ini: d.mes_banco_ini, fim: d.mes_banco_fim, dias: [] });
+    m.dias.push({ dia: d.dia, tipo, extrato: d.data_extrato || null, parcial: !!d.extrato_parcial, lidoEm: d.extrato_lido_em || null, lanc: x.lanc, bom: x.bom, ruim: x.ruim });
+  });
+  const maisFundo = (ds, k) => ds.length ? ds.reduce((a, b) => (b[k] < a[k] ? b : a), ds[0]) : null;
+  const resumo = (m, k) => {
+    const neg = m.dias.filter(d => d[k] < -0.005);
+    const cobrados = neg.length <= gratis ? [] : (cfg.cobra_de_todos === false ? neg.slice(gratis) : neg);
+    return { dias: neg.length,
+             juros: cobrados.reduce((s, d) => s + Math.min(-d[k], limite), 0) * taxaDia,
+             pior: maisFundo(m.dias, k),                                        // o dia mais fundo DESTA serie, no mes inteiro
+             piorProj: maisFundo(m.dias.filter(d => d.tipo === 'proj'), k) };   // so de HOJE em diante (null = nao ha projecao no mes)
+  };
+  meses.forEach(m => {
+    const fatos = m.dias.filter(d => d.tipo === 'fato');
+    m.negFato = fatos.filter(d => d.lanc < -0.005).length;                 // dias fechados no negativo: so FATO
+    m.ultFato = fatos.length ? fatos[fatos.length - 1].dia : null;         // ate que dia essa contagem vai
+    m.piorFato = maisFundo(fatos, 'lanc');                                 // o dia mais fundo que o banco ja fechou (saldo da CONTA)
+    m.ultExtrato = fatos.reduce((a, d) => (d.extrato && (!a || d.extrato > a) ? d.extrato : a), null);   // ate que dia ha saldo carregado
+    m.semExtrato = m.dias.filter(d => d.tipo === 'semExtrato').length;     // dias passados sem extrato (fora do fato)
+    // o ultimo saldo foi lido no proprio dia dele? entao e' o saldo do MEIO do dia: o que saiu depois nao esta nele
+    const uf = fatos[fatos.length - 1];
+    m.extratoParcial = uf && uf.parcial && uf.extrato ? { dia: uf.extrato, hora: String(uf.lidoEm || '').slice(11, 16).replace(':', 'h') } : null;
+    m.ultimo = m.dias[m.dias.length - 1].dia;
+    m.completo = m.ultimo >= m.fim;
+    m.temProj = m.dias.some(d => d.tipo === 'proj');
+    m.lanc = resumo(m, 'lanc'); m.bom = resumo(m, 'bom'); m.ruim = resumo(m, 'ruim');
+  });
+  return { hojeIso, loja, limite, gratis, temProj: !!P, temCostuma: !!(P && P.costumaDia),
+           contas: P ? P.partida.map(c => c.conta) : [], meses };
+}
+
+// A faixa na tela: uma por conta com limite; aparece na Rede e na loja da conta.
+function projFaixaLimite(lojaBloco) {
+  if (!PROJ_LIMITE || !PROJ_PAGAR || !PROJ_RECEB) return '';
+  const SEM = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+  const dm = (s) => s.slice(8, 10) + '/' + s.slice(5, 7);
+  const rot = (s) => `${dm(s)} (${SEM[new Date(s + 'T00:00:00').getDay()]})`;
+  const diasEntre = (a, b) => Math.round((new Date(b + 'T00:00:00') - new Date(a + 'T00:00:00')) / 86400000);
+  const perto = (a, b) => Math.abs(a - b) < 500;
+  const faixa = (a, b) => perto(a, b) ? fxMil(b) : `de ${fxMil(a)} a ${fxMil(b)}`;
+  const nDias = (a, b) => { const lo = Math.min(a, b), hi = Math.max(a, b); return lo === hi ? `${hi} ${hi === 1 ? 'dia' : 'dias'}` : `${lo} a ${hi} dias`; };
+  // juros so em MILHARES arredondados: a conta nao tem precisao para mais do que isso (ver "errou de ... a ...")
+  const jurosMil = (a, b) => {
+    const lo = Math.min(a, b), hi = Math.max(a, b), rl = Math.round(lo / 1000), rh = Math.round(hi / 1000);
+    if (hi < 500) return 'menos de R$ 1 mil';
+    if (rl === rh) return `perto de R$ ${rh} mil`;
+    return rl === 0 ? `até R$ ${rh} mil` : `de R$ ${rl} mil a R$ ${rh} mil`;
+  };
+  const pequeno = 'font-size:12px; color:var(--tx-3);';
+  return PROJ_LIMITE.cfg.map(cfg => {
+    const L = projLimiteCalc(cfg);
+    if (lojaBloco && lojaBloco !== L.loja) return '';
+    const iAtual = L.meses.findIndex(m => m.ini <= L.hojeIso && L.hojeIso <= m.fim);   // o mes do banco em que hoje cai
+    const atual = L.meses[iAtual];
+    if (!atual) return '';
+    const prox = L.meses[iAtual + 1] || null;
+    const ant = iAtual > 0 ? L.meses[iAtual - 1] : null;
+    const g = L.gratis;
+    const taxa = fmt(Number(cfg.taxa_mes_pct));
+    const fechados = (PROJ_LIMITE.meses || []).filter(r => r.conta === cfg.conta);   // meses do banco ja fechados (vw_fin_limite_mes)
+    const juros = (m) => m.ruim.juros < 0.5 ? 'sem juros' : `juros <b>${jurosMil(m.bom.juros, m.ruim.juros)}</b>`;
+    // PROJECAO: o ponto mais fundo de HOJE em diante (nunca um dia que ja passou) e quanto sobra ou falta do limite
+    const fundoProj = (m) => {
+      const pb = m.bom.piorProj, pr = m.ruim.piorProj;         // o dia mais fundo de CADA ponta da estimativa
+      if (!pb || !pr) return '';
+      const sb = L.limite + pb.bom, sr = L.limite + pr.ruim;   // quanto sobra (+) ou falta (-) do limite em cada ponta
+      const onde = pb.dia === pr.dia ? `em ${rot(pr.dia)}: ${faixa(pb.bom, pr.ruim)}`
+        : `${fxMil(pb.bom)} em ${dm(pb.dia)} ou ${fxMil(pr.ruim)} em ${dm(pr.dia)}`;
+      const sobra = sr >= 0 ? `sobram ${perto(sr, sb) ? fxMil(sr) : `de ${fxMil(sr)} a ${fxMil(sb)}`} do limite`
+        : (sb >= 0 ? `do limite, vai de ${fxMil(sb)} de sobra a ${fxMil(-sr)} de falta`
+                   : `<b style="color:var(--farol-fora);">faltam ${perto(sb, sr) ? fxMil(-sr) : `de ${fxMil(-sb)} a ${fxMil(-sr)}`} para caber no limite</b>`);
+      return `ponto mais fundo ${onde} — ${sobra}`;
+    };
+    // passa do limite? (a ponta mais funda da projecao, ou o que o banco ja fechou)
+    const passa = (m) => !!m && ((m.ruim.piorProj && L.limite + m.ruim.piorProj.ruim < -0.005) || (m.piorFato && L.limite + m.piorFato.lanc < -0.005));
+    const estourou = atual.negFato > g;
+    const vaiEstourar = atual.ruim.dias > g || (prox && prox.ruim.dias > g);
+    const passaLimite = passa(atual) || passa(prox);
+    const semExt = (m) => m.semExtrato ? ` <span style="${pequeno}">${nDias(m.semExtrato, m.semExtrato)} sem extrato do banco: fora desta contagem.</span>` : '';
+    const linhas = [];
+    // 0) o mes do banco que acabou de fechar fica na tela por 7 dias: e' quando o banco debita os juros dele
+    if (ant && diasEntre(ant.fim, L.hojeIso) <= 7) {
+      const f = fechados.find(r => r.mes_banco_ini === ant.ini);
+      const deb = f && f.juros_debitado != null ? Number(f.juros_debitado) : null;
+      linhas.push(`Mês do banco que fechou em ${dm(ant.fim)}: <b>${nDias(ant.negFato, ant.negFato)} no negativo</b>.${semExt(ant)} ${deb != null
+        ? `O banco debitou <b>R$ ${fmt(deb)}</b> de juros${f.data_debito ? ` em ${dm(f.data_debito)}` : ''}.`
+        : (ant.ruim.juros < 0.5 ? `Não passou dos ${g} dias: sem juros.`
+                                : `O banco debita os juros desse mês nos próximos dias: <b>${jurosMil(ant.ruim.juros, ant.ruim.juros)}</b>, pela taxa de hoje.`)}`);
+    }
+    // 1) o FATO: quantos dias o banco ja contou neste mes do banco (a contagem e a data falam do mesmo dia) e o dia
+    //    mais fundo que ele ja fechou — saldo da CONTA, em frase so de fato
+    const pf = atual.piorFato;
+    linhas.push(atual.ultFato
+      ? `<b>${nDias(atual.negFato, atual.negFato)} no negativo</b> de ${dm(atual.ini)} a ${dm(atual.ultFato)} <span style="${pequeno}">(extrato do banco até ${dm(atual.ultExtrato || atual.ultFato)}${atual.extratoParcial ? `, lido às ${atual.extratoParcial.hora} desse dia: o saldo de ${dm(atual.extratoParcial.dia)} ainda pode mudar` : ''}${atual.ultExtrato && atual.ultExtrato < atual.ultFato ? '; sábado, domingo e feriado repetem o último dia útil' : ''})</span> — ${estourou
+          ? `já passou dos ${g} dias sem juros.`
+          : (atual.negFato === g ? `acabaram os ${g} dias sem juros: mais um dia no negativo e o banco cobra.` : `ainda ${nDias(g - atual.negFato, g - atual.negFato)} sem juros.`)}${pf && pf.lanc < -0.005 ? ` O dia mais fundo que o banco já fechou foi ${rot(pf.dia)}: ${fxMil(pf.lanc)} na conta${L.limite + pf.lanc < -0.005 ? ` — <b style="color:var(--farol-fora);">${fxMil(-(L.limite + pf.lanc))} além do limite</b>` : ''}.` : ''}${semExt(atual)}`
+      : `O mês do banco começou em ${dm(atual.ini)}: ainda nenhum dia fechado com extrato.${semExt(atual)}`);
+    // 1b) o saldo de partida e' do meio do dia? quanto o Saipos ja tem pago que o extrato ainda nao mostra (numero do banco)
+    const fora = L.loja ? projForaDoExtratoFrase(projForaDoExtrato(L.loja), 'desta faixa') : '';
+    if (fora && L.temProj) linhas.push(fora);
+    // 2) ate o fim do mes do banco, pela projecao (frase so de projecao: o ponto mais fundo e' de hoje em diante)
+    if (L.temProj && atual.temProj) {
+      const fp = fundoProj(atual);
+      linhas.push(`Até ${dm(atual.ultimo)}${atual.completo ? '' : ' (até onde esta tela projeta)'} deve fechar com <b>${nDias(atual.bom.dias, atual.ruim.dias)} no negativo</b> <span style="${pequeno}">(${L.temCostuma ? `${atual.lanc.dias} só com o que está lançado` : 'só com o que está lançado'})</span>, ${juros(atual)}.${fp ? ` De hoje até lá, ${fp}.` : ''}`);
+    }
+    // 3) o mes do banco seguinte, ate onde a tela projeta
+    if (L.temProj && prox && prox.temProj) {
+      const fp = fundoProj(prox);
+      linhas.push(`Mês seguinte, de ${dm(prox.ini)} a ${dm(prox.ultimo)}${prox.completo ? '' : ' (até onde esta tela projeta)'}, ${prox.dias.length} dias: <b>${nDias(prox.bom.dias, prox.ruim.dias)} no negativo</b>, ${juros(prox)}${fp ? `; ${fp}` : ''}.`);
+    }
+    // de que saldo a faixa fala: o da LOJA da conta (nao so a conta do banco) — e na Rede ela fala so dessa loja.
+    // Sem a projecao (falta a receita por loja, ou a conta do limite nao esta entre as ativas) a faixa mostra so o
+    // que o banco ja fechou, e diz isso.
+    const nomeLoja = (PROJ_DIA_LOJAS.find(x => x[0] === L.loja) || ['', L.loja])[1];
+    const deQuem = !L.loja
+      ? `A conta do limite (${trEscH(cfg.conta)}) não está entre as contas ativas do painel: aqui aparece só o que o banco já fechou, sem projeção.`
+      : (!L.temProj
+        ? `Sem a receita por loja, aqui aparece só o que o banco já fechou na conta: a projeção da ${trEscH(nomeLoja)} não entra nesta faixa.`
+        : `De hoje em diante a conta é feita com o saldo da <b>loja ${trEscH(nomeLoja)}</b>${L.contas.length ? ` (${L.contas.map(trEscH).join(' + ')})` : ''}, não só com a conta do banco.${lojaBloco ? '' : ` <b>Esta faixa fala só da ${trEscH(nomeLoja)}</b>: os números dela não são os da tabela da Rede, logo abaixo.`}`);
+    // juros: pela taxa de hoje, a renovacao e quanto a mesma conta ja errou nos meses que o banco cobrou
+    const ren = cfg.renovacao || null;
+    const renTxt = !ren ? '' : (ren >= L.hojeIso
+      ? ` O limite renova em ${dm(ren)} e a taxa pode mudar${!L.temProj ? '' : (ren <= atual.fim ? ': daí em diante os juros estão pela taxa de antes'
+            : (prox && ren <= prox.fim ? ': os juros do mês seguinte estão pela taxa de antes' : ''))}.`
+      : ` O limite renovou em ${dm(ren)}: conferir no aplicativo se a taxa mudou.`);
+    const erros = fechados.filter(r => r.erro_pct != null).map(r => Number(r.erro_pct));
+    const eMin = erros.length ? Math.min.apply(null, erros) : 0, eMax = erros.length ? Math.max.apply(null, erros) : 0;
+    const erroTxt = !erros.length ? '' : ` Nos ${erros.length === 1 ? 'mês' : erros.length + ' meses'} que o banco já cobrou, esta mesma conta errou ${eMin < 0 && eMax > 0
+      ? `de ${Math.round(-eMin)}% para menos a ${Math.round(eMax)}% para mais`
+      : (eMax <= 0 ? `de ${Math.round(-eMax)}% a ${Math.round(-eMin)}% para menos` : `de ${Math.round(eMin)}% a ${Math.round(eMax)}% para mais`)}: por isso os juros vão arredondados, em milhares.`;
+    const regra = cfg.cobra_de_todos === false
+      ? `passou de ${g} dias no negativo, o banco cobra só os dias além do ${g}º`
+      : `passou de ${g} dias no negativo, o banco cobra de todos os dias do mês`;
+    const nome = trEscH(cfg.nome_tela || ('Limite — ' + cfg.conta));
+    return `<div class="contexto" style="text-align:left; border-color:var(${estourou || passaLimite ? '--farol-fora' : (vaiEstourar ? '--farol-perto' : '--farol-ok')});">
+      <b style="font-size:15px;">${nome}</b>
+      <span style="${pequeno}"> · limite de R$ ${fmt(L.limite)} · mês do banco de ${dm(atual.ini)} a ${dm(atual.fim)} · até ${g} dias no negativo não paga juros · passou disso, ${taxa}% ao mês</span>
+      ${linhas.map(l => `<div style="margin-top:5px;">${l}</div>`).join('')}
+      <div style="margin-top:6px; ${pequeno}">${deQuem}</div>
+      <div style="margin-top:4px; ${pequeno}">${L.temProj ? `Juros pela taxa de hoje, ${taxa}% ao mês.${renTxt}${erroTxt}` : `Taxa de hoje: ${taxa}% ao mês.${renTxt}`}</div>
+      <div style="margin-top:4px; ${pequeno}">${L.temProj ? `Daqui para a frente, dias e juros são <b>estimativa</b>${L.temCostuma ? ': os dois números são o saldo com a estimativa menor e com a maior do que costuma sair' : ', só com o que está lançado'}; o IOF não está na conta.
+        ` : ''}Regra${L.temProj ? ' usada' : ' do banco'}: ${regra}${cfg.regra_confirmada ? '.' : ' — é como o extrato e o aplicativo mostram, <b>ainda não confirmado com o banco</b>.'}
+        Dados do limite: ${trEscH(cfg.fonte || '')}.</div>
+    </div>`;
+  }).join('');
+}
+
+// ------------------------------------------------------------------
 // O MOTOR DA PROJECAO (tirado de dentro de renderModuloProjecao em 10/10/2026, sem mudar a conta).
 // UMA conta so: os cartoes, a frase, o grafico, a agenda e o bloco "Saldo dia a dia" leem daqui.
 // unidade '' = a Rede (o que a tela sempre mostrou). 'AGUA VERDE' | 'AHU' | 'SÃO BRAZ' = o mesmo
@@ -20767,7 +21154,7 @@ function projCalc(unidade) {
     if (PROJ_FORA_CAIXA.includes(c.conta)) investido += s;
     else {
       caixaOper += s;
-      partida.push({ conta: c.apelido || c.conta, saldo: s, doBanco: !!a });
+      partida.push({ conta: c.apelido || c.conta, saldo: s, doBanco: !!a, dataSaldo: a ? a.data_saldo : null });
       if (a) {
         atrasoSaipos += Number(a.diferenca);
         if (Number(a.idade_dias) > idadeMax) idadeMax = Number(a.idade_dias);
@@ -20794,6 +21181,30 @@ function projCalc(unidade) {
   }
   const mediaSemana = Object.values(mediaDow).reduce((s, x) => s + x, 0);
 
+  // ---- ATACADO SEM CONTAR EM DOBRO: A REGRA DO MAIOR ACUMULADO (a outra metade do passo 2 do plano das telas; 10/10/2026) ----
+  // O boleto do ePadoca a receber ja entra como FATO (PROJ_PAGAR, origem EPADOCA) e a media de entrada acima tem a
+  // revenda do atacado dentro: o mesmo dinheiro duas vezes. A REGRA: contando A PARTIR DE HOJE, o atacado que a projecao
+  // soma ATE CADA DIA e' o MAIOR entre (a) os boletos a receber ate aquele dia e (b) o que costuma entrar de atacado ate
+  // aquele dia pela media; a entrada de atacado do dia e' o AUMENTO desse acumulado (nunca negativa). Assim o atacado
+  // nunca conta duas vezes e nunca fica abaixo do ritmo normal. (A regra anterior, "sem a media ate o ultimo boleto",
+  // deixava um boleto solto de R$ 1.246,25 tirar R$ 13 mil de entrada de 22/10 em diante.)
+  // Quem diz o que e' atacado e' o banco (coluna recebido_atacado da view da receita por conta).
+  // A MEDIA POR DIA DA SEMANA do atacado ainda e' feita AQUI, na MESMA janela e do MESMO jeito da media de entrada logo
+  // acima: AS DUAS MEDIAS VAO JUNTAS PARA O BANCO NO PASSO 5 DO PLANO DAS TELAS ("a media que sobra calculada num lugar
+  // so", contexto/project_contas_fluxo_geradores_2026_10.md) — quem mexer numa mexe na outra.
+  // Sem a coluna (PROJ_ATACADO = null) nada muda: nao ha ajuste nenhum.
+  const atacadoDoDia = (r) => !PROJ_ATACADO ? 0
+    : (unidade ? ((PROJ_ATACADO.porLoja[unidade] || {})[r.data] || 0) : (PROJ_ATACADO.rede[r.data] || 0));
+  const atacadoDow = {};
+  for (let d = 0; d < 7; d++) atacadoDow[d] = 0;
+  janelaReceb.forEach(r => {
+    const dow = new Date(r.data + 'T00:00:00').getDay();
+    atacadoDow[dow] += atacadoDoDia(r) / porDow[dow].length;
+  });
+  // nunca negativa nem maior que a media do dia
+  for (let d = 0; d < 7; d++) atacadoDow[d] = Math.min(Math.max(atacadoDow[d], 0), Math.max(mediaDow[d], 0));
+  const atacadoSemana = Object.values(atacadoDow).reduce((s, x) => s + x, 0);
+
   // ---- contas a pagar/receber por dia (vencidas caem em hoje) ----
   // Peca 2: vencida que JA SAIU do banco (achou_no_banco) sai da projecao —
   // o debito ja esta dentro do saldo ancorado; subtrair de novo contaria
@@ -20803,6 +21214,8 @@ function projCalc(unidade) {
     .forEach(v => jaSaiuBanco.add(`${v.vencimento}|${v.debito}|${v.descricao || ''}`));
   const pagarDia = {}, receberDia = {}, itensDia = {};
   let vencidas = 0, jaPagasSemBaixa = 0, entreLojasFora = 0;
+  const boletoDia = {};                       // boletos do atacado a receber, no dia em que a projecao os poe
+  let ultBoleto = null, boletosAtacado = 0;   // o ultimo dia com boleto do atacado a receber, e quanto ha
   PROJ_PAGAR.forEach(r => {
     if (unidade && r.unidade !== unidade) return;   // por loja: so o que esta lancado nas contas dela
     // a projecao e' da Rede: o que uma loja tem a receber da outra nao e' dinheiro novo
@@ -20817,6 +21230,11 @@ function projCalc(unidade) {
     pagarDia[dia] = (pagarDia[dia] || 0) + r.debito;
     receberDia[dia] = (receberDia[dia] || 0) + r.credito;
     (itensDia[dia] = itensDia[dia] || []).push(r);
+    if (r.origem === 'EPADOCA' && r.credito > 0) {
+      boletoDia[dia] = (boletoDia[dia] || 0) + r.credito;
+      boletosAtacado += r.credito;
+      if (!ultBoleto || dia > ultBoleto) ultBoleto = dia;
+    }
   });
 
   // ---- bonus do iFood que vai para a aplicacao: sai toda quarta (passo 2 do plano das telas).
@@ -20832,6 +21250,35 @@ function projCalc(unidade) {
   // (a "fatura de cartao estimada" que ficava aqui saiu em 10/09/2026: as compras
   // a vencer chegam como SAIPOS_PREV e ja estao em PROJ_PAGAR, na data da fatura)
 
+  // ---- o que costuma sair e ninguem lanca antes (ESTIMATIVA; passo 6 do plano das telas). A conta e' do banco
+  // (vw_fin_saida_costuma_sair); aqui ela so e' somada, dia a dia, por cima do saldo lancado — que continua sendo
+  // o saldo dos cartoes, da frase, da agenda e da linha cheia do grafico. Sem a view: costumaDia = null.
+  // HOJE SEM DOBRO: a estimativa de hoje de uma loja so fica de fora quando o extrato de HOJE ja FECHOU o dia em
+  // TODAS as contas de banco dela. Extrato do MEIO do dia (lido no proprio dia: vw_fin_pago_fora_do_extrato diz) nao
+  // tira nada — a estimativa de hoje fica inteira, que e' o lado prudente, e o bloco avisa. Sem essa view nao da
+  // para dizer que o dia fechou: vale como extrato do meio do dia. ----
+  const lojasFechadasHoje = new Set(), lojasParcialHoje = new Set(), bancoDaLoja = {};
+  (DFC_CONTAS_RAW || []).forEach(c => {
+    const a = ancoraPorConta[c.conta];
+    if (!a || c.conta.startsWith('CREDITO') || PROJ_FORA_CAIXA.includes(c.conta)) return;
+    const x = (bancoDaLoja[c.unidade] = bancoDaLoja[c.unidade] || { contas: 0, fechouHoje: 0, parcialHoje: 0 });
+    x.contas++;
+    if (a.data_saldo !== hojeIso) return;
+    const r = (PROJ_FORA_EXTRATO || []).find(k => k.conta === c.conta && k.data_extrato === a.data_saldo);
+    if (r && r.extrato_parcial === false) x.fechouHoje++; else x.parcialHoje++;
+  });
+  Object.keys(bancoDaLoja).forEach(u => {
+    const x = bancoDaLoja[u];
+    if (x.fechouHoje === x.contas) lojasFechadasHoje.add(u);
+    else if (x.fechouHoje + x.parcialHoje > 0) lojasParcialHoje.add(u);
+  });
+  const costuma = projCostumaDia(unidade, hojeIso, lojasFechadasHoje);
+  const costumaDia = costuma ? costuma.dias : null;
+  const extratoParcialHoje = unidade ? lojasParcialHoje.has(unidade) : lojasParcialHoje.size > 0;
+  const serieCostuma = [], serieRitmo = [], serieSemAtacado = [];
+  let estCheia = 0, estRitmo = 0, atacadoFora = 0;
+  let acBoleto = 0, acMediaAt = 0, acAtacado = 0;   // atacado, somado desde hoje: os boletos, a media e o MAIOR dos dois
+
   // ---- projecao dia a dia ----
   const dias = [], serieSaldo = [], serieMedia = [];
   let saldo = caixaOper, menorSaldo = caixaOper, menorDia = hojeIso;
@@ -20840,18 +21287,36 @@ function projCalc(unidade) {
     const d = new Date(hoje); d.setDate(d.getDate() + i);
     const dIso = iso(d);
     const mediaDoDia = i === 0 ? 0 : mediaDow[d.getDay()];
-    const entradas = mediaDoDia + (receberDia[dIso] || 0);
+    // atacado, pela regra do MAIOR ACUMULADO: o dia entra com a media inteira e com os boletos, MENOS o que os dois
+    // contariam em dobro (semAtacado >= 0). O que fica de atacado no dia e' so o aumento do maior acumulado.
+    let semAtacado = 0;
+    if (PROJ_ATACADO) {
+      const bol = boletoDia[dIso] || 0, atMedia = i === 0 ? 0 : atacadoDow[d.getDay()];
+      acBoleto += bol; acMediaAt += atMedia;
+      const maior = Math.max(acBoleto, acMediaAt);
+      semAtacado = Math.max(bol + atMedia - (maior - acAtacado), 0);
+      acAtacado = maior;
+    }
+    const entradas = mediaDoDia + (receberDia[dIso] || 0) - semAtacado;
     let saidas = (pagarDia[dIso] || 0) + (bonusDia[dIso] || 0);   // o bonus sai junto, na quarta
     saldo += entradas - saidas;
     if (i <= 30) pagar30 += pagarDia[dIso] || 0;
     dias.push(dIso);
     serieSaldo.push(saldo);
     serieMedia.push(mediaDoDia);
+    serieSemAtacado.push(semAtacado);
+    atacadoFora += semAtacado;
+    const est = costumaDia && costumaDia[dIso];
+    if (est) { estCheia += est.cheia; estRitmo += est.ritmo; }
+    serieCostuma.push(costumaDia ? saldo - estCheia : null);   // com a estimativa MAIOR de saida
+    serieRitmo.push(costumaDia ? saldo - estRitmo : null);     // com a estimativa MENOR de saida
     if (saldo < menorSaldo) { menorSaldo = saldo; menorDia = dIso; }
   }
   return { hoje, iso, hojeIso, HORIZONTE, caixaOper, investido, atrasoSaipos, idadeMax, dataExtrato, temAncora,
            partida, janelaReceb, mediaDow, mediaSemana, pagarDia, receberDia, itensDia, vencidas, entreLojasFora,
-           dias, serieSaldo, serieMedia, menorSaldo, menorDia, pagar30, bonusDia };
+           dias, serieSaldo, serieMedia, menorSaldo, menorDia, pagar30, bonusDia,
+           costumaDia, costumaForaHoje: costuma ? costuma.foraHoje : 0, extratoParcialHoje, serieCostuma, serieRitmo, serieSemAtacado,
+           atacado: PROJ_ATACADO ? { dow: atacadoDow, semana: atacadoSemana, ate: ultBoleto, fora: atacadoFora, boletos: boletosAtacado } : null };
 }
 
 function renderModuloProjecao() {
@@ -20859,7 +21324,11 @@ function renderModuloProjecao() {
   // a Rede, sempre: e' a conta que esta tela mostra desde 12/09/2026
   const { hoje, iso, hojeIso, HORIZONTE, caixaOper, investido, atrasoSaipos, idadeMax, dataExtrato, temAncora,
           janelaReceb, mediaDow, mediaSemana, pagarDia, receberDia, itensDia, vencidas, entreLojasFora,
-          dias, serieSaldo, menorSaldo, menorDia, pagar30, bonusDia } = projCalc('');
+          dias, serieSaldo, serieMedia, serieSemAtacado, menorSaldo, menorDia, pagar30, bonusDia, costumaDia, serieCostuma, atacado } = projCalc('');
+  // atacado sem contar em dobro (regra do maior acumulado): ha o que tirar? (false = sem boleto a receber, ou a leitura nao veio)
+  const temAtacado = !!(atacado && atacado.fora > 0.005);
+  // a media sem o atacado, em centavos fechados (para o texto do cartao bater com os dois numeros que estao na tela)
+  const mediaSemAtacado = temAtacado ? (Math.round(mediaSemana * 100) - Math.round(atacado.semana * 100)) / 100 : mediaSemana;
 
   // ---- agenda de vencimentos (dias com lancamento, proximos 30) ----
   const fmtDia = (dIso) => {
@@ -20898,7 +21367,7 @@ function renderModuloProjecao() {
   let entAteMenor = receberDia[hojeIso] || 0, comprPeriodo = 0;
   for (let i = 1; i <= diasAteMenor; i++) {
     const d = new Date(hoje); d.setDate(d.getDate() + i);
-    entAteMenor += mediaDow[d.getDay()] + (receberDia[iso(d)] || 0);
+    entAteMenor += serieMedia[i] + (receberDia[iso(d)] || 0) - ((serieSemAtacado || [])[i] || 0);   // a entrada que o motor USOU no dia (sem contar o atacado duas vezes)
   }
   Object.keys(pagarDia).forEach(dia => { if (dia <= menorDia) comprPeriodo += pagarDia[dia]; });
   comprPeriodo -= vencidas;   // vencidas de verdade ganham linha propria
@@ -21015,7 +21484,8 @@ function renderModuloProjecao() {
     <div class="caption-label">As 4 colunas de datas são os últimos 28 dias com recebimento, em blocos de 7 — por isso
       um bloco pode atravessar mais de 7 dias de calendário. A média da direita é calculada como o motor da projeção
       calcula: <b>média por dia da semana</b> — por isso ela não é a soma das colunas ÷ 4. O TOTAL fecha ao centavo
-      com a "Receita projetada / semana" do card lá em cima.</div>`;
+      com a "Receita projetada / semana" do card lá em cima.${temAtacado ? ` <b>O atacado não conta duas vezes:</b> a projeção não soma
+      a média dele (R$ ${fmt(atacado.semana)} por semana) com os boletos a receber (R$ ${fmt(atacado.boletos)}) — de hoje até cada dia, vale o maior dos dois.` : ''}</div>`;
 
   const composicao = `
     ${composicaoSub}
@@ -21055,7 +21525,9 @@ function renderModuloProjecao() {
     (média por dia da semana das últimas 4 semanas). <b>Esta tela é sempre da rede</b> — saldos, contas a pagar
     e receita das três lojas juntas; o botão de loja das outras telas do financeiro não vale aqui.
     <b>O que não está lançado no Saipos não aparece</b>, fora o que o painel põe sozinho: boletos do atacado,
-    cobrança do Boqueirão e pagamentos fora da folha.
+    cobrança do Boqueirão e pagamentos fora da folha.${temAtacado ? ` <b>O atacado não conta duas vezes</b>: de hoje até cada dia, vale o maior
+    entre os boletos a receber e o que costuma entrar pela média.` : ''}${costumaDia ? ` A coluna "Com o que costuma sair" e a linha pontilhada do gráfico
+    somam, <b>como estimativa</b>, o que sai todo mês e ninguém lança antes (mercadoria, motoboys, diaristas e o resto).` : ''}
     <b>Não entram:</b> o que a Água Verde tem a receber do Ahú e do São Braz pelas listas e pelo benefício${entreLojasFora > 0.005 ? ` (R$ ${fmt(entreLojasFora)} em aberto)` : ''}
     — na Rede é dinheiro que só troca de bolso; a cobrança continua na tela Contas a pagar.
     <b>O bônus do iFood entra como saída de toda quarta</b> (vai para a aplicação): a semana já fechada pelo valor apurado, as seguintes pelo ritmo das últimas semanas.
@@ -21076,7 +21548,7 @@ function renderModuloProjecao() {
     <div class="card ${vencidas > 0.005 ? 'neg' : ''}"><div class="card-lbl">A pagar (30 dias)</div><div class="card-val">R$ ${fmt(pagar30)}</div>
       ${vencidas > 0.005 ? `<div class="card-pct" style="color:#ff6b6b;">R$ ${fmt(vencidas)} vencidas de verdade!</div>` : '<div class="card-pct">faturas de cartão entram na data de cada uma</div>'}</div>
     <div class="card"><div class="card-lbl">Receita projetada / semana</div><div class="card-val">R$ ${fmt(mediaSemana)}</div>
-      <div class="card-pct">média das últimas 4 semanas</div></div>
+      <div class="card-pct">média das últimas 4 semanas${temAtacado ? ` · sem o atacado, R$ ${fmt(mediaSemAtacado)}: ele não soma com os boletos a receber` : ''}</div></div>
     <div class="card" style="border-color:${corMenor};"><div class="card-lbl">Menor saldo projetado</div>
       <div class="card-val" style="color:${corMenor};">R$ ${fmt(menorSaldo)}</div>
       <div class="card-pct">em ${fmtDia(menorDia)}</div></div>
@@ -21123,14 +21595,21 @@ function renderModuloProjecao() {
     data: {
       labels: dias.map(d => d.slice(8, 10) + '/' + d.slice(5, 7)),
       datasets: [{
-        label: 'Saldo projetado',
+        label: costumaDia ? 'Só com o que está lançado' : 'Saldo projetado',
         data: serieSaldo,
         borderColor: corToken('--info'),
         backgroundColor: corTokenA('--info', 0.12),
         fill: true, tension: 0.25,
         pointRadius: dias.map(d => d === menorDia ? 5 : 2),
         pointBackgroundColor: dias.map(d => d === menorDia ? corMenor : corToken('--info')),
-      }],
+      }].concat(costumaDia ? [{
+        // ESTIMATIVA: o mesmo saldo menos o que costuma sair e ninguem lanca antes (a conta vem do banco, pelo motor)
+        label: 'Com o que costuma sair (estimativa)',
+        data: serieCostuma,
+        borderColor: corToken('--tx-2'),
+        borderDash: [6, 4], borderWidth: 2,
+        fill: false, tension: 0.25, pointRadius: 0,
+      }] : []),
     },
     options: {
       responsive: true, maintainAspectRatio: false,
@@ -21153,8 +21632,10 @@ function renderModuloProjecao() {
         e.native.target.style.cursor = temDestino ? 'pointer' : 'default';
       },
       plugins: {
-        legend: { display: false },
-        tooltip: { callbacks: { label: (c) => `R$ ${fmt(c.parsed.y)}` } },
+        legend: { display: !!costumaDia },   // duas linhas pedem legenda
+        // com as duas linhas: o nome de cada uma, negativo com o sinal na frente, e a estimativa sem centavos
+        tooltip: { callbacks: { label: (c) => !costumaDia ? `R$ ${fmt(c.parsed.y)}`
+          : `${c.dataset.label}: ${c.parsed.y < -0.005 ? '−' : ''}R$ ${c.datasetIndex === 1 ? fxInt(Math.abs(c.parsed.y)) : fmt(Math.abs(c.parsed.y))}` } },
       },
       scales: {
         // a linha do zero so aparece quando a escala cruza o zero — que e'
