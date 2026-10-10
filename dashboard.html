@@ -19958,6 +19958,7 @@ let PROJ_PAGAR = null;    // vw_fin_contas_pagar
 // pelo total de "Pagar as contas de hoje" e pelo cartao Rede de "A semana".
 const projEntreLojas = (r) => r.origem === 'LISTAS' && r.subtipo !== 'RECEITAS BOQUEIRAO' && Number(r.credito) > 0;
 let PROJ_BENEF = null;    // benefício iFood semanal (quadro da Hellen)
+let PROJ_RITMO_BONUS = null;   // vw_beneficio_ifood_farol: { ritmo, restante } — para estimar a semana que ainda nao fechou
 let PROJ_RECEB = null;    // vw_fin_receitas_diarias (ultimas semanas)
 let PROJ_ANCORA = null;   // vw_fin_saldo_banco_atual: saldo REAL do banco (OFX diario)
 let PROJ_VENC = null;     // vw_fin_vencidas_status: vencida ja saiu do banco ou nao
@@ -19966,6 +19967,10 @@ let PROJ_CAIXA = null;    // vw_fin_caixa_do_dia: saldo x o que vence, conta a c
 let PROJ_COM_ATACADO = null; // vw_comissao_atacado_semanal: 7,5% Jane + 7,5% Fabio sobre a revenda
 let PROJ_ATACADO_RECEBER = null; // vw_atacado_receber: boletos do atacado em aberto no portal do ePadoca (04/09/2026)
 let PROJ_FILTRO = { unidade: '', conta: '' };  // filtros do quadro de pagamento
+// Saldo dia a dia (10/10/2026): o que o bloco precisa alem do que a tela ja baixava
+let PROJ_RECEB_LOJA = null;   // vw_fin_receitas_diarias_conta -> { loja: { 'AAAA-MM-DD': recebido } }; null = sem seletor de loja
+let PROJ_FERIADOS = {};       // feriados -> { 'AAAA-MM-DD': nome }
+let PROJ_DIA = { loja: '', aberto: {} };   // estado do bloco: loja escolhida ('' = Rede) e dias abertos
 
 // contas que nao sao caixa operacional (investimentos, pessoais e cartoes)
 const PROJ_FORA_CAIXA = ['XP INVESTIMENTOS', 'PARTICIPACOES', 'FABIO PESSOAL'];
@@ -19981,7 +19986,7 @@ async function entrarProjecao() {
   if (PROJ_PAGAR === null) alvo.innerHTML = '<div class="contexto">Carregando projeção...</div>';
   const corte = new Date(); corte.setDate(corte.getDate() - 35);
   const corteIso = corte.toISOString().slice(0, 10);
-  const [pagar, receb, ancora, vencStatus, caixaDia, comAtacado, recebSub, benefSem, benefXp, benefCobr, _fin, atacadoReceber] = await Promise.all([
+  const [pagar, receb, ancora, vencStatus, caixaDia, comAtacado, recebSub, benefSem, benefXp, benefCobr, _fin, atacadoReceber, recebConta, feriados] = await Promise.all([
     consultarTudo('vw_fin_contas_pagar?select=vencimento,conta,conta_exibida,unidade,situacao,dias_vencida,sentido,subtipo,tipo,natureza,descricao,credito,debito,origem&order=vencimento'),
     consultarTudo(`vw_fin_receitas_diarias?select=data,recebido&data=gte.${corteIso}&order=data`),
     consultarTudo('vw_fin_saldo_banco_atual?select=conta,data_saldo,saldo_banco,idade_dias,saldo_saipos,diferenca'),
@@ -19992,14 +19997,36 @@ async function entrarProjecao() {
     // Benefício do iFood (comissão zero): quadro semanal para a Hellen acompanhar
     // e mandar para a XP toda quarta (regra do Fabio: não é dinheiro do fluxo).
     consultarTudo('vw_beneficio_semanal?select=*&order=semana'),
-    consultarTudo('vw_beneficio_xp_pendente?select=semana,valor,falta'),
+    consultarTudo('vw_beneficio_xp_pendente?select=semana,repasse_quarta,valor,falta'),
     consultarTudo('tr_cobrancas?select=unidade,tipo,valor_total,vencimento,status&tipo=in.(BENEFICIO,ACERTO)'),
     garantirDadosFin(),
     // contas a receber do atacado, lido do portal do ePadoca (rotina atacado-epadoca-portal)
     consultarTudo('vw_atacado_receber?select=pedido,cliente,status,valor,data_pedido,vencimento,dias_atraso,faixa,capturado_em&order=vencimento').catch(() => []),
+    // Saldo dia a dia (10/10/2026): a MESMA receita de vw_fin_receitas_diarias, aberta pela loja da
+    // conta (so para o seletor de loja; se a view faltar, o bloco mostra so a Rede), e os feriados
+    consultarTudo(`vw_fin_receitas_diarias_conta?select=data,unidade,recebido&data=gte.${corteIso}&order=data`).catch(() => null),
+    consultarTudo(`feriados?select=data,nome&data=gte.${corteIso}&order=data`).catch(() => []),
   ]);
+  PROJ_FERIADOS = {};
+  (feriados || []).forEach(f => { PROJ_FERIADOS[f.data] = f.nome; });
+  PROJ_RECEB_LOJA = null;
+  if (recebConta) {
+    const porLoja = {}, somaDia = {};
+    recebConta.forEach(r => {
+      const v = Number(r.recebido), u = porLoja[r.unidade] || (porLoja[r.unidade] = {});
+      u[r.data] = (u[r.data] || 0) + v;
+      somaDia[r.data] = (somaDia[r.data] || 0) + v;
+    });
+    // as lojas somadas TEM de dar a receita da Rede, dia a dia; se nao der, o seletor nao aparece
+    const fecha = receb.every(r => Math.abs((somaDia[r.data] || 0) - Number(r.recebido)) < 0.01);
+    console.assert(fecha, 'receita por loja nao fecha com vw_fin_receitas_diarias');
+    if (fecha) PROJ_RECEB_LOJA = porLoja;
+  }
   PROJ_ATACADO_RECEBER = (atacadoReceber || []).map(r => ({ ...r, valor: Number(r.valor), dias_atraso: Number(r.dias_atraso) }));
   PROJ_BENEF = { sem: benefSem || [], xp: benefXp || [], cobr: benefCobr || [] };
+  // o ritmo do bonus (o mesmo numero do aviso dos R$ 500 mil) estima a semana que ainda nao fechou
+  const farolBonus = await consultarTudo('vw_beneficio_ifood_farol?select=ritmo_semanal,restante').catch(() => []);
+  PROJ_RITMO_BONUS = farolBonus[0] ? { ritmo: Number(farolBonus[0].ritmo_semanal), restante: Number(farolBonus[0].restante) } : null;
   PROJ_RECEB_SUB = recebSub;
   PROJ_RECEB_SUB.forEach(r => { r.recebido = Number(r.recebido); });
   PROJ_ANCORA = ancora;
@@ -20528,8 +20555,186 @@ function blocoCaixaDoDia() {
   ${projListaContas()}`;
 }
 
-function renderModuloProjecao() {
-  const alvo = document.getElementById('view-projecao');
+// ------------------------------------------------------------------
+// SALDO DIA A DIA (dono, 10/10/2026: "qual a projeção do saldo dia a dia até 21/10, isso que
+// preciso ver claramente no fluxo projetado"). Uma linha por dia, de hoje ate o SEGUNDO repasse
+// de quarta. ESTE BLOCO NAO FAZ CONTA: tudo vem de projCalc(), o motor dos cartoes e do grafico —
+// o saldo de cada linha E' o ponto do grafico naquele dia. No seletor de loja o MESMO motor roda
+// so com as contas, os titulos e os recebimentos daquela loja; as tres lojas somadas so diferem
+// da Rede pelo que uma loja deve a outra (projEntreLojas), que na Rede nao e' dinheiro novo.
+// Por LOJA, e nao por conta de banco: a conta da folha e o cartao sao pagos pela conta principal
+// da loja, e a transferencia entre elas nao esta lancada antes — conta sozinha mentiria.
+// ------------------------------------------------------------------
+const PROJ_DIA_LOJAS = [['', 'Rede (as três)'], ['AGUA VERDE', 'Água Verde'], ['AHU', 'Ahú'], ['SÃO BRAZ', 'São Braz']];
+function projDiaPintar() { const a = document.getElementById('projDiaWrap'); if (a) a.innerHTML = blocoSaldoDiaADia(); }
+function projDiaLoja(i) { PROJ_DIA.loja = (PROJ_DIA_LOJAS[i] || PROJ_DIA_LOJAS[0])[0]; PROJ_DIA.aberto = {}; projDiaPintar(); }
+function projDiaAbrir(dIso) { PROJ_DIA.aberto[dIso] = !PROJ_DIA.aberto[dIso]; projDiaPintar(); }
+
+function blocoSaldoDiaADia() {
+  if (!PROJ_PAGAR || !PROJ_RECEB) return '';
+  const loja = PROJ_RECEB_LOJA ? PROJ_DIA.loja : '';   // sem a receita por loja, so a Rede
+  const P = projCalc(loja);
+  const nomeLoja = (PROJ_DIA_LOJAS.find(x => x[0] === loja) || PROJ_DIA_LOJAS[0])[1];
+  const SEM = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+  const dm = (s) => s.slice(8, 10) + '/' + s.slice(5, 7);
+  const dow = (s) => new Date(s + 'T00:00:00').getDay();
+  const rot = (s) => `${dm(s)} (${SEM[dow(s)]})`;
+  const reais = (v) => 'R$ ' + fmt(v);
+  const bonusDia = P.bonusDia || {};   // so existe quando o bonus entra no motor (fase 3)
+
+  // de hoje ate o SEGUNDO repasse de quarta: de 9 a 15 linhas
+  let fim = 0;
+  for (let i = 1, quartas = 0; i < P.dias.length && quartas < 2; i++) { if (dow(P.dias[i]) === 3) quartas++; fim = i; }
+  const jan = P.dias.slice(0, fim + 1).map((d, i) => ({ d, i, saldo: P.serieSaldo[i] }));
+  const ultimo = jan[jan.length - 1].d;
+  const pior = jan.reduce((a, b) => (b.saldo < a.saldo ? b : a));
+  const volta = jan.find(x => x.d > pior.d && x.saldo >= 0);
+  const fechado = (s) => dow(s) === 0 || dow(s) === 6 || !!PROJ_FERIADOS[s];
+  const uteis = jan.filter(x => !fechado(x.d));
+  const uteisNeg = uteis.filter(x => x.saldo < -0.005).length;
+
+  // a frase: o pior dia e quando volta ao azul
+  const frase = pior.saldo < -0.005
+    ? `<b style="font-size:15px;">Pior dia: ${rot(pior.d)}, com ${reais(pior.saldo)}.</b>
+       ${volta ? `Volta ao azul em <b>${rot(volta.d)}</b>.` : `<b>Não volta ao azul até ${rot(ultimo)}.</b>`}
+       Fecha no negativo em ${uteisNeg} dos ${uteis.length} dias úteis até ${dm(ultimo)}.`
+    : `<b style="font-size:15px;">Não fica negativo até ${rot(ultimo)}.</b>
+       Dia mais apertado: ${rot(pior.d)}, com ${reais(pior.saldo)}.`;
+
+  const seletor = !PROJ_RECEB_LOJA ? '' : `<div style="display:flex; gap:6px; flex-wrap:wrap; justify-content:center; margin:8px 0;">
+      ${PROJ_DIA_LOJAS.map(([u, nome], i) => `<button class="preset-btn${u === loja ? ' active' : ''}" onclick="projDiaLoja(${i})">${nome}</button>`).join('')}</div>`;
+
+  // de onde parte: o mesmo "Caixa operacional hoje" do cartao (na Rede), conta a conta ao passar o mouse
+  const partidaTxt = P.partida.map(c => `${c.conta}: ${fmt(c.saldo)}${c.doBanco ? '' : ' (pelo Saipos)'}`).join(' · ');
+  const linhaPartida = `<tr title="${trEscH(partidaTxt)}">
+      <td><b>Caixa agora</b> <span style="color:var(--tx-5); font-size:11px;">${P.temAncora && P.dataExtrato ? 'extrato do banco de ' + dm(P.dataExtrato) : 'pelo Saipos'}</span></td>
+      <td></td><td></td>
+      <td style="font-weight:700; color:var(${P.caixaOper < -0.005 ? '--farol-fora' : '--farol-ok'});">${reais(P.caixaOper)}</td></tr>`;
+
+  const nome = (r) => trEscH((r.origem === 'BONUS' ? 'Bônus do iFood → aplicação — ' : '') + (r.descricao || r.subtipo || '').slice(0, 60));
+  const item = (txt, v, conta) => `<div style="display:flex; justify-content:space-between; gap:10px; padding:2px 0; font-size:12px;">
+      <span>${txt}${conta && !loja ? ` <span style="color:var(--tx-5);">· ${trEscH(conta)}</span>` : ''}</span>
+      <span style="white-space:nowrap; color:var(${v > 0 ? '--farol-ok' : '--tx-2'});">${v > 0 ? '+' : '−'} ${reais(Math.abs(v))}</span></div>`;
+
+  const linhas = jan.map(({ d, i, saldo }) => {
+    const media = P.serieMedia[i], rec = P.receberDia[d] || 0, bonus = bonusDia[d] || 0;
+    const sai = (P.pagarDia[d] || 0) + bonus;
+    const itens = (P.itensDia[d] || []).slice().sort((a, b) => (b.debito - b.credito) - (a.debito - a.credito));
+    const saidas = itens.filter(r => r.debito > r.credito), entradas = itens.filter(r => r.credito > r.debito);
+    const dica = saidas.slice(0, 3).map(r => `${(r.descricao || r.subtipo || '').slice(0, 40)}: ${reais(r.debito - r.credito)}`).join(' · ');
+    const marcas = [];
+    if (i === 0) marcas.push(P.vencidas > 0.005 ? `hoje · com ${reais(P.vencidas)} já vencidos` : 'hoje');
+    if (PROJ_FERIADOS[d]) marcas.push('feriado · banco fechado');
+    else if (dow(d) === 3 && i > 0) marcas.push('dia do repasse do iFood');
+    const ePior = d === pior.d && pior.saldo < -0.005;
+    const detalhe = !PROJ_DIA.aberto[d] ? '' : `<tr><td colspan="4" style="text-align:left; white-space:normal; padding:8px 12px 10px 22px; color:var(--tx-3);">
+        ${media > 0.005 ? item(`Entrada pela média — ${SEM[dow(d)]}, 4 semanas`, media, '') : ''}
+        ${entradas.map(r => item(nome(r), r.credito - r.debito, r.conta_exibida)).join('')}
+        ${saidas.slice(0, 15).map(r => item(nome(r), r.credito - r.debito, r.conta_exibida)).join('')}
+        ${saidas.length > 15 ? item(`e mais ${saidas.length - 15} conta(s) menores`, -saidas.slice(15).reduce((s, r) => s + r.debito - r.credito, 0), '') : ''}
+        ${media <= 0.005 && !itens.length ? 'Nada lançado para este dia.' : ''}
+      </td></tr>`;
+    return `<tr onclick="projDiaAbrir('${d}')" style="cursor:pointer;${fechado(d) && i > 0 ? ' opacity:.7;' : ''}">
+        <td><b>${rot(d)}</b>${marcas.length ? ` <span style="color:var(--tx-5); font-size:11px;">${marcas.join(' · ')}</span>` : ''}${ePior ? ` <b style="color:var(--farol-fora); font-size:11px;">pior dia</b>` : ''}</td>
+        <td>${media + rec > 0.005 ? reais(media + rec) : '—'}</td>
+        <td title="${trEscH(dica)}">${sai > 0.005 ? reais(sai) : '—'}${bonus > 0.005 ? `<div style="font-size:11px; color:var(--amber-2);">com ${reais(bonus)} de bônus → aplicação</div>` : ''}</td>
+        <td style="font-weight:700; color:var(${saldo < -0.005 ? '--farol-fora' : '--farol-ok'});">${reais(saldo)}</td></tr>${detalhe}`;
+  }).join('');
+
+  // avisos de UMA linha, so quando o caso acontece
+  const avisos = [];
+  jan.filter(x => PROJ_FERIADOS[x.d] && dow(x.d) >= 1 && dow(x.d) <= 5).forEach(x =>
+    avisos.push(`<b>${rot(x.d)} é feriado</b> (${trEscH(PROJ_FERIADOS[x.d])}): banco fechado — boleto e depósito desse dia passam para o dia útil seguinte.`));
+  const bonusJan = jan.reduce((s, x) => s + (bonusDia[x.d] || 0), 0);
+  const pendXp = ((PROJ_BENEF && PROJ_BENEF.xp) || []).reduce((s, r) => s + Number(r.falta != null ? r.falta : r.valor), 0);
+  if (P.bonusDia) {
+    if (bonusJan > 0.005) avisos.push(`Conta com ${reais(bonusJan)} de bônus do iFood saindo para a aplicação nas quartas; a semana que ainda não fechou é estimativa.`);
+  } else if (pendXp > 0.005 && loja !== 'AHU' && loja !== 'SÃO BRAZ') {
+    avisos.push(`<b style="color:var(--amber-2);">Ainda não desconta o bônus do iFood que vai para a aplicação:</b> ${reais(pendXp)} já fechados, mais a semana em curso, na quarta.`);
+  }
+  // a filial nao tem, do lado dela, a conta do que deve a Agua Verde (so existe o a receber na AV)
+  const SUB_FILIAL = { 'AHU': 'RECEITAS AHU', 'SÃO BRAZ': 'RECEITAS SAO BRAZ' };
+  if (SUB_FILIAL[loja]) {
+    const deve = PROJ_PAGAR.filter(r => projEntreLojas(r) && r.subtipo === SUB_FILIAL[loja]);
+    const tot = deve.reduce((s, r) => s + r.credito, 0);
+    if (tot > 0.005) avisos.push(`Fora desta conta: ${reais(tot)} que a loja deve à Água Verde pelas listas e pelo bônus (vence ${dm(deve.map(r => r.vencimento).sort()[0])}).`);
+  }
+  if (loja === 'AGUA VERDE') {
+    const recebe = PROJ_PAGAR.filter(r => projEntreLojas(r) && r.vencimento <= ultimo).reduce((s, r) => s + r.credito, 0);
+    if (recebe > 0.005) avisos.push(`Conta com ${reais(recebe)} que o Ahú e o São Braz pagam à Água Verde até ${dm(ultimo)}.`);
+  }
+  if (loja === 'AGUA VERDE') avisos.push('Água Verde = Itaú AV + conta da folha + Santander + cofre (a conta da folha e o cartão são pagos pelo Itaú AV).');
+  if (loja) avisos.push('Só este bloco muda de loja; o resto da tela continua da Rede.');
+  avisos.push('O quadro "Pagar as contas de hoje", logo abaixo, não conta o que entra na semana: por isso a "sobra em 7 dias" de lá é bem menor que o saldo daqui.');
+
+  return `
+  <div class="section-label">Saldo dia a dia até ${dm(ultimo)} — ${nomeLoja}</div>
+  <div class="contexto" style="text-align:left; border-color:var(${pior.saldo < -0.005 ? '--farol-fora' : '--farol-ok'});">${frase}</div>
+  ${seletor}
+  <div id="tabelaSaldoDia"><table>
+    <thead><tr><th>Dia</th><th>Entra</th><th>Sai</th><th>Saldo no fim do dia</th></tr></thead>
+    <tbody>${linhaPartida}${linhas}</tbody></table></div>
+  <div class="caption-label" style="text-align:left;">
+    <b>Entra</b> = média do que caiu na conta nesse dia da semana (4 semanas) + o que está lançado a receber.
+    <b>Sai</b> = contas já lançadas (compra que ainda não chegou, motoboy e diária dos próximos dias não entram). Clique no dia para ver as contas.
+    ${avisos.map(a => `<div style="margin-top:4px;">${a}</div>`).join('')}
+  </div>`;
+}
+
+// ------------------------------------------------------------------
+// BONUS DO IFOOD QUE VAI PARA A APLICACAO, como saida de quarta (passo 2 do plano das telas;
+// dono, 01/10 e 10/10/2026: vai toda semana, de qualquer forma — nunca condicionar ao saldo).
+// NAO calcula bonus: le o que a tela ja baixa. FATO = semana fechada e ainda nao enviada
+// (vw_beneficio_xp_pendente, coluna falta): sai na quarta do repasse dela ou, se essa ja passou,
+// na proxima quarta. ESTIMATIVA = a semana em curso e as seguintes, pelo ritmo_semanal de
+// vw_beneficio_ifood_farol (o numero do aviso dos R$ 500 mil) — ou o que a semana ja apurou, se
+// for maior — ate acabar o `restante` da isencao (quando ela acaba, o bonus para de sair).
+// ------------------------------------------------------------------
+function projBonusQuartas(hojeIso, horizonte) {
+  const B = PROJ_BENEF;
+  if (!B) return [];
+  const out = [];
+  const dm = (s) => s.slice(8, 10) + '/' + s.slice(5, 7);
+  let proxQuarta = hojeIso;
+  while (new Date(proxQuarta + 'T12:00:00').getDay() !== 3) proxQuarta = fxSomaDias(proxQuarta, 1);
+  const fimIso = fxSomaDias(hojeIso, horizonte);
+  const pend = new Set();
+  (B.xp || []).forEach(r => {
+    pend.add(r.semana);
+    const quarta = r.repasse_quarta || fxSomaDias(r.semana, 9);
+    const v = Number(r.falta != null ? r.falta : r.valor);
+    if (v > 0.005) out.push({ dia: quarta > proxQuarta ? quarta : proxQuarta, v, estimativa: false,
+                              txt: `semana de ${dm(r.semana)}, já fechada e ainda não enviada` });
+  });
+  const total = {}, fechada = {};
+  (B.sem || []).forEach(r => {
+    total[r.semana] = (total[r.semana] || 0) + Number(r.beneficio || 0);
+    fechada[r.semana] = (r.semana in fechada ? fechada[r.semana] : true) && !!r.semana_fechada;
+  });
+  const ult4 = Object.keys(total).filter(s => fechada[s]).sort().slice(-4);
+  const ritmo = PROJ_RITMO_BONUS && PROJ_RITMO_BONUS.ritmo > 0 ? PROJ_RITMO_BONUS.ritmo
+    : (ult4.length ? ult4.reduce((s, x) => s + total[x], 0) / ult4.length : 0);
+  let resta = PROJ_RITMO_BONUS ? PROJ_RITMO_BONUS.restante : Infinity;
+  // a quarta do repasse = a segunda da semana + 9 dias (a mesma regra de vw_beneficio_semanal.repasse_quarta)
+  for (let seg = fxSegunda(hojeIso); fxSomaDias(seg, 9) <= fimIso; seg = fxSomaDias(seg, 7)) {
+    if (pend.has(seg) || fechada[seg]) continue;   // ja entrou como fato, ou ja foi enviada
+    const jaApurado = total[seg] || 0;
+    const falta = Math.min(Math.max(ritmo - jaApurado, 0), Math.max(resta, 0));
+    resta -= falta;
+    if (jaApurado + falta > 0.005) out.push({ dia: fxSomaDias(seg, 9), v: jaApurado + falta, estimativa: true,
+                                              txt: `semana de ${dm(seg)} (estimativa pelo ritmo das últimas semanas)` });
+  }
+  return out;
+}
+
+// ------------------------------------------------------------------
+// O MOTOR DA PROJECAO (tirado de dentro de renderModuloProjecao em 10/10/2026, sem mudar a conta).
+// UMA conta so: os cartoes, a frase, o grafico, a agenda e o bloco "Saldo dia a dia" leem daqui.
+// unidade '' = a Rede (o que a tela sempre mostrou). 'AGUA VERDE' | 'AHU' | 'SÃO BRAZ' = o mesmo
+// motor so com as contas, os titulos e os recebimentos daquela loja; ai a cobranca entre lojas
+// CONTA (para a loja e' dinheiro de verdade) — na Rede ela continua fora (projEntreLojas).
+// ------------------------------------------------------------------
+function projCalc(unidade) {
   const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
   const iso = (d) => d.toISOString().slice(0, 10);
   const hojeIso = iso(hoje);
@@ -20553,13 +20758,16 @@ function renderModuloProjecao() {
   (DFC_MOV_RAW || []).forEach(r => { movTotal[r.conta] = (movTotal[r.conta] || 0) + Number(r.movimento); });
   let caixaOper = 0, investido = 0;
   let atrasoSaipos = 0, idadeMax = 0, dataExtrato = null;
+  const partida = [];   // de que contas sai o caixa de partida (o bloco Saldo dia a dia mostra)
   (DFC_CONTAS_RAW || []).forEach(c => {
     const a = ancoraPorConta[c.conta];
     const s = a ? Number(a.saldo_banco) : Number(c.saldo_inicial) + (movTotal[c.conta] || 0);
     if (c.conta.startsWith('CREDITO')) return;   // cartao nao e caixa; a fatura a vencer ja vem em PROJ_PAGAR
+    if (unidade && c.unidade !== unidade) return;   // por loja: so as contas dela
     if (PROJ_FORA_CAIXA.includes(c.conta)) investido += s;
     else {
       caixaOper += s;
+      partida.push({ conta: c.apelido || c.conta, saldo: s, doBanco: !!a });
       if (a) {
         atrasoSaipos += Number(a.diferenca);
         if (Number(a.idade_dias) > idadeMax) idadeMax = Number(a.idade_dias);
@@ -20571,10 +20779,13 @@ function renderModuloProjecao() {
 
   // ---- media de recebimento por dia da semana (ultimas 4 semanas) ----
   const janelaReceb = PROJ_RECEB.filter(r => r.data < hojeIso).slice(-28);
+  // por loja: a MESMA janela de datas da Rede; dia em que a loja nao recebeu conta zero —
+  // assim a media das tres lojas somada e' a da Rede
+  const recebDoDia = (r) => unidade ? (((PROJ_RECEB_LOJA || {})[unidade] || {})[r.data] || 0) : r.recebido;
   const porDow = {};
   janelaReceb.forEach(r => {
     const dow = new Date(r.data + 'T00:00:00').getDay();
-    (porDow[dow] = porDow[dow] || []).push(r.recebido);
+    (porDow[dow] = porDow[dow] || []).push(recebDoDia(r));
   });
   const mediaDow = {};
   for (let d = 0; d < 7; d++) {
@@ -20593,8 +20804,10 @@ function renderModuloProjecao() {
   const pagarDia = {}, receberDia = {}, itensDia = {};
   let vencidas = 0, jaPagasSemBaixa = 0, entreLojasFora = 0;
   PROJ_PAGAR.forEach(r => {
+    if (unidade && r.unidade !== unidade) return;   // por loja: so o que esta lancado nas contas dela
     // a projecao e' da Rede: o que uma loja tem a receber da outra nao e' dinheiro novo
-    if (projEntreLojas(r)) { entreLojasFora += r.credito; return; }
+    // (para UMA loja e' dinheiro de verdade: ali ele conta)
+    if (!unidade && projEntreLojas(r)) { entreLojasFora += r.credito; return; }
     if (r.vencimento < hojeIso && jaSaiuBanco.has(`${r.vencimento}|${r.debito}|${r.descricao || ''}`)) {
       jaPagasSemBaixa += r.debito - r.credito;
       return;
@@ -20606,24 +20819,47 @@ function renderModuloProjecao() {
     (itensDia[dia] = itensDia[dia] || []).push(r);
   });
 
+  // ---- bonus do iFood que vai para a aplicacao: sai toda quarta (passo 2 do plano das telas).
+  // Fica FORA de pagarDia de proposito: nao e' conta a pagar, e o cartao "A pagar (30 dias)" nao muda.
+  // Quem manda e' a Agua Verde: entra na Rede e na Agua Verde; nas filiais, nao. ----
+  const bonusDia = {};
+  if (!unidade || unidade === 'AGUA VERDE') projBonusQuartas(hojeIso, HORIZONTE).forEach(b => {
+    bonusDia[b.dia] = (bonusDia[b.dia] || 0) + b.v;
+    (itensDia[b.dia] = itensDia[b.dia] || []).push({ origem: 'BONUS', subtipo: 'BÔNUS DO IFOOD → APLICAÇÃO',
+      descricao: b.txt, conta_exibida: 'Itaú AV', debito: b.v, credito: 0, estimativa: b.estimativa });
+  });
+
   // (a "fatura de cartao estimada" que ficava aqui saiu em 10/09/2026: as compras
   // a vencer chegam como SAIPOS_PREV e ja estao em PROJ_PAGAR, na data da fatura)
 
   // ---- projecao dia a dia ----
-  const dias = [], serieSaldo = [];
+  const dias = [], serieSaldo = [], serieMedia = [];
   let saldo = caixaOper, menorSaldo = caixaOper, menorDia = hojeIso;
   let pagar30 = 0;
   for (let i = 0; i <= HORIZONTE; i++) {
     const d = new Date(hoje); d.setDate(d.getDate() + i);
     const dIso = iso(d);
-    const entradas = (i === 0 ? 0 : mediaDow[d.getDay()]) + (receberDia[dIso] || 0);
-    let saidas = pagarDia[dIso] || 0;
+    const mediaDoDia = i === 0 ? 0 : mediaDow[d.getDay()];
+    const entradas = mediaDoDia + (receberDia[dIso] || 0);
+    let saidas = (pagarDia[dIso] || 0) + (bonusDia[dIso] || 0);   // o bonus sai junto, na quarta
     saldo += entradas - saidas;
     if (i <= 30) pagar30 += pagarDia[dIso] || 0;
     dias.push(dIso);
     serieSaldo.push(saldo);
+    serieMedia.push(mediaDoDia);
     if (saldo < menorSaldo) { menorSaldo = saldo; menorDia = dIso; }
   }
+  return { hoje, iso, hojeIso, HORIZONTE, caixaOper, investido, atrasoSaipos, idadeMax, dataExtrato, temAncora,
+           partida, janelaReceb, mediaDow, mediaSemana, pagarDia, receberDia, itensDia, vencidas, entreLojasFora,
+           dias, serieSaldo, serieMedia, menorSaldo, menorDia, pagar30, bonusDia };
+}
+
+function renderModuloProjecao() {
+  const alvo = document.getElementById('view-projecao');
+  // a Rede, sempre: e' a conta que esta tela mostra desde 12/09/2026
+  const { hoje, iso, hojeIso, HORIZONTE, caixaOper, investido, atrasoSaipos, idadeMax, dataExtrato, temAncora,
+          janelaReceb, mediaDow, mediaSemana, pagarDia, receberDia, itensDia, vencidas, entreLojasFora,
+          dias, serieSaldo, menorSaldo, menorDia, pagar30, bonusDia } = projCalc('');
 
   // ---- agenda de vencimentos (dias com lancamento, proximos 30) ----
   const fmtDia = (dIso) => {
@@ -20634,7 +20870,7 @@ function renderModuloProjecao() {
   Object.keys(itensDia).sort().forEach(dia => {
     if (dia > iso(new Date(hoje.getTime() + 30 * 86400000))) return;
     const itens = itensDia[dia];
-    const tot = (pagarDia[dia] || 0) - (receberDia[dia] || 0);
+    const tot = (pagarDia[dia] || 0) + (bonusDia[dia] || 0) - (receberDia[dia] || 0);
     const eHoje = dia === hojeIso;
     agenda += `
     <details id="proj-dia-${dia}" style="border-bottom:1px solid #232321;">
@@ -20666,13 +20902,16 @@ function renderModuloProjecao() {
   }
   Object.keys(pagarDia).forEach(dia => { if (dia <= menorDia) comprPeriodo += pagarDia[dia]; });
   comprPeriodo -= vencidas;   // vencidas de verdade ganham linha propria
-  console.assert(Math.abs(caixaOper + entAteMenor - vencidas - comprPeriodo - menorSaldo) < 0.01);
+  let bonusPeriodo = 0;       // o bonus que vai para a aplicacao ate o dia do aperto: linha propria
+  Object.keys(bonusDia).forEach(dia => { if (dia <= menorDia) bonusPeriodo += bonusDia[dia]; });
+  console.assert(Math.abs(caixaOper + entAteMenor - vencidas - comprPeriodo - bonusPeriodo - menorSaldo) < 0.01);
 
   const linhasConta = [
     ['Caixa hoje' + (temAncora ? ' (extrato do banco)' : ''), caixaOper, ''],
     [`+ entradas previstas até ${fmtDia(menorDia)}`, entAteMenor, 'color:#3fb950;'],
     vencidas > 0.005 ? ['− já vencido (sem débito no banco)', -vencidas, 'color:#ff6b6b;'] : null,
     [`− contas que vencem até ${fmtDia(menorDia)}`, -comprPeriodo, ''],
+    bonusPeriodo > 0.005 ? [`− bônus do iFood que vai para a aplicação até ${fmtDia(menorDia)}`, -bonusPeriodo, ''] : null,
   ].filter(Boolean);
   const contaAberta = `<table style="width:100%; font-size:12.5px; margin-top:6px;">
     ${linhasConta.map(([t, v, cor]) => `<tr><td>${t}</td>
@@ -20705,7 +20944,8 @@ function renderModuloProjecao() {
 
   // as alavancas: as maiores saidas ate o dia do aperto (cada linha e' uma decisao)
   const maioresSaidas = Object.keys(itensDia).filter(d => d <= menorDia)
-    .flatMap(d => itensDia[d].map(r => ({ dia: d, txt: `${r.subtipo}${r.descricao ? ' — ' + r.descricao.slice(0, 40) : ''}`, v: r.debito - r.credito })))
+    .flatMap(d => itensDia[d].filter(r => r.origem !== 'BONUS')   // o bonus vai de qualquer forma: nao e' alavanca
+      .map(r => ({ dia: d, txt: `${r.subtipo}${r.descricao ? ' — ' + r.descricao.slice(0, 40) : ''}`, v: r.debito - r.credito })))
     .filter(x => x.v > 0);
   maioresSaidas.sort((a, b) => b.v - a.v);
   const alavancas = maioresSaidas.length ? `
@@ -20817,8 +21057,10 @@ function renderModuloProjecao() {
     <b>O que não está lançado no Saipos não aparece</b>, fora o que o painel põe sozinho: boletos do atacado,
     cobrança do Boqueirão e pagamentos fora da folha.
     <b>Não entram:</b> o que a Água Verde tem a receber do Ahú e do São Braz pelas listas e pelo benefício${entreLojasFora > 0.005 ? ` (R$ ${fmt(entreLojasFora)} em aberto)` : ''}
-    — na Rede é dinheiro que só troca de bolso; a cobrança continua na tela Contas a pagar — e o envio do benefício para a XP.
+    — na Rede é dinheiro que só troca de bolso; a cobrança continua na tela Contas a pagar.
+    <b>O bônus do iFood entra como saída de toda quarta</b> (vai para a aplicação): a semana já fechada pelo valor apurado, as seguintes pelo ritmo das últimas semanas.
   </div>
+  <div id="projDiaWrap">${blocoSaldoDiaADia()}</div>
   <div id="projCaixaWrap">${blocoCaixaDoDia()}</div>
   ${blocoAtacadoReceber()}
   ${blocoComissaoAtacado()}
