@@ -13048,8 +13048,9 @@ function renderLucroUni() {
 
     <div class="footer">
       Lucro = resultado da DRE: por competência, com as contas do mês já lançadas (pagas ou a pagar) e o rendimento das aplicações. Benefício iFood
-      calculado pela régua de 9,5% do valor líquido dos pedidos concluídos desde 02/04/2026, sem
-      Boqueirão e sem Comida Brasileira AV — é estimativa validada contra a transferência real,
+      calculado pela régua de 9,5% do valor líquido dos pedidos concluídos desde 02/04/2026, só das
+      lojas que não pagam comissão (ficam fora o Boqueirão, a Comida Brasileira AV e, desde 06/10/2026,
+      a Marmita da Jane, que passou para a entrega do iFood) — é estimativa validada contra a transferência real,
       não extrato do iFood. Fonte: vw_fin_resultado_unidade, vw_fin_saldo_conta_mensal, vw_fin_dfc_mensal.
     </div>`;
   // encaixarTabela recebe o ELEMENTO (nao o id) — mede o fundo atras da tabela
@@ -19182,7 +19183,8 @@ const DRE_TIPO_ROTULO = { 'PESSOAL': 'SALÁRIOS, ENCARGOS E BENEFÍCIOS', 'PRO L
 
 // ---------------------------------------------------------------
 // Farol do beneficio de R$ 500 mil do iFood (aplicado da fila em 16/08/2026).
-// O iFood isentou a comissao de 9,5% em 13 lojas ate somar R$ 500 mil.
+// O iFood isentou a comissao de 9,5% nas lojas que nao pagam comissao (12 ate 05/10/2026, 11 depois) ate somar
+// R$ 500 mil. Que loja entra na conta mora no banco: beneficio_ifood_loja_fora + vw_beneficio_ifood_pedido.
 // Quando acabar, os 9,5% voltam de uma vez — o painel avisa antes.
 // Fonte: vw_beneficio_ifood_farol (uma linha) e vw_beneficio_ifood_semana.
 let BENEF_FAROL = null;   // { f, semanas }
@@ -19264,8 +19266,10 @@ function blocoBeneficioIfood({ f, semanas }) {
       </div>
     </div>
     <div class="caption-label">
-      O iFood isentou a comissão de 9,5% em 13 lojas, até somar R$ 500 mil
-      (Boqueirão e Comida Brasileira AV seguem pagando cheio).
+      O iFood deixou de cobrar a comissão de 9,5% em 11 lojas, até somar R$ 500 mil.
+      Loja que paga comissão fica fora da conta: as do Boqueirão, a Comida Brasileira AV e,
+      desde 06/10/2026, a Marmita da Jane (antiga Veganete Água Verde), que passou a usar a
+      entrega do iFood — nesse plano os 9,5% voltam a ser cobrados.
       A data se move com o volume: <b>vender mais consome o benefício mais rápido</b>.
       O cálculo é 9,5% sobre o valor líquido dos pedidos concluídos das lojas isentas —
       conferido contra os depósitos reais do iFood (erra 1,9% para menos, então é piso).
