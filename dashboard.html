@@ -13048,10 +13048,10 @@ function renderLucroUni() {
 
     <div class="footer">
       Lucro = resultado da DRE: por competência, com as contas do mês já lançadas (pagas ou a pagar) e o rendimento das aplicações. Benefício iFood
-      calculado pela régua de 9,5% do valor líquido dos pedidos concluídos desde 02/04/2026, só das
-      lojas que não pagam comissão (ficam fora o Boqueirão, a Comida Brasileira AV e, desde 06/10/2026,
-      a Marmita da Jane, que passou para a entrega do iFood) — é estimativa validada contra a transferência real,
-      não extrato do iFood. Fonte: vw_fin_resultado_unidade, vw_fin_saldo_conta_mensal, vw_fin_dfc_mensal.
+      = a comissão de 9,5% que o iFood deixou de cobrar nas lojas isentas (ficam fora o Boqueirão, a Comida
+      Brasileira AV e, desde 06/10/2026, a Marmita da Jane). De 05/10/2026 em diante: 9,5% da venda de cada pedido
+      (itens + entrega − desconto que a loja banca), como o iFood cobra. Até 04/10/2026: 9,5% do valor que o iFood
+      depositou — dá uns 12% a menos e não será refeito. Não é extrato do iFood. Fonte: vw_fin_resultado_unidade, vw_fin_saldo_conta_mensal, vw_fin_dfc_mensal.
     </div>`;
   // encaixarTabela recebe o ELEMENTO (nao o id) — mede o fundo atras da tabela
   // e marca .rolavel para a coluna fixa ganhar sombra so quando de fato rola.
@@ -18397,7 +18397,7 @@ function renderFechamento() {
     <div class="fx-destaque"><div class="fx-rotulo">Sobrou em ${fxMesLongo(mes)}</div><div class="fx-valor-g${a.resultado < 0 ? ' neg' : ''}">${fxMil(a.resultado)}</div>
       <p>De cada R$ 100 que entraram, sobraram <b>R$ ${Math.round(cem(a.resultado))}</b>. A meta é R$ ${M.RESULTADO ? M.RESULTADO.meta : '—'} ou mais — ${fxPill(fs)}</p>
       ${j ? `<p>Em ${fxMesLongo(ant)} sobraram <b>${fxMil(j.resultado)}</b> (R$ ${Math.round(j.base ? j.resultado / j.base * 100 : 0)} de cada 100). O que sobrou ${fxVar(a.resultado, j.resultado, rotAnt)}.</p>` : ''}
-      ${a.benef > 0.5 ? `<p><b>${fxMil(a.benef)}</b> desse valor é comissão que o iFood deixou de cobrar (o benefício, que acaba entre dezembro e janeiro). Pagando comissão cheia, teria sobrado <b>${fxMil(a.resultado - a.benef)}</b>${a.resultado - a.benef < 0 ? ' — ou seja, faltaria dinheiro' : ''}.</p>` : ''}</div>
+      ${a.benef > 0.5 ? `<p><b>${fxMil(a.benef)}</b> desse valor é comissão que o iFood deixou de cobrar (a isenção, que pela estimativa acaba em dezembro). Sem a isenção, teria sobrado <b>${fxMil(a.resultado - a.benef)}</b>${a.resultado - a.benef < 0 ? ' — ou seja, faltaria dinheiro' : ''}.</p>` : ''}</div>
     <div class="fx-tile"><div class="fx-rotulo">Quanto sobrou, mês a mês</div><div class="fx-valor" style="font-size:20px">${serie.slice(-3).map(x => fxMil(x.resultado).replace('R$ ', '')).join(' · ')}</div><div class="fx-extra">últimos três meses</div>${fxSpark(serieRes, rots, fxMil)}<div class="fx-extra" style="margin-top:8px">Melhor mês: ${rots[serieRes.indexOf(Math.max(...serieRes))]} (${fxMil(Math.max(...serieRes))}). Pior: ${rots[serieRes.indexOf(Math.min(...serieRes))]} (${fxMil(Math.min(...serieRes))}).</div></div></div>`;
   // 4. caixa
   const p = fxPonte(mes);
@@ -19223,8 +19223,8 @@ function blocoBeneficioIfood({ f, semanas }) {
       '<div style="width:' + Math.min(pctB,100) + '%; height:100%; background:' + cor + ';"></div>' +
     '</div>' +
     '<div style="display:flex; justify-content:space-between; font-size:11px; color:#a5a49a;">' +
-      '<span>consumido ' + reais(f.consumido) + '</span>' +
-      '<span>restam ' + reais(f.restante) + '</span>' +
+      '<span>usado até agora (estimativa) ' + reais(f.consumido) + '</span>' +
+      '<span>ainda restam (estimativa) ' + reais(f.restante) + '</span>' +
     '</div>';
 
   // ultimas 8 semanas, para ver se o ritmo esta acelerando
@@ -19237,20 +19237,20 @@ function blocoBeneficioIfood({ f, semanas }) {
   // Compacto por padrao (arrumacao de 16/08 a pedido do dono): barra + uma linha
   // de leitura sempre visiveis; cards, explicacao e semanas dobram num <details>.
   return `
-  <div class="section-label">Benefício iFood</div>
+  <div class="section-label">Isenção de comissão do iFood — quanto dos R$ 500 mil já foi usado (estimativa)</div>
   ${barra}
   <div class="caption-label" style="text-align:center;">
-    <b style="color:${cor};">${pctB.toLocaleString('pt-BR')}% usado</b> ·
+    <b style="color:${cor};">${pctB.toLocaleString('pt-BR')}% usado (estimativa)</b> ·
     acaba por volta de <b style="color:${cor};">${dia(f.fim_previsto)}</b>
     (${Number(f.semanas_restantes).toLocaleString('pt-BR')} semanas no ritmo atual) —
-    quando acabar, os 9,5% de comissão voltam de uma vez.
+    quando acabar, os 9,5% de comissão voltam de uma vez. O número oficial é o do portal do iFood.
   </div>
   <details style="margin-top:6px;">
-    <summary style="cursor:pointer; color:#a5a49a; font-size:12px;">detalhes do benefício</summary>
+    <summary style="cursor:pointer; color:#a5a49a; font-size:12px;">detalhes da isenção</summary>
     <div class="cards" style="margin-top:10px;">
       <div class="card" style="border:1px solid ${cor};">
         <div style="font-size:26px; font-weight:700; color:${cor};">${pctB.toLocaleString('pt-BR')}%</div>
-        <div style="font-size:12px; color:#a5a49a;">do benefício já usado</div>
+        <div style="font-size:12px; color:#a5a49a;">dos R$ 500 mil já usados (estimativa)</div>
       </div>
       <div class="card">
         <div style="font-size:26px; font-weight:700;">${reais(f.restante)}</div>
@@ -19258,7 +19258,7 @@ function blocoBeneficioIfood({ f, semanas }) {
       </div>
       <div class="card">
         <div style="font-size:26px; font-weight:700;">${reais(f.ritmo_semanal)}</div>
-        <div style="font-size:12px; color:#a5a49a;">consumo por semana<br>(média das 8 últimas)</div>
+        <div style="font-size:12px; color:#a5a49a;">usado por semana<br>(média das 8 últimas)</div>
       </div>
       <div class="card" style="border:1px solid ${cor};">
         <div style="font-size:20px; font-weight:700; color:${cor};">${dia(f.fim_previsto)}</div>
@@ -19271,14 +19271,17 @@ function blocoBeneficioIfood({ f, semanas }) {
       desde 06/10/2026, a Marmita da Jane (antiga Veganete Água Verde), que passou a usar a
       entrega do iFood — nesse plano os 9,5% voltam a ser cobrados.
       A data se move com o volume: <b>vender mais consome o benefício mais rápido</b>.
-      O cálculo é 9,5% sobre o valor líquido dos pedidos concluídos das lojas isentas —
-      conferido contra os depósitos reais do iFood (erra 1,9% para menos, então é piso).
-      O saldo oficial é do iFood: bater no Portal do Parceiro antes de decidir pela data.
+      <b>Esta barra é uma estimativa de quanto o iFood já usou dos R$ 500 mil:</b> 9,5% da venda de
+      cada pedido (itens + entrega − desconto que a loja banca), do jeito que o iFood cobra a comissão
+      nas lojas que pagam, desde 02/04/2026. <b>Não é o que foi enviado para a XP:</b> até 04/10/2026 o
+      envio foi calculado sobre o valor que o iFood depositou, que dá uns 12% a menos, e não será refeito
+      (o quadro do envio está no Fluxo projetado).
+      <b>O número oficial é o do portal do iFood:</b> conferir lá antes de decidir pela data.
     </div>
     <table style="width:100%; font-size:12px; margin-top:8px;">
       <tr style="color:var(--tx-4);"><td style="padding:3px 8px;">semana</td>
-        <td style="padding:3px 8px; text-align:right;">consumiu</td>
-        <td style="padding:3px 8px; text-align:right;">restava</td></tr>
+        <td style="padding:3px 8px; text-align:right;">usado na semana (estimativa)</td>
+        <td style="padding:3px 8px; text-align:right;">restava (estimativa)</td></tr>
       ${ult}
     </table>
   </details>`;
@@ -19678,8 +19681,8 @@ function renderModuloDRE() {
   // resultado OPERACIONAL, e o mesmo nome dava dois numeros.
   const benefVals = meses.map(m => DRE_BENEF ? (DRE_BENEF[m] || 0) : 0);
   if (benefVals.some(v => v > 0.005)) {
-    corpo += linha('dfc-linha', '(−) Benefício iFood embutido acima (comissão isenta)', benefVals, { kind: 'custo' });
-    corpo += linha('dfc-resultado', '(=) RESULTADO RECORRENTE (pagando comissão cheia)', resultado.map((v, i) => v - benefVals[i]), { kind: 'ganho' });
+    corpo += linha('dfc-linha', '(−) Comissão que o iFood deixou de cobrar (isenção)', benefVals, { kind: 'custo' });
+    corpo += linha('dfc-resultado', '(=) RESULTADO SEM A ISENÇÃO DO IFOOD', resultado.map((v, i) => v - benefVals[i]), { kind: 'ganho' });
   }
 
   // ---- Abaixo do resultado (estrutura do Matheus, 03/09/2026): o que nao e'
@@ -19908,7 +19911,7 @@ function renderModuloDRE() {
       <b>(−) Juros e tarifas</b> — juros, tarifas de banco e a antecipação da Rede.<br>
       <b>(−) Imposto de renda (IRPJ)</b> — imposto sobre o LUCRO (o imposto sobre a venda ficou lá em cima, nas deduções).<br>
       <b>(=) Resultado líquido</b> — o que sobrou no fim do mês: lucro ou prejuízo.<br>
-      <b>(=) Resultado recorrente</b> — o resultado líquido sem o benefício do iFood: o que teria sobrado pagando comissão cheia.<br>
+      <b>(=) Resultado sem a isenção do iFood</b> — o mesmo mês se o iFood tivesse cobrado os 9,5%. De 05/10/2026 em diante a conta é 9,5% da venda (itens + entrega − desconto que a loja banca); até 04/10 foi sobre o valor depositado e fica como está.<br>
       <b>Abaixo do resultado</b> — o que não é resultado da operação da loja, mas mexe no dinheiro dela: o lucro que as filiais repassam (total enviado menos a lista do mês, com o bônus do iFood dentro), investimentos, retiradas e aportes. A ordem e os nomes seguem o fechamento da MA Consultoria (03/09/2026); os cálculos são nossos.
     </div>
   </details>
@@ -20290,8 +20293,10 @@ function blocoBeneficio() {
       <td>${status}</td></tr>`;
   }).join('');
   return `
-  <div class="section-label">Benefício do iFood (comissão zero) — semana a semana</div>
-  <div class="contexto">Quanto o iFood deixou de cobrar (9,5% do líquido) em cada loja. Pela regra do Fabio,
+  <div class="section-label">Bônus de comissão do iFood — o que vai para a XP, semana a semana</div>
+  <div class="contexto">A comissão que o iFood deixou de cobrar em cada loja. <b>Da semana de 05/10/2026 em diante: 9,5% da
+    venda</b> (itens + entrega − desconto que a loja banca), como o iFood cobra — dá uns 12% a mais.
+    <b>Até a semana de 28/09: 9,5% do valor depositado; já foram pagas e não serão refeitas.</b> Pela regra do Fabio,
     <b>não é dinheiro do fluxo</b>: as filiais pagam a parte delas à Água Verde (cobranças abaixo) e a AV manda o
     total para a XP toda quarta. ${totalXp > 0 ? `<b style="color:#e8b04b">Pendente para a XP agora: ${reais(totalXp)}.</b>` : '<b style="color:#3fb950">Nada pendente para a XP.</b>'}</div>
   <div id="tabelaBeneficio" style="overflow-x:auto"><table>
